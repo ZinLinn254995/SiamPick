@@ -2,6 +2,7 @@ import { ArrowUpRight, Bookmark, ImageOff, RotateCcw, Star, X } from 'lucide-rea
 import {
   DataStatus,
   Language,
+  OpportunityEvaluation,
   ProductDecision,
   ResearchProduct,
   ScoreTier,
@@ -13,11 +14,15 @@ import { ProductImage } from './ProductImage';
 
 interface ResearchResultCardProps {
   product: ResearchProduct;
+  evaluation?: OpportunityEvaluation;
+  salesWeightPct?: number;
+  peerProducts?: readonly ResearchProduct[];
   decision: ProductDecision;
   onSave: (id: string) => void;
   onReject: (id: string) => void;
   onOpenReport: (product: ResearchProduct) => void;
   language: Language;
+  hideRejectAction?: boolean;
 }
 
 function tierColorClass(tier: ScoreTier): string {
@@ -34,17 +39,27 @@ function dataStatusColorClass(status: DataStatus): string {
 
 export function ResearchResultCard({
   product,
+  evaluation: providedEvaluation,
+  salesWeightPct = 50,
+  peerProducts,
   decision,
   onSave,
   onReject,
   onOpenReport,
   language,
+  hideRejectAction = false,
 }: ResearchResultCardProps) {
   const t = TRANSLATIONS[language];
-  const evaluation = evaluateProductOpportunity(product);
+  const isMy = language === 'my';
+  const evaluation =
+    providedEvaluation ??
+    evaluateProductOpportunity(product, {
+      salesWeightPct,
+      peerProducts,
+    });
 
-  const displayName = language === 'my' ? product.nameMy : product.name;
-  const subCategory = language === 'my' ? product.subCategoryMy : product.subCategory;
+  const displayName = isMy ? product.nameMy : product.name;
+  const subCategory = isMy ? product.subCategoryMy : product.subCategory;
   const categoryLabel =
     product.category === 'womens-fashion' ? t.categoryFashion : t.categoryBeauty;
 
@@ -91,12 +106,34 @@ export function ResearchResultCard({
         ? 'text-amber-700'
         : 'text-zinc-500';
 
-  const competitionColor =
-    product.competitionLevel === 'Low'
+  const competitionFactor = evaluation.criteria.find((c) => c.key === 'competition');
+  const competitionUnavailable =
+    competitionFactor?.verification === 'unavailable' ||
+    (product.kalodataMetrics !== undefined &&
+      (product.kalodataMetrics.creatorNumber === null ||
+        product.kalodataMetrics.creatorNumber === undefined));
+
+  const competitionDisplay = competitionUnavailable
+    ? t.dataStatusLabels.unavailable
+    : t.competitionLabels[product.competitionLevel];
+
+  const competitionColor = competitionUnavailable
+    ? 'text-zinc-400'
+    : product.competitionLevel === 'Low'
       ? 'text-emerald-700'
       : product.competitionLevel === 'Moderate'
         ? 'text-zinc-900'
         : 'text-amber-700';
+
+  const aiFactor = evaluation.criteria.find((c) => c.key === 'aiContentSuitability');
+  const aiDisplay =
+    aiFactor && aiFactor.normalizedScore !== null
+      ? aiFactor.normalizedScore >= 76
+        ? t.aiVideoLabels.High
+        : aiFactor.normalizedScore >= 58
+          ? t.aiVideoLabels.Good
+          : t.aiVideoLabels.Moderate
+      : t.aiVideoLabels[product.aiVideoSuitability];
 
   return (
     <article
@@ -154,7 +191,7 @@ export function ResearchResultCard({
             </div>
           </div>
 
-          {/* Proportional 100-Point Opportunity Score */}
+          {/* Phase 2 100-Point Product Score */}
           <div className="text-right shrink-0 pl-2.5 border-l border-zinc-100">
             <div className="text-[11px] text-zinc-500 whitespace-nowrap">
               {t.cardOpportunityScore}
@@ -262,7 +299,7 @@ export function ResearchResultCard({
           )}
         </div>
 
-        {/* Structured Signals Grid: Demand, Competition, AI Video Fit, Confidence */}
+        {/* Structured Signals Grid: Demand, Competition, AI Video Fit, Data Confidence */}
         <dl className="mt-3 pt-3 border-t border-zinc-100 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
           <div>
             <dt className="text-[11px] text-zinc-500">{t.cardDemand}</dt>
@@ -274,21 +311,22 @@ export function ResearchResultCard({
           <div>
             <dt className="text-[11px] text-zinc-500">{t.cardCompetition}</dt>
             <dd className={`mt-0.5 font-medium ${competitionColor}`}>
-              {t.competitionLabels[product.competitionLevel]}
+              {competitionDisplay}
             </dd>
           </div>
 
           <div>
             <dt className="text-[11px] text-zinc-500">{t.cardAiVideo}</dt>
-            <dd className="mt-0.5 font-medium text-zinc-900">
-              {t.aiVideoLabels[product.aiVideoSuitability]}
-            </dd>
+            <dd className="mt-0.5 font-medium text-zinc-900">{aiDisplay}</dd>
           </div>
 
           <div>
             <dt className="text-[11px] text-zinc-500">{t.cardConfidence}</dt>
             <dd className={`mt-0.5 font-medium ${confidenceColor}`}>
-              {t.confidenceLabels[evaluation.confidenceLevel]}
+              {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
+              <span className="font-mono text-[11px] tabular-nums opacity-80">
+                ({evaluation.confidencePct}%)
+              </span>
             </dd>
           </div>
         </dl>
@@ -304,10 +342,15 @@ export function ResearchResultCard({
               <span>{t.cardOpenReport}</span>
               <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
+            {evaluation.redistributedWeightPct > 0 && (
+              <span className="font-mono text-[10px] text-amber-700 tabular-nums">
+                {evaluation.unavailableCount} {t.dataStatusLabels.unavailable.toLowerCase()}
+              </span>
+            )}
           </div>
 
           {/* Save Product & Reject Product Action Row */}
-          <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <div className={`mt-3 grid gap-2.5 ${hideRejectAction ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => onSave(product.id)}
@@ -325,28 +368,30 @@ export function ResearchResultCard({
               <span className="truncate">{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => onReject(product.id)}
-              aria-pressed={isRejected}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
-                isRejected
-                  ? 'bg-zinc-100 text-zinc-800 border-zinc-300 hover:bg-zinc-200'
-                  : 'bg-white text-zinc-700 border-zinc-200 hover:border-red-300 hover:text-red-700 hover:bg-red-50/40'
-              }`}
-            >
-              {isRejected ? (
-                <>
-                  <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{t.btnRestoreProduct}</span>
-                </>
-              ) : (
-                <>
-                  <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span className="truncate">{t.btnRejectProduct}</span>
-                </>
-              )}
-            </button>
+            {!hideRejectAction && (
+              <button
+                type="button"
+                onClick={() => onReject(product.id)}
+                aria-pressed={isRejected}
+                className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                  isRejected
+                    ? 'bg-zinc-100 text-zinc-800 border-zinc-300 hover:bg-zinc-200'
+                    : 'bg-white text-zinc-700 border-zinc-200 hover:border-red-300 hover:text-red-700 hover:bg-red-50/40'
+                }`}
+              >
+                {isRejected ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{t.btnRestoreProduct}</span>
+                  </>
+                ) : (
+                  <>
+                    <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{t.btnRejectProduct}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

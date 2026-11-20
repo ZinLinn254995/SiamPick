@@ -37,6 +37,10 @@ export type DataStatus = 'verified' | 'estimated' | 'unverified' | 'unavailable'
  */
 export type CriterionVerification = DataStatus | 'partial';
 
+/**
+ * Legacy 7-criterion input keys preserved for backwards compatibility with stored products
+ * and server-generated scoringInputs payloads.
+ */
 export type CriterionKey =
   | 'demandSales'
   | 'commissionEarning'
@@ -45,6 +49,27 @@ export type CriterionKey =
   | 'priceAppeal'
   | 'competitionOpportunity'
   | 'sellerReliability';
+
+/**
+ * Phase 2 Product Scoring Engine — 7 Factors totaling 100 Points:
+ * - Sales Performance (20 base)
+ * - Revenue Performance (20 base)
+ * - Revenue Growth (15 base)
+ * - Commission Potential (15 base)
+ * - Competition (10 base)
+ * - Market Demand (10 base)
+ * - AI Content Suitability (10 base)
+ */
+export type ScoreFactorKey =
+  | 'salesPerformance'
+  | 'revenuePerformance'
+  | 'revenueGrowth'
+  | 'commissionPotential'
+  | 'competition'
+  | 'marketDemand'
+  | 'aiContentSuitability';
+
+export type StrategyWeightMap = Record<ScoreFactorKey, number>;
 
 export type ScoreTier = 'priority-test' | 'investigate-further' | 'low-priority';
 
@@ -59,7 +84,7 @@ export type ResultSortKey =
   | 'price-asc'
   | 'price-desc';
 
-export type AppView = 'hunting' | 'saved';
+export type AppView = 'hunting' | 'history' | 'saved';
 
 export interface ResearchConfig {
   market: 'Thailand TikTok Shop';
@@ -165,27 +190,151 @@ export interface CriterionInput {
 export type ScoringInputs = Record<CriterionKey, CriterionInput>;
 
 export interface CriterionEvaluation {
-  key: CriterionKey;
-  maxPoints: number;
-  earnedPoints: number;
-  uncappedPoints: number;
+  key: ScoreFactorKey;
+  baseWeight: number; // Strategy-adjusted base weight (all 7 sum to 100)
+  effectiveWeight: number; // After proportional redistribution of Unavailable weights (available sum to 100; 0 if unavailable)
+  maxPoints: number; // Same as effectiveWeight (rounded) for display clarity
+  normalizedScore: number | null; // 0-100 performance score, null when unavailable
+  earnedPoints: number | null; // Earned points out of effectiveWeight, null when unavailable
   verification: DataStatus;
-  wasCapped: boolean;
-  capPoints: number;
+  wasRedistributed: boolean; // True when unavailable and weight redistributed to available factors
   evidenceEn: string;
   evidenceMy: string;
+  metricDisplayEn: string;
+  metricDisplayMy: string;
 }
 
 export interface OpportunityEvaluation {
   totalScore: number; // 0-100
   tier: ScoreTier;
   confidenceLevel: ConfidenceLevel;
+  confidencePct: number; // 0-100 weighted reliability coverage across all 7 base weights
+  salesWeightPct: number;
+  strategyPreset: StrategyPreset;
+  weights: StrategyWeightMap;
   verifiedCount: number;
   estimatedCount: number;
   unverifiedCount: number;
   unavailableCount: number;
   totalCriteria: number;
+  redistributedWeightPct: number; // Sum of base weights redistributed from unavailable factors
   criteria: CriterionEvaluation[];
+  strengthsEn: string[];
+  strengthsMy: string[];
+  weaknessesEn: string[];
+  weaknessesMy: string[];
+  risksEn: string[];
+  risksMy: string[];
+  confidenceExplanationEn: string;
+  confidenceExplanationMy: string;
+}
+
+/**
+ * Snapshot of a product's Phase 2 score stored inside a ResearchHistoryRecord.
+ */
+export interface ProductScoreSnapshot {
+  productId: string;
+  canonicalProductId: string;
+  totalScore: number;
+  tier: ScoreTier;
+  confidenceLevel: ConfidenceLevel;
+  confidencePct: number;
+  verifiedCount: number;
+  estimatedCount: number;
+  unverifiedCount: number;
+  unavailableCount: number;
+  redistributedWeightPct: number;
+  salesWeightPct: number;
+  strategyPreset: StrategyPreset;
+  criteria: CriterionEvaluation[];
+  strengthsEn: string[];
+  strengthsMy: string[];
+  weaknessesEn: string[];
+  weaknessesMy: string[];
+  risksEn: string[];
+  risksMy: string[];
+}
+
+/**
+ * Immutable localStorage archive entry created automatically after every Product Hunting run.
+ * Stored strictly separately from Saved Products.
+ */
+export interface ResearchHistoryRecord {
+  id: string;
+  schemaVersion: number;
+  researchedAt: string; // ISO date & time
+  researchMode: ResearchMode;
+  selectedCategories: ProductCategory[];
+  bothCategoryMode: BothCategoryMode;
+  requestedQuantity: number;
+  productCount: number;
+  filteredOutCount: number;
+  estimatedCredits: number | null;
+  estimatedUsd: number | null;
+  actualCredits: number | null;
+  actualUsd: number | null;
+  costSummary: ResearchCostSummary | null;
+  researchSettings: ResearchConfig;
+  researchSourceMode:
+    | 'kalodata-openapi'
+    | 'google-search-grounding'
+    | 'live-official-storefronts';
+  searchQueries: string[];
+  groundingSources: GroundingSourceLink[];
+  products: ResearchProduct[];
+  scoreSnapshots: Record<string, ProductScoreSnapshot>;
+}
+
+export interface StorageWriteResult {
+  ok: boolean;
+  quotaExceeded: boolean;
+  bytesUsed: number;
+  errorEn?: string;
+  errorMy?: string;
+}
+
+export interface LocalStorageUsageStats {
+  historyBytes: number;
+  savedBytes: number;
+  otherSiamPickBytes: number;
+  totalBytes: number;
+  estimatedQuotaBytes: number;
+  usagePct: number;
+  historyCount: number;
+  savedCount: number;
+}
+
+export interface ComparisonMetricDelta {
+  oldValue: number | null;
+  newValue: number | null;
+  delta: number | null;
+  deltaPct: number | null; // Percentage change when applicable
+  available: boolean;
+}
+
+export interface ProductComparisonRow {
+  canonicalProductId: string;
+  name: string;
+  nameMy: string;
+  category: ProductCategory;
+  shopName: string;
+  olderProduct: ResearchProduct;
+  newerProduct: ResearchProduct;
+  sales: ComparisonMetricDelta;
+  revenue: ComparisonMetricDelta;
+  growth: ComparisonMetricDelta; // percentage-point change (pp)
+  commission: ComparisonMetricDelta; // percentage-point change (pp)
+  score: ComparisonMetricDelta;
+  olderConfidence: ConfidenceLevel;
+  newerConfidence: ConfidenceLevel;
+}
+
+export interface ResearchComparisonResult {
+  olderRecord: ResearchHistoryRecord;
+  newerRecord: ResearchHistoryRecord;
+  matchedProducts: ProductComparisonRow[];
+  onlyInOlderCount: number;
+  onlyInNewerCount: number;
 }
 
 export interface RiskFactorDetail {
@@ -330,10 +479,10 @@ export interface ResearchProduct {
   sellerReliabilityLevel: 'Reliable' | 'Standard' | 'Needs Check';
   sellerReliabilityStatus?: DataStatus;
 
-  opportunityScore: number; // Computed via proportional 100-pt Opportunity Scoring System
+  opportunityScore: number; // Computed via Phase 2 7-Factor 100-pt Product Scoring Engine
   confidenceLevel: ConfidenceLevel;
 
-  // 7-Factor Transparent Scoring Inputs (Total = 100 Points)
+  // Legacy 7-Factor Scoring Inputs (retained for backwards compatibility)
   scoringInputs: ScoringInputs;
 
   // 14-Section Detailed Research Report

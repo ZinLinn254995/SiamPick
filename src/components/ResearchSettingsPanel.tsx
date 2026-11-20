@@ -34,6 +34,7 @@ import {
   MIN_SPENDING_LIMIT_CREDITS,
   VERIFIED_TH_CATEGORY_IDS,
 } from '../utils/kalodataPricing';
+import { computeStrategyWeights, SCORING_FACTOR_ORDER } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
 
 interface ResearchSettingsPanelProps {
@@ -303,64 +304,96 @@ export function ResearchSettingsPanel({
         </div>
       </div>
 
-      {/* Optional Strategy Balance Fine-Tuning */}
-      {showFineTune && (
-        <div className="pb-5 border-b border-zinc-100 space-y-3.5">
-          <div
-            className="flex flex-wrap items-center gap-2"
-            role="group"
-            aria-label={t.strategyLabel}
-          >
-            {(
-              [
-                { id: 'balanced', label: t.strategyBalanced },
-                { id: 'sales-first', label: t.strategySales },
-                { id: 'commission-first', label: t.strategyCommission },
-              ] as const
-            ).map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => onSelectStrategyPreset(preset.id)}
-                className={`min-h-[38px] px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  strategyPreset === preset.id
-                    ? 'bg-zinc-950 text-white border-zinc-950'
-                    : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
-                }`}
+      {/* Working Strategy Slider & Live 7-Factor Weight Distribution (Always Totals 100) */}
+      {showFineTune && (() => {
+        const liveWeights = computeStrategyWeights(salesWeightPct);
+        const totalWeight = SCORING_FACTOR_ORDER.reduce((sum, key) => sum + liveWeights[key], 0);
+        return (
+          <div className="pb-5 border-b border-zinc-100 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label={t.strategyLabel}
               >
-                {preset.label}
-              </button>
-            ))}
-          </div>
+                {(
+                  [
+                    { id: 'sales-first', label: t.strategySales },
+                    { id: 'balanced', label: t.strategyBalanced },
+                    { id: 'commission-first', label: t.strategyCommission },
+                  ] as const
+                ).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => onSelectStrategyPreset(preset.id)}
+                    className={`min-h-[38px] px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      strategyPreset === preset.id
+                        ? 'bg-zinc-950 text-white border-zinc-950'
+                        : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
 
-          <div className="max-w-md space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-zinc-600">
-                {t.salesWeight}{' '}
-                <span className="font-mono font-medium tabular-nums text-zinc-950">
-                  {salesWeightPct}%
-                </span>
-              </span>
-              <span className="text-zinc-600">
-                {t.commissionWeight}{' '}
-                <span className="font-mono font-medium tabular-nums text-emerald-700">
-                  {100 - salesWeightPct}%
-                </span>
-              </span>
+              <div className="w-full lg:max-w-sm space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-zinc-600">
+                    {t.commissionWeight}{' '}
+                    <span className="font-mono font-medium tabular-nums text-emerald-700">
+                      {100 - salesWeightPct}%
+                    </span>
+                  </span>
+                  <span className="text-zinc-600">
+                    {t.salesWeight}{' '}
+                    <span className="font-mono font-medium tabular-nums text-zinc-950">
+                      {salesWeightPct}%
+                    </span>
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={90}
+                  step={5}
+                  value={salesWeightPct}
+                  onChange={(e) => onCustomWeightChange(Number(e.target.value))}
+                  aria-label={t.weightFineTune}
+                  className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-zinc-950"
+                />
+              </div>
             </div>
-            <input
-              type="range"
-              min={10}
-              max={90}
-              step={5}
-              value={salesWeightPct}
-              onChange={(e) => onCustomWeightChange(Number(e.target.value))}
-              aria-label={t.weightFineTune}
-              className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-zinc-950"
-            />
+
+            {/* Live 7-Factor Weight Breakdown (Always Sums to 100) */}
+            <div className="pt-3 border-t border-zinc-100 space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                <span className="font-medium text-zinc-700">{t.scoringStrategyActiveLabel}</span>
+                <span className="font-mono font-semibold text-zinc-950 tabular-nums">
+                  {t.scoringTotalWeightLabel}: {totalWeight}/100
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                {SCORING_FACTOR_ORDER.map((key) => (
+                  <div
+                    key={key}
+                    className="px-2.5 py-2 rounded-lg bg-zinc-50 border border-zinc-200/70"
+                  >
+                    <div className="text-[11px] text-zinc-500 truncate" title={t.factorLabels[key]}>
+                      {t.factorLabels[key]}
+                    </div>
+                    <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 tabular-nums">
+                      {liveWeights[key]}
+                      <span className="text-[11px] font-normal text-zinc-400"> pts</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Interactive Selections: 1. Multi-Select Product Category + 2. Research Quantity */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">

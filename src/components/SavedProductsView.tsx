@@ -26,6 +26,7 @@ import { ProductImage } from './ProductImage';
 
 interface SavedProductsViewProps {
   records: SavedProductRecord[];
+  salesWeightPct: number;
   onDelete: (id: string) => void;
   onOpenReport: (record: SavedProductRecord) => void;
   onBackToHunting: () => void;
@@ -48,6 +49,7 @@ function dataStatusColorClass(status: DataStatus): string {
 
 export function SavedProductsView({
   records,
+  salesWeightPct,
   onDelete,
   onOpenReport,
   onBackToHunting,
@@ -68,9 +70,13 @@ export function SavedProductsView({
       return true;
     });
 
+    const peers = filtered.map((r) => r.product);
     const mapped = filtered.map((record) => ({
       record,
-      evaluation: evaluateProductOpportunity(record.product),
+      evaluation: evaluateProductOpportunity(record.product, {
+        salesWeightPct,
+        peerProducts: peers,
+      }),
     }));
 
     return mapped.sort((a, b) => {
@@ -92,7 +98,7 @@ export function SavedProductsView({
           return 0;
       }
     });
-  }, [records, categoryFilter, sortKey]);
+  }, [records, categoryFilter, sortKey, salesWeightPct]);
 
   const avgScore =
     evaluatedRecords.length > 0
@@ -461,7 +467,10 @@ export function SavedProductsView({
                             <div>
                               <span className="text-zinc-500 mr-1.5">{t.cardConfidence}:</span>
                               <span className="font-medium text-zinc-900">
-                                {t.confidenceLabels[evaluation.confidenceLevel]}
+                                {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
+                                <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
+                                  ({evaluation.confidencePct}%)
+                                </span>
                               </span>
                             </div>
 

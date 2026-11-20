@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   Globe,
+  History,
   Loader2,
   PauseCircle,
   PlayCircle,
   RotateCcw,
   SearchCheck,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import {
   AppView,
@@ -20,10 +24,12 @@ import {
   DecisionFilter,
   GroundingSourceLink,
   Language,
+  OpportunityEvaluation,
   ProductCategory,
   ProductDecision,
   ResearchConfig,
   ResearchCostSummary,
+  ResearchHistoryRecord,
   ResearchMode,
   ResearchProduct,
   ResearchQuantity,
@@ -31,6 +37,7 @@ import {
   ResearchSessionResponse,
   ResultSortKey,
   SavedProductRecord,
+  StorageWriteResult,
   StrategyPreset,
 } from './types/product';
 import {
@@ -41,13 +48,18 @@ import {
   MAX_SPENDING_LIMIT_CREDITS,
   MIN_SPENDING_LIMIT_CREDITS,
 } from './utils/kalodataPricing';
-import { evaluateProductOpportunity } from './utils/scoring';
+import { evaluateProductBatch } from './utils/scoring';
 import {
   createSavedRecord,
   formatResearchDate,
   loadSavedProducts,
-  persistSavedProducts,
+  persistSavedProductsWithStatus,
 } from './utils/savedProductsStorage';
+import {
+  createResearchHistoryRecord,
+  loadResearchHistory,
+  persistResearchHistory,
+} from './utils/researchHistoryStorage';
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { ResearchSettingsPanel } from './components/ResearchSettingsPanel';
@@ -55,6 +67,7 @@ import { ScoringRubricPanel } from './components/ScoringRubricPanel';
 import { ResearchResultCard } from './components/ResearchResultCard';
 import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
+import { ResearchHistoryView } from './components/ResearchHistoryView';
 import { KalodataBalanceBar } from './components/KalodataBalanceBar';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
@@ -72,6 +85,9 @@ const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = {
 interface ActiveReportState {
   product: ResearchProduct;
   researchDate: string | null;
+  evaluation?: OpportunityEvaluation | null;
+  peerProducts?: readonly ResearchProduct[];
+  sourceView: AppView;
 }
 
 interface SessionMeta {
@@ -150,10 +166,16 @@ export default function App() {
     pausedAt: null,
   });
 
-  // Persisted Saved Products (hydrated from localStorage on load, includes Research Date & Sources)
+  // Persisted Saved Products (strictly separate localStorage key from Research History)
   const [savedRecords, setSavedRecords] = useState<SavedProductRecord[]>(() =>
     loadSavedProducts()
   );
+
+  // Automatic Local Research History (strictly separate localStorage key from Saved Products)
+  const [researchHistory, setResearchHistory] = useState<ResearchHistoryRecord[]>(() =>
+    loadResearchHistory()
+  );
+  const [storageAlert, setStorageAlert] = useState<StorageWriteResult | null>(null);
 
   // Session Rejected IDs
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
@@ -170,10 +192,18 @@ export default function App() {
   const settingsSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasMountedSavedRef = useRef(false);
 
-  // Persist Saved Products to localStorage whenever updated
+  // Persist Saved Products to localStorage whenever updated (surfaces QuotaExceeded cleanly)
   useEffect(() => {
-    persistSavedProducts(savedRecords);
+    if (!hasMountedSavedRef.current) {
+      hasMountedSavedRef.current = true;
+      return;
+    }
+    const writeRes = persistSavedProductsWithStatus(savedRecords);
+    if (!writeRes.ok) {
+      setStorageAlert(writeRes);
+    }
   }, [savedRecords]);
 
   // Persist user Spending Limit across refreshes
@@ -226,6 +256,10 @@ export default function App() {
     const inSaved = savedRecords.find((r) => r.id === id);
     if (inSaved) return inSaved.product;
     if (activeReport && activeReport.product.id === id) return activeReport.product;
+    for (const rec of researchHistory) {
+      const inHistory = rec.products.find((p) => p.id === id);
+      if (inHistory) return inHistory;
+    }
     return null;
   };
 
@@ -249,8 +283,35 @@ export default function App() {
     );
   };
 
+  const handleSaveProductFromArchive = (product: ResearchProduct, archiveDate: string) => {
+    if (savedIdSet.has(product.id)) {
+      setSavedRecords((prev) => prev.filter((r) => r.id !== product.id));
+      return;
+    }
+    const record = createSavedRecord({
+      ...product,
+      researchedAt: product.researchedAt ?? archiveDate,
+    });
+    setSavedRecords((prev) => [record, ...prev.filter((r) => r.id !== product.id)]);
+  };
+
   const handleDeleteSaved = (id: string) => {
     setSavedRecords((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleDeleteHistoryRecords = (idsToDelete: string[]) => {
+    if (idsToDelete.length === 0) return;
+    const deleteSet = new Set(idsToDelete);
+    setResearchHistory((prev) => {
+      const next = prev.filter((rec) => !deleteSet.has(rec.id));
+      const writeRes = persistResearchHistory(next);
+      if (writeRes.ok) {
+        setStorageAlert(null);
+      } else {
+        setStorageAlert(writeRes);
+      }
+      return next;
+    });
   };
 
   const handleToggleReject = (id: string) => {
@@ -457,6 +518,20 @@ export default function App() {
       setSearchQueries(Array.isArray(data.searchQueries) ? data.searchQueries : []);
       setRejectedIds([]);
       setGroundingOpen(false);
+
+      // Phase 2: Automatically archive every completed Product Hunting run into Local Research History
+      // Strictly separate from Saved Products; never silently deletes older History runs on QuotaExceededError
+      const newHistoryRecord = createResearchHistoryRecord(data, payload);
+      setResearchHistory((prev) => {
+        const nextHistory = [newHistoryRecord, ...prev];
+        const writeRes = persistResearchHistory(nextHistory);
+        if (!writeRes.ok) {
+          setStorageAlert(writeRes);
+          return prev;
+        }
+        setStorageAlert(null);
+        return nextHistory;
+      });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return;
@@ -477,6 +552,9 @@ export default function App() {
     setActiveReport({
       product,
       researchDate: existingSaved?.researchDate ?? product.researchedAt ?? researchedAt,
+      evaluation: null,
+      peerProducts: liveResults,
+      sourceView: 'hunting',
     });
   };
 
@@ -484,6 +562,24 @@ export default function App() {
     setActiveReport({
       product: record.product,
       researchDate: record.researchDate,
+      evaluation: null,
+      peerProducts: savedRecords.map((r) => r.product),
+      sourceView: 'saved',
+    });
+  };
+
+  const handleOpenHistoryReport = (
+    product: ResearchProduct,
+    archiveDate: string,
+    evaluation?: OpportunityEvaluation,
+    peerProducts?: readonly ResearchProduct[]
+  ) => {
+    setActiveReport({
+      product,
+      researchDate: archiveDate,
+      evaluation: evaluation ?? null,
+      peerProducts,
+      sourceView: 'history',
     });
   };
 
@@ -503,6 +599,16 @@ export default function App() {
     return { active, saved, rejected };
   }, [liveResults, savedIdSet, rejectedIdSet]);
 
+  // Live Phase 2 7-Factor evaluations — recalculated immediately whenever Strategy Slider changes
+  const liveEvaluations = useMemo(
+    () =>
+      evaluateProductBatch(liveResults, {
+        salesWeightPct,
+        strategyPreset,
+      }),
+    [liveResults, salesWeightPct, strategyPreset]
+  );
+
   // Filtered and Score-sorted results
   const visibleProducts = useMemo<ResearchProduct[]>(() => {
     const filtered = liveResults.filter((product) => {
@@ -516,18 +622,22 @@ export default function App() {
     });
 
     return [...filtered].sort((a, b) => {
-      const evalA = evaluateProductOpportunity(a);
-      const evalB = evaluateProductOpportunity(b);
+      const evalA = liveEvaluations.get(a.id);
+      const evalB = liveEvaluations.get(b.id);
+      const scoreA = evalA?.totalScore ?? a.opportunityScore;
+      const scoreB = evalB?.totalScore ?? b.opportunityScore;
+      const confRankA = CONFIDENCE_RANK[evalA?.confidenceLevel ?? a.confidenceLevel];
+      const confRankB = CONFIDENCE_RANK[evalB?.confidenceLevel ?? b.confidenceLevel];
+      const confPctA = evalA?.confidencePct ?? 0;
+      const confPctB = evalB?.confidencePct ?? 0;
+
       switch (sortKey) {
         case 'score-desc':
-          return evalB.totalScore - evalA.totalScore;
+          return scoreB - scoreA || confPctB - confPctA;
         case 'score-asc':
-          return evalA.totalScore - evalB.totalScore;
+          return scoreA - scoreB || confPctA - confPctB;
         case 'confidence-desc':
-          return (
-            CONFIDENCE_RANK[evalB.confidenceLevel] - CONFIDENCE_RANK[evalA.confidenceLevel] ||
-            evalB.totalScore - evalA.totalScore
-          );
+          return confRankB - confRankA || confPctB - confPctA || scoreB - scoreA;
         case 'price-asc': {
           const pA = a.priceThb ?? Number.POSITIVE_INFINITY;
           const pB = b.priceThb ?? Number.POSITIVE_INFINITY;
@@ -542,7 +652,7 @@ export default function App() {
           return 0;
       }
     });
-  }, [liveResults, resultsCategory, decisionFilter, savedIdSet, rejectedIdSet, sortKey]);
+  }, [liveResults, liveEvaluations, resultsCategory, decisionFilter, savedIdSet, rejectedIdSet, sortKey]);
 
   const activeCategoryLabel = activeHuntConfig
     ? activeHuntConfig.category === 'all'
@@ -566,6 +676,11 @@ export default function App() {
         onGoHome={handleGoHome}
         onSelectCategory={handleHeaderCategorySelect}
         onFocusStrategy={handleFocusSettings}
+        historyCount={researchHistory.length}
+        onToggleHistoryView={() => {
+          setActiveView((prev) => (prev === 'history' ? 'hunting' : 'history'));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
         shortlistCount={savedRecords.length}
         onToggleSavedView={() => {
           setActiveView((prev) => (prev === 'saved' ? 'hunting' : 'saved'));
@@ -611,12 +726,68 @@ export default function App() {
           </div>
         </div>
 
+        {/* Global Local Storage Quota Alert Banner (shown on Hunting/Saved views too) */}
+        {activeView !== 'history' && storageAlert && !storageAlert.ok && (
+          <div
+            role="alert"
+            className="mb-6 p-4 bg-red-50/90 border border-red-200 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-red-900"
+          >
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <div className="font-semibold">{t.historyQuotaWarningTitle}</div>
+                <p className="mt-0.5 text-red-800 leading-relaxed">
+                  {language === 'my'
+                    ? storageAlert.errorMy ?? storageAlert.errorEn
+                    : storageAlert.errorEn}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView('history');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg cursor-pointer whitespace-nowrap"
+              >
+                {t.navHistory}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStorageAlert(null)}
+                aria-label={t.historyQuotaWarningDismiss}
+                className="text-red-700 hover:text-red-950 p-1 rounded cursor-pointer"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeView === 'saved' ? (
           /* Dedicated Persistent Saved Products View */
           <SavedProductsView
             records={savedRecords}
+            salesWeightPct={salesWeightPct}
             onDelete={handleDeleteSaved}
             onOpenReport={handleOpenSavedReport}
+            onBackToHunting={handleGoHome}
+            language={language}
+          />
+        ) : activeView === 'history' ? (
+          /* Dedicated Local Research History & Comparison View */
+          <ResearchHistoryView
+            records={researchHistory}
+            savedCount={savedRecords.length}
+            currentSalesWeightPct={salesWeightPct}
+            storageAlert={storageAlert}
+            onDismissStorageAlert={() => setStorageAlert(null)}
+            getDecision={getDecision}
+            onSaveProduct={handleSaveProductFromArchive}
+            onOpenReport={handleOpenHistoryReport}
+            onDeleteRecords={handleDeleteHistoryRecords}
             onBackToHunting={handleGoHome}
             language={language}
           />
@@ -697,12 +868,72 @@ export default function App() {
                 )}
               </div>
 
-              {/* Transparent Opportunity Scoring System Guide & Official Independence Disclaimer */}
+              {/* Transparent 7-Factor Product Scoring Engine Guide & Strategy Weights */}
               <ScoringRubricPanel
                 isOpen={rubricOpen}
                 onToggle={() => setRubricOpen((prev) => !prev)}
+                salesWeightPct={salesWeightPct}
                 language={language}
               />
+
+              {/* Live Strategy Slider Bar (Recalculates Scores & Re-Sorts Results Instantly) */}
+              {!isHunting && liveResults.length > 0 && (
+                <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 mr-1">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500" aria-hidden="true" />
+                      <span>{t.strategyLabel}</span>
+                    </span>
+                    {(
+                      [
+                        { id: 'sales-first', label: t.strategySales },
+                        { id: 'balanced', label: t.strategyBalanced },
+                        { id: 'commission-first', label: t.strategyCommission },
+                      ] as const
+                    ).map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectStrategyPreset(preset.id)}
+                        className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                          strategyPreset === preset.id
+                            ? 'bg-zinc-950 text-white border-zinc-950'
+                            : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-full lg:w-72 space-y-1 shrink-0">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-500">
+                        {t.commissionWeight}{' '}
+                        <strong className="font-mono text-emerald-700 tabular-nums">
+                          {100 - salesWeightPct}%
+                        </strong>
+                      </span>
+                      <span className="text-zinc-500">
+                        {t.salesWeight}{' '}
+                        <strong className="font-mono text-zinc-950 tabular-nums">
+                          {salesWeightPct}%
+                        </strong>
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={90}
+                      step={5}
+                      value={salesWeightPct}
+                      onChange={(e) => handleCustomWeightChange(Number(e.target.value))}
+                      aria-label={t.strategyLabel}
+                      className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-zinc-950"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Honest Live Research Paused Banner (Google Search Quota Exhausted or Manual Pause) */}
               {!isHunting && quotaStatus.paused && (
@@ -1059,6 +1290,22 @@ export default function App() {
                         <ArrowRight className="w-4 h-4" aria-hidden="true" />
                       </button>
 
+                      {researchHistory.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveView('history');
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer"
+                        >
+                          <History className="w-4 h-4 text-zinc-600" aria-hidden="true" />
+                          <span>
+                            {t.historyViewTitle} ({researchHistory.length})
+                          </span>
+                        </button>
+                      )}
+
                       {savedRecords.length > 0 && (
                         <button
                           type="button"
@@ -1101,6 +1348,9 @@ export default function App() {
                       <ResearchResultCard
                         key={product.id}
                         product={product}
+                        evaluation={liveEvaluations.get(product.id)}
+                        salesWeightPct={salesWeightPct}
+                        peerProducts={liveResults}
                         decision={getDecision(product.id)}
                         onSave={handleToggleSave}
                         onReject={handleToggleReject}
@@ -1124,9 +1374,18 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Detailed Research Report Drawer (Works from both Hunting Results and Saved Products) */}
+      {/* Detailed Research Report Drawer (Works from Hunting Results, History Archives, and Saved Products) */}
       <ResearchReportDrawer
         product={activeReport?.product ?? null}
+        evaluation={
+          activeReport
+            ? activeReport.sourceView === 'hunting'
+              ? (liveEvaluations.get(activeReport.product.id) ?? null)
+              : (activeReport.evaluation ?? null)
+            : null
+        }
+        salesWeightPct={salesWeightPct}
+        peerProducts={activeReport?.peerProducts}
         researchDate={activeReport?.researchDate ?? null}
         decision={activeReport ? getDecision(activeReport.product.id) : 'pending'}
         onSave={handleToggleSave}

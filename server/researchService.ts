@@ -26,7 +26,11 @@ import type {
   VerificationState,
   VideoContentIdea,
 } from '../src/types/product.ts';
-import { evaluateProductOpportunity, normalizeDataStatus } from '../src/utils/scoring.ts';
+import {
+  evaluateProductBatch,
+  evaluateProductOpportunity,
+  normalizeDataStatus,
+} from '../src/utils/scoring.ts';
 import {
   buildKalodataExecutionPlan,
   clampDeepDiveCount,
@@ -2876,6 +2880,23 @@ export async function runThailandProductResearch(
       );
     }
   }
+
+  // Step 6: Phase 2 7-Factor 100-Point Peer-Compared Product Scoring Engine
+  const batchEvaluations = evaluateProductBatch(builtProducts, {
+    salesWeightPct: config.salesWeightPct,
+    strategyPreset: config.strategyPreset,
+  });
+  builtProducts = builtProducts
+    .map((product) => {
+      const ev = batchEvaluations.get(product.id);
+      if (!ev) return product;
+      return {
+        ...product,
+        opportunityScore: ev.totalScore,
+        confidenceLevel: ev.confidenceLevel,
+      };
+    })
+    .sort((a, b) => b.opportunityScore - a.opportunityScore);
 
   const groundingSources: GroundingSourceLink[] = builtProducts
     .map((product) => {

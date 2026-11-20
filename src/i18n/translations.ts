@@ -7,6 +7,7 @@ import {
   DemandLevel,
   Language,
   RiskSeverity,
+  ScoreFactorKey,
   ScoreTier,
   VerificationState,
 } from '../types/product';
@@ -18,6 +19,7 @@ export const TRANSLATIONS: Record<
     navFashion: string;
     navBeauty: string;
     navStrategy: string;
+    navHistory: string;
     shortlistBtn: string;
     heroTitle: string;
     heroSubtitle: string;
@@ -186,7 +188,18 @@ export const TRANSLATIONS: Record<
     scoringTierRanges: Record<ScoreTier, string>;
     scoringTierLabels: Record<ScoreTier, string>;
     criterionLabels: Record<CriterionKey, string>;
+    factorLabels: Record<ScoreFactorKey, string>;
     criterionVerificationLabels: Record<DataStatus, string>;
+    scoringRedistributedLabel: string;
+    scoringRedistributedNotice: string;
+    scoringBaseWeightLabel: string;
+    scoringEffectiveWeightLabel: string;
+    scoringStrategyActiveLabel: string;
+    scoringStrengthsHeading: string;
+    scoringWeaknessesHeading: string;
+    scoringRisksHeading: string;
+    scoringConfidenceHeading: string;
+    scoringTotalWeightLabel: string;
     savedViewTitle: string;
     savedViewSubtitle: string;
     savedViewBackBtn: string;
@@ -244,6 +257,56 @@ export const TRANSLATIONS: Record<
     geminiAnalysisActiveLabel: string;
     depthTagDeep: string;
     depthTagDetail: string;
+    // Phase 2: Local Research History & Comparison
+    historyViewTitle: string;
+    historyViewSubtitle: string;
+    historyStorageNote: string;
+    historyEmptyTitle: string;
+    historyEmptyDesc: string;
+    historySearchPlaceholder: string;
+    historyFilterAllModes: string;
+    historySortNewest: string;
+    historySortOldest: string;
+    historySortMostProducts: string;
+    historySortCostDesc: string;
+    historySortCostAsc: string;
+    historyViewResultsBtn: string;
+    historyCompareBtn: string;
+    historyDeleteBtn: string;
+    historyDeleteConfirmBtn: string;
+    historyDeleteSelectedBtn: string;
+    historySelectLabel: string;
+    historySelectedCount: string;
+    historyBackToListBtn: string;
+    historyArchiveBannerTitle: string;
+    historyArchiveBannerDesc: string;
+    historyScoreModeOriginal: string;
+    historyScoreModeLive: string;
+    historyStorageUsageLabel: string;
+    historyQuotaWarningTitle: string;
+    historyQuotaWarningDismiss: string;
+    historyTabRecords: string;
+    historyTabCompare: string;
+    compareHeading: string;
+    compareSubtitle: string;
+    compareOlderLabel: string;
+    compareNewerLabel: string;
+    compareNeedTwoTitle: string;
+    compareNeedTwoDesc: string;
+    compareExactIdRule: string;
+    compareMatchedCount: string;
+    compareOnlyOlder: string;
+    compareOnlyNewer: string;
+    compareNoMatchesTitle: string;
+    compareNoMatchesDesc: string;
+    compareColProduct: string;
+    compareColSales: string;
+    compareColRevenue: string;
+    compareColGrowth: string;
+    compareColCommission: string;
+    compareColScore: string;
+    compareUnchanged: string;
+    compareSelectDifferentHint: string;
   }
 > = {
   en: {
@@ -251,10 +314,11 @@ export const TRANSLATIONS: Record<
     navFashion: "Women's Fashion",
     navBeauty: 'Cosmetics & Beauty',
     navStrategy: 'Settings',
+    navHistory: 'History',
     shortlistBtn: 'Saved',
     heroTitle: 'Thailand TikTok Shop Product Hunting',
     heroSubtitle:
-      "Research real, verifiable Women's Fashion and Cosmetics & Beauty products for Thailand TikTok Shop with live Google Search grounding, separate product image verification, and transparent 4-state data scoring.",
+      "Research real, verifiable Women's Fashion and Cosmetics & Beauty products for Thailand TikTok Shop with Kalodata verified metrics, 7-factor strategy scoring, and automatic local research history.",
     settingsHeading: 'Product Research Settings',
     settingMarketLabel: 'Market',
     settingMarketValue: 'Thailand TikTok Shop',
@@ -262,13 +326,13 @@ export const TRANSLATIONS: Record<
     settingPriceLabel: 'Product Price',
     settingPriceValue: 'No price limit',
     strategyLabel: 'Commission Strategy',
-    strategyBalanced: 'Balanced Fit',
-    strategySales: 'Sales Momentum',
-    strategyCommission: 'Margin Focus',
-    settingStrategyValue: 'Balanced commission & sales potential',
-    weightFineTune: 'Custom balance',
-    salesWeight: 'Sales potential',
-    commissionWeight: 'Commission value',
+    strategyBalanced: 'Balanced Focus',
+    strategySales: 'Sales Focus',
+    strategyCommission: 'Commission Focus',
+    settingStrategyValue: 'Live 7-factor weights (Total 100 pts)',
+    weightFineTune: 'Strategy slider',
+    salesWeight: 'Sales & Revenue',
+    commissionWeight: 'Commission Focus',
     settingCategoryLabel: 'Product Category',
     settingBothCategories: 'Both Categories',
     categoryAll: 'All Products',
@@ -451,17 +515,17 @@ export const TRANSLATIONS: Record<
       'Needs Check': 'Needs check',
     },
     scoringToggleBtn: 'Scoring System (100 pts)',
-    scoringPanelTitle: 'Opportunity Scoring System (100 Points)',
+    scoringPanelTitle: 'Product Scoring Engine (7 Factors · 100 Points)',
     scoringDisclaimer:
-      'Independent Research Evaluation System — calculated internally and NOT an official TikTok or TikTok Shop score.',
+      'Independent Research Evaluation System — calculated from real Kalodata metrics and NOT an official TikTok or TikTok Shop score.',
     scoringVerificationRule:
-      'Proportional verification weighting: Verified (up to 100%), Estimated (up to 62%), Unverified (up to 25%), Unavailable (0 pts). Low Confidence products cannot be recommended as Priority.',
+      'Missing-data fairness: Unavailable factors are NOT penalized with 0 points — their weight is redistributed proportionally across available factors, while Data Confidence is shown separately so missing data never masks risk.',
     scoringPairReminder:
-      'Always evaluate Opportunity Score together with Confidence Level and underlying Research Evidence.',
-    scoringBreakdownHeading: 'Opportunity Score Breakdown (100 Points)',
+      'Always evaluate Total Score together with Data Confidence, Strengths/Weaknesses, and underlying Kalodata metrics.',
+    scoringBreakdownHeading: '7-Factor Product Score Breakdown (100 Points)',
     scoringJumpLabel: 'Score Breakdown',
-    scoringVerifiedCountLabel: 'criteria verified',
-    scoringCappedNote: 'Weighted by verification status',
+    scoringVerifiedCountLabel: 'verified',
+    scoringCappedNote: 'Weight redistributed proportionally',
     scoringTierRanges: {
       'priority-test': '80–100',
       'investigate-further': '65–79',
@@ -481,12 +545,32 @@ export const TRANSLATIONS: Record<
       competitionOpportunity: 'Competition Opportunity',
       sellerReliability: 'Seller Reliability',
     },
+    factorLabels: {
+      salesPerformance: 'Sales Performance',
+      revenuePerformance: 'Revenue Performance',
+      revenueGrowth: 'Revenue Growth',
+      commissionPotential: 'Commission Potential',
+      competition: 'Competition (Creator Count)',
+      marketDemand: 'Market Demand',
+      aiContentSuitability: 'AI Content Suitability',
+    },
     criterionVerificationLabels: {
       verified: 'Verified',
-      estimated: 'Estimated (max 62%)',
-      unverified: 'Unverified (max 25%)',
-      unavailable: 'Unavailable (0 pts)',
+      estimated: 'Estimated',
+      unverified: 'Unverified',
+      unavailable: 'Unavailable',
     },
+    scoringRedistributedLabel: 'Unavailable · Weight redistributed',
+    scoringRedistributedNotice:
+      'Missing-data weight redistribution active: unavailable factor weights were reallocated proportionally across available factors. Check Data Confidence separately.',
+    scoringBaseWeightLabel: 'Base',
+    scoringEffectiveWeightLabel: 'Effective',
+    scoringStrategyActiveLabel: 'Active Strategy Weights',
+    scoringStrengthsHeading: 'Strengths',
+    scoringWeaknessesHeading: 'Weaknesses',
+    scoringRisksHeading: 'Key Risks',
+    scoringConfidenceHeading: 'Data Confidence',
+    scoringTotalWeightLabel: 'Total Weight',
     savedViewTitle: 'Saved Products',
     savedViewSubtitle:
       'Review saved products, research dates, sources, and full research reports anytime — stored reliably in your browser across page refreshes.',
@@ -546,16 +630,73 @@ export const TRANSLATIONS: Record<
     geminiAnalysisActiveLabel: 'Gemini Analysis (Kalodata data only)',
     depthTagDeep: 'Deep Audited',
     depthTagDetail: 'Detail Verified',
+    historyViewTitle: 'Research History',
+    historyViewSubtitle:
+      'Every product hunting run is archived automatically in this browser with its original Kalodata metrics, AI analysis, scores, and costs — strictly separate from Saved Products.',
+    historyStorageNote: 'Stored locally in browser localStorage · Deleting History never removes Saved Products',
+    historyEmptyTitle: 'No research history yet',
+    historyEmptyDesc:
+      'Run a Product Hunting session in Fast, Balanced, or Deep mode and the full results snapshot will be saved here automatically.',
+    historySearchPlaceholder: 'Search by product name, shop, ID, or category...',
+    historyFilterAllModes: 'All Modes',
+    historySortNewest: 'Newest First',
+    historySortOldest: 'Oldest First',
+    historySortMostProducts: 'Most Products',
+    historySortCostDesc: 'Actual Cost: High to Low',
+    historySortCostAsc: 'Actual Cost: Low to High',
+    historyViewResultsBtn: 'View Results',
+    historyCompareBtn: 'Compare',
+    historyDeleteBtn: 'Delete',
+    historyDeleteConfirmBtn: 'Confirm Delete',
+    historyDeleteSelectedBtn: 'Delete Selected',
+    historySelectLabel: 'Select',
+    historySelectedCount: 'selected',
+    historyBackToListBtn: 'Back to Research History',
+    historyArchiveBannerTitle: 'Archived Research Snapshot',
+    historyArchiveBannerDesc:
+      'Viewing original results from this session. Your current live Product Hunting results are untouched.',
+    historyScoreModeOriginal: 'Original Session Scores',
+    historyScoreModeLive: 'Current Strategy Slider',
+    historyStorageUsageLabel: 'Browser Storage Usage',
+    historyQuotaWarningTitle: 'Browser Local Storage Quota Full',
+    historyQuotaWarningDismiss: 'Dismiss',
+    historyTabRecords: 'History Sessions',
+    historyTabCompare: 'Compare Sessions',
+    compareHeading: 'Research Comparison',
+    compareSubtitle:
+      'Compare an older research run against a newer run to track product performance changes over time.',
+    compareOlderLabel: 'Older Research (Baseline)',
+    compareNewerLabel: 'Newer Research (Latest)',
+    compareNeedTwoTitle: 'At least 2 history sessions required',
+    compareNeedTwoDesc:
+      'Run two or more Product Hunting sessions to compare Sales, Revenue, Growth, Commission, and Score changes over time.',
+    compareExactIdRule:
+      'Strict ID Matching: Products are compared ONLY when their exact Product ID matches. Non-matching IDs are never guessed as the same product, and missing metrics display as Unavailable.',
+    compareMatchedCount: 'matched Product ID(s)',
+    compareOnlyOlder: 'only in older run',
+    compareOnlyNewer: 'only in newer run',
+    compareNoMatchesTitle: 'No matching Product IDs between these two runs',
+    compareNoMatchesDesc:
+      'These two research sessions share zero identical Product IDs. SiamPick never guesses matches across different Product IDs.',
+    compareColProduct: 'Product (Exact ID)',
+    compareColSales: 'Sales Change',
+    compareColRevenue: 'Revenue Change',
+    compareColGrowth: 'Growth Change',
+    compareColCommission: 'Commission Change',
+    compareColScore: 'Score Change',
+    compareUnchanged: 'No change',
+    compareSelectDifferentHint: 'Select two different research sessions to compare.',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
     navFashion: "Women's Fashion",
     navBeauty: 'Cosmetics & Beauty',
     navStrategy: 'သတ်မှတ်ချက်',
+    navHistory: 'History',
     shortlistBtn: 'သိမ်းထားသော',
     heroTitle: 'ထိုင်း TikTok Shop Product Hunting',
     heroSubtitle:
-      "Women's Fashion နှင့် Cosmetics & Beauty အတွက် Google Search Grounding၊ သီးခြား Product Image စစ်ဆေးမှုနှင့် Verified / Estimated / Unverified / Unavailable အဆင့်ခွဲခြားမှုဖြင့် တကယ်ရောင်းချနေသော Product များကိုသာ Research ပြုလုပ်ပါ။",
+      "Women's Fashion နှင့် Cosmetics & Beauty အတွက် Kalodata တကယ့်ဒေတာများ၊ အချက် ၇ ချက် 100-Point Scoring Engine နှင့် အလိုအလျောက် Local Research History စနစ်ဖြင့် Product များကို တိကျစွာ ရှာဖွေသုတေသနပြုပါ။",
     settingsHeading: 'Product Research သတ်မှတ်ချက်များ',
     settingMarketLabel: 'ဈေးကွက် (Market)',
     settingMarketValue: 'Thailand TikTok Shop',
@@ -563,13 +704,13 @@ export const TRANSLATIONS: Record<
     settingPriceLabel: 'Product ဈေးနှုန်း',
     settingPriceValue: 'ကန့်သတ်ချက်မရှိ',
     strategyLabel: 'Commission Strategy',
-    strategyBalanced: 'မျှတသောရွေးချယ်မှု',
-    strategySales: 'ရောင်းအားဦးစားပေး',
-    strategyCommission: 'Commission ဦးစားပေး',
-    settingStrategyValue: 'Commission နှင့် ရောင်းအားအလားအလာ မျှတစွာရွေးချယ်မည်',
-    weightFineTune: 'အချိုးအစား ချိန်ညှိရန်',
-    salesWeight: 'ရောင်းအားအလားအလာ',
-    commissionWeight: 'Commission တန်ဖိုး',
+    strategyBalanced: 'Balanced Focus (မျှတစွာ)',
+    strategySales: 'Sales Focus (ရောင်းအားဦးစားပေး)',
+    strategyCommission: 'Commission Focus (Commission ဦးစားပေး)',
+    settingStrategyValue: 'အချက် ၇ ချက် Weight စုစုပေါင်း 100 မှတ်',
+    weightFineTune: 'Strategy Slider ချိန်ညှိရန်',
+    salesWeight: 'Sales & Revenue ဦးစားပေး',
+    commissionWeight: 'Commission ဦးစားပေး',
     settingCategoryLabel: 'Product Category',
     settingBothCategories: 'Both Categories',
     categoryAll: 'အားလုံး',
@@ -752,17 +893,17 @@ export const TRANSLATIONS: Record<
       'Needs Check': 'စစ်ဆေးရန်လို',
     },
     scoringToggleBtn: 'အမှတ်ပေးစနစ် (100 pts)',
-    scoringPanelTitle: 'Opportunity Scoring System (စုစုပေါင်း 100 Points)',
+    scoringPanelTitle: 'Product Scoring Engine (အချက် ၇ ချက် · စုစုပေါင်း 100 မှတ်)',
     scoringDisclaimer:
-      'ဤ Score သည် ကိုယ်ပိုင် Research Evaluation System ဖြစ်ပြီး TikTok သို့မဟုတ် TikTok Shop ၏ Official Score မဟုတ်ပါ။',
+      'ဤ Score သည် Kalodata တကယ့်ဒေတာအပေါ် အခြေခံတွက်ချက်သော ကိုယ်ပိုင်စနစ်ဖြစ်ပြီး TikTok / TikTok Shop ၏ Official Score မဟုတ်ပါ။',
     scoringVerificationRule:
-      'အချိုးကျအတည်ပြုမှုအမှတ်ပေးစနစ် — Verified (100% အထိ)၊ Estimated (62% အထိ)၊ Unverified (25% အထိ)၊ Unavailable (0 မှတ်)။ Low Confidence Product များကို ဦးစားပေးအဆင့်အဖြစ် မသတ်မှတ်ပါ။',
+      'ဒေတာမရှိသည့်အချက်ကို 0 မှတ်ဖြင့် မနှိမ်ဘဲ ရရှိထားသောအချက်များအကြား Weight ကို အချိုးကျပြန်ခွဲဝေပေးပါသည်။ Missing Data ကြောင့် Score မြင့်သွားခြင်းကို မလှည့်စားစေရန် Data Confidence ကို သီးခြားဖော်ပြပါသည်။',
     scoringPairReminder:
-      'Score တစ်ခုတည်းကိုသာ အားမကိုးဘဲ Confidence Level နှင့် Research Evidence အထောက်အထားများကို တွဲဖက်စဉ်းစားပါ။',
-    scoringBreakdownHeading: 'Opportunity Score အသေးစိတ်အမှတ်ပေးချက် (100 Points)',
+      'Total Score တစ်ခုတည်းကိုသာ အားမကိုးဘဲ Data Confidence၊ အားသာချက်/အားနည်းချက် နှင့် Risk များကို တွဲဖက်သုံးသပ်ပါ။',
+    scoringBreakdownHeading: 'အချက် ၇ ချက် Product Score အသေးစိတ် (100 Points)',
     scoringJumpLabel: 'Score အမှတ်ခွဲခြမ်း',
     scoringVerifiedCountLabel: 'ချက် အတည်ပြုပြီး',
-    scoringCappedNote: 'အတည်ပြုမှုအဆင့်အလိုက် အချိုးချတွက်ချက်ထား',
+    scoringCappedNote: 'Weight အချိုးကျပြန်ခွဲဝေထား',
     scoringTierRanges: {
       'priority-test': '80–100',
       'investigate-further': '65–79',
@@ -782,12 +923,32 @@ export const TRANSLATIONS: Record<
       competitionOpportunity: 'Competition Opportunity',
       sellerReliability: 'Seller Reliability',
     },
+    factorLabels: {
+      salesPerformance: 'Sales Performance (ရောင်းအား)',
+      revenuePerformance: 'Revenue Performance (ဝင်ငွေ)',
+      revenueGrowth: 'Revenue Growth (တိုးတက်နှုန်း)',
+      commissionPotential: 'Commission Potential (အမြတ်)',
+      competition: 'Competition (Creator Count)',
+      marketDemand: 'Market Demand (ဈေးကွက်ဝယ်လိုအား)',
+      aiContentSuitability: 'AI Content Suitability (AI ကြော်ငြာသင့်တော်မှု)',
+    },
     criterionVerificationLabels: {
       verified: 'Verified',
-      estimated: 'Estimated (အများဆုံး 62%)',
-      unverified: 'Unverified (အများဆုံး 25%)',
-      unavailable: 'Unavailable (0 မှတ်)',
+      estimated: 'Estimated',
+      unverified: 'Unverified',
+      unavailable: 'Unavailable',
     },
+    scoringRedistributedLabel: 'Unavailable · Weight ပြန်ခွဲဝေပြီး',
+    scoringRedistributedNotice:
+      'မရရှိသေးသောအချက်၏ Weight ကို ရရှိထားသောအချက်များကြား အချိုးကျပြန်ခွဲဝေထားပါသည်။ Data Confidence ကို သီးခြားစစ်ဆေးပါ။',
+    scoringBaseWeightLabel: 'မူလ Weight',
+    scoringEffectiveWeightLabel: 'အကျိုးသက်ရောက် Weight',
+    scoringStrategyActiveLabel: 'လက်ရှိ Strategy Weight များ',
+    scoringStrengthsHeading: 'အားသာချက်များ',
+    scoringWeaknessesHeading: 'အားနည်းချက်များ',
+    scoringRisksHeading: 'သတိပြုရမည့် Risk များ',
+    scoringConfidenceHeading: 'Data Confidence အခြေအနေ',
+    scoringTotalWeightLabel: 'စုစုပေါင်း Weight',
     savedViewTitle: 'သိမ်းထားသော Product များ',
     savedViewSubtitle:
       'Save လုပ်ထားသော Product များ၏ Research Date၊ Sources နှင့် အသေးစိတ် Research Report များကို App Refresh လုပ်ပြီးနောက်တွင်လည်း အချိန်မရွေး ပြန်ကြည့်နိုင်ပါသည်။',
@@ -847,5 +1008,61 @@ export const TRANSLATIONS: Record<
     geminiAnalysisActiveLabel: 'Gemini ခွဲခြမ်းမှု (Kalodata ဒေတာသာ)',
     depthTagDeep: 'Deep စစ်ဆေးပြီး',
     depthTagDetail: 'Detail အတည်ပြုပြီး',
+    historyViewTitle: 'Research History (သုတေသနမှတ်တမ်း)',
+    historyViewSubtitle:
+      'Product Hunting လုပ်ပြီးတိုင်း ရရှိလာသော Kalodata ဒေတာ၊ AI ခွဲခြမ်းမှု၊ Score နှင့် ကုန်ကျစရိတ်များကို Browser localStorage တွင် အလိုအလျောက်သိမ်းဆည်းထားပြီး Saved Products နှင့် သီးခြားစီစီမံပါသည်။',
+    historyStorageNote: 'Browser localStorage တွင် သီးခြားသိမ်းဆည်းထားသည် · History ဖျက်သော်လည်း Saved Products မပျောက်ပါ',
+    historyEmptyTitle: 'Research History မရှိသေးပါ',
+    historyEmptyDesc:
+      'Fast, Balanced သို့မဟုတ် Deep Mode ဖြင့် Product Hunting တစ်ခေါက်ပြုလုပ်ပြီးသည်နှင့် ရလဒ်အပြည့်အစုံကို ဤနေရာတွင် အလိုအလျောက်သိမ်းဆည်းပေးပါမည်။',
+    historySearchPlaceholder: 'Product အမည်၊ ဆိုင်အမည်၊ Research ID သို့မဟုတ် Category ဖြင့် ရှာရန်...',
+    historyFilterAllModes: 'Mode အားလုံး',
+    historySortNewest: 'နောက်ဆုံးပြုလုပ်ခဲ့သော',
+    historySortOldest: 'အဟောင်းဆုံးမှ',
+    historySortMostProducts: 'Product အရေအတွက်အများဆုံး',
+    historySortCostDesc: 'တကယ်ကုန်ကျစရိတ်: အများမှအနည်း',
+    historySortCostAsc: 'တကယ်ကုန်ကျစရိတ်: အနည်းမှအများ',
+    historyViewResultsBtn: 'မူရင်းရလဒ်ကြည့်ရန်',
+    historyCompareBtn: 'နှိုင်းယှဉ်ရန်',
+    historyDeleteBtn: 'ဖျက်ရန်',
+    historyDeleteConfirmBtn: 'ဖျက်ရန်အတည်ပြု',
+    historyDeleteSelectedBtn: 'ရွေးထားသည်များဖျက်ရန်',
+    historySelectLabel: 'ရွေးရန်',
+    historySelectedCount: 'ခု ရွေးထား',
+    historyBackToListBtn: 'Research History စာရင်းသို့ ပြန်သွားရန်',
+    historyArchiveBannerTitle: 'အရင်သိမ်းဆည်းထားသော မူရင်း Research ရလဒ်',
+    historyArchiveBannerDesc:
+      'ဤအချိန်က ရရှိခဲ့သော မူလဒေတာများကို ပြန်ကြည့်နေပါသည်။ လက်ရှိ Product Hunting ရလဒ်များနှင့် အစားမထိုးပါ။',
+    historyScoreModeOriginal: 'မူရင်း Score များ',
+    historyScoreModeLive: 'လက်ရှိ Strategy Slider ဖြင့်',
+    historyStorageUsageLabel: 'Browser Storage အသုံးပြုမှု',
+    historyQuotaWarningTitle: 'Browser Local Storage နေရာပြည့်နေပါသည်',
+    historyQuotaWarningDismiss: 'ပိတ်ရန်',
+    historyTabRecords: 'History မှတ်တမ်းများ',
+    historyTabCompare: 'Research နှိုင်းယှဉ်ရန်',
+    compareHeading: 'Research နှိုင်းယှဉ်ချက် (Old vs New)',
+    compareSubtitle:
+      'History ထဲရှိ Research အဟောင်းနှင့် အသစ်ကို နှိုင်းယှဉ်ပြီး Product စွမ်းဆောင်ရည် ပြောင်းလဲမှုများကို စစ်ဆေးပါ။',
+    compareOlderLabel: 'Research အဟောင်း (Baseline)',
+    compareNewerLabel: 'Research အသစ် (Latest)',
+    compareNeedTwoTitle: 'နှိုင်းယှဉ်ရန် History မှတ်တမ်း အနည်းဆုံး ၂ ခု လိုအပ်ပါသည်',
+    compareNeedTwoDesc:
+      'Sales၊ Revenue၊ Growth၊ Commission နှင့် Score ပြောင်းလဲမှုများကို နှိုင်းယှဉ်ရန် Product Hunting ၂ ကြိမ်နှင့်အထက် ပြုလုပ်ပါ။',
+    compareExactIdRule:
+      'Product ID တိကျစွာတိုက်ဆိုင်စစ်ဆေးမှု — Product ID တူညီသော Product များကိုသာ နှိုင်းယှဉ်ပြပါသည်။ ID မတူပါက တူညီသည်ဟု ခန့်မှန်းခြင်းမပြုဘဲ ဒေတာမရှိလျှင် Unavailable ဟု ဖော်ပြပါသည်။',
+    compareMatchedCount: 'ခု Product ID တူညီတွေ့ရှိ',
+    compareOnlyOlder: 'အဟောင်းတွင်သာပါဝင်',
+    compareOnlyNewer: 'အသစ်တွင်သာပါဝင်',
+    compareNoMatchesTitle: 'ဤ Research ၂ ခုကြား Product ID တူညီမှု မရှိပါ',
+    compareNoMatchesDesc:
+      'ရွေးချယ်ထားသော Research ၂ ခုတွင် Product ID တူညီသော Product မတွေ့ရှိပါ။ Product ID မတူပါက အလိုအလျောက်မခန့်မှန်းပါ။',
+    compareColProduct: 'Product (ID အတိအကျ)',
+    compareColSales: 'Sales ပြောင်းလဲမှု',
+    compareColRevenue: 'Revenue ပြောင်းလဲမှု',
+    compareColGrowth: 'Growth ပြောင်းလဲမှု',
+    compareColCommission: 'Commission ပြောင်းလဲမှု',
+    compareColScore: 'Score ပြောင်းလဲမှု',
+    compareUnchanged: 'မပြောင်းလဲပါ',
+    compareSelectDifferentHint: 'နှိုင်းယှဉ်ရန် မတူညီသော Research မှတ်တမ်း ၂ ခုကို ရွေးချယ်ပါ။',
   },
 };

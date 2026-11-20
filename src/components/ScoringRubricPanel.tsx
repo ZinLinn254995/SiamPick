@@ -1,11 +1,12 @@
 import { ChevronDown, ChevronUp, Scale } from 'lucide-react';
 import { Language, ScoreTier } from '../types/product';
-import { SCORING_RUBRIC } from '../utils/scoring';
+import { deriveStrategyPresetFromWeight, getScoringRubricForStrategy } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
 
 interface ScoringRubricPanelProps {
   isOpen: boolean;
   onToggle: () => void;
+  salesWeightPct: number;
   language: Language;
 }
 
@@ -14,9 +15,19 @@ const TIER_ORDER: ScoreTier[] = ['priority-test', 'investigate-further', 'low-pr
 export function ScoringRubricPanel({
   isOpen,
   onToggle,
+  salesWeightPct,
   language,
 }: ScoringRubricPanelProps) {
   const t = TRANSLATIONS[language];
+  const rubric = getScoringRubricForStrategy(salesWeightPct);
+  const totalPoints = rubric.reduce((sum, item) => sum + item.maxPoints, 0);
+  const activePreset = deriveStrategyPresetFromWeight(salesWeightPct);
+  const strategyLabel =
+    activePreset === 'sales-first'
+      ? t.strategySales
+      : activePreset === 'commission-first'
+        ? t.strategyCommission
+        : t.strategyBalanced;
 
   const tierTextColor = (tier: ScoreTier) => {
     if (tier === 'priority-test') return 'text-emerald-700';
@@ -42,7 +53,7 @@ export function ScoringRubricPanel({
               ·
             </span>
             <span className="block sm:inline text-xs text-zinc-500">
-              {t.scoringDisclaimer}
+              {strategyLabel} ({totalPoints} pts)
             </span>
           </div>
         </div>
@@ -57,10 +68,19 @@ export function ScoringRubricPanel({
 
       {isOpen && (
         <div className="px-4 sm:px-5 pb-5 pt-4 border-t border-zinc-100 grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* 7 Criteria Breakdown (100 Points Total) */}
+          {/* 7 Live Strategy-Weighted Factors (Always Totaling 100 Points) */}
           <div className="lg:col-span-7 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
+              <span className="font-medium text-zinc-800">
+                {t.scoringStrategyActiveLabel}: {strategyLabel}
+              </span>
+              <span className="font-mono font-semibold text-zinc-950 tabular-nums">
+                {t.scoringTotalWeightLabel}: {totalPoints}/100
+              </span>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-              {SCORING_RUBRIC.map((spec, idx) => (
+              {rubric.map((spec, idx) => (
                 <div
                   key={spec.key}
                   className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 text-xs"
@@ -69,7 +89,7 @@ export function ScoringRubricPanel({
                     <span className="font-mono text-zinc-400 mr-1.5 tabular-nums">
                       0{idx + 1}.
                     </span>
-                    {t.criterionLabels[spec.key]}
+                    {t.factorLabels[spec.key]}
                   </span>
                   <span className="font-mono font-semibold text-zinc-950 tabular-nums shrink-0">
                     {spec.maxPoints} pts
@@ -84,6 +104,7 @@ export function ScoringRubricPanel({
 
           {/* 3 Recommendation Tiers + Evaluation Reminder */}
           <div className="lg:col-span-5 space-y-3 lg:border-l lg:border-zinc-100 lg:pl-6">
+            <p className="text-xs text-zinc-600 leading-relaxed">{t.scoringDisclaimer}</p>
             <div className="space-y-2">
               {TIER_ORDER.map((tier) => (
                 <div
@@ -108,3 +129,4 @@ export function ScoringRubricPanel({
     </div>
   );
 }
+

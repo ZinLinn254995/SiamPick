@@ -15,6 +15,7 @@ import {
 import {
   DataStatus,
   Language,
+  OpportunityEvaluation,
   ProductDecision,
   ResearchProduct,
   RiskSeverity,
@@ -29,6 +30,9 @@ import { ProductImage } from './ProductImage';
 
 interface ResearchReportDrawerProps {
   product: ResearchProduct | null;
+  evaluation?: OpportunityEvaluation | null;
+  salesWeightPct?: number;
+  peerProducts?: readonly ResearchProduct[];
   researchDate?: string | null;
   decision: ProductDecision;
   onSave: (id: string) => void;
@@ -64,6 +68,9 @@ function dataStatusColorClass(status: DataStatus): string {
 
 export function ResearchReportDrawer({
   product,
+  evaluation: providedEvaluation,
+  salesWeightPct = 50,
+  peerProducts,
   researchDate,
   decision,
   onSave,
@@ -92,7 +99,26 @@ export function ResearchReportDrawer({
 
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
-  const evaluation = evaluateProductOpportunity(product);
+  const evaluation =
+    providedEvaluation ??
+    evaluateProductOpportunity(product, {
+      salesWeightPct,
+      peerProducts,
+    });
+
+  const competitionFactor = evaluation.criteria.find((c) => c.key === 'competition');
+  const competitionUnavailable =
+    competitionFactor?.verification === 'unavailable' ||
+    (product.kalodataMetrics !== undefined &&
+      (product.kalodataMetrics.creatorNumber === null ||
+        product.kalodataMetrics.creatorNumber === undefined));
+
+  const strategyFocusLabel =
+    evaluation.strategyPreset === 'sales-first'
+      ? t.strategySales
+      : evaluation.strategyPreset === 'commission-first'
+        ? t.strategyCommission
+        : t.strategyBalanced;
 
   const displayName = isMy ? product.nameMy : product.name;
   const subCategory = isMy ? product.subCategoryMy : product.subCategory;
@@ -184,8 +210,12 @@ export function ResearchReportDrawer({
     },
     {
       label: t.fieldCompetition,
-      value: t.competitionLabels[product.competitionLevel],
-      status: normalizeDataStatus(product.competitionStatus ?? 'estimated'),
+      value: competitionUnavailable
+        ? '—'
+        : t.competitionLabels[product.competitionLevel],
+      status: competitionUnavailable
+        ? 'unavailable'
+        : normalizeDataStatus(product.competitionStatus ?? 'estimated'),
     },
     {
       label: t.fieldCommissionRate,
@@ -269,14 +299,22 @@ export function ResearchReportDrawer({
       `${displayName} (${categoryLabel} · ${subCategory})`,
       `Brand / Seller: ${product.brand ? `${product.brand} · ` : ''}${product.shopName} (${product.dispatchHub})`,
       `Market: Thailand TikTok Shop | Price: ${priceDisplay}${formattedResearchDate ? ` | ${t.savedResearchDateLabel}: ${formattedResearchDate}` : ''}`,
-      `Opportunity Score: ${evaluation.totalScore}/100 (${t.scoringTierLabels[evaluation.tier]}) | Confidence: ${t.confidenceLabels[evaluation.confidenceLevel]} | Verified: ${evaluation.verifiedCount}/${evaluation.totalCriteria}`,
+      `Opportunity Score: ${evaluation.totalScore}/100 (${t.scoringTierLabels[evaluation.tier]}) | Strategy: ${strategyFocusLabel} | Data Confidence: ${t.confidenceLabels[evaluation.confidenceLevel]} (${evaluation.confidencePct}%) | Verified: ${evaluation.verifiedCount}/${evaluation.totalCriteria}`,
       `Note: ${t.scoringDisclaimer}`,
       ``,
       `${t.scoringBreakdownHeading}:`,
-      ...evaluation.criteria.map(
-        (c) =>
-          `  - ${t.criterionLabels[c.key]}: ${c.earnedPoints}/${c.maxPoints} pts [${t.criterionVerificationLabels[c.verification]}] — ${isMy ? c.evidenceMy : c.evidenceEn}`
-      ),
+      ...evaluation.criteria.map((c) => {
+        const scorePart =
+          c.wasRedistributed || c.earnedPoints === null
+            ? `[${t.scoringRedistributedLabel}] (Base ${c.baseWeight} pts)`
+            : `${c.earnedPoints.toFixed(1)}/${c.effectiveWeight.toFixed(1)} pts (Base ${c.baseWeight} pts) [${t.criterionVerificationLabels[c.verification]}]`;
+        return `  - ${t.factorLabels[c.key]}: ${scorePart} — ${isMy ? c.evidenceMy : c.evidenceEn}`;
+      }),
+      ``,
+      `${t.scoringStrengthsHeading}: ${(isMy ? evaluation.strengthsMy : evaluation.strengthsEn).join(' / ')}`,
+      `${t.scoringWeaknessesHeading}: ${(isMy ? evaluation.weaknessesMy : evaluation.weaknessesEn).join(' / ')}`,
+      `${t.scoringRisksHeading}: ${(isMy ? evaluation.risksMy : evaluation.risksEn).join(' / ')}`,
+      `${t.scoringConfidenceHeading}: ${isMy ? evaluation.confidenceExplanationMy : evaluation.confidenceExplanationEn}`,
       ``,
       `${t.sec01WhyChoose}: ${whyChoose}`,
       `${t.sec02MarketDemand}: ${demandEvidence.join(' / ')}`,
@@ -469,7 +507,10 @@ export function ResearchReportDrawer({
                 <div>
                   <div className="text-[11px] text-zinc-500">{t.cardConfidence}</div>
                   <div className="mt-0.5 text-sm font-semibold text-zinc-950">
-                    {t.confidenceLabels[evaluation.confidenceLevel]}
+                    {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
+                    <span className="font-mono text-xs font-normal text-zinc-500 tabular-nums">
+                      ({evaluation.confidencePct}%)
+                    </span>
                   </div>
                 </div>
               </div>
@@ -504,30 +545,50 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 100-Point Opportunity Scoring System Breakdown (Proportional Verification Weighting) */}
+          {/* Phase 2: 7-Factor 100-Point Product Scoring Engine Breakdown & Explanations */}
           <section id="rep-score" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-              <h3 className="font-display text-sm font-semibold text-zinc-950">
-                {t.scoringBreakdownHeading}
-              </h3>
-              <span className="font-mono text-xs text-zinc-500 tabular-nums">
-                {evaluation.totalScore}/100 · {evaluation.verifiedCount}/{evaluation.totalCriteria}{' '}
-                {t.scoringVerifiedCountLabel}
+              <div>
+                <h3 className="font-display text-sm font-semibold text-zinc-950">
+                  {t.scoringBreakdownHeading}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {t.scoringStrategyActiveLabel}: {strategyFocusLabel} ({evaluation.salesWeightPct}/
+                  {100 - evaluation.salesWeightPct})
+                </p>
+              </div>
+              <span className="font-mono text-xs text-zinc-600 tabular-nums">
+                {evaluation.totalScore}/100 · {t.cardConfidence}:{' '}
+                <strong className="text-zinc-950">
+                  {t.confidenceLabels[evaluation.confidenceLevel]} ({evaluation.confidencePct}%)
+                </strong>
               </span>
             </div>
 
-            {/* Independence & Verification Rule Notice */}
+            {/* Independence & Redistribution Fairness Notice */}
             <div className="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1">
               <p className="font-medium text-zinc-800">{t.scoringDisclaimer}</p>
               <p>{t.scoringVerificationRule}</p>
-              <p>{t.scoringPairReminder}</p>
+              {evaluation.redistributedWeightPct > 0 && (
+                <p className="text-amber-800 font-medium pt-0.5">
+                  {t.scoringRedistributedNotice} ({evaluation.redistributedWeightPct} pts)
+                </p>
+              )}
             </div>
 
-            {/* 7-Factor Transparent Table */}
+            {/* 7-Factor Transparent Breakdown Table */}
             <div className="divide-y divide-zinc-100 border-y border-zinc-200/80">
               {evaluation.criteria.map((item, idx) => {
-                const pct = Math.round((item.earnedPoints / item.maxPoints) * 100);
+                const pct =
+                  item.wasRedistributed || item.normalizedScore === null
+                    ? 0
+                    : Math.max(0, Math.min(100, Math.round(item.normalizedScore)));
                 const evidence = isMy ? item.evidenceMy : item.evidenceEn;
+                const metricDisplay = isMy ? item.metricDisplayMy : item.metricDisplayEn;
+                const weightAdjusted =
+                  !item.wasRedistributed &&
+                  Math.abs(item.effectiveWeight - item.baseWeight) >= 0.1;
+
                 return (
                   <div key={item.key} className="py-3 space-y-1.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
@@ -535,45 +596,109 @@ export function ResearchReportDrawer({
                         <span className="font-mono text-zinc-400 mr-1.5 tabular-nums">
                           0{idx + 1}.
                         </span>
-                        {t.criterionLabels[item.key]}
+                        {t.factorLabels[item.key]}
+                        {metricDisplay && (
+                          <span className="ml-2 font-mono text-[11px] font-normal text-zinc-500 tabular-nums">
+                            · {metricDisplay}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
                         <span className={`font-medium ${dataStatusColorClass(item.verification)}`}>
                           {t.criterionVerificationLabels[item.verification]}
                         </span>
-                        <span className="font-mono font-semibold text-zinc-950 tabular-nums min-w-[52px] text-right">
-                          {item.earnedPoints}/{item.maxPoints}
-                        </span>
+                        {item.wasRedistributed || item.earnedPoints === null ? (
+                          <span className="font-mono text-[11px] text-amber-700 tabular-nums">
+                            {t.scoringRedistributedLabel}
+                          </span>
+                        ) : (
+                          <span className="font-mono font-semibold text-zinc-950 tabular-nums min-w-[68px] text-right">
+                            {item.earnedPoints.toFixed(1)}/{item.effectiveWeight.toFixed(1)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          item.verification === 'verified'
-                            ? 'bg-zinc-900'
-                            : item.verification === 'estimated'
-                              ? 'bg-amber-500'
-                              : item.verification === 'unverified'
-                                ? 'bg-zinc-400'
-                                : 'bg-zinc-200'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
+                      {item.wasRedistributed ? (
+                        <div className="h-full w-full bg-zinc-200/70" />
+                      ) : (
+                        <div
+                          className={`h-full rounded-full ${
+                            item.verification === 'verified'
+                              ? 'bg-zinc-900'
+                              : item.verification === 'estimated'
+                                ? 'bg-amber-500'
+                                : 'bg-zinc-400'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-500">
                       <span className="leading-relaxed">{evidence}</span>
-                      {item.wasCapped && (
-                        <span className="font-mono text-[11px] text-amber-700 shrink-0">
-                          {t.scoringCappedNote}
-                        </span>
-                      )}
+                      <span className="font-mono text-[11px] text-zinc-400 tabular-nums shrink-0">
+                        {t.scoringBaseWeightLabel}: {item.baseWeight} pts
+                        {weightAdjusted
+                          ? ` → ${t.scoringEffectiveWeightLabel}: ${item.effectiveWeight.toFixed(1)} pts`
+                          : ''}
+                      </span>
                     </div>
                   </div>
                 );
               })}
+            </div>
+
+            {/* Score Explanation Grid: Strengths, Weaknesses, Risks, Data Confidence */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+                <h4 className="font-display text-xs font-semibold text-emerald-800">
+                  {t.scoringStrengthsHeading}
+                </h4>
+                <ul className="space-y-1.5 text-xs text-zinc-700 leading-relaxed list-disc pl-4 marker:text-emerald-600">
+                  {(isMy ? evaluation.strengthsMy : evaluation.strengthsEn).map((line, i) => (
+                    <li key={`${i}-${line}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+                <h4 className="font-display text-xs font-semibold text-zinc-900">
+                  {t.scoringWeaknessesHeading}
+                </h4>
+                <ul className="space-y-1.5 text-xs text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
+                  {(isMy ? evaluation.weaknessesMy : evaluation.weaknessesEn).map((line, i) => (
+                    <li key={`${i}-${line}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+                <h4 className="font-display text-xs font-semibold text-amber-800">
+                  {t.scoringRisksHeading}
+                </h4>
+                <ul className="space-y-1.5 text-xs text-zinc-700 leading-relaxed list-disc pl-4 marker:text-amber-600">
+                  {(isMy ? evaluation.risksMy : evaluation.risksEn).map((line, i) => (
+                    <li key={`${i}-${line}`}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h4 className="font-display text-xs font-semibold text-zinc-950">
+                    {t.scoringConfidenceHeading}
+                  </h4>
+                  <span className="font-mono text-xs font-semibold text-zinc-800 tabular-nums">
+                    {t.confidenceLabels[evaluation.confidenceLevel]} · {evaluation.confidencePct}%
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-700 leading-relaxed">
+                  {isMy ? evaluation.confidenceExplanationMy : evaluation.confidenceExplanationEn}
+                </p>
+              </div>
             </div>
           </section>
 
@@ -709,7 +834,9 @@ export function ResearchReportDrawer({
                   {t.sec07CompetitorLandscape}
                 </h3>
                 <span className="text-xs font-medium text-zinc-600 shrink-0">
-                  {t.competitionLabels[product.competitionLevel]}
+                  {competitionUnavailable
+                    ? t.dataStatusLabels.unavailable
+                    : t.competitionLabels[product.competitionLevel]}
                 </span>
               </div>
               <p className="text-sm text-zinc-700 leading-relaxed">{competitionDetail}</p>
