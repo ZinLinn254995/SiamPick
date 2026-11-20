@@ -1,0 +1,6 @@
+{
+  "name": "SiamPick — Thailand TikTok Shop Product Hunting",
+  "description": "Minimal, balanced product hunting and research workspace for Thailand TikTok Shop affiliates across Women's Fashion and Cosmetics & Beauty.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
