@@ -27,6 +27,7 @@ interface KalodataBalanceResponse {
 
 interface KalodataBalanceBarProps {
   language: Language;
+  refreshSignal?: number;
 }
 
 function formatFieldLabel(key: string): string {
@@ -36,7 +37,7 @@ function formatFieldLabel(key: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function KalodataBalanceBar({ language }: KalodataBalanceBarProps) {
+export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBalanceBarProps) {
   const t = TRANSLATIONS[language];
   const [status, setStatus] = useState<KalodataBalanceResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -67,7 +68,7 @@ export function KalodataBalanceBar({ language }: KalodataBalanceBarProps) {
 
   useEffect(() => {
     void checkBalance();
-  }, [checkBalance]);
+  }, [checkBalance, refreshSignal]);
 
   const errorMessage =
     fetchError ??

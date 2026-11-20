@@ -51,6 +51,8 @@ export const TRANSLATIONS: Record<
     huntingErrorTitle: string;
     huntingRetryBtn: string;
     groundingBarLabel: string;
+    kalodataSourceBarLabel: string;
+    kalodataSourceNote: string;
     liveStorefrontBarLabel: string;
     liveStorefrontNote: string;
     groundingSourcesCount: string;
@@ -198,6 +200,50 @@ export const TRANSLATIONS: Record<
     kalodataChecking: string;
     kalodataBalanceLabel: string;
     kalodataCheckBtn: string;
+    // Upgraded Product Hunting Settings (Multi-select, Custom Quantity, Cost Preview, Spending Protection)
+    selectBothAction: string;
+    noCategorySelectedWarning: string;
+    bothModeLabel: string;
+    bothModeCombined: string;
+    bothModeSplit: string;
+    bothModeCombinedDesc: string;
+    bothModeSplitDesc: string;
+    customQuantityLabel: string;
+    customQuantityHint: string;
+    costPreviewHeading: string;
+    estimatedCostLabel: string;
+    actualCostLabel: string;
+    actualCostUnavailable: string;
+    plannedCallsLabel: string;
+    actualCallsLabel: string;
+    creditsUnit: string;
+    pricingFormulaNote: string;
+    spendingLimitLabel: string;
+    spendingLimitExceededTitle: string;
+    spendingLimitExceededDesc: string;
+    confirmHeading: string;
+    confirmNotice: string;
+    confirmStartBtn: string;
+    confirmCancelBtn: string;
+    // Research Modes (Fast / Balanced / Deep Research)
+    researchModeLabel: string;
+    modeFastTitle: string;
+    modeFastDesc: string;
+    modeBalancedTitle: string;
+    modeBalancedDesc: string;
+    modeDeepTitle: string;
+    modeDeepDesc: string;
+    deepDiveCountLabel: string;
+    deepDiveCountHint: string;
+    includeReviewInsightsLabel: string;
+    includeReviewInsightsDesc: string;
+    breakdownRankLabel: string;
+    breakdownDetailLabel: string;
+    breakdownShopLabel: string;
+    breakdownReviewLabel: string;
+    geminiAnalysisActiveLabel: string;
+    depthTagDeep: string;
+    depthTagDetail: string;
   }
 > = {
   en: {
@@ -240,6 +286,9 @@ export const TRANSLATIONS: Record<
     huntingErrorTitle: 'Live research could not be completed',
     huntingRetryBtn: 'Try Again',
     groundingBarLabel: 'Google Search Grounding',
+    kalodataSourceBarLabel: 'Kalodata OpenAPI · Thailand TikTok Shop',
+    kalodataSourceNote:
+      'Live Thailand TikTok Shop affiliate products (commission_rate > 0) retrieved directly from Kalodata Product Rank API using verified TH Category IDs (601152 / 601450). Fields not included in Product Rank (ratings, reviews, competition, shop score) remain honestly marked Unavailable/Unverified.',
     liveStorefrontBarLabel: 'Live Official Thai Storefronts',
     liveStorefrontNote:
       'Google Search Grounding quota is currently limited, so products, THB prices, links, and photos were verified live from official Thai brand storefronts and analyzed by Gemini.',
@@ -452,6 +501,51 @@ export const TRANSLATIONS: Record<
     kalodataChecking: 'Checking Kalodata free credit balance...',
     kalodataBalanceLabel: 'Credit Balance',
     kalodataCheckBtn: 'Check Balance',
+    selectBothAction: 'Select Both',
+    noCategorySelectedWarning: 'Select at least one category to start product hunting.',
+    bothModeLabel: 'Query Mode (Both Categories)',
+    bothModeCombined: 'Combined (1 query)',
+    bothModeSplit: 'Split per category',
+    bothModeCombinedDesc: 'Sends 601152 & 601450 together — lower credit cost',
+    bothModeSplitDesc: 'Queries 601152 & 601450 separately — balanced 50/50 split',
+    customQuantityLabel: 'Custom',
+    customQuantityHint: '1–500 (auto-paginated at 100/call)',
+    costPreviewHeading: 'Cost Preview & Spending Limit',
+    estimatedCostLabel: 'Estimated Cost',
+    actualCostLabel: 'Actual Cost (Last Run)',
+    actualCostUnavailable: 'Unavailable',
+    plannedCallsLabel: 'API calls',
+    actualCallsLabel: 'actual calls',
+    creditsUnit: 'credits',
+    pricingFormulaNote:
+      'Kalodata Pricing: Rank 0.1 cr/100 rows · Product Detail 0.1 cr · Shop Detail 0.1 cr · Review Insight 1.0 cr (1 cr ≈ $0.10)',
+    spendingLimitLabel: 'Spending Limit (Credits)',
+    spendingLimitExceededTitle: 'Estimated cost exceeds spending limit',
+    spendingLimitExceededDesc:
+      'Switch to Fast Mode, lower quantity or Deep-Inspect count, or raise your Spending Limit before calling Kalodata API.',
+    confirmHeading: 'Confirm Kalodata API Research',
+    confirmNotice:
+      'No API call has been made yet. Review your verified category IDs, research mode, and estimated credit cost before confirming.',
+    confirmStartBtn: 'Confirm & Start Hunting',
+    confirmCancelBtn: 'Cancel',
+    researchModeLabel: 'Research Mode',
+    modeFastTitle: 'Fast Mode',
+    modeFastDesc: 'Minimal calls · 7d Rank scan (sales, revenue, commission)',
+    modeBalancedTitle: 'Balanced Mode',
+    modeBalancedDesc: '30d wider pool filter + Top 3 Product Detail + Gemini analysis',
+    modeDeepTitle: 'Deep Research',
+    modeDeepDesc: 'Product Detail + Shop Detail + deep risk audit (cost-capped)',
+    deepDiveCountLabel: 'Deep-inspect top products',
+    deepDiveCountHint: 'Max 10 finalists to prevent runaway API spend',
+    includeReviewInsightsLabel: 'Include Buyer Review Insights',
+    includeReviewInsightsDesc: 'Real Thai buyer praise & complaints · +1.0 cr/item (max 2 items)',
+    breakdownRankLabel: 'Rank',
+    breakdownDetailLabel: 'Detail',
+    breakdownShopLabel: 'Shop',
+    breakdownReviewLabel: 'Reviews',
+    geminiAnalysisActiveLabel: 'Gemini Analysis (Kalodata data only)',
+    depthTagDeep: 'Deep Audited',
+    depthTagDetail: 'Detail Verified',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -493,6 +587,9 @@ export const TRANSLATIONS: Record<
     huntingErrorTitle: 'Live Research လုပ်ဆောင်၍ မရနိုင်သေးပါ',
     huntingRetryBtn: 'ထပ်မံကြိုးစားရန်',
     groundingBarLabel: 'Google Search Grounding',
+    kalodataSourceBarLabel: 'Kalodata OpenAPI · ထိုင်း TikTok Shop',
+    kalodataSourceNote:
+      'အတည်ပြုပြီး TH Category IDs (601152 / 601450) ဖြင့် Kalodata Product Rank API မှ တိုက်ရိုက်ရယူထားသော Affiliate Product များ (commission_rate > 0) ဖြစ်ပါသည်။ API တွင် မပါဝင်သော Rating/Reviews/Competition တို့ကို Unavailable/Unverified အဖြစ် ရိုးသားစွာ ဖော်ပြထားပါသည်။',
     liveStorefrontBarLabel: 'တရားဝင် ထိုင်း Brand ဆိုင်များမှ Live စစ်ဆေးမှု',
     liveStorefrontNote:
       'လက်ရှိ Google Search Grounding Quota ကန့်သတ်ချက်ကြောင့် Product အမည်၊ THB ဈေးနှုန်း၊ တရားဝင် Link နှင့် ဓာတ်ပုံများကို ထိုင်း Brand ဆိုင်စစ်များမှ တိုက်ရိုက် Live စစ်ဆေးပြီး Gemini AI ဖြင့် ခွဲခြမ်းစိတ်ဖြာထားပါသည်။',
@@ -705,5 +802,50 @@ export const TRANSLATIONS: Record<
     kalodataChecking: 'Kalodata Free Credit Balance ကို စစ်ဆေးနေပါသည်...',
     kalodataBalanceLabel: 'လက်ကျန် Credit Balance',
     kalodataCheckBtn: 'Balance စစ်ဆေးရန်',
+    selectBothAction: 'နှစ်ခုလုံးရွေးမည်',
+    noCategorySelectedWarning: 'Product Hunting စတင်ရန် အနည်းဆုံး Category ၁ ခု ရွေးချယ်ပါ။',
+    bothModeLabel: 'ရှာဖွေမှုပုံစံ (Category ၂ ခုလုံး)',
+    bothModeCombined: 'တစ်ကြိမ်တည်းပေါင်းရှာမည် (Combined)',
+    bothModeSplit: 'Category တစ်ခုစီခွဲရှာမည် (Split)',
+    bothModeCombinedDesc: '601152 နှင့် 601450 ကို ပေါင်း၍ရှာသည် — Credit သက်သာသည်',
+    bothModeSplitDesc: '601152 နှင့် 601450 ကို ခွဲ၍ရှာသည် — ၅၀/၅၀ မျှတစွာရသည်',
+    customQuantityLabel: 'ကိုယ်တိုင်ရိုက်ရန်',
+    customQuantityHint: '၁–၅၀၀ (တစ်ကြိမ် ၁၀၀ အလိုက် Pagination)',
+    costPreviewHeading: 'ကုန်ကျစရိတ် ခန့်မှန်းချက်နှင့် Spending Limit',
+    estimatedCostLabel: 'ခန့်မှန်းကုန်ကျစရိတ် (Estimated)',
+    actualCostLabel: 'တကယ်ကုန်ကျခဲ့သောစရိတ် (Actual)',
+    actualCostUnavailable: 'မရရှိနိုင်ပါ',
+    plannedCallsLabel: 'API Calls',
+    actualCallsLabel: 'တကယ်ခေါ်ခဲ့သော Calls',
+    creditsUnit: 'Credits',
+    pricingFormulaNote:
+      'Kalodata ဈေးနှုန်း: Rank 0.1 cr/100 ခု · Product Detail 0.1 cr · Shop Detail 0.1 cr · Review Insight 1.0 cr (1 cr ≈ $0.10)',
+    spendingLimitLabel: 'Spending Limit (Credits)',
+    spendingLimitExceededTitle: 'ခန့်မှန်းကုန်ကျစရိတ်သည် Spending Limit ထက် ကျော်လွန်နေပါသည်',
+    spendingLimitExceededDesc:
+      'API မခေါ်ဆိုမီ Fast Mode ပြောင်းပါ၊ အရေအတွက်/Deep-Inspect လျှော့ပါ သို့မဟုတ် Spending Limit ကို တိုးသတ်မှတ်ပါ။',
+    confirmHeading: 'Kalodata API ခေါ်ဆိုမှုကို အတည်ပြုပါ',
+    confirmNotice:
+      'API မခေါ်ဆိုရသေးပါ။ အတည်ပြုပြီး Category IDs၊ Research Mode နှင့် ခန့်မှန်း Credit ကုန်ကျစရိတ်ကို စစ်ဆေးပြီးမှ အတည်ပြုပါ။',
+    confirmStartBtn: 'အတည်ပြုပြီး စတင်ရှာဖွေမည်',
+    confirmCancelBtn: 'မလုပ်တော့ပါ',
+    researchModeLabel: 'Research Mode ရွေးချယ်ရန်',
+    modeFastTitle: 'Fast Mode',
+    modeFastDesc: 'API Call အနည်းဆုံး · ၇ ရက် ရောင်းအား/GMV/Commission အမြန်စစ်',
+    modeBalancedTitle: 'Balanced Mode',
+    modeBalancedDesc: '၃၀ ရက် ပိုစုံစစ်ထုတ်မှု + Top 3 Product Detail + Gemini ခွဲခြမ်းမှု',
+    modeDeepTitle: 'Deep Research Mode',
+    modeDeepDesc: 'Product Detail + Shop Detail + Risk အသေးစိတ်စစ် (ကုန်ကျစရိတ်ကန့်သတ်)',
+    deepDiveCountLabel: 'အသေးစိတ်စစ်မည့် Top Products',
+    deepDiveCountHint: 'ကုန်ကျစရိတ်မတက်စေရန် အများဆုံး ၁၀ ခု ကန့်သတ်ထားသည်',
+    includeReviewInsightsLabel: 'Buyer Review Insights ထပ်ထည့်ရန်',
+    includeReviewInsightsDesc: 'ထိုင်းဝယ်သူ Review အားသာ/အားနည်းချက် · +1.0 cr/ခု (အများဆုံး ၂ ခု)',
+    breakdownRankLabel: 'Rank',
+    breakdownDetailLabel: 'Detail',
+    breakdownShopLabel: 'Shop',
+    breakdownReviewLabel: 'Reviews',
+    geminiAnalysisActiveLabel: 'Gemini ခွဲခြမ်းမှု (Kalodata ဒေတာသာ)',
+    depthTagDeep: 'Deep စစ်ဆေးပြီး',
+    depthTagDetail: 'Detail အတည်ပြုပြီး',
   },
 };

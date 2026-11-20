@@ -4,7 +4,13 @@ export type CategoryFilter = 'all' | ProductCategory;
 
 export type StrategyPreset = 'balanced' | 'sales-first' | 'commission-first';
 
-export type ResearchQuantity = 10 | 20 | 30;
+export type ResearchQuantity = number;
+
+export type BothCategoryMode = 'combined' | 'split';
+
+export type ResearchMode = 'fast' | 'balanced' | 'deep';
+
+export type ResearchDepthTag = 'rank-only' | 'detail-enriched' | 'deep-audited';
 
 export type Language = 'en' | 'my';
 
@@ -58,10 +64,58 @@ export type AppView = 'hunting' | 'saved';
 export interface ResearchConfig {
   market: 'Thailand TikTok Shop';
   category: CategoryFilter;
+  selectedCategories?: ProductCategory[];
+  bothCategoryMode?: BothCategoryMode;
+  researchMode?: ResearchMode;
+  deepDiveCount?: number;
+  includeReviewInsights?: boolean;
+  spendingLimitCredits?: number;
   priceLimit: 'unrestricted';
   strategyPreset: StrategyPreset;
   salesWeightPct: number;
   quantity: ResearchQuantity;
+}
+
+export interface ResearchCostEstimate {
+  selectedCategories: ProductCategory[];
+  categoryIds: string[];
+  quantity: number;
+  bothCategoryMode: BothCategoryMode;
+  researchMode: ResearchMode;
+  dateRange: 'last7Day' | 'last30Day';
+  deepDiveCount: number;
+  includeReviewInsights: boolean;
+  rankApiCalls: number;
+  productDetailApiCalls: number;
+  shopDetailApiCalls: number;
+  commentInsightApiCalls: number;
+  plannedApiCalls: number;
+  estimatedCredits: number;
+  estimatedUsd: number;
+  usesPagination: boolean;
+  usesGeminiAnalysis: boolean;
+}
+
+export interface ResearchCostSummary {
+  researchMode: ResearchMode;
+  estimatedCredits: number;
+  estimatedUsd: number;
+  plannedApiCalls: number;
+  actualApiCalls: number;
+  rankApiCalls: number;
+  productDetailApiCalls: number;
+  shopDetailApiCalls: number;
+  commentInsightApiCalls: number;
+  deepDiveCount: number;
+  includeReviewInsights: boolean;
+  geminiAnalysisApplied: boolean;
+  actualCredits: number | null;
+  actualUsd: number | null;
+  balanceBefore: number | null;
+  balanceAfter: number | null;
+  spendingLimitCredits: number;
+  bothCategoryMode: BothCategoryMode;
+  categoryIds: string[];
 }
 
 export interface GroundingSourceLink {
@@ -84,7 +138,11 @@ export interface ResearchSessionResponse {
   researchedAt: string;
   searchQueries: string[];
   groundingSources: GroundingSourceLink[];
-  researchSourceMode?: 'google-search-grounding' | 'live-official-storefronts';
+  researchSourceMode?:
+    | 'kalodata-openapi'
+    | 'google-search-grounding'
+    | 'live-official-storefronts';
+  costSummary?: ResearchCostSummary;
   config: ResearchConfig;
 }
 
@@ -172,12 +230,58 @@ export interface ResearchSourceItem {
   verified: boolean;
 }
 
+export interface KalodataCategoryRef {
+  category_id: string;
+  category_name: string;
+}
+
+export interface KalodataProductMetrics {
+  productId: string;
+  dateRange: string;
+  researchMode?: ResearchMode;
+  detailEnriched?: boolean;
+  shopEnriched?: boolean;
+  reviewInsightEnriched?: boolean;
+  unitPriceThb: number | null;
+  minPriceThb?: number | null;
+  maxPriceThb?: number | null;
+  salesVolume: number | null;
+  revenueThb: number | null;
+  revenueGrowthRate: number | null;
+  commissionRatePct: number | null;
+  liveRevenueThb: number | null;
+  videoRevenueThb: number | null;
+  showcaseRevenueThb: number | null;
+  shoppingMallRevenueThb?: number | null;
+  creatorNumber?: number | null;
+  videoNumber?: number | null;
+  liveNumber?: number | null;
+  deliveryType?: string | null;
+  productReviewCount?: number | null;
+  launchDate: string | null;
+  sellerId: string | null;
+  sellerName: string | null;
+  skuCount: number | null;
+  shopSellerType?: string | null;
+  shopRevenueThb?: number | null;
+  shopAffiliateRevenueThb?: number | null;
+  shopCreatorNumber?: number | null;
+  shopProductNumber?: number | null;
+  priCategory: KalodataCategoryRef | null;
+  secCategory: KalodataCategoryRef | null;
+  terCategory: KalodataCategoryRef | null;
+  categoryIdsRequested: string[];
+}
+
 export interface ResearchProduct {
   id: string;
   name: string;
   nameMy: string;
   brand?: string;
   category: ProductCategory;
+  researchMode?: ResearchMode;
+  researchDepthTag?: ResearchDepthTag;
+  kalodataMetrics?: KalodataProductMetrics;
   subCategory: string;
   subCategoryMy: string;
   shopName: string;

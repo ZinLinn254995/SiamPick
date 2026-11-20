@@ -14,13 +14,17 @@ import {
 } from 'lucide-react';
 import {
   AppView,
+  BothCategoryMode,
   CategoryFilter,
   ConfidenceLevel,
   DecisionFilter,
   GroundingSourceLink,
   Language,
+  ProductCategory,
   ProductDecision,
   ResearchConfig,
+  ResearchCostSummary,
+  ResearchMode,
   ResearchProduct,
   ResearchQuantity,
   ResearchQuotaStatus,
@@ -29,6 +33,14 @@ import {
   SavedProductRecord,
   StrategyPreset,
 } from './types/product';
+import {
+  DEFAULT_DEEP_DIVE_COUNT,
+  DEFAULT_SPENDING_LIMIT_CREDITS,
+  formatCredits,
+  formatUsd,
+  MAX_SPENDING_LIMIT_CREDITS,
+  MIN_SPENDING_LIMIT_CREDITS,
+} from './utils/kalodataPricing';
 import { evaluateProductOpportunity } from './utils/scoring';
 import {
   createSavedRecord,
@@ -74,22 +86,54 @@ interface HuntErrorState {
   code?: string;
 }
 
+const SPENDING_LIMIT_STORAGE_KEY = 'siampick_spending_limit_credits_v1';
+
+function loadSavedSpendingLimit(): number {
+  try {
+    const raw = window.localStorage.getItem(SPENDING_LIMIT_STORAGE_KEY);
+    if (!raw) return DEFAULT_SPENDING_LIMIT_CREDITS;
+    const parsed = Number.parseFloat(raw);
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= MIN_SPENDING_LIMIT_CREDITS &&
+      parsed <= MAX_SPENDING_LIMIT_CREDITS
+    ) {
+      return Math.round(parsed * 1000) / 1000;
+    }
+  } catch {
+    // Ignore storage unavailability
+  }
+  return DEFAULT_SPENDING_LIMIT_CREDITS;
+}
+
 export default function App() {
   const [language, setLanguage] = useState<Language>('en');
   const [activeView, setActiveView] = useState<AppView>('hunting');
 
   // Research Settings State
-  const [settingsCategory, setSettingsCategory] = useState<CategoryFilter>('all');
+  const [selectedCategories, setSelectedCategories] = useState<ProductCategory[]>([
+    'womens-fashion',
+    'cosmetics-beauty',
+  ]);
+  const [bothCategoryMode, setBothCategoryMode] = useState<BothCategoryMode>('combined');
+  const [researchMode, setResearchMode] = useState<ResearchMode>('fast');
+  const [deepDiveCount, setDeepDiveCount] = useState<number>(DEFAULT_DEEP_DIVE_COUNT);
+  const [includeReviewInsights, setIncludeReviewInsights] = useState<boolean>(false);
   const [strategyPreset, setStrategyPreset] = useState<StrategyPreset>('balanced');
   const [salesWeightPct, setSalesWeightPct] = useState<number>(50);
   const [showFineTune, setShowFineTune] = useState(false);
   const [quantity, setQuantity] = useState<ResearchQuantity>(10);
+  const [spendingLimitCredits, setSpendingLimitCredits] = useState<number>(() =>
+    loadSavedSpendingLimit()
+  );
 
-  // Live Grounded Research State
+  // Live Research State
   const [liveResults, setLiveResults] = useState<ResearchProduct[]>([]);
   const [sessionMeta, setSessionMeta] = useState<SessionMeta | null>(null);
+  const [lastCostSummary, setLastCostSummary] = useState<ResearchCostSummary | null>(null);
+  const [balanceRefreshSignal, setBalanceRefreshSignal] = useState<number>(0);
   const [researchSourceMode, setResearchSourceMode] = useState<
-    'google-search-grounding' | 'live-official-storefronts' | null
+    'kalodata-openapi' | 'google-search-grounding' | 'live-official-storefronts' | null
   >(null);
   const [researchedAt, setResearchedAt] = useState<string | null>(null);
   const [groundingSources, setGroundingSources] = useState<GroundingSourceLink[]>([]);
@@ -131,6 +175,15 @@ export default function App() {
   useEffect(() => {
     persistSavedProducts(savedRecords);
   }, [savedRecords]);
+
+  // Persist user Spending Limit across refreshes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SPENDING_LIMIT_STORAGE_KEY, String(spendingLimitCredits));
+    } catch {
+      // Ignore storage unavailability
+    }
+  }, [spendingLimitCredits]);
 
   // Hydrate server-side Research Quota Pause state on load
   useEffect(() => {
@@ -276,16 +329,38 @@ export default function App() {
     setHuntError(null);
   };
 
+  const handleToggleSettingsCategory = (cat: ProductCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((item) => item !== cat) : [...prev, cat]
+    );
+  };
+
+  const handleSelectBothCategories = () => {
+    setSelectedCategories(['womens-fashion', 'cosmetics-beauty']);
+  };
+
   const handleStartHunting = async (forceResumeOverride?: boolean) => {
+    if (selectedCategories.length === 0) {
+      return;
+    }
+
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
     const shouldForceResume = forceResumeOverride === true || quotaStatus.paused;
+    const derivedCategory: CategoryFilter =
+      selectedCategories.length === 1 ? selectedCategories[0] : 'all';
 
     const payload: ResearchConfig & { forceResume?: boolean } = {
       market: 'Thailand TikTok Shop',
-      category: settingsCategory,
+      category: derivedCategory,
+      selectedCategories,
+      bothCategoryMode: selectedCategories.length === 2 ? bothCategoryMode : 'combined',
+      researchMode,
+      deepDiveCount: researchMode === 'deep' ? deepDiveCount : undefined,
+      includeReviewInsights: researchMode === 'deep' ? includeReviewInsights : false,
+      spendingLimitCredits,
       priceLimit: 'unrestricted',
       strategyPreset,
       salesWeightPct,
@@ -374,7 +449,9 @@ export default function App() {
         verifiedProductCount: data.verifiedProductCount ?? data.products.length,
         filteredOutCount: data.filteredOutCount ?? 0,
       });
-      setResearchSourceMode(data.researchSourceMode ?? 'google-search-grounding');
+      setLastCostSummary(data.costSummary ?? null);
+      setBalanceRefreshSignal((prev) => prev + 1);
+      setResearchSourceMode(data.researchSourceMode ?? 'kalodata-openapi');
       setResearchedAt(data.researchedAt ?? new Date().toISOString());
       setGroundingSources(Array.isArray(data.groundingSources) ? data.groundingSources : []);
       setSearchQueries(Array.isArray(data.searchQueries) ? data.searchQueries : []);
@@ -558,8 +635,17 @@ export default function App() {
             {/* Product Research Settings Panel */}
             <div ref={settingsSectionRef} className="scroll-mt-20">
               <ResearchSettingsPanel
-                category={settingsCategory}
-                onCategoryChange={setSettingsCategory}
+                selectedCategories={selectedCategories}
+                onToggleCategory={handleToggleSettingsCategory}
+                onSelectBothCategories={handleSelectBothCategories}
+                bothCategoryMode={bothCategoryMode}
+                onBothCategoryModeChange={setBothCategoryMode}
+                researchMode={researchMode}
+                onResearchModeChange={setResearchMode}
+                deepDiveCount={deepDiveCount}
+                onDeepDiveCountChange={setDeepDiveCount}
+                includeReviewInsights={includeReviewInsights}
+                onIncludeReviewInsightsChange={setIncludeReviewInsights}
                 strategyPreset={strategyPreset}
                 salesWeightPct={salesWeightPct}
                 onSelectStrategyPreset={handleSelectStrategyPreset}
@@ -568,17 +654,20 @@ export default function App() {
                 onToggleFineTune={() => setShowFineTune((prev) => !prev)}
                 quantity={quantity}
                 onQuantityChange={setQuantity}
+                spendingLimitCredits={spendingLimitCredits}
+                onSpendingLimitChange={setSpendingLimitCredits}
+                lastCostSummary={lastCostSummary}
                 isHunting={isHunting}
                 quotaStatus={quotaStatus}
                 onPauseResearch={handlePauseResearch}
                 onResumeResearch={handleResumeResearch}
-                onStartHunting={() => handleStartHunting(false)}
+                onConfirmStartHunting={() => handleStartHunting(false)}
                 language={language}
               />
             </div>
 
             {/* Kalodata Open Center Free Credit Balance Check */}
-            <KalodataBalanceBar language={language} />
+            <KalodataBalanceBar language={language} refreshSignal={balanceRefreshSignal} />
 
             {/* Research Results Interface */}
             <section
@@ -648,7 +737,10 @@ export default function App() {
                   <div className="flex flex-wrap items-center gap-2 shrink-0 self-start">
                     <button
                       type="button"
-                      onClick={() => handleStartHunting(true)}
+                      onClick={() => {
+                        handleResumeResearch();
+                        handleFocusSettings();
+                      }}
                       className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <PlayCircle className="w-4 h-4" aria-hidden="true" />
@@ -670,9 +762,11 @@ export default function App() {
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs min-w-0">
                       <Globe className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
                       <span className="font-semibold text-zinc-900 whitespace-nowrap">
-                        {researchSourceMode === 'live-official-storefronts'
-                          ? t.liveStorefrontBarLabel
-                          : t.groundingBarLabel}
+                        {researchSourceMode === 'kalodata-openapi'
+                          ? t.kalodataSourceBarLabel
+                          : researchSourceMode === 'live-official-storefronts'
+                            ? t.liveStorefrontBarLabel
+                            : t.groundingBarLabel}
                       </span>
                       <span className="text-zinc-400" aria-hidden="true">
                         ·
@@ -701,6 +795,50 @@ export default function App() {
                       )}
                     </span>
                   </button>
+
+                  {researchSourceMode === 'kalodata-openapi' && (
+                    <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600 space-y-1.5">
+                      <p>{t.kalodataSourceNote}</p>
+                      {lastCostSummary && (
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700 pt-1">
+                          <span className="font-sans font-semibold text-zinc-900">
+                            {lastCostSummary.researchMode === 'deep'
+                              ? t.modeDeepTitle
+                              : lastCostSummary.researchMode === 'balanced'
+                                ? t.modeBalancedTitle
+                                : t.modeFastTitle}
+                          </span>
+                          <span>
+                            {t.breakdownRankLabel}: {lastCostSummary.rankApiCalls}
+                            {lastCostSummary.productDetailApiCalls > 0
+                              ? ` · ${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
+                              : ''}
+                            {lastCostSummary.shopDetailApiCalls > 0
+                              ? ` · ${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
+                              : ''}
+                            {lastCostSummary.commentInsightApiCalls > 0
+                              ? ` · ${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
+                              : ''}
+                          </span>
+                          {lastCostSummary.geminiAnalysisApplied && (
+                            <span className="font-sans text-emerald-700 font-medium">
+                              {t.geminiAnalysisActiveLabel}
+                            </span>
+                          )}
+                          <span>
+                            {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
+                            {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
+                          </span>
+                          <span className="text-emerald-700 font-semibold">
+                            {t.actualCostLabel}:{' '}
+                            {lastCostSummary.actualCredits !== null
+                              ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                              : t.actualCostUnavailable}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {researchSourceMode === 'live-official-storefronts' && (
                     <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600">
@@ -851,7 +989,7 @@ export default function App() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleStartHunting(false)}
+                    onClick={handleFocusSettings}
                     className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
                   >
                     <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
@@ -912,7 +1050,7 @@ export default function App() {
                     <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                       <button
                         type="button"
-                        onClick={() => handleStartHunting(false)}
+                        onClick={handleFocusSettings}
                         className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         <span>

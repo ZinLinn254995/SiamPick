@@ -172,6 +172,16 @@ export function ResearchResultCard({
             {t.scoringTierLabels[evaluation.tier]}
           </span>
           <span className="font-mono text-[11px] text-zinc-500 tabular-nums shrink-0">
+            {product.researchDepthTag === 'deep-audited' && (
+              <span className="font-sans font-medium text-emerald-700 mr-1.5">
+                {t.depthTagDeep} ·
+              </span>
+            )}
+            {product.researchDepthTag === 'detail-enriched' && (
+              <span className="font-sans font-medium text-zinc-700 mr-1.5">
+                {t.depthTagDetail} ·
+              </span>
+            )}
             {evaluation.verifiedCount}/{evaluation.totalCriteria} {t.scoringVerifiedCountLabel}
           </span>
         </div>

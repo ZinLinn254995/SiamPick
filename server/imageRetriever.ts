@@ -642,3 +642,52 @@ export async function verifyOfficialStoreImageUrl(
     imageSourceNoteMy: `တရားဝင် Brand ဆိုင် (${storeDomain}) မှ တိုက်ရိုက်စစ်ဆေးအတည်ပြုထားသော Product ဓာတ်ပုံဖြစ်ပါသည်။`,
   };
 }
+
+/**
+ * Verifies a Kalodata Product Rank `master_image_url` via live HTTP fetch,
+ * confirms valid raster image/* content, registers it in the proxy allowlist, and returns
+ * a safe /api/image-proxy URL (or imageVerified=false if unavailable).
+ */
+export async function verifyKalodataImageUrl(
+  imgUrl: string | null | undefined
+): Promise<{
+  imageVerified: boolean;
+  imageUrl: string | null;
+  imageOriginUrl: string | null;
+  imageSourceNoteEn: string;
+  imageSourceNoteMy: string;
+}> {
+  if (!imgUrl || !isPlausibleProductImageUrl(imgUrl)) {
+    return {
+      imageVerified: false,
+      imageUrl: null,
+      imageOriginUrl: null,
+      imageSourceNoteEn:
+        'Verified image unavailable — Kalodata did not return a valid master_image_url for this product.',
+      imageSourceNoteMy:
+        'Verified image unavailable — ဤ Product အတွက် Kalodata မှ master_image_url မရရှိပါ။',
+    };
+  }
+
+  const check = await verifyLiveImageUrl(imgUrl);
+  if (!check.ok) {
+    return {
+      imageVerified: false,
+      imageUrl: null,
+      imageOriginUrl: null,
+      imageSourceNoteEn:
+        'Verified image unavailable — Kalodata product image URL did not pass live HTTP image verification.',
+      imageSourceNoteMy:
+        'Verified image unavailable — Kalodata Product ပုံ URL ကို Live စစ်ဆေးအတည်ပြု၍ မရပါ။',
+    };
+  }
+
+  return {
+    imageVerified: true,
+    imageUrl: `/api/image-proxy?url=${encodeURIComponent(imgUrl)}`,
+    imageOriginUrl: imgUrl,
+    imageSourceNoteEn: 'Verified TikTok Shop product image retrieved from Kalodata Product Rank API.',
+    imageSourceNoteMy: 'Kalodata Product Rank API မှ တိုက်ရိုက်ရရှိပြီး စစ်ဆေးအတည်ပြုထားသော TikTok Shop Product ဓာတ်ပုံဖြစ်ပါသည်။',
+  };
+}
+
