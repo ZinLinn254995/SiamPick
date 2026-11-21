@@ -46,6 +46,7 @@ import {
   triggerFileDownload,
 } from '../utils/exportReports';
 import { formatResearchDate, formatResearchDateTime } from '../utils/savedProductsStorage';
+import { getCategoryLabel } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { AiProductAnalysisSection } from './AiProductAnalysisSection';
@@ -164,8 +165,7 @@ export function ResearchReportDrawer({
 
   const displayName = isMy ? product.nameMy : product.name;
   const subCategory = isMy ? product.subCategoryMy : product.subCategory;
-  const categoryLabel =
-    product.category === 'womens-fashion' ? t.categoryFashion : t.categoryBeauty;
+  const categoryLabel = getCategoryLabel(product.category, language);
 
   const isSaved = decision === 'saved';
   const isRejected = decision === 'rejected';

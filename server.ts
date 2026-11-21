@@ -17,6 +17,7 @@ import type {
   StrategyPreset,
 } from './src/types/product.ts';
 import { evaluateProductOpportunity } from './src/utils/scoring.ts';
+import { isValidProductCategory } from './src/utils/categoryRegistry.ts';
 import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
 import {
@@ -60,18 +61,15 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
   if (Array.isArray(input.selectedCategories)) {
     selectedCategories = Array.from(
       new Set(
-        input.selectedCategories.filter(
-          (item): item is ProductCategory =>
-            item === 'womens-fashion' || item === 'cosmetics-beauty'
+        input.selectedCategories.filter((item): item is ProductCategory =>
+          isValidProductCategory(item)
         )
       )
     );
   } else {
     const legacyCategory: CategoryFilter =
-      input.category === 'womens-fashion' ||
-      input.category === 'cosmetics-beauty' ||
-      input.category === 'all'
-        ? input.category
+      input.category === 'all' || isValidProductCategory(input.category)
+        ? (input.category as CategoryFilter)
         : 'all';
     selectedCategories =
       legacyCategory === 'all'
@@ -81,6 +79,49 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
 
   const category: CategoryFilter =
     selectedCategories.length === 1 ? selectedCategories[0] : 'all';
+
+  const selectedSubcategoryIds = Array.isArray(input.selectedSubcategoryIds)
+    ? Array.from(
+        new Set(
+          input.selectedSubcategoryIds
+            .filter(
+              (id): id is string =>
+                typeof id === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(id.trim())
+            )
+            .map((id) => id.trim())
+        )
+      ).slice(0, 30)
+    : undefined;
+
+  const selectedSubcategoryNames = Array.isArray(input.selectedSubcategoryNames)
+    ? input.selectedSubcategoryNames
+        .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
+        .map((name) => name.trim().slice(0, 120))
+        .slice(0, 30)
+    : undefined;
+
+  let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+  if (
+    input.resolvedCategoryIdMap &&
+    typeof input.resolvedCategoryIdMap === 'object' &&
+    !Array.isArray(input.resolvedCategoryIdMap)
+  ) {
+    const sanitizedMap: Partial<Record<ProductCategory, string>> = {};
+    for (const [slug, id] of Object.entries(
+      input.resolvedCategoryIdMap as Record<string, unknown>
+    )) {
+      if (
+        isValidProductCategory(slug) &&
+        typeof id === 'string' &&
+        /^[A-Za-z0-9_-]{3,64}$/.test(id.trim())
+      ) {
+        sanitizedMap[slug] = id.trim();
+      }
+    }
+    if (Object.keys(sanitizedMap).length > 0) {
+      resolvedCategoryIdMap = sanitizedMap;
+    }
+  }
 
   const bothCategoryMode: BothCategoryMode =
     input.bothCategoryMode === 'split' ? 'split' : 'combined';
@@ -140,6 +181,13 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
       market: 'Thailand TikTok Shop',
       category,
       selectedCategories,
+      ...(selectedSubcategoryIds && selectedSubcategoryIds.length > 0
+        ? { selectedSubcategoryIds }
+        : {}),
+      ...(selectedSubcategoryNames && selectedSubcategoryNames.length > 0
+        ? { selectedSubcategoryNames }
+        : {}),
+      ...(resolvedCategoryIdMap ? { resolvedCategoryIdMap } : {}),
       bothCategoryMode,
       researchMode,
       deepDiveCount,
@@ -611,7 +659,7 @@ async function startServer() {
         rawProduct.id.trim().length === 0 ||
         typeof rawProduct.name !== 'string' ||
         rawProduct.name.trim().length === 0 ||
-        (rawProduct.category !== 'womens-fashion' && rawProduct.category !== 'cosmetics-beauty')
+        !isValidProductCategory(rawProduct.category)
       ) {
         res.status(400).json({
           ok: false,
@@ -678,7 +726,7 @@ async function startServer() {
         rawProduct.id.trim().length === 0 ||
         typeof rawProduct.name !== 'string' ||
         rawProduct.name.trim().length === 0 ||
-        (rawProduct.category !== 'womens-fashion' && rawProduct.category !== 'cosmetics-beauty')
+        !isValidProductCategory(rawProduct.category)
       ) {
         res.status(400).json({
           ok: false,

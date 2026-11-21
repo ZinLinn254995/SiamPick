@@ -27,6 +27,7 @@ import {
   triggerFileDownload,
 } from '../utils/exportReports';
 import { formatResearchDate } from '../utils/savedProductsStorage';
+import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 
@@ -71,6 +72,11 @@ export function SavedProductsView({
 
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+
+  const presentCategories = useMemo(() => {
+    const seen = new Set(records.map((r) => r.product.category));
+    return UNIVERSAL_CATEGORIES.map((c) => c.id).filter((id) => seen.has(id));
+  }, [records]);
 
   const evaluatedRecords = useMemo(() => {
     const filtered = records.filter((rec) => {
@@ -284,32 +290,53 @@ export function SavedProductsView({
           {/* Filter, Summary & Sort Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4">
-              <div
-                className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
-                role="group"
-                aria-label={t.settingCategoryLabel}
-              >
-                {(
-                  [
-                    { id: 'all', label: t.categoryAll },
-                    { id: 'womens-fashion', label: t.categoryFashion },
-                    { id: 'cosmetics-beauty', label: t.categoryBeauty },
-                  ] as const
-                ).map((tab) => (
+              {presentCategories.length <= 4 ? (
+                <div
+                  className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
+                  role="group"
+                  aria-label={t.settingCategoryLabel}
+                >
                   <button
-                    key={tab.id}
                     type="button"
-                    onClick={() => setCategoryFilter(tab.id)}
+                    onClick={() => setCategoryFilter('all')}
                     className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                      categoryFilter === tab.id
+                      categoryFilter === 'all'
                         ? 'bg-white text-zinc-950 shadow-xs'
                         : 'text-zinc-600 hover:text-zinc-950'
                     }`}
                   >
-                    {tab.label}
+                    {t.categoryAll}
                   </button>
-                ))}
-              </div>
+                  {presentCategories.map((catId) => (
+                    <button
+                      key={catId}
+                      type="button"
+                      onClick={() => setCategoryFilter(catId)}
+                      className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        categoryFilter === catId
+                          ? 'bg-white text-zinc-950 shadow-xs'
+                          : 'text-zinc-600 hover:text-zinc-950'
+                      }`}
+                    >
+                      {getCategoryLabel(catId, language, { short: true })}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+                  aria-label={t.settingCategoryLabel}
+                  className="min-h-[38px] px-3 py-1.5 text-xs sm:text-sm font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                >
+                  <option value="all">{t.categoryAll}</option>
+                  {presentCategories.map((catId) => (
+                    <option key={catId} value={catId}>
+                      {getCategoryLabel(catId, language)}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <span className="text-xs text-zinc-500 font-mono tabular-nums">
                 {t.shortlistAvgScore}: <strong className="text-zinc-950">{avgScore}/100</strong>
@@ -345,10 +372,7 @@ export function SavedProductsView({
                 const product = record.product;
                 const displayName = isMy ? product.nameMy : product.name;
                 const subCategory = isMy ? product.subCategoryMy : product.subCategory;
-                const categoryLabel =
-                  product.category === 'womens-fashion'
-                    ? t.categoryFashion
-                    : t.categoryBeauty;
+                const categoryLabel = getCategoryLabel(product.category, language);
                 const hasVerifiedImg = product.imageVerified && Boolean(product.imageUrl);
                 const hasVerifiedComm =
                   product.commissionVerified && product.commissionRate !== null;

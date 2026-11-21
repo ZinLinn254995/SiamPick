@@ -1,7 +1,9 @@
 import {
+  AiAdCreativeFormat,
   AiRecommendationVerdict,
   AiVideoSuitability,
   BestSelectionCategory,
+  CategoryApiSupportStatus,
   CompetitionLevel,
   ConfidenceLevel,
   CriterionKey,
@@ -452,6 +454,34 @@ export const TRANSLATIONS: Record<
     reportLastUpdatedLabel: string;
     reportExportCsv: string;
     reportExportJson: string;
+    // Phase 8: Universal Product Category Support & Subcategory Sync
+    selectAllVerifiedAction: string;
+    clearAllCategoriesAction: string;
+    showAllCategoriesToggle: string;
+    hideExtraCategoriesToggle: string;
+    selectedCategoriesCountLabel: string;
+    multiCategoryModeLabel: string;
+    multiCategoryCombinedDesc: string;
+    multiCategorySplitDesc: string;
+    categoryStatusLabels: Record<CategoryApiSupportStatus, string>;
+    syncCategoriesBtn: string;
+    syncCategoriesRunning: string;
+    syncCategoriesConfirmTitle: string;
+    syncCategoriesConfirmDesc: string;
+    syncCategoriesConfirmProceed: string;
+    syncCategoriesSyncedNote: string;
+    syncCategoriesEmptyHint: string;
+    subcategorySectionLabel: string;
+    subcategoryLoadBtn: string;
+    subcategoryLoadConfirmTitle: string;
+    subcategoryLoadConfirmDesc: string;
+    subcategoryClearBtn: string;
+    subcategorySelectedHint: string;
+    subcategoryEmptyHint: string;
+    aiAdFormatLabels: Record<AiAdCreativeFormat, string>;
+    aiCategoryUnverifiedTitle: string;
+    aiAffiliateStrategyHeading: string;
+    navCategories: string;
   }
 > = {
   en: {
@@ -463,7 +493,7 @@ export const TRANSLATIONS: Record<
     shortlistBtn: 'Saved',
     heroTitle: 'Thailand TikTok Shop Product Hunting',
     heroSubtitle:
-      "Research real, verifiable Women's Fashion and Cosmetics & Beauty products for Thailand TikTok Shop with Kalodata verified metrics, 7-factor strategy scoring, and automatic local research history.",
+      'Research real, verifiable Thailand TikTok Shop products across Fashion, Cosmetics, Home & Living, Electronics, Kitchen, Health, Food, Baby, Sports, Auto, Pets, Toys, Books & Jewelry with Kalodata verified metrics, category-aware 100-point scoring, and automatic local research history.',
     settingsHeading: 'Product Research Settings',
     settingMarketLabel: 'Market',
     settingMarketValue: 'Thailand TikTok Shop',
@@ -478,8 +508,8 @@ export const TRANSLATIONS: Record<
     weightFineTune: 'Strategy slider',
     salesWeight: 'Sales & Revenue',
     commissionWeight: 'Commission Focus',
-    settingCategoryLabel: 'Product Category',
-    settingBothCategories: 'Both Categories',
+    settingCategoryLabel: 'Product Categories',
+    settingBothCategories: 'Multiple Categories',
     categoryAll: 'All Products',
     categoryFashion: "Women's Fashion",
     categoryBeauty: 'Cosmetics & Beauty',
@@ -491,12 +521,12 @@ export const TRANSLATIONS: Record<
     huntingCancelBtn: 'Cancel',
     huntingLoadingTitle: 'Running Kalodata Thailand TikTok Shop product research',
     huntingLoadingDesc:
-      'Fetching verified Thailand TikTok Shop affiliate products from Kalodata OpenAPI, validating product images and metrics, and calculating 100-point comparative scores.',
+      'Fetching verified Thailand TikTok Shop affiliate products from Kalodata OpenAPI, validating product images and metrics, and calculating category-aware 100-point comparative scores.',
     huntingErrorTitle: 'Live research could not be completed',
     huntingRetryBtn: 'Try Again',
     kalodataSourceBarLabel: 'Kalodata OpenAPI · Thailand TikTok Shop',
     kalodataSourceNote:
-      'Live Thailand TikTok Shop affiliate products (commission_rate > 0) retrieved directly from Kalodata Product Rank API using verified TH Category IDs (601152 / 601450). Fields not included in Product Rank (ratings, reviews, competition, shop score) remain honestly marked Unavailable/Unverified.',
+      'Live Thailand TikTok Shop affiliate products (commission_rate > 0) retrieved directly from Kalodata Product Rank API using verified or synced TH Category/Subcategory IDs. Fields not included in Product Rank (ratings, reviews, competition, shop score) remain honestly marked Unavailable/Unverified.',
     groundingSourcesCount: 'verified Kalodata sources',
     groundingToggleShow: 'View sources',
     groundingToggleHide: 'Hide sources',
@@ -547,7 +577,7 @@ export const TRANSLATIONS: Record<
     perOrder: '/ order',
     emptyLiveTitle: 'Ready to research Thailand TikTok Shop',
     emptyLiveDesc:
-      "Select Women's Fashion, Cosmetics & Beauty, or Both Categories above, choose 10, 20, or 30 products, and click Start Product Hunting to run live verified research.",
+      'Select one or more verified Thailand TikTok Shop categories above (or sync additional TH categories from Kalodata), choose your quantity, and click Start Product Hunting.',
     emptyStartBtn: 'Start Product Hunting',
     emptyFilteredTitle: 'No products in this view',
     emptyFilteredDesc:
@@ -1010,6 +1040,51 @@ export const TRANSLATIONS: Record<
     reportLastUpdatedLabel: 'Last Updated',
     reportExportCsv: 'CSV',
     reportExportJson: 'JSON',
+    // Phase 8: Universal Product Category Support & Subcategory Sync
+    selectAllVerifiedAction: 'Select All Ready',
+    clearAllCategoriesAction: 'Clear All',
+    showAllCategoriesToggle: 'All 14 categories',
+    hideExtraCategoriesToggle: 'Show ready only',
+    selectedCategoriesCountLabel: 'selected',
+    multiCategoryModeLabel: 'Multi-Category Query Mode',
+    multiCategoryCombinedDesc: 'Queries all selected category IDs together — lowest credit cost',
+    multiCategorySplitDesc: 'Queries each selected category separately — balanced split per category',
+    categoryStatusLabels: {
+      verified: 'Verified',
+      'docs-verified': 'Verified',
+      synced: 'Synced',
+      'requires-sync': 'Sync needed',
+      unsupported: 'Unsupported',
+    },
+    syncCategoriesBtn: 'Sync TH Categories (0.1 cr)',
+    syncCategoriesRunning: 'Syncing Kalodata TH categories...',
+    syncCategoriesConfirmTitle: 'Sync Official Thailand Categories from Kalodata?',
+    syncCategoriesConfirmDesc:
+      'Calls Kalodata Category Rank API (L1, TH, 1 call = 0.1 credits) to map official IDs for Electronics, Kitchen, Health, Food, Baby, Sports, Automotive, Pets, Toys, Books & Jewelry. Unmatched categories are marked Unsupported honestly and never guessed.',
+    syncCategoriesConfirmProceed: 'Confirm & Sync (0.1 cr)',
+    syncCategoriesSyncedNote: 'TH categories synced locally',
+    syncCategoriesEmptyHint:
+      'Additional categories require one-time Kalodata TH category sync (0.1 cr) — unverified IDs are never guessed.',
+    subcategorySectionLabel: 'Subcategories (Optional L2 Filter)',
+    subcategoryLoadBtn: 'Load Subcategories (0.1 cr)',
+    subcategoryLoadConfirmTitle: 'Load Official L2 Subcategories from Kalodata?',
+    subcategoryLoadConfirmDesc:
+      'Calls Kalodata Category Rank API (L2, TH, 1 call = 0.1 credits) for your selected categories and caches subcategories in this browser.',
+    subcategoryClearBtn: 'Clear subcategories',
+    subcategorySelectedHint: 'Active L2 subcategory IDs will refine the Kalodata Product Rank query.',
+    subcategoryEmptyHint:
+      'Load official L2 subcategories for your selected categories (0.1 cr, cached locally) to narrow your hunt.',
+    aiAdFormatLabels: {
+      'ai-virtual-female-model': 'AI Virtual Female Model Ad Suitability',
+      'product-only-3d-commercial': 'Product-Only 3D Commercial Suitability',
+      'tech-feature-demo': 'Tech Feature & Spec Demo Suitability',
+      'home-problem-solution-demo': 'Home & Kitchen Problem-Solution Demo',
+      'lifestyle-usage-demo': 'Lifestyle Usage & Unboxing Demo',
+      'consumable-trust-demo': 'Consumable Texture & Compliance-Safe Trust Demo',
+    },
+    aiCategoryUnverifiedTitle: 'Category Alignment Unverified',
+    aiAffiliateStrategyHeading: 'Affiliate Strategy',
+    navCategories: 'Categories',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1020,7 +1095,7 @@ export const TRANSLATIONS: Record<
     shortlistBtn: 'သိမ်းထားသော',
     heroTitle: 'ထိုင်း TikTok Shop Product Hunting',
     heroSubtitle:
-      "Women's Fashion နှင့် Cosmetics & Beauty အတွက် Kalodata တကယ့်ဒေတာများ၊ အချက် ၇ ချက် 100-Point Scoring Engine နှင့် အလိုအလျောက် Local Research History စနစ်ဖြင့် Product များကို တိကျစွာ ရှာဖွေသုတေသနပြုပါ။",
+      'ထိုင်း TikTok Shop ရှိ Fashion, Cosmetics, Home & Living, Electronics, Kitchen, Health, Food, Baby, Sports, Auto, Pets, Toys, Books နှင့် Jewelry စသည့် Product Categories များကို Kalodata တကယ့်ဒေတာ၊ Category-Aware 100-Point Scoring နှင့် Local History ဖြင့် တိကျစွာ ရှာဖွေသုတေသနပြုပါ။',
     settingsHeading: 'Product Research သတ်မှတ်ချက်များ',
     settingMarketLabel: 'ဈေးကွက် (Market)',
     settingMarketValue: 'Thailand TikTok Shop',
@@ -1035,8 +1110,8 @@ export const TRANSLATIONS: Record<
     weightFineTune: 'Strategy Slider ချိန်ညှိရန်',
     salesWeight: 'Sales & Revenue ဦးစားပေး',
     commissionWeight: 'Commission ဦးစားပေး',
-    settingCategoryLabel: 'Product Category',
-    settingBothCategories: 'Both Categories',
+    settingCategoryLabel: 'Product Categories',
+    settingBothCategories: 'Category များစွာ',
     categoryAll: 'အားလုံး',
     categoryFashion: "Women's Fashion",
     categoryBeauty: 'Cosmetics & Beauty',
@@ -1048,12 +1123,12 @@ export const TRANSLATIONS: Record<
     huntingCancelBtn: 'ရပ်တန့်ရန်',
     huntingLoadingTitle: 'Kalodata ထိုင်း TikTok Shop Product ရှာဖွေမှု လုပ်ဆောင်နေပါသည်',
     huntingLoadingDesc:
-      'Kalodata OpenAPI မှ ထိုင်း TikTok Shop Affiliate Product များကို ရယူခြင်း၊ ဓာတ်ပုံနှင့် ဒေတာအချက်အလက်များ စစ်ဆေးခြင်းနှင့် အမှတ် ၁၀၀ နှိုင်းယှဉ်တွက်ချက်ခြင်း ပြုလုပ်နေပါသည်။',
+      'Kalodata OpenAPI မှ ထိုင်း TikTok Shop Affiliate Product များကို ရယူခြင်း၊ ဓာတ်ပုံနှင့် ဒေတာအချက်အလက်များ စစ်ဆေးခြင်းနှင့် Category-Aware အမှတ် ၁၀၀ နှိုင်းယှဉ်တွက်ချက်ခြင်း ပြုလုပ်နေပါသည်။',
     huntingErrorTitle: 'Live Research လုပ်ဆောင်၍ မရနိုင်သေးပါ',
     huntingRetryBtn: 'ထပ်မံကြိုးစားရန်',
     kalodataSourceBarLabel: 'Kalodata OpenAPI · ထိုင်း TikTok Shop',
     kalodataSourceNote:
-      'အတည်ပြုပြီး TH Category IDs (601152 / 601450) ဖြင့် Kalodata Product Rank API မှ တိုက်ရိုက်ရယူထားသော Affiliate Product များ (commission_rate > 0) ဖြစ်ပါသည်။ API တွင် မပါဝင်သော Rating/Reviews/Competition တို့ကို Unavailable/Unverified အဖြစ် ရိုးသားစွာ ဖော်ပြထားပါသည်။',
+      'အတည်ပြုပြီး သို့မဟုတ် Sync ပြုလုပ်ထားသော TH Category/Subcategory IDs ဖြင့် Kalodata Product Rank API မှ တိုက်ရိုက်ရယူထားသော Affiliate Product များ (commission_rate > 0) ဖြစ်ပါသည်။ API တွင် မပါဝင်သော Rating/Reviews/Competition တို့ကို Unavailable/Unverified အဖြစ် ရိုးသားစွာ ဖော်ပြထားပါသည်။',
     groundingSourcesCount: 'ခု အတည်ပြုပြီး Kalodata Sources',
     groundingToggleShow: 'Sources ကြည့်ရန်',
     groundingToggleHide: 'Sources ပိတ်ရန်',
@@ -1104,7 +1179,7 @@ export const TRANSLATIONS: Record<
     perOrder: '/ ခု',
     emptyLiveTitle: 'ထိုင်း TikTok Shop Product Research စတင်ရန် အဆင်သင့်ဖြစ်ပါပြီ',
     emptyLiveDesc:
-      "အထက်ရှိ Settings တွင် Women's Fashion၊ Cosmetics & Beauty သို့မဟုတ် Both Categories နှင့် အရေအတွက် (10 / 20 / 30) ကို ရွေးချယ်ပြီး Start Product Hunting ကို နှိပ်၍ Live Research စတင်ပါ။",
+      'အထက်ရှိ Settings တွင် အတည်ပြုပြီး TH Product Categories များကို ရွေးချယ်ပါ (သို့မဟုတ် Kalodata မှ Category များ ထပ်မံ Sync လုပ်ပါ)၊ အရေအတွက်ရွေးချယ်ပြီး Start Product Hunting ကို နှိပ်၍ စတင်ပါ။',
     emptyStartBtn: 'Start Product Hunting',
     emptyFilteredTitle: 'ဤစာရင်းတွင် Product မရှိသေးပါ',
     emptyFilteredDesc:
@@ -1567,5 +1642,50 @@ export const TRANSLATIONS: Record<
     reportLastUpdatedLabel: 'နောက်ဆုံးအပ်ဒိတ်',
     reportExportCsv: 'CSV',
     reportExportJson: 'JSON',
+    // Phase 8: Universal Product Category Support & Subcategory Sync
+    selectAllVerifiedAction: 'အဆင်သင့်အားလုံးရွေးမည်',
+    clearAllCategoriesAction: 'အားလုံးဖြုတ်မည်',
+    showAllCategoriesToggle: 'Category ၁၄ မျိုးလုံးကြည့်ရန်',
+    hideExtraCategoriesToggle: 'အဆင်သင့်များသာပြရန်',
+    selectedCategoriesCountLabel: 'ခု ရွေးထား',
+    multiCategoryModeLabel: 'Category များစွာ ရှာဖွေမှုပုံစံ',
+    multiCategoryCombinedDesc: 'ရွေးထားသော Category ID အားလုံးကို တစ်ခါတည်းပေါင်းရှာသည် — Credit အသက်သာဆုံး',
+    multiCategorySplitDesc: 'Category တစ်ခုချင်းစီကို ခွဲရှာပေးသည် — Category အလိုက် မျှတစွာရရှိ',
+    categoryStatusLabels: {
+      verified: 'Verified',
+      'docs-verified': 'Verified',
+      synced: 'Synced',
+      'requires-sync': 'Sync လိုအပ်',
+      unsupported: 'မပံ့ပိုးပါ',
+    },
+    syncCategoriesBtn: 'TH Categories Sync (0.1 cr)',
+    syncCategoriesRunning: 'Kalodata TH Categories ကို Sync လုပ်နေပါသည်...',
+    syncCategoriesConfirmTitle: 'Kalodata မှ တရားဝင် ထိုင်း Category IDs များကို Sync လုပ်မလား?',
+    syncCategoriesConfirmDesc:
+      'Kalodata Category Rank API (L1, TH, 1 call = 0.1 credits) ကို ခေါ်ဆိုပြီး Electronics, Kitchen, Health, Food, Baby, Sports, Automotive, Pets, Toys, Books နှင့် Jewelry တို့၏ တရားဝင် ID များကို ချိတ်ဆက်ပေးပါမည်။ API တွင် မပါသော Category များကို မခန့်မှန်းဘဲ မပံ့ပိုးပါ (Unsupported) ဟု ရိုးသားစွာ ပြပါမည်။',
+    syncCategoriesConfirmProceed: 'အတည်ပြုပြီး Sync လုပ်မည် (0.1 cr)',
+    syncCategoriesSyncedNote: 'TH Categories Sync လုပ်ပြီး',
+    syncCategoriesEmptyHint:
+      'ကျန် Category များကို အသုံးပြုရန် Kalodata TH Category Sync (0.1 cr) ၁ ကြိမ် လုပ်ဆောင်ရန် လိုအပ်ပါသည် — မသေချာသော ID များကို ခန့်မှန်းမထည့်ပါ။',
+    subcategorySectionLabel: 'Subcategories (ရွေးချယ်နိုင်သော L2 စစ်ထုတ်မှု)',
+    subcategoryLoadBtn: 'Subcategories ဖတ်မည် (0.1 cr)',
+    subcategoryLoadConfirmTitle: 'Kalodata မှ တရားဝင် L2 Subcategories များကို ဖတ်ယူမလား?',
+    subcategoryLoadConfirmDesc:
+      'ရွေးချယ်ထားသော Category များအတွက် Kalodata Category Rank API (L2, TH, 1 call = 0.1 credits) ကို ခေါ်ဆိုပြီး ဤ Browser တွင် Cache သိမ်းထားပေးပါမည်။',
+    subcategoryClearBtn: 'Subcategories ဖြုတ်မည်',
+    subcategorySelectedHint: 'ရွေးထားသော L2 Subcategory ID များဖြင့် Kalodata Product Rank ကို တိကျစွာ ရှာဖွေပေးပါမည်။',
+    subcategoryEmptyHint:
+      'ရွေးထားသော Category များ၏ L2 Subcategories များကို ဖတ်ယူရန် (0.1 cr, Browser တွင် သိမ်းထားမည်) အပေါ်ခလုတ်ကို နှိပ်ပါ။',
+    aiAdFormatLabels: {
+      'ai-virtual-female-model': 'AI Virtual Female Model ကြော်ငြာ သင့်တော်မှု',
+      'product-only-3d-commercial': 'Product-Only 3D Commercial ကြော်ငြာ သင့်တော်မှု',
+      'tech-feature-demo': 'Tech Feature နှင့် Spec စမ်းသပ်ပြ Demo ကြော်ငြာ သင့်တော်မှု',
+      'home-problem-solution-demo': 'အိမ်သုံး/မီးဖိုချောင် ပြဿနာဖြေရှင်းပြ Demo ကြော်ငြာ သင့်တော်မှု',
+      'lifestyle-usage-demo': 'နေ့စဉ်လက်တွေ့အသုံးပြုပုံနှင့် Unboxing ကြော်ငြာ သင့်တော်မှု',
+      'consumable-trust-demo': 'စားသောက်/ကျန်းမာရေး ယုံကြည်စိတ်ချရမှု Demo ကြော်ငြာ သင့်တော်မှု',
+    },
+    aiCategoryUnverifiedTitle: 'Category ကိုက်ညီမှု အတည်မပြုနိုင်ပါ (Unverified)',
+    aiAffiliateStrategyHeading: 'Affiliate ဗျူဟာ (Affiliate Strategy)',
+    navCategories: 'Categories',
   },
 };

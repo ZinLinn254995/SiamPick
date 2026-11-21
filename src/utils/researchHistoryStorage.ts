@@ -22,6 +22,7 @@ import {
   SAVED_PRODUCTS_LEGACY_KEY,
   SAVED_PRODUCTS_STORAGE_KEY,
 } from './savedProductsStorage.ts';
+import { isValidProductCategory } from './categoryRegistry.ts';
 
 export const RESEARCH_HISTORY_STORAGE_KEY = 'siampick_research_history_v1';
 export const RESEARCH_HISTORY_SCHEMA_VERSION = 1;
@@ -114,13 +115,28 @@ function normalizeHistoryRecord(raw: ResearchHistoryRecord): ResearchHistoryReco
   const mode: ResearchMode =
     raw.researchMode === 'balanced' || raw.researchMode === 'deep' ? raw.researchMode : 'fast';
   const categories: ProductCategory[] = Array.isArray(raw.selectedCategories)
-    ? raw.selectedCategories.filter(
-        (c): c is ProductCategory => c === 'womens-fashion' || c === 'cosmetics-beauty'
-      )
-    : raw.researchSettings.category === 'womens-fashion' ||
-        raw.researchSettings.category === 'cosmetics-beauty'
+    ? raw.selectedCategories.filter((c): c is ProductCategory => isValidProductCategory(c))
+    : isValidProductCategory(raw.researchSettings.category)
       ? [raw.researchSettings.category]
       : ['womens-fashion', 'cosmetics-beauty'];
+
+  const selectedSubcategoryIds = Array.isArray(raw.selectedSubcategoryIds)
+    ? raw.selectedSubcategoryIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    : Array.isArray(raw.researchSettings.selectedSubcategoryIds)
+      ? raw.researchSettings.selectedSubcategoryIds.filter(
+          (id): id is string => typeof id === 'string' && id.trim().length > 0
+        )
+      : undefined;
+
+  const selectedSubcategoryNames = Array.isArray(raw.selectedSubcategoryNames)
+    ? raw.selectedSubcategoryNames.filter(
+        (name): name is string => typeof name === 'string' && name.trim().length > 0
+      )
+    : Array.isArray(raw.researchSettings.selectedSubcategoryNames)
+      ? raw.researchSettings.selectedSubcategoryNames.filter(
+          (name): name is string => typeof name === 'string' && name.trim().length > 0
+        )
+      : undefined;
 
   const salesWeightPct =
     typeof raw.researchSettings.salesWeightPct === 'number' &&
@@ -157,6 +173,12 @@ function normalizeHistoryRecord(raw: ResearchHistoryRecord): ResearchHistoryReco
     researchMode: mode,
     selectedCategories:
       categories.length > 0 ? categories : ['womens-fashion', 'cosmetics-beauty'],
+    ...(selectedSubcategoryIds && selectedSubcategoryIds.length > 0
+      ? { selectedSubcategoryIds }
+      : {}),
+    ...(selectedSubcategoryNames && selectedSubcategoryNames.length > 0
+      ? { selectedSubcategoryNames }
+      : {}),
     bothCategoryMode: raw.bothCategoryMode === 'split' ? 'split' : 'combined',
     requestedQuantity:
       typeof raw.requestedQuantity === 'number' && Number.isFinite(raw.requestedQuantity)
@@ -295,10 +317,19 @@ export function createResearchHistoryRecord(
 
   const selectedCategories: ProductCategory[] =
     Array.isArray(config.selectedCategories) && config.selectedCategories.length > 0
-      ? [...config.selectedCategories]
-      : config.category === 'womens-fashion' || config.category === 'cosmetics-beauty'
+      ? config.selectedCategories.filter((c): c is ProductCategory => isValidProductCategory(c))
+      : isValidProductCategory(config.category)
         ? [config.category]
         : ['womens-fashion', 'cosmetics-beauty'];
+
+  const selectedSubcategoryIds = Array.isArray(config.selectedSubcategoryIds)
+    ? config.selectedSubcategoryIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+    : undefined;
+  const selectedSubcategoryNames = Array.isArray(config.selectedSubcategoryNames)
+    ? config.selectedSubcategoryNames.filter(
+        (name): name is string => typeof name === 'string' && name.trim().length > 0
+      )
+    : undefined;
 
   const clonedProducts: ResearchProduct[] = response.products.map((p) => ({
     ...p,
@@ -326,7 +357,14 @@ export function createResearchHistoryRecord(
     schemaVersion: RESEARCH_HISTORY_SCHEMA_VERSION,
     researchedAt,
     researchMode,
-    selectedCategories,
+    selectedCategories:
+      selectedCategories.length > 0 ? selectedCategories : ['womens-fashion', 'cosmetics-beauty'],
+    ...(selectedSubcategoryIds && selectedSubcategoryIds.length > 0
+      ? { selectedSubcategoryIds }
+      : {}),
+    ...(selectedSubcategoryNames && selectedSubcategoryNames.length > 0
+      ? { selectedSubcategoryNames }
+      : {}),
     bothCategoryMode: config.bothCategoryMode === 'split' ? 'split' : 'combined',
     requestedQuantity: response.requestedQuantity ?? config.quantity,
     productCount: clonedProducts.length,
@@ -336,7 +374,11 @@ export function createResearchHistoryRecord(
     actualCredits: response.costSummary?.actualCredits ?? null,
     actualUsd: response.costSummary?.actualUsd ?? null,
     costSummary: response.costSummary ? { ...response.costSummary } : null,
-    researchSettings: { ...config, selectedCategories },
+    researchSettings: {
+      ...config,
+      selectedCategories:
+        selectedCategories.length > 0 ? selectedCategories : ['womens-fashion', 'cosmetics-beauty'],
+    },
     researchSourceMode: response.researchSourceMode ?? 'kalodata-openapi',
     searchQueries: Array.isArray(response.searchQueries) ? [...response.searchQueries] : [],
     groundingSources: Array.isArray(response.groundingSources)

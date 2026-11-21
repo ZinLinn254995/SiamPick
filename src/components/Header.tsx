@@ -49,7 +49,7 @@ export function Header({
         {/* Zone 2: Concise Single-Line Navigation Links (Desktop lg+ only so tablet never overflows) */}
         <nav
           aria-label="Primary navigation"
-          className="hidden lg:flex items-center gap-4 xl:gap-6 text-[13px] xl:text-sm font-medium text-zinc-600 min-w-0"
+          className="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] xl:text-sm font-medium text-zinc-600 min-w-0"
         >
           <button
             type="button"
@@ -64,32 +64,10 @@ export function Header({
           </button>
           <button
             type="button"
-            onClick={() => onSelectCategory('womens-fashion')}
-            className={`py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
-              activeView === 'hunting' && activeCategory === 'womens-fashion'
-                ? 'text-zinc-950 border-zinc-950'
-                : 'border-transparent hover:text-zinc-950 hover:border-zinc-300'
-            }`}
-          >
-            {t.navFashion}
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectCategory('cosmetics-beauty')}
-            className={`py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
-              activeView === 'hunting' && activeCategory === 'cosmetics-beauty'
-                ? 'text-zinc-950 border-zinc-950'
-                : 'border-transparent hover:text-zinc-950 hover:border-zinc-300'
-            }`}
-          >
-            {t.navBeauty}
-          </button>
-          <button
-            type="button"
             onClick={onFocusStrategy}
             className="py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 border-transparent hover:text-zinc-950 hover:border-zinc-300"
           >
-            {t.navStrategy}
+            {t.navCategories} &amp; {t.navStrategy}
           </button>
           <button
             type="button"

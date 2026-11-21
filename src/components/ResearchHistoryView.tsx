@@ -38,6 +38,7 @@ import {
   buildProductsExportJson,
   triggerFileDownload,
 } from '../utils/exportReports';
+import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ResearchComparisonPanel } from './ResearchComparisonPanel';
@@ -79,13 +80,20 @@ function modeLabel(mode: ResearchMode, language: Language): string {
 }
 
 function categoriesLabel(record: ResearchHistoryRecord, language: Language): string {
-  const t = TRANSLATIONS[language];
-  const hasFashion = record.selectedCategories.includes('womens-fashion');
-  const hasBeauty = record.selectedCategories.includes('cosmetics-beauty');
-  if (hasFashion && hasBeauty) return t.settingBothCategories;
-  if (hasFashion) return t.categoryFashion;
-  if (hasBeauty) return t.categoryBeauty;
-  return '—';
+  const cats = record.selectedCategories;
+  if (!cats || cats.length === 0) return '—';
+  const labels = cats.map((cat) => getCategoryLabel(cat, language, { short: cats.length > 1 }));
+  const base =
+    labels.length <= 3
+      ? labels.join(', ')
+      : `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
+  const subNames = record.selectedSubcategoryNames ?? [];
+  if (subNames.length > 0) {
+    const subPreview =
+      subNames.length <= 2 ? subNames.join(', ') : `${subNames[0]} +${subNames.length - 1}`;
+    return `${base} (${subPreview})`;
+  }
+  return base;
 }
 
 export function ResearchHistoryView({
@@ -213,7 +221,7 @@ export function ResearchHistoryView({
             redistributedWeightPct: snap.redistributedWeightPct,
             salesWeightPct: snap.salesWeightPct,
             strategyPreset: snap.strategyPreset,
-            weights: computeStrategyWeights(snap.salesWeightPct),
+            weights: computeStrategyWeights(snap.salesWeightPct, product.category),
             criteria: snap.criteria,
             strengthsEn: snap.strengthsEn,
             strengthsMy: snap.strengthsMy,
@@ -697,8 +705,11 @@ export function ResearchHistoryView({
                   className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
                 >
                   <option value="all">{t.categoryAll}</option>
-                  <option value="womens-fashion">{t.categoryFashion}</option>
-                  <option value="cosmetics-beauty">{t.categoryBeauty}</option>
+                  {UNIVERSAL_CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {getCategoryLabel(cat.id, language)}
+                    </option>
+                  ))}
                 </select>
               </div>
 

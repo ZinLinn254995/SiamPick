@@ -32,9 +32,20 @@ export const MIN_DEEP_DIVE_COUNT = 1;
 export const MAX_DEEP_DIVE_COUNT = 10;
 export const DEEP_COMMENT_INSIGHT_CAP = 2;
 
-export const VERIFIED_TH_CATEGORY_IDS: Record<ProductCategory, string> = {
+import {
+  CATEGORY_BY_ID,
+  isValidProductCategory,
+} from './categoryRegistry.ts';
+
+/**
+ * Static Thailand (TH) TikTok Shop Category IDs verified via live Kalodata Category Rank API
+ * or official TikTok Shop Open API documentation.
+ * Unverified categories are NEVER guessed here — they are supplied via user-synced resolvedCategoryIdMap.
+ */
+export const VERIFIED_TH_CATEGORY_IDS: Partial<Record<ProductCategory, string>> = {
   'womens-fashion': '601152',
   'cosmetics-beauty': '601450',
+  'home-living': '600001',
 };
 
 export interface KalodataQueryStreamPlan {
@@ -53,6 +64,24 @@ export interface KalodataPlanOptions {
   researchMode?: ResearchMode;
   deepDiveCount?: number;
   includeReviewInsights?: boolean;
+  selectedSubcategoryIds?: string[];
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>;
+}
+
+function isValidKalodataCategoryId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(value.trim());
+}
+
+export function resolveKalodataIdForCategory(
+  category: ProductCategory,
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
+): string | null {
+  const dynamicId = resolvedCategoryIdMap?.[category];
+  if (isValidKalodataCategoryId(dynamicId)) {
+    return dynamicId.trim();
+  }
+  const staticId = CATEGORY_BY_ID[category]?.defaultKalodataId ?? VERIFIED_TH_CATEGORY_IDS[category];
+  return isValidKalodataCategoryId(staticId) ? staticId.trim() : null;
 }
 
 function roundCredits(value: number): number {
@@ -103,6 +132,10 @@ export function clampDeepDiveCount(raw: number | undefined, quantity: number): n
  * - Balanced Mode: Product Rank (last30Day, wider pool filtering) + Product Detail on Top min(qty, 3) winners + Gemini analysis.
  * - Deep Research: Product Rank (last30Day, wider pool filtering) + Product Detail & Shop Detail on Top N finalists (1..10, default min(qty,5))
  *                  + optional Buyer Review Insight (comment/insight, 1.0 cr/item, capped at 2 items) + Deep Gemini audit.
+ *
+ * Phase 8 Universal Category Support:
+ * - Supports any number of verified/synced ProductCategory selections plus optional L2 subcategory IDs.
+ * - Never guesses unverified IDs — categories without a resolved verified/synced Kalodata ID are excluded.
  */
 export function buildKalodataExecutionPlan(
   selectedCategories: ProductCategory[],
@@ -120,12 +153,26 @@ export function buildKalodataExecutionPlan(
     researchMode === 'deep' && options?.includeReviewInsights === true;
 
   const uniqueCategories = Array.from(
-    new Set(
-      selectedCategories.filter(
-        (c): c is ProductCategory => c === 'womens-fashion' || c === 'cosmetics-beauty'
-      )
-    )
+    new Set(selectedCategories.filter((c): c is ProductCategory => isValidProductCategory(c)))
   );
+
+  // Filter strictly to categories that have a real verified or user-synced Kalodata TH ID
+  const resolvedEntries = uniqueCategories
+    .map((cat) => ({
+      category: cat,
+      kalodataId: resolveKalodataIdForCategory(cat, options?.resolvedCategoryIdMap),
+    }))
+    .filter((entry): entry is { category: ProductCategory; kalodataId: string } =>
+      Boolean(entry.kalodataId)
+    );
+
+  const validSubcategoryIds = Array.from(
+    new Set(
+      (options?.selectedSubcategoryIds ?? [])
+        .filter((id): id is string => isValidKalodataCategoryId(id))
+        .map((id) => id.trim())
+    )
+  ).slice(0, 30);
 
   const safeQuantity = Number.isFinite(quantity)
     ? Math.max(MIN_RESEARCH_QUANTITY, Math.min(MAX_RESEARCH_QUANTITY, Math.floor(quantity)))
@@ -138,9 +185,10 @@ export function buildKalodataExecutionPlan(
         ? Math.min(safeQuantity, BALANCED_DETAIL_CAP)
         : 0;
 
-  if (uniqueCategories.length === 0) {
+  if (resolvedEntries.length === 0 && validSubcategoryIds.length === 0) {
     return {
       selectedCategories: [],
+      selectedSubcategoryIds: [],
       categoryIds: [],
       quantity: safeQuantity,
       bothCategoryMode,
@@ -161,23 +209,35 @@ export function buildKalodataExecutionPlan(
     };
   }
 
+  const effectiveCategories = resolvedEntries.map((e) => e.category);
+  const resolvedL1Ids = Array.from(new Set(resolvedEntries.map((e) => e.kalodataId)));
+
+  // When user picks explicit L2 subcategories, pass those exact subcategory IDs to Kalodata Product Rank;
+  // otherwise pass the verified/synced L1 category IDs.
+  const effectiveCategoryIds =
+    validSubcategoryIds.length > 0 ? validSubcategoryIds : resolvedL1Ids;
+
+  // Split mode runs separate streams per selected L1 category when >= 2 L1 categories are selected
+  // and no narrow L2 subcategory override is forcing a single combined query.
   const effectiveMode: BothCategoryMode =
-    uniqueCategories.length === 2 ? bothCategoryMode : 'combined';
+    resolvedEntries.length >= 2 && validSubcategoryIds.length === 0
+      ? bothCategoryMode
+      : 'combined';
 
   const streams: KalodataQueryStreamPlan[] = [];
 
-  if (effectiveMode === 'split' && uniqueCategories.length === 2) {
-    const firstTarget = Math.ceil(safeQuantity / 2);
-    const secondTarget = safeQuantity - firstTarget;
-    const targets = [firstTarget, secondTarget];
+  if (effectiveMode === 'split' && resolvedEntries.length >= 2) {
+    const streamCount = resolvedEntries.length;
+    const basePerStream = Math.floor(safeQuantity / streamCount);
+    const remainder = safeQuantity % streamCount;
 
-    uniqueCategories.forEach((cat, idx) => {
-      const targetCount = targets[idx] ?? 0;
+    resolvedEntries.forEach((entry, idx) => {
+      const targetCount = basePerStream + (idx < remainder ? 1 : 0);
       if (targetCount <= 0) return;
       const pageSizes = buildStreamPageSizes(targetCount, researchMode);
       streams.push({
-        categories: [cat],
-        categoryIds: [VERIFIED_TH_CATEGORY_IDS[cat]],
+        categories: [entry.category],
+        categoryIds: [entry.kalodataId],
         targetCount,
         pagesPlanned: pageSizes.length,
         pageSizes,
@@ -186,8 +246,8 @@ export function buildKalodataExecutionPlan(
   } else {
     const pageSizes = buildStreamPageSizes(safeQuantity, researchMode);
     streams.push({
-      categories: uniqueCategories,
-      categoryIds: uniqueCategories.map((c) => VERIFIED_TH_CATEGORY_IDS[c]),
+      categories: effectiveCategories,
+      categoryIds: effectiveCategoryIds,
       targetCount: safeQuantity,
       pagesPlanned: pageSizes.length,
       pageSizes,
@@ -230,8 +290,9 @@ export function buildKalodataExecutionPlan(
   const estimatedUsd = roundUsd(estimatedCredits * KALODATA_USD_PER_CREDIT);
 
   return {
-    selectedCategories: uniqueCategories,
-    categoryIds: uniqueCategories.map((c) => VERIFIED_TH_CATEGORY_IDS[c]),
+    selectedCategories: effectiveCategories,
+    selectedSubcategoryIds: validSubcategoryIds,
+    categoryIds: effectiveCategoryIds,
     quantity: safeQuantity,
     bothCategoryMode: effectiveMode,
     researchMode,

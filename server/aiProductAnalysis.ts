@@ -16,6 +16,10 @@ import {
   deriveAuthoritativeStatuses,
 } from '../src/utils/aiAnalysisFallback.ts';
 import { evaluateProductOpportunity, getCanonicalProductId } from '../src/utils/scoring.ts';
+import {
+  getCategoryDefinition,
+  verifyProductCategoryAlignment,
+} from '../src/utils/categoryRegistry.ts';
 
 export const GEMINI_PRIMARY_ANALYSIS_MODEL = 'gemini-3.1-flash-lite';
 const GEMINI_BACKUP_ANALYSIS_MODEL = 'gemini-4-hydrogen';
@@ -172,6 +176,17 @@ const PRODUCT_ANALYSIS_RESPONSE_SCHEMA = {
       },
       required: ['verdict', 'headlineEn', 'headlineMy', 'actionPlanEn', 'actionPlanMy'],
     },
+    affiliateStrategyEn: { type: Type.STRING },
+    affiliateStrategyMy: { type: Type.STRING },
+    categoryVerification: {
+      type: Type.OBJECT,
+      properties: {
+        status: { type: Type.STRING },
+        noteEn: { type: Type.STRING },
+        noteMy: { type: Type.STRING },
+      },
+      required: ['status', 'noteEn', 'noteMy'],
+    },
   },
   required: [
     'strengthsEn',
@@ -197,13 +212,14 @@ const PRODUCT_ANALYSIS_RESPONSE_SCHEMA = {
   ],
 };
 
-function buildGeminiPromptPayload(
+export function buildGeminiPromptPayload(
   product: ResearchProduct,
   evaluation: OpportunityEvaluation
 ): string {
   const m = product.kalodataMetrics;
   const statuses = deriveAuthoritativeStatuses(product, evaluation);
-  const isFashion = product.category === 'womens-fashion';
+  const categoryDef = getCategoryDefinition(product.category);
+  const categoryAlignment = verifyProductCategoryAlignment(product);
 
   const compactInput = {
     canonicalProductId: getCanonicalProductId(product),
@@ -294,33 +310,31 @@ function buildGeminiPromptPayload(
     },
   };
 
-  const categoryCreativeDirective = isFashion
-    ? `CATEGORY-SPECIFIC AI AD EVALUATION (MANDATORY — Women's Fashion):
-Evaluate suitability specifically for **AI Virtual Female Model** advertising on TikTok Shop Thailand:
-- Assess how well the garment silhouette, fit, drape, styling versatility, and category translate to AI Virtual Female Model video ads.
-- Note whether verified product image is available (if imageVerified is false, explicitly state that visual drape/fabric cannot be confirmed yet).
-- Provide 2-3 specific AI Virtual Female Model creative angles and 2 concrete realism/return-prevention cautions (sizing chart accuracy, true fabric drape, daylight color fidelity).`
-    : `CATEGORY-SPECIFIC AI AD EVALUATION (MANDATORY — Cosmetics & Beauty):
-Evaluate suitability specifically for **Product-only 3D Commercial** advertising on TikTok Shop Thailand:
-- Assess how well packaging geometry, bottle/tube/compact visual appeal, texture/serum/tint/powder 3D motion, and macro product reveals work WITHOUT human skin before-after claims.
-- Note whether verified product image is available (if imageVerified is false, explicitly state that packaging details cannot be confirmed yet).
-- Provide 2-3 specific Product-only 3D Commercial creative angles and 2 concrete compliance/accuracy cautions (exact genuine packaging proportions, Thai FDA / อย. verification, avoiding banned medical or instant-whitening ad claims).`;
+  const categoryCreativeDirective = `CATEGORY-SPECIFIC ANALYSIS STRATEGY (MANDATORY — ${categoryDef.labelEn} / ${product.category}):
+- Content Potential (${categoryDef.scoringProfile.formatLabelEn}): ${categoryDef.aiProfile.contentPotentialDirectiveEn}
+- Key Selling Points Focus: ${categoryDef.aiProfile.sellingPointsFocusEn}
+- Category-Specific Risks to Check: ${categoryDef.aiProfile.riskChecklistEn.join(' | ')}
+- Affiliate Strategy Focus: ${categoryDef.aiProfile.affiliateStrategyFocusEn}
+- Image Verification Rule: If imageVerified is false, explicitly note that visual packaging/details cannot be confirmed yet.
+- CATEGORY VERIFICATION GUARD: Check whether the productName, subCategory, and Kalodata priCategory genuinely belong to "${categoryDef.labelEn}". If the category appears mismatched, unclear, or contradicted by the title, set categoryVerification.status = "unverified" and explain why in noteEn/noteMy. Otherwise set "verified". (Deterministic pre-check: ${categoryAlignment.status} — ${categoryAlignment.noteEn})`;
 
   return `Analyze this Thailand TikTok Shop affiliate product strictly using ONLY the Kalodata JSON data below.
 
 ${categoryCreativeDirective}
 
-REQUIRED 10 ANALYSIS POINTS (both crisp English *En and natural Burmese *My):
+REQUIRED ANALYSIS POINTS (both crisp English *En and natural Burmese *My):
 1. strengthsEn/My (2-4 concise bullets) & weaknessesEn/My (2-4 concise bullets)
 2. salesAndRevenueEn/My: Current sales volume, THB revenue, and video/live channel split if available. If null, explicitly state Unavailable.
 3. growthPotentialEn/My: Analyze revenueGrowthRatePct if present; if null, explicitly state growth rate is Unavailable and do NOT invent a trend.
 4. commissionPotentialEn/My: Analyze verified commissionRatePct and THB earning per sale; if unavailable, state Unavailable.
 5. competitionAnalysisEn/My: Analyze creatorNumber alongside sales/revenue; if creatorNumber is null, explicitly state Creator Count is Unavailable and competition intensity cannot be verified.
-6. targetCustomerEn/My: Practical Thailand TikTok Shop buyer persona for who to sell this product to. Explicitly frame as strategic AI market inference when demographic/review data is not directly verified.
+6. targetCustomerEn/My: Practical Thailand TikTok Shop buyer persona tailored to ${categoryDef.labelEn}. Explicitly frame as strategic AI market inference when demographic/review data is not directly verified.
 7. whyChooseEn/My: Clear bottom-line case for why an affiliate would (or would not) choose this product over alternatives.
-8. risksAndDrawbacksEn/My (2-4 concrete bullets covering missing Kalodata fields, return/compliance risks, saturation or margin risk).
-9. aiContentSuitability: suitabilityRating ("High" | "Good" | "Moderate"), summaryEn/My, creativeAnglesEn/My (2-3 items), cautionsEn/My (2 items).
+8. risksAndDrawbacksEn/My (2-4 concrete bullets covering missing Kalodata fields, category-specific compliance/return/warranty risks, saturation or margin risk).
+9. aiContentSuitability: suitabilityRating ("High" | "Good" | "Moderate"), summaryEn/My, creativeAnglesEn/My (2-3 category-tailored items), cautionsEn/My (2 items).
 10. finalRecommendation: verdict ("priority-test" | "test-with-caution" | "monitor" | "skip"), headlineEn/My, actionPlanEn/My (concise concrete next step).
+11. affiliateStrategyEn/My: Concrete Thailand TikTok Shop affiliate promotion & hook strategy tailored to ${categoryDef.labelEn}.
+12. categoryVerification: { status: "verified" | "unverified", noteEn, noteMy } confirming whether the product genuinely matches "${categoryDef.labelEn}".
 
 Product Kalodata JSON:
 ${JSON.stringify(compactInput)}`;
@@ -425,10 +439,9 @@ export function validateAndBuildGeminiAnalysis(
 
   const statuses = deriveAuthoritativeStatuses(product, evaluation);
   const dataBasis = buildAiAnalysisDataBasis(product, evaluation);
-  const isFashion = product.category === 'womens-fashion';
-  const adFormat: AiAdCreativeFormat = isFashion
-    ? 'ai-virtual-female-model'
-    : 'product-only-3d-commercial';
+  const categoryDef = getCategoryDefinition(product.category);
+  const deterministicCheck = verifyProductCategoryAlignment(product);
+  const adFormat: AiAdCreativeFormat = categoryDef.aiProfile.adFormat;
 
   const rawSuitability = cleanNonEmptyString(rawAi?.suitabilityRating);
   const suitabilityRating: AiVideoSuitability =
@@ -456,6 +469,26 @@ export function validateAndBuildGeminiAnalysis(
   const creativeAnglesMy = cleanStringArray(rawAi?.creativeAnglesMy, 4);
   const cautionsEn = cleanStringArray(rawAi?.cautionsEn, 4);
   const cautionsMy = cleanStringArray(rawAi?.cautionsMy, 4);
+
+  const rawCatVer =
+    obj.categoryVerification && typeof obj.categoryVerification === 'object'
+      ? (obj.categoryVerification as Record<string, unknown>)
+      : null;
+  const aiFlaggedUnverified =
+    cleanNonEmptyString(rawCatVer?.status)?.toLowerCase() === 'unverified';
+  const categoryVerificationStatus: 'verified' | 'unverified' =
+    aiFlaggedUnverified || deterministicCheck.status === 'unverified'
+      ? 'unverified'
+      : 'verified';
+  const categoryVerificationNoteEn =
+    cleanNonEmptyString(rawCatVer?.noteEn) ?? deterministicCheck.noteEn;
+  const categoryVerificationNoteMy =
+    cleanNonEmptyString(rawCatVer?.noteMy) ?? deterministicCheck.noteMy;
+
+  const affiliateStrategyEn =
+    cleanNonEmptyString(obj.affiliateStrategyEn) ?? categoryDef.aiProfile.affiliateStrategyFocusEn;
+  const affiliateStrategyMy =
+    cleanNonEmptyString(obj.affiliateStrategyMy) ?? categoryDef.aiProfile.affiliateStrategyFocusMy;
 
   return {
     schemaVersion: AI_ANALYSIS_SCHEMA_VERSION,
@@ -512,6 +545,12 @@ export function validateAndBuildGeminiAnalysis(
       actionPlanEn: recActionEn,
       actionPlanMy: recActionMy,
     },
+    analyzedCategory: product.category,
+    categoryVerificationStatus,
+    categoryVerificationNoteEn,
+    categoryVerificationNoteMy,
+    affiliateStrategyEn,
+    affiliateStrategyMy,
   };
 }
 

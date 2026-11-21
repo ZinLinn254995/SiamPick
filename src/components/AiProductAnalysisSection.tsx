@@ -277,7 +277,7 @@ export function AiProductAnalysisSection({
   };
 
   const liveDataBasis = analysis?.dataBasis ?? buildAiAnalysisDataBasis(product, evaluation);
-  const isFashion = product.category === 'womens-fashion';
+  const isModelFormat = analysis?.aiContentSuitability.adFormat === 'ai-virtual-female-model';
 
   return (
     <section
@@ -512,6 +512,24 @@ export function AiProductAnalysisSection({
               <p className="text-[11px] text-zinc-500">{t.aiInterpretationNote}</p>
             </div>
 
+            {/* Phase 8: Category Alignment Unverified Warning Banner */}
+            {analysis.categoryVerificationStatus === 'unverified' && (
+              <div
+                role="status"
+                className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-300/90 flex items-start gap-2.5 text-xs text-amber-950"
+              >
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-0.5">
+                  <div className="font-semibold">{t.aiCategoryUnverifiedTitle}</div>
+                  <p className="text-amber-900 leading-relaxed">
+                    {isMy
+                      ? analysis.categoryVerificationNoteMy ?? analysis.categoryVerificationNoteEn
+                      : analysis.categoryVerificationNoteEn ?? analysis.categoryVerificationNoteMy}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* 10 (Surfaced Top Summary): Final Recommendation */}
             {(() => {
               const style = verdictStyle(analysis.finalRecommendation.verdict);
@@ -675,11 +693,25 @@ export function AiProductAnalysisSection({
               </ul>
             </div>
 
-            {/* 09. AI Advertising Content Suitability (Fashion: Virtual Female Model | Beauty: Product-Only 3D) */}
+            {/* 08b. Category-Tailored Affiliate Strategy (Phase 8) */}
+            {(analysis.affiliateStrategyEn || analysis.affiliateStrategyMy) && (
+              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+                <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  {t.aiAffiliateStrategyHeading}
+                </h5>
+                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                  {isMy
+                    ? analysis.affiliateStrategyMy ?? analysis.affiliateStrategyEn
+                    : analysis.affiliateStrategyEn ?? analysis.affiliateStrategyMy}
+                </p>
+              </div>
+            )}
+
+            {/* 09. AI Advertising Content Suitability (Universal Category-Aware Ad Format) */}
             <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 border border-zinc-200/90 space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  {isFashion ? (
+                  {isModelFormat ? (
                     <UserCheck className="w-4 h-4 text-zinc-800 shrink-0" aria-hidden="true" />
                   ) : (
                     <Box className="w-4 h-4 text-zinc-800 shrink-0" aria-hidden="true" />
@@ -689,9 +721,8 @@ export function AiProductAnalysisSection({
                       {t.aiSecAdSuitability}
                     </h5>
                     <div className="text-[11px] font-medium text-zinc-600">
-                      {analysis.aiContentSuitability.adFormat === 'ai-virtual-female-model'
-                        ? t.aiAdFormatFashion
-                        : t.aiAdFormatBeauty}
+                      {t.aiAdFormatLabels[analysis.aiContentSuitability.adFormat] ??
+                        t.aiAdFormatBeauty}
                     </div>
                   </div>
                 </div>

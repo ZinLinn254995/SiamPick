@@ -1,54 +1,94 @@
 import type { CategoryFilter, ProductCategory } from '../src/types/product.ts';
+import {
+  CATEGORY_BY_ID,
+  isValidProductCategory,
+  matchKalodataCategoryNameToSlug,
+} from '../src/utils/categoryRegistry.ts';
 
 const KALODATA_BALANCE_ENDPOINT = 'https://www.kalodata.com/openapi/v1/credit/balance';
 const KALODATA_AUTH_HEADER = 'secret-key';
 
 /**
- * Thailand (TH) TikTok Shop Level-1 Category IDs verified via live Kalodata Category Rank API.
- * - "601152" = Womenswear & Underwear (Rank #2 in TH)
- * - "601450" = Beauty & Personal Care (Rank #1 in TH)
+ * Static Thailand (TH) TikTok Shop Level-1 Category IDs verified via live Kalodata Category Rank API
+ * or official TikTok Shop Open API documentation.
+ * - "601152" = Womenswear & Underwear (Live-verified TH Rank #2)
+ * - "601450" = Beauty & Personal Care (Live-verified TH Rank #1)
+ * - "600001" = Home Supplies (Official TikTok Shop Open API docs root L1)
+ * Other categories are resolved dynamically via user-synced Kalodata TH Category Rank IDs (never guessed).
  */
-export const KALODATA_TH_CATEGORY_IDS: Record<ProductCategory, string> = {
+export const KALODATA_TH_CATEGORY_IDS: Partial<Record<ProductCategory, string>> = {
   'womens-fashion': '601152',
   'cosmetics-beauty': '601450',
+  'home-living': '600001',
 };
 
-export function getKalodataCategoryIdsForFilter(category: CategoryFilter): string[] {
-  if (category === 'womens-fashion') {
-    return [KALODATA_TH_CATEGORY_IDS['womens-fashion']];
-  }
-  if (category === 'cosmetics-beauty') {
-    return [KALODATA_TH_CATEGORY_IDS['cosmetics-beauty']];
+export function getKalodataCategoryIdsForFilter(
+  category: CategoryFilter,
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
+): string[] {
+  if (category !== 'all' && isValidProductCategory(category)) {
+    const id =
+      resolvedCategoryIdMap?.[category] ??
+      CATEGORY_BY_ID[category]?.defaultKalodataId ??
+      KALODATA_TH_CATEGORY_IDS[category];
+    return id ? [id] : [];
   }
   return [
-    KALODATA_TH_CATEGORY_IDS['womens-fashion'],
-    KALODATA_TH_CATEGORY_IDS['cosmetics-beauty'],
+    KALODATA_TH_CATEGORY_IDS['womens-fashion']!,
+    KALODATA_TH_CATEGORY_IDS['cosmetics-beauty']!,
   ];
 }
 
 export function getKalodataCategoryIdsForSelection(
-  selectedCategories: ProductCategory[]
+  selectedCategories: ProductCategory[],
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
 ): string[] {
   const unique = Array.from(
-    new Set(
-      selectedCategories.filter(
-        (c): c is ProductCategory => c === 'womens-fashion' || c === 'cosmetics-beauty'
-      )
-    )
+    new Set(selectedCategories.filter((c): c is ProductCategory => isValidProductCategory(c)))
   );
-  return unique.map((c) => KALODATA_TH_CATEGORY_IDS[c]);
+  const ids: string[] = [];
+  for (const cat of unique) {
+    const id =
+      resolvedCategoryIdMap?.[cat] ??
+      CATEGORY_BY_ID[cat]?.defaultKalodataId ??
+      KALODATA_TH_CATEGORY_IDS[cat];
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 export function resolveProductCategoryFromKalodataId(
-  priCategoryId: string | null | undefined
+  priCategoryId: string | null | undefined,
+  priCategoryName?: string | null,
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
 ): ProductCategory | null {
   const normalized = (priCategoryId ?? '').trim();
-  if (normalized === KALODATA_TH_CATEGORY_IDS['womens-fashion']) {
-    return 'womens-fashion';
+
+  if (normalized) {
+    // 1. Check user-synced ID map first
+    if (resolvedCategoryIdMap) {
+      for (const [slug, id] of Object.entries(resolvedCategoryIdMap)) {
+        if (isValidProductCategory(slug) && id && id.trim() === normalized) {
+          return slug;
+        }
+      }
+    }
+    // 2. Check static verified IDs
+    for (const [slug, id] of Object.entries(KALODATA_TH_CATEGORY_IDS)) {
+      if (isValidProductCategory(slug) && id === normalized) {
+        return slug;
+      }
+    }
   }
-  if (normalized === KALODATA_TH_CATEGORY_IDS['cosmetics-beauty']) {
-    return 'cosmetics-beauty';
+
+  // 3. Fallback to real Kalodata pri_category.category_name deterministic matching
+  if (priCategoryName) {
+    const byName = matchKalodataCategoryNameToSlug(priCategoryName);
+    if (byName) return byName;
   }
+
   return null;
 }
 

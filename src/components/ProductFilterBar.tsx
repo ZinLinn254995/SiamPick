@@ -13,6 +13,7 @@ import {
   ConfidenceLevel,
   DecisionFilter,
   Language,
+  ProductCategory,
   ProductDecisionVerdict,
   ProductResultsFilterState,
   ProductSortField,
@@ -23,6 +24,7 @@ import {
   countActiveFilters,
   DEFAULT_PRODUCT_FILTERS,
 } from '../utils/productAnalytics';
+import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
 
 interface ProductFilterBarProps {
@@ -38,6 +40,7 @@ interface ProductFilterBarProps {
   exportDisabled: boolean;
   onExportCsv: () => void;
   onExportJson: () => void;
+  availableCategories?: readonly ProductCategory[];
   language: Language;
 }
 
@@ -65,11 +68,17 @@ export function ProductFilterBar({
   exportDisabled,
   onExportCsv,
   onExportJson,
+  availableCategories,
   language,
 }: ProductFilterBarProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const t = TRANSLATIONS[language];
   const activeFilterCount = countActiveFilters(filters);
+
+  const quickSwitchCategories: ProductCategory[] =
+    availableCategories && availableCategories.length > 0
+      ? [...availableCategories]
+      : ['womens-fashion', 'cosmetics-beauty', 'home-living'];
 
   const updateFilter = <K extends keyof ProductResultsFilterState>(
     key: K,
@@ -86,33 +95,54 @@ export function ProductFilterBar({
       {/* Primary Controls Row: Category Tabs, Queue Tabs, Sort + Direction, Filters Toggle, Export */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Category Quick Switch */}
-          <div
-            className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
-            role="group"
-            aria-label={t.settingCategoryLabel}
-          >
-            {(
-              [
-                { id: 'all', label: t.categoryAll },
-                { id: 'womens-fashion', label: t.categoryFashion },
-                { id: 'cosmetics-beauty', label: t.categoryBeauty },
-              ] as const
-            ).map((tab) => (
+          {/* Category Quick Switch (Compact — expands cleanly via Filters dropdown when >4 categories) */}
+          {quickSwitchCategories.length <= 4 ? (
+            <div
+              className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
+              role="group"
+              aria-label={t.settingCategoryLabel}
+            >
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => updateFilter('category', tab.id)}
+                onClick={() => updateFilter('category', 'all')}
                 className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                  filters.category === tab.id
+                  filters.category === 'all'
                     ? 'bg-white text-zinc-950 shadow-xs'
                     : 'text-zinc-600 hover:text-zinc-950'
                 }`}
               >
-                {tab.label}
+                {t.categoryAll}
               </button>
-            ))}
-          </div>
+              {quickSwitchCategories.map((catId) => (
+                <button
+                  key={catId}
+                  type="button"
+                  onClick={() => updateFilter('category', catId)}
+                  className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    filters.category === catId
+                      ? 'bg-white text-zinc-950 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-950'
+                  }`}
+                >
+                  {getCategoryLabel(catId, language, { short: true })}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <select
+              value={filters.category}
+              onChange={(e) => updateFilter('category', e.target.value as CategoryFilter)}
+              aria-label={t.settingCategoryLabel}
+              className="min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+            >
+              <option value="all">{t.categoryAll}</option>
+              {quickSwitchCategories.map((catId) => (
+                <option key={catId} value={catId}>
+                  {getCategoryLabel(catId, language)}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Active / Saved / Rejected Queue Switch */}
           <div
@@ -364,8 +394,11 @@ export function ProductFilterBar({
                 className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
               >
                 <option value="all">{t.categoryAll}</option>
-                <option value="womens-fashion">{t.categoryFashion}</option>
-                <option value="cosmetics-beauty">{t.categoryBeauty}</option>
+                {UNIVERSAL_CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {getCategoryLabel(cat.id, language)}
+                  </option>
+                ))}
               </select>
             </label>
 

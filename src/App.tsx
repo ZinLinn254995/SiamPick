@@ -46,6 +46,7 @@ import {
   SortDirection,
   StorageWriteResult,
   StrategyPreset,
+  SyncedKalodataCategoryCache,
 } from './types/product';
 import {
   DEFAULT_DEEP_DIVE_COUNT,
@@ -55,6 +56,14 @@ import {
   MAX_SPENDING_LIMIT_CREDITS,
   MIN_SPENDING_LIMIT_CREDITS,
 } from './utils/kalodataPricing';
+import {
+  buildResolvedCategoryIdMap,
+  DEFAULT_SELECTED_CATEGORIES,
+  getCategoryLabel,
+  getSelectableCategories,
+  loadSyncedKalodataCategories,
+  UNIVERSAL_CATEGORIES,
+} from './utils/categoryRegistry';
 import { evaluateProductBatch, getCanonicalProductId } from './utils/scoring';
 import { isSafeHttpUrl } from './utils/format';
 import {
@@ -163,11 +172,14 @@ export default function App() {
   const [language, setLanguage] = useState<Language>(() => loadSavedLanguage());
   const [activeView, setActiveView] = useState<AppView>('hunting');
 
-  // Research Settings State
+  // Research Settings State (Universal Categories + Optional L2 Subcategories + Synced Cache)
+  const [syncedCategoryCache, setSyncedCategoryCache] = useState<SyncedKalodataCategoryCache>(() =>
+    loadSyncedKalodataCategories()
+  );
   const [selectedCategories, setSelectedCategories] = useState<ProductCategory[]>([
-    'womens-fashion',
-    'cosmetics-beauty',
+    ...DEFAULT_SELECTED_CATEGORIES,
   ]);
+  const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
   const [bothCategoryMode, setBothCategoryMode] = useState<BothCategoryMode>('combined');
   const [researchMode, setResearchMode] = useState<ResearchMode>('fast');
   const [deepDiveCount, setDeepDiveCount] = useState<number>(DEFAULT_DEEP_DIVE_COUNT);
@@ -441,13 +453,42 @@ export default function App() {
   };
 
   const handleToggleSettingsCategory = (cat: ProductCategory) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((item) => item !== cat) : [...prev, cat]
+    setSelectedCategories((prev) => {
+      const next = prev.includes(cat) ? prev.filter((item) => item !== cat) : [...prev, cat];
+      return next;
+    });
+    // Clear L2 subcategory selections that no longer belong to any selected parent category
+    setSelectedSubcategoryIds((prevSubs) => {
+      if (prevSubs.length === 0) return prevSubs;
+      const nextCats = selectedCategories.includes(cat)
+        ? selectedCategories.filter((c) => c !== cat)
+        : [...selectedCategories, cat];
+      const nextSet = new Set(nextCats);
+      return prevSubs.filter((subId) => {
+        const sub = syncedCategoryCache.subcategories.find((s) => s.id === subId);
+        return !sub?.parentCategory || nextSet.has(sub.parentCategory);
+      });
+    });
+  };
+
+  const handleSelectAllVerifiedCategories = () => {
+    const selectable = getSelectableCategories(syncedCategoryCache);
+    setSelectedCategories(selectable.length > 0 ? selectable : [...DEFAULT_SELECTED_CATEGORIES]);
+  };
+
+  const handleClearAllCategories = () => {
+    setSelectedCategories([]);
+    setSelectedSubcategoryIds([]);
+  };
+
+  const handleToggleSubcategory = (subId: string) => {
+    setSelectedSubcategoryIds((prev) =>
+      prev.includes(subId) ? prev.filter((id) => id !== subId) : [...prev, subId]
     );
   };
 
-  const handleSelectBothCategories = () => {
-    setSelectedCategories(['womens-fashion', 'cosmetics-beauty']);
+  const handleClearSubcategories = () => {
+    setSelectedSubcategoryIds([]);
   };
 
   const handleStartHunting = async (forceResumeOverride?: boolean) => {
@@ -468,12 +509,24 @@ export default function App() {
     const shouldForceResume = forceResumeOverride === true || quotaStatus.paused;
     const derivedCategory: CategoryFilter =
       selectedCategories.length === 1 ? selectedCategories[0] : 'all';
+    const resolvedCategoryIdMap = buildResolvedCategoryIdMap(syncedCategoryCache);
+    const selectedSubcategoryNames = selectedSubcategoryIds
+      .map((id) => syncedCategoryCache.subcategories.find((s) => s.id === id)?.name ?? id)
+      .filter(Boolean);
 
     const payload: ResearchConfig & { forceResume?: boolean } = {
       market: 'Thailand TikTok Shop',
       category: derivedCategory,
       selectedCategories,
-      bothCategoryMode: selectedCategories.length === 2 ? bothCategoryMode : 'combined',
+      selectedSubcategoryIds:
+        selectedSubcategoryIds.length > 0 ? selectedSubcategoryIds : undefined,
+      selectedSubcategoryNames:
+        selectedSubcategoryNames.length > 0 ? selectedSubcategoryNames : undefined,
+      resolvedCategoryIdMap,
+      bothCategoryMode:
+        selectedCategories.length >= 2 && selectedSubcategoryIds.length === 0
+          ? bothCategoryMode
+          : 'combined',
       researchMode,
       deepDiveCount: researchMode === 'deep' ? deepDiveCount : undefined,
       includeReviewInsights: researchMode === 'deep' ? includeReviewInsights : false,
@@ -926,12 +979,27 @@ export default function App() {
     );
   };
 
+  const availableResultCategories = useMemo(() => {
+    const seen = new Set(liveResults.map((p) => p.category));
+    return UNIVERSAL_CATEGORIES.map((c) => c.id).filter((id) => seen.has(id));
+  }, [liveResults]);
+
   const activeCategoryLabel = activeHuntConfig
-    ? activeHuntConfig.category === 'all'
-      ? t.settingBothCategories
-      : activeHuntConfig.category === 'womens-fashion'
-        ? t.categoryFashion
-        : t.categoryBeauty
+    ? activeHuntConfig.selectedCategories && activeHuntConfig.selectedCategories.length > 0
+      ? activeHuntConfig.selectedCategories
+          .map((cat) =>
+            getCategoryLabel(cat, language, {
+              short: (activeHuntConfig.selectedCategories?.length ?? 0) > 1,
+            })
+          )
+          .slice(0, 3)
+          .join(', ') +
+        ((activeHuntConfig.selectedCategories.length ?? 0) > 3
+          ? ` +${activeHuntConfig.selectedCategories.length - 3}`
+          : '')
+      : activeHuntConfig.category === 'all'
+        ? t.settingBothCategories
+        : getCategoryLabel(activeHuntConfig.category, language)
     : '';
 
   const displayErrorText = huntError
@@ -1056,7 +1124,14 @@ export default function App() {
               <ResearchSettingsPanel
                 selectedCategories={selectedCategories}
                 onToggleCategory={handleToggleSettingsCategory}
-                onSelectBothCategories={handleSelectBothCategories}
+                onSelectAllVerifiedCategories={handleSelectAllVerifiedCategories}
+                onClearAllCategories={handleClearAllCategories}
+                syncedCategoryCache={syncedCategoryCache}
+                onSyncedCategoryCacheChange={setSyncedCategoryCache}
+                selectedSubcategoryIds={selectedSubcategoryIds}
+                onToggleSubcategory={handleToggleSubcategory}
+                onClearSubcategories={handleClearSubcategories}
+                onBalanceRefresh={() => setBalanceRefreshSignal((prev) => prev + 1)}
                 bothCategoryMode={bothCategoryMode}
                 onBothCategoryModeChange={setBothCategoryMode}
                 researchMode={researchMode}
@@ -1383,6 +1458,7 @@ export default function App() {
                 exportDisabled={isHunting || visibleProducts.length === 0}
                 onExportCsv={handleExportVisibleCsv}
                 onExportJson={handleExportVisibleJson}
+                availableCategories={availableResultCategories}
                 language={language}
               />
 

@@ -24,6 +24,7 @@ import {
   getEffectiveAiSuitabilityBand,
 } from '../utils/productAnalytics';
 import { TRANSLATIONS } from '../i18n/translations';
+import { getCategoryLabel } from '../utils/categoryRegistry';
 import { ProductImage } from './ProductImage';
 
 interface ResearchResultCardProps {
@@ -83,8 +84,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
 
   const displayName = isMy ? product.nameMy : product.name;
   const subCategory = isMy ? product.subCategoryMy : product.subCategory;
-  const categoryLabel =
-    product.category === 'womens-fashion' ? t.categoryFashion : t.categoryBeauty;
+  const categoryLabel = getCategoryLabel(product.category, language);
 
   const isSaved = decision === 'saved';
   const isRejected = decision === 'rejected';

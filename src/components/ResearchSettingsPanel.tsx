@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Layers,
   Loader2,
   Lock,
   PauseCircle,
   PlayCircle,
+  RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -19,6 +23,7 @@ import {
   ResearchQuantity,
   ResearchQuotaStatus,
   StrategyPreset,
+  SyncedKalodataCategoryCache,
 } from '../types/product';
 import {
   buildKalodataExecutionPlan,
@@ -32,15 +37,29 @@ import {
   MIN_DEEP_DIVE_COUNT,
   MIN_RESEARCH_QUANTITY,
   MIN_SPENDING_LIMIT_CREDITS,
-  VERIFIED_TH_CATEGORY_IDS,
 } from '../utils/kalodataPricing';
+import {
+  buildResolvedCategoryIdMap,
+  getCategoryLabel,
+  getEffectiveCategoryCatalog,
+  mergeSyncedL1Categories,
+  mergeSyncedL2Subcategories,
+  saveSyncedKalodataCategories,
+} from '../utils/categoryRegistry';
 import { computeStrategyWeights, SCORING_FACTOR_ORDER } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
 
 interface ResearchSettingsPanelProps {
   selectedCategories: ProductCategory[];
   onToggleCategory: (category: ProductCategory) => void;
-  onSelectBothCategories: () => void;
+  onSelectAllVerifiedCategories: () => void;
+  onClearAllCategories: () => void;
+  syncedCategoryCache: SyncedKalodataCategoryCache;
+  onSyncedCategoryCacheChange: (next: SyncedKalodataCategoryCache) => void;
+  selectedSubcategoryIds: string[];
+  onToggleSubcategory: (subcategoryId: string) => void;
+  onClearSubcategories: () => void;
+  onBalanceRefresh?: () => void;
   bothCategoryMode: BothCategoryMode;
   onBothCategoryModeChange: (mode: BothCategoryMode) => void;
   researchMode: ResearchMode;
@@ -74,7 +93,14 @@ const DEEP_DIVE_PRESETS = [2, 3, 5, 10] as const;
 export function ResearchSettingsPanel({
   selectedCategories,
   onToggleCategory,
-  onSelectBothCategories,
+  onSelectAllVerifiedCategories,
+  onClearAllCategories,
+  syncedCategoryCache,
+  onSyncedCategoryCacheChange,
+  selectedSubcategoryIds,
+  onToggleSubcategory,
+  onClearSubcategories,
+  onBalanceRefresh,
   bothCategoryMode,
   onBothCategoryModeChange,
   researchMode,
@@ -102,9 +128,14 @@ export function ResearchSettingsPanel({
   language,
 }: ResearchSettingsPanelProps) {
   const t = TRANSLATIONS[language];
+  const isMy = language === 'my';
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [customQtyDraft, setCustomQtyDraft] = useState(String(quantity));
   const [limitDraft, setLimitDraft] = useState(formatCredits(spendingLimitCredits));
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [syncConfirmMode, setSyncConfirmMode] = useState<'l1' | 'l2' | null>(null);
+  const [isSyncingCategories, setIsSyncingCategories] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     setCustomQtyDraft(String(quantity));
@@ -114,8 +145,58 @@ export function ResearchSettingsPanel({
     setLimitDraft(formatCredits(spendingLimitCredits));
   }, [spendingLimitCredits]);
 
+  const effectiveCatalog = useMemo(
+    () => getEffectiveCategoryCatalog(syncedCategoryCache),
+    [syncedCategoryCache]
+  );
+
+  const resolvedCategoryIdMap = useMemo(
+    () => buildResolvedCategoryIdMap(syncedCategoryCache),
+    [syncedCategoryCache]
+  );
+
+  const selectableCatalogEntries = useMemo(
+    () => effectiveCatalog.filter((entry) => entry.selectable),
+    [effectiveCatalog]
+  );
+
+  const extraCatalogEntries = useMemo(
+    () => effectiveCatalog.filter((entry) => !entry.selectable),
+    [effectiveCatalog]
+  );
+
+  const visibleCatalogEntries = showAllCategories
+    ? effectiveCatalog
+    : selectableCatalogEntries;
+
+  const selectedParentL1Ids = useMemo(() => {
+    const ids: string[] = [];
+    for (const cat of selectedCategories) {
+      const id = resolvedCategoryIdMap[cat];
+      if (id && !ids.includes(id)) {
+        ids.push(id);
+      }
+    }
+    return ids;
+  }, [selectedCategories, resolvedCategoryIdMap]);
+
+  const visibleSubcategories = useMemo(() => {
+    if (selectedCategories.length === 0) return [];
+    const selectedCatSet = new Set(selectedCategories);
+    const selectedL1Set = new Set(selectedParentL1Ids);
+    return syncedCategoryCache.subcategories.filter((sub) => {
+      if (sub.parentCategory && selectedCatSet.has(sub.parentCategory)) return true;
+      if (sub.parentCategoryId && selectedL1Set.has(sub.parentCategoryId)) return true;
+      return !sub.parentCategory && !sub.parentCategoryId;
+    });
+  }, [syncedCategoryCache.subcategories, selectedCategories, selectedParentL1Ids]);
+
+  const allReadySelected =
+    selectableCatalogEntries.length > 0 &&
+    selectableCatalogEntries.every((entry) => selectedCategories.includes(entry.id));
+
   // Close confirmation whenever user modifies settings or hunting starts
-  const selectionKey = `${selectedCategories.join(',')}|${bothCategoryMode}|${researchMode}|${deepDiveCount}|${includeReviewInsights}|${quantity}|${spendingLimitCredits}|${strategyPreset}|${salesWeightPct}`;
+  const selectionKey = `${selectedCategories.join(',')}|${selectedSubcategoryIds.join(',')}|${bothCategoryMode}|${researchMode}|${deepDiveCount}|${includeReviewInsights}|${quantity}|${spendingLimitCredits}|${strategyPreset}|${salesWeightPct}`;
   useEffect(() => {
     setConfirmOpen(false);
   }, [selectionKey, isHunting]);
@@ -123,13 +204,21 @@ export function ResearchSettingsPanel({
   const effectiveDeepDiveCap = clampDeepDiveCount(deepDiveCount, quantity);
   const maxAllowedDeepDive = Math.min(MAX_DEEP_DIVE_COUNT, quantity);
 
+  const planCommonOptions = {
+    selectedSubcategoryIds,
+    resolvedCategoryIdMap,
+  };
+
   const fastPlan = buildKalodataExecutionPlan(selectedCategories, quantity, bothCategoryMode, {
+    ...planCommonOptions,
     researchMode: 'fast',
   });
   const balancedPlan = buildKalodataExecutionPlan(selectedCategories, quantity, bothCategoryMode, {
+    ...planCommonOptions,
     researchMode: 'balanced',
   });
   const deepPlan = buildKalodataExecutionPlan(selectedCategories, quantity, bothCategoryMode, {
+    ...planCommonOptions,
     researchMode: 'deep',
     deepDiveCount: effectiveDeepDiveCap,
     includeReviewInsights,
@@ -142,10 +231,8 @@ export function ResearchSettingsPanel({
         ? balancedPlan
         : fastPlan;
 
-  const hasFashion = selectedCategories.includes('womens-fashion');
-  const hasBeauty = selectedCategories.includes('cosmetics-beauty');
-  const bothSelected = hasFashion && hasBeauty;
-  const noCategorySelected = selectedCategories.length === 0;
+  const noCategorySelected = selectedCategories.length === 0 || plan.streams.length === 0;
+  const multipleSelected = selectedCategories.length >= 2 && selectedSubcategoryIds.length === 0;
   const exceedsLimit = !noCategorySelected && plan.estimatedCredits > spendingLimitCredits + 1e-6;
   const canRequestStart = !isHunting && !noCategorySelected && !exceedsLimit;
 
@@ -156,13 +243,20 @@ export function ResearchSettingsPanel({
         ? t.modeBalancedTitle
         : t.modeFastTitle;
 
-  const categorySummary = bothSelected
-    ? `${t.settingBothCategories} (${VERIFIED_TH_CATEGORY_IDS['womens-fashion']}, ${VERIFIED_TH_CATEGORY_IDS['cosmetics-beauty']})`
-    : hasFashion
-      ? `${t.categoryFashion} (${VERIFIED_TH_CATEGORY_IDS['womens-fashion']})`
-      : hasBeauty
-        ? `${t.categoryBeauty} (${VERIFIED_TH_CATEGORY_IDS['cosmetics-beauty']})`
-        : '—';
+  const categorySummary = (() => {
+    if (selectedCategories.length === 0) return '—';
+    const names = selectedCategories.map((cat) =>
+      getCategoryLabel(cat, language, { short: selectedCategories.length > 1 })
+    );
+    const label =
+      names.length <= 3
+        ? names.join(', ')
+        : `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+    if (selectedSubcategoryIds.length > 0) {
+      return `${label} · ${selectedSubcategoryIds.length} L2`;
+    }
+    return label;
+  })();
 
   const strategySummary =
     strategyPreset === 'balanced'
@@ -170,6 +264,86 @@ export function ResearchSettingsPanel({
       : strategyPreset === 'sales-first'
         ? t.strategySales
         : t.strategyCommission;
+
+  const handleConfirmSyncCategories = async (level: 'l1' | 'l2') => {
+    if (isSyncingCategories) return;
+    setSyncConfirmMode(null);
+    setSyncError(null);
+    setIsSyncingCategories(true);
+
+    try {
+      const bodyPayload: Record<string, unknown> = {
+        region: 'TH',
+        language: 'en-US',
+        currency: 'THB',
+        date_range: 'last30Day',
+        page_number: 1,
+        page_size: 100,
+        category_level: level === 'l1' ? 1 : 2,
+        sort_field: { field: 'revenue', type: 'DESC' },
+      };
+
+      if (level === 'l2' && selectedParentL1Ids.length > 0) {
+        bodyPayload.category_ids = selectedParentL1Ids;
+      }
+
+      const response = await fetch('/api/kalodata/category-rank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        items?: Array<{ category_id?: string; category_name?: string }>;
+        error?: string;
+        errorMy?: string;
+      } | null;
+
+      if (!response.ok || !data?.ok || !Array.isArray(data.items)) {
+        const msg =
+          isMy && data?.errorMy
+            ? data.errorMy
+            : data?.error ?? `Category sync failed (HTTP ${response.status})`;
+        setSyncError(msg);
+        return;
+      }
+
+      const normalizedItems = data.items
+        .map((item) => ({
+          category_id: typeof item.category_id === 'string' ? item.category_id.trim() : '',
+          category_name: typeof item.category_name === 'string' ? item.category_name.trim() : '',
+        }))
+        .filter((item) => item.category_id.length > 0 && item.category_name.length > 0);
+
+      const nowIso = new Date().toISOString();
+      const nextCache =
+        level === 'l1'
+          ? mergeSyncedL1Categories(syncedCategoryCache, normalizedItems, nowIso)
+          : mergeSyncedL2Subcategories(
+              syncedCategoryCache,
+              normalizedItems,
+              {
+                parentCategory: selectedCategories.length === 1 ? selectedCategories[0] : null,
+                parentCategoryId: selectedParentL1Ids.length === 1 ? selectedParentL1Ids[0] : null,
+              },
+              nowIso
+            );
+
+      saveSyncedKalodataCategories(nextCache);
+      onSyncedCategoryCacheChange(nextCache);
+      onBalanceRefresh?.();
+      if (level === 'l1') {
+        setShowAllCategories(true);
+      }
+    } catch (err) {
+      setSyncError(
+        err instanceof Error ? err.message : 'Unable to sync categories from Kalodata.'
+      );
+    } finally {
+      setIsSyncingCategories(false);
+    }
+  };
 
   const callBreakdownParts: string[] = [
     `${t.breakdownRankLabel}: ${plan.rankApiCalls}`,
@@ -306,7 +480,9 @@ export function ResearchSettingsPanel({
 
       {/* Working Strategy Slider & Live 7-Factor Weight Distribution (Always Totals 100) */}
       {showFineTune && (() => {
-        const liveWeights = computeStrategyWeights(salesWeightPct);
+        const previewCategory =
+          selectedCategories.length === 1 ? selectedCategories[0] : undefined;
+        const liveWeights = computeStrategyWeights(salesWeightPct, previewCategory);
         const totalWeight = SCORING_FACTOR_ORDER.reduce((sum, key) => sum + liveWeights[key], 0);
         return (
           <div className="pb-5 border-b border-zinc-100 space-y-4">
@@ -395,132 +571,246 @@ export function ResearchSettingsPanel({
         );
       })()}
 
-      {/* Interactive Selections: 1. Multi-Select Product Category + 2. Research Quantity */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        {/* 1. Product Category (Multi-Select with Verified IDs) */}
-        <div className="lg:col-span-6 space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
+      {/* 1. Universal Multi-Select Product Categories (Verified + Live Kalodata TH Sync + L2 Subcategories) */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-zinc-700">{t.settingCategoryLabel}</span>
-            {!bothSelected && (
-              <button
-                type="button"
-                onClick={onSelectBothCategories}
-                className="text-xs font-medium text-zinc-500 hover:text-zinc-950 transition-colors cursor-pointer"
-              >
-                {t.selectBothAction}
-              </button>
-            )}
+            <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
+              ({selectedCategories.length} {t.selectedCategoriesCountLabel})
+            </span>
           </div>
 
-          <div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-2"
-            role="group"
-            aria-label={t.settingCategoryLabel}
-          >
-            {(
-              [
-                {
-                  id: 'womens-fashion' as const,
-                  label: t.categoryFashion,
-                  catId: VERIFIED_TH_CATEGORY_IDS['womens-fashion'],
-                  selected: hasFashion,
-                },
-                {
-                  id: 'cosmetics-beauty' as const,
-                  label: t.categoryBeauty,
-                  catId: VERIFIED_TH_CATEGORY_IDS['cosmetics-beauty'],
-                  selected: hasBeauty,
-                },
-              ]
-            ).map((item) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {!allReadySelected && (
               <button
-                key={item.id}
+                type="button"
+                onClick={onSelectAllVerifiedCategories}
+                className="font-medium text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer"
+              >
+                {t.selectAllVerifiedAction}
+              </button>
+            )}
+            {selectedCategories.length > 0 && (
+              <button
+                type="button"
+                onClick={onClearAllCategories}
+                className="font-medium text-zinc-500 hover:text-zinc-950 transition-colors cursor-pointer"
+              >
+                {t.clearAllCategoriesAction}
+              </button>
+            )}
+            {extraCatalogEntries.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllCategories((prev) => !prev)}
+                className="inline-flex items-center gap-1 font-medium text-zinc-700 hover:text-zinc-950 transition-colors cursor-pointer"
+              >
+                <span>
+                  {showAllCategories
+                    ? t.hideExtraCategoriesToggle
+                    : `${t.showAllCategoriesToggle} (+${extraCatalogEntries.length})`}
+                </span>
+                {showAllCategories ? (
+                  <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSyncConfirmMode((prev) => (prev === 'l1' ? null : 'l1'))}
+              disabled={isSyncingCategories}
+              className="inline-flex items-center gap-1 font-medium text-emerald-700 hover:text-emerald-900 disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              {isSyncingCategories ? (
+                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <RefreshCw className="w-3 h-3" aria-hidden="true" />
+              )}
+              <span>{t.syncCategoriesBtn}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Inline Explicit Confirmation for 0.1-Credit Kalodata Category Sync (L1 or L2) */}
+        {syncConfirmMode && (
+          <div className="p-3.5 bg-zinc-50 border border-zinc-300 rounded-xl space-y-2.5 text-xs">
+            <div className="font-semibold text-zinc-950">
+              {syncConfirmMode === 'l1'
+                ? t.syncCategoriesConfirmTitle
+                : t.subcategoryLoadConfirmTitle}
+            </div>
+            <p className="text-zinc-600 leading-relaxed">
+              {syncConfirmMode === 'l1'
+                ? t.syncCategoriesConfirmDesc
+                : t.subcategoryLoadConfirmDesc}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <button
+                type="button"
+                onClick={() => handleConfirmSyncCategories(syncConfirmMode)}
+                className="min-h-[34px] px-3.5 py-1.5 text-xs font-medium text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+              >
+                {t.syncCategoriesConfirmProceed}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSyncConfirmMode(null)}
+                className="min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-400 rounded-lg transition-colors cursor-pointer"
+              >
+                {t.confirmCancelBtn}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {syncError && (
+          <div
+            role="alert"
+            className="p-3 rounded-lg bg-red-50/80 border border-red-200 text-xs text-red-800"
+          >
+            {syncError}
+          </div>
+        )}
+
+        {/* Universal Category Grid (Ready Categories Always First; Unsynced/Unsupported Honestly Disabled) */}
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+          role="group"
+          aria-label={t.settingCategoryLabel}
+        >
+          {visibleCatalogEntries.map((entry) => {
+            const catId = entry.id;
+            const isSelected = selectedCategories.includes(catId);
+            const label = getCategoryLabel(catId, language);
+            const statusText = t.categoryStatusLabels[entry.apiSupportStatus];
+
+            return (
+              <button
+                key={catId}
                 type="button"
                 role="checkbox"
-                aria-checked={item.selected}
-                onClick={() => onToggleCategory(item.id)}
-                className={`min-h-[44px] px-3.5 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
-                  item.selected
-                    ? 'bg-zinc-950 text-white border-zinc-950'
-                    : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                aria-checked={isSelected}
+                disabled={!entry.selectable}
+                onClick={() => {
+                  if (entry.selectable) onToggleCategory(catId);
+                }}
+                className={`min-h-[42px] px-3 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all ${
+                  !entry.selectable
+                    ? 'bg-zinc-50/80 text-zinc-400 border-zinc-200/70 cursor-not-allowed'
+                    : isSelected
+                      ? 'bg-zinc-950 text-white border-zinc-950 cursor-pointer'
+                      : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950 cursor-pointer'
                 }`}
               >
                 <span className="flex items-center gap-2 min-w-0">
                   <span
                     className={`w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 ${
-                      item.selected
-                        ? 'bg-white text-zinc-950 border-white'
-                        : 'border-zinc-300 bg-white'
+                      !entry.selectable
+                        ? 'border-zinc-200 bg-zinc-100'
+                        : isSelected
+                          ? 'bg-white text-zinc-950 border-white'
+                          : 'border-zinc-300 bg-white'
                     }`}
                     aria-hidden="true"
                   >
-                    {item.selected && <Check className="w-3 h-3 stroke-[2.5]" />}
+                    {isSelected && <Check className="w-3 h-3 stroke-[2.5]" />}
                   </span>
-                  <span className="text-xs sm:text-sm font-medium truncate">{item.label}</span>
+                  <span className="text-xs font-medium truncate">{label}</span>
                 </span>
                 <span
-                  className={`font-mono text-[11px] tabular-nums shrink-0 ${
-                    item.selected ? 'text-zinc-300' : 'text-zinc-400'
+                  className={`font-mono text-[10px] tabular-nums shrink-0 ${
+                    !entry.selectable
+                      ? entry.apiSupportStatus === 'unsupported'
+                        ? 'text-red-400'
+                        : 'text-amber-600/80'
+                      : isSelected
+                        ? 'text-zinc-300'
+                        : 'text-zinc-400'
                   }`}
                 >
-                  {item.catId}
+                  {entry.kalodataId ? entry.kalodataId : statusText}
                 </span>
               </button>
-            ))}
-          </div>
-
-          {noCategorySelected && (
-            <p className="text-xs text-amber-700">{t.noCategorySelectedWarning}</p>
-          )}
-
-          {/* Combined vs Split Mode (Only shown when Both Categories are selected) */}
-          {bothSelected && (
-            <div className="pt-1 space-y-1.5">
-              <div className="text-[11px] font-medium text-zinc-500">{t.bothModeLabel}</div>
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1 bg-zinc-100 rounded-lg"
-                role="radiogroup"
-                aria-label={t.bothModeLabel}
-              >
-                {(
-                  [
-                    {
-                      id: 'combined' as const,
-                      label: t.bothModeCombined,
-                      desc: t.bothModeCombinedDesc,
-                    },
-                    {
-                      id: 'split' as const,
-                      label: t.bothModeSplit,
-                      desc: t.bothModeSplitDesc,
-                    },
-                  ]
-                ).map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={bothCategoryMode === mode.id}
-                    onClick={() => onBothCategoryModeChange(mode.id)}
-                    className={`px-2.5 py-1.5 rounded-md text-left transition-all cursor-pointer ${
-                      bothCategoryMode === mode.id
-                        ? 'bg-white text-zinc-950 shadow-xs'
-                        : 'text-zinc-600 hover:text-zinc-950'
-                    }`}
-                  >
-                    <div className="text-xs font-medium">{mode.label}</div>
-                    <div className="text-[11px] text-zinc-500 leading-snug mt-0.5">
-                      {mode.desc}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
 
-        {/* 2. Research Quantity (Presets 10/20/30 + Custom Input) */}
-        <div className="lg:col-span-6 space-y-2.5">
+        {extraCatalogEntries.length > 0 && showAllCategories && (
+          <p className="text-[11px] text-zinc-500">{t.syncCategoriesEmptyHint}</p>
+        )}
+
+        {noCategorySelected && (
+          <p className="text-xs text-amber-700">{t.noCategorySelectedWarning}</p>
+        )}
+
+        {/* Optional L2 Subcategory Selector (Zero Auto Calls — Loads on User Confirmation) */}
+        {selectedParentL1Ids.length > 0 && (
+          <div className="pt-2 border-t border-zinc-100 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-600">
+                <Layers className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
+                <span>{t.subcategorySectionLabel}</span>
+              </span>
+              <div className="flex items-center gap-3 text-[11px]">
+                {selectedSubcategoryIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={onClearSubcategories}
+                    className="font-medium text-zinc-500 hover:text-zinc-950 cursor-pointer"
+                  >
+                    {t.subcategoryClearBtn}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSyncConfirmMode((prev) => (prev === 'l2' ? null : 'l2'))}
+                  disabled={isSyncingCategories}
+                  className="font-medium text-zinc-700 hover:text-zinc-950 disabled:opacity-50 cursor-pointer"
+                >
+                  {t.subcategoryLoadBtn}
+                </button>
+              </div>
+            </div>
+
+            {visibleSubcategories.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {visibleSubcategories.slice(0, 24).map((sub) => {
+                  const active = selectedSubcategoryIds.includes(sub.id);
+                  return (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      onClick={() => onToggleSubcategory(sub.id)}
+                      aria-pressed={active}
+                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md border transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-zinc-950 text-white border-zinc-950'
+                          : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400'
+                      }`}
+                    >
+                      {sub.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-zinc-400">{t.subcategoryEmptyHint}</p>
+            )}
+
+            {selectedSubcategoryIds.length > 0 && (
+              <p className="text-[11px] text-emerald-700">{t.subcategorySelectedHint}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 2. Research Quantity + Multi-Category Query Mode */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1 border-t border-zinc-100">
+        {/* Research Quantity (Presets 10/20/30 + Custom Input) */}
+        <div className={multipleSelected ? 'lg:col-span-6 space-y-2.5' : 'lg:col-span-12 space-y-2.5'}>
           <div className="flex items-center justify-between gap-2">
             <label htmlFor="custom-quantity-input" className="text-xs font-medium text-zinc-700">
               {t.settingQuantityLabel}
@@ -568,6 +858,51 @@ export function ResearchSettingsPanel({
             </div>
           </div>
         </div>
+
+        {/* Combined vs Split Mode (Shown whenever 2+ L1 Categories are selected without L2 override) */}
+        {multipleSelected && (
+          <div className="lg:col-span-6 space-y-2.5">
+            <div className="text-xs font-medium text-zinc-700">{t.multiCategoryModeLabel}</div>
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1 bg-zinc-100 rounded-lg"
+              role="radiogroup"
+              aria-label={t.multiCategoryModeLabel}
+            >
+              {(
+                [
+                  {
+                    id: 'combined' as const,
+                    label: t.bothModeCombined,
+                    desc: t.multiCategoryCombinedDesc,
+                  },
+                  {
+                    id: 'split' as const,
+                    label: t.bothModeSplit,
+                    desc: t.multiCategorySplitDesc,
+                  },
+                ]
+              ).map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={bothCategoryMode === mode.id}
+                  onClick={() => onBothCategoryModeChange(mode.id)}
+                  className={`px-2.5 py-1.5 rounded-md text-left transition-all cursor-pointer ${
+                    bothCategoryMode === mode.id
+                      ? 'bg-white text-zinc-950 shadow-xs'
+                      : 'text-zinc-600 hover:text-zinc-950'
+                  }`}
+                >
+                  <div className="text-xs font-medium">{mode.label}</div>
+                  <div className="text-[11px] text-zinc-500 leading-snug mt-0.5">
+                    {mode.desc}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 3. Research Mode Selector (Fast / Balanced / Deep Research) */}

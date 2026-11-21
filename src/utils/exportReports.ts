@@ -16,6 +16,7 @@ import {
   resolveEffectiveAiAnalysis,
 } from './productAnalytics.ts';
 import { formatThb } from './format.ts';
+import { getCategoryLabel } from './categoryRegistry.ts';
 
 const SECRET_KEY_PATTERN =
   /api[_-]?key|secret|token|authorization|cookie|password|credential|private[_-]?key/i;
@@ -416,7 +417,7 @@ export function buildProductsExportCsv(
     const cells = [
       getCanonicalProductId(product),
       product.name,
-      product.category === 'womens-fashion' ? "Women's Fashion" : 'Cosmetics & Beauty',
+      getCategoryLabel(product.category, 'en'),
       unavailableOr(product.subCategory),
       unavailableOr(product.shopName),
       unavailableOr(m?.sellerId),
@@ -494,8 +495,7 @@ export function buildCompleteTextReport(params: {
   const compUnavail = isCompetitionUnavailable(product, evaluation);
 
   const displayName = isMy ? product.nameMy : product.name;
-  const categoryLabel =
-    product.category === 'womens-fashion' ? "Women's Fashion" : 'Cosmetics & Beauty';
+  const categoryLabel = getCategoryLabel(product.category, language);
   const decisionLabel = isMy
     ? DECISION_LABELS_MY[decision.verdict]
     : DECISION_LABELS_EN[decision.verdict];

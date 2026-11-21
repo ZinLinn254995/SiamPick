@@ -14,6 +14,10 @@ import {
   getCanonicalProductId,
   normalizeDataStatus,
 } from './scoring.ts';
+import {
+  getCategoryDefinition,
+  verifyProductCategoryAlignment,
+} from './categoryRegistry.ts';
 
 export const AI_ANALYSIS_SCHEMA_VERSION = 1;
 
@@ -430,10 +434,9 @@ export function buildKalodataFallbackAnalysis(
   const dataBasis = buildAiAnalysisDataBasis(product, evaluation);
   const fingerprint = computeProductDataFingerprint(product);
   const canonicalProductId = getCanonicalProductId(product);
-  const isFashion = product.category === 'womens-fashion';
-  const adFormat: AiAdCreativeFormat = isFashion
-    ? 'ai-virtual-female-model'
-    : 'product-only-3d-commercial';
+  const categoryDef = getCategoryDefinition(product.category);
+  const categoryCheck = verifyProductCategoryAlignment(product);
+  const adFormat: AiAdCreativeFormat = categoryDef.aiProfile.adFormat;
 
   const windowEn = m?.dateRange === 'last7Day' ? '7-day' : '30-day';
   const windowMy = m?.dateRange === 'last7Day' ? '၇ ရက်' : '၃၀ ရက်';
@@ -566,16 +569,12 @@ export function buildKalodataFallbackAnalysis(
   const targetCustomerEn =
     needsExcerpt.length > 0
       ? `Informed by Kalodata Review Insights (${m?.reviewInsight?.commentsAnalyzed ?? 0} comments): Thai TikTok Shop shoppers in "${product.subCategory}"${isFinitePositive(product.priceThb) ? ` (${formatThbAmount(product.priceThb)})` : ''} looking for ${needsExcerpt}. Demographic details remain an estimate.`
-      : isFashion
-        ? `Market Inference (Estimated, not verified buyer demographics): Thai female TikTok Shop shoppers interested in "${product.subCategory}"${isFinitePositive(product.priceThb) ? ` in the ${formatThbAmount(product.priceThb)} price tier` : ''}, seeking everyday wearability, flattering fit, and fast Thailand delivery.`
-        : `Market Inference (Estimated, not verified buyer demographics): Thai skincare and beauty shoppers browsing "${product.subCategory}"${isFinitePositive(product.priceThb) ? ` around ${formatThbAmount(product.priceThb)}` : ''}, prioritizing visible texture/finish, Thai-climate comfort, and trustworthy official brand listings.`;
+      : `Market Inference (Estimated, not verified buyer demographics): ${categoryDef.aiProfile.targetAudienceDefaultEn} Subcategory focus: "${product.subCategory}"${isFinitePositive(product.priceThb) ? ` around ${formatThbAmount(product.priceThb)}` : ''}.`;
 
   const targetCustomerMy =
     needsExcerpt.length > 0
       ? `Kalodata ဝယ်သူ Review အချက်အလက် (မှတ်ချက် ${m?.reviewInsight?.commentsAnalyzed ?? 0} ခု) အခြေခံ — "${product.subCategoryMy}"${isFinitePositive(product.priceThb) ? ` (${formatThbAmount(product.priceThb)})` : ''} ကို ရှာဖွေပြီး (${needsExcerpt}) အတွက် အသုံးပြုလိုသော ထိုင်း TikTok Shop ဝယ်သူများနှင့် ကိုက်ညီပါသည်။`
-      : isFashion
-        ? `ဈေးကွက်ခန့်မှန်းချက် (Estimated — ဝယ်သူအချက်အလက်အတိအကျမဟုတ်ပါ): "${product.subCategoryMy}" ကို စိတ်ဝင်စားသော ထိုင်းအမျိုးသမီး TikTok Shop ဝယ်သူများ${isFinitePositive(product.priceThb) ? ` (${formatThbAmount(product.priceThb)} ဝန်းကျင် ဈေးနှုန်းတန်း)` : ''} ဖြစ်ပြီး နေ့စဉ်ဝတ်ဆင်ရလွယ်ကူမှုနှင့် ခန္ဓာကိုယ်နှင့်အံဝင်မှုကို ဦးစားပေးသူများအတွက် သင့်တော်နိုင်ပါသည်။`
-        : `ဈေးကွက်ခန့်မှန်းချက် (Estimated — ဝယ်သူအချက်အလက်အတိအကျမဟုတ်ပါ): "${product.subCategoryMy}" ကို ရှာဖွေနေသော ထိုင်းအလှကုန်နှင့် Skincare သုံးစွဲသူများ${isFinitePositive(product.priceThb) ? ` (${formatThbAmount(product.priceThb)} ဝန်းကျင်)` : ''} ဖြစ်ပြီး ထိုင်းရာသီဥတုနှင့် သင့်တော်မှုနှင့် ဆိုင်စစ်မှန်မှုကို အလေးထားသူများအတွက် သင့်တော်နိုင်ပါသည်။`;
+      : `ဈေးကွက်ခန့်မှန်းချက် (Estimated — ဝယ်သူအချက်အလက်အတိအကျမဟုတ်ပါ): ${categoryDef.aiProfile.targetAudienceDefaultMy} (${product.subCategoryMy}${isFinitePositive(product.priceThb) ? ` · ${formatThbAmount(product.priceThb)} ဝန်းကျင်` : ''})။`;
 
   // 7. Why Choose This Product (incorporates verified shop strength & buyer likes when enriched)
   const shopContextEn =
@@ -615,6 +614,7 @@ export function buildKalodataFallbackAnalysis(
       : [];
   const risksEn = Array.from(
     new Set([
+      ...(categoryCheck.status === 'unverified' ? [categoryCheck.noteEn] : []),
       ...verifiedComplaintRiskEn,
       ...evaluation.risksEn,
       ...(evaluation.unavailableCount > 0
@@ -622,18 +622,13 @@ export function buildKalodataFallbackAnalysis(
             `${evaluation.unavailableCount} scoring factor(s) are Unavailable in Kalodata (${evaluation.redistributedWeightPct} base pts redistributed) — verify missing metrics before scaling.`,
           ]
         : []),
-      ...(isFashion
-        ? [
-            'Sizing, fabric transparency, and color accuracy differences are common return triggers in Thailand Women’s Fashion.',
-          ]
-        : [
-            'Verify Thai FDA (อย.) notification number, official brand authenticity, and avoid prohibited medical/instant-whitening ad claims.',
-          ]),
+      ...categoryDef.aiProfile.riskChecklistEn,
     ])
   ).slice(0, 5);
 
   const risksMy = Array.from(
     new Set([
+      ...(categoryCheck.status === 'unverified' ? [categoryCheck.noteMy] : []),
       ...verifiedComplaintRiskMy,
       ...evaluation.risksMy,
       ...(evaluation.unavailableCount > 0
@@ -641,77 +636,30 @@ export function buildKalodataFallbackAnalysis(
             `Kalodata တွင် အချက် ${evaluation.unavailableCount} ချက် Unavailable ဖြစ်နေသဖြင့် (မူလ ${evaluation.redistributedWeightPct} မှတ် ပြန်ခွဲဝေထား) ကြော်ငြာမချဲ့မီ လိုအပ်သောဒေတာများကို စစ်ဆေးပါ။`,
           ]
         : []),
-      ...(isFashion
-        ? [
-            'အမျိုးသမီးဖက်ရှင်တွင် Size မတော်ခြင်း၊ အထည်သားကွာခြားခြင်းနှင့် အရောင်ကွဲလွဲခြင်းကြောင့် Return ဖြစ်နိုင်ခြေကို သတိပြုပါ။',
-          ]
-        : [
-            'အလှကုန်ဖြစ်၍ ထိုင်း FDA (อย.) မှတ်ပုံတင်နံပါတ်၊ Brand အစစ်အမှန်ဖြစ်မှုနှင့် TikTok ကြော်ငြာစည်းကမ်းချက်များကို စစ်ဆေးပါ။',
-          ]),
+      ...categoryDef.aiProfile.riskChecklistMy,
     ])
   ).slice(0, 5);
 
-  // 9. AI Advertising Content Suitability (Category-Specific Mandatory Rules 3 & 4)
+  // 9. AI Advertising Content Suitability (Universal Category-Specific Strategy)
   const suitabilityRating: AiVideoSuitability = product.aiVideoSuitability;
-  const aiContentSuitability = isFashion
-    ? {
-        adFormat,
-        suitabilityRating,
-        status: statuses.aiContentStatus,
-        summaryEn: product.imageVerified
-          ? `AI Virtual Female Model Assessment (Estimated): "${product.name}" has a verified product photo suitable for evaluating silhouette, styling, and outfit movement with an AI Virtual Female Model in Thai lifestyle settings. Keep fabric drape and true-to-size proportions realistic to avoid buyer returns.`
-          : `AI Virtual Female Model Assessment (Unverified): Verified product photo is currently unavailable, so garment drape, neckline, and texture cannot be visually confirmed for AI Virtual Female Model generation. Inspect live TikTok Shop buyer photos first.`,
-        summaryMy: product.imageVerified
-          ? `AI Virtual Female Model သင့်တော်မှု သုံးသပ်ချက် (Estimated): "${product.nameMy}" တွင် အတည်ပြုပြီး Product ပုံပါရှိသဖြင့် ထိုင်းနေ့စဉ်ပတ်ဝန်းကျင်တွင် AI Virtual Female Model ဖြင့် ဝတ်ဆင်ပြသကြော်ငြာရန် သင့်တော်မှုရှိပါသည်။ Return မဖြစ်စေရန် အထည်သားနှင့် Size အချိုးအစားကို အစစ်နှင့်တူညီအောင် ထိန်းသိမ်းဖန်တီးပါ။`
-          : `AI Virtual Female Model သင့်တော်မှု သုံးသပ်ချက် (Unverified): အတည်ပြုပြီး Product ပုံ မရရှိသေးသဖြင့် AI Virtual Female Model ကြော်ငြာအတွက် အထည်ပုံစံနှင့် အရောင်အတိအကျကို မအတည်ပြုနိုင်သေးပါ။ TikTok Shop ရှိ တကယ့်ပုံများကို အရင်စစ်ဆေးပါ။`,
-        creativeAnglesEn: [
-          '3-outfit styling transition with an AI Virtual Female Model in Bangkok café/office daylight.',
-          'Slow 360-degree turn highlighting silhouette, waist/shoulder fit, and pairing versatility.',
-          'Overlay clear Thai height/weight size chart guidance alongside the virtual model showcase.',
-        ],
-        creativeAnglesMy: [
-          'ဘန်ကောက် ကော်ဖီဆိုင်/ရုံးခန်း သဘာဝအလင်းတွင် AI Virtual Female Model ဖြင့် ဝတ်ဆင်ပုံ ၃ မျိုးပြောင်းလဲပြသခြင်း။',
-          'အင်္ကျီ/ဝတ်စုံ၏ ခန္ဓာကိုယ်အချိုးအစားနှင့် အလှအပကို ၃၆၀ ဒီဂရီ လှည့်ပြသခြင်း။',
-          'AI Model ဗီဒီယိုပေါ်တွင် အရပ်/ကိုယ်အလေးချိန်အလိုက် Size ဇယားကို ရှင်းလင်းစွာ ထည့်သွင်းပြသခြင်း။',
-        ],
-        cautionsEn: [
-          'Do not over-smooth fabric creases or exaggerate slimming effects beyond the real garment.',
-          'Match lighting to natural daylight so color shades stay faithful to the actual TikTok Shop SKU.',
-        ],
-        cautionsMy: [
-          'အထည်သားအစစ်ထက် ပိုမိုချောမွေ့လွန်းအောင် သို့မဟုတ် ပိုသေးသွယ်အောင် လွန်ကဲစွာ AI ပြုပြင်ခြင်း မလုပ်ပါနှင့်။',
-          'အရောင်ကွဲလွဲ၍ Return မဖြစ်စေရန် သဘာဝအလင်းနှင့် ကိုက်ညီသော အရောင်အစစ်ကိုသာ သုံးပါ။',
-        ],
-      }
-    : {
-        adFormat,
-        suitabilityRating,
-        status: statuses.aiContentStatus,
-        summaryEn: product.imageVerified
-          ? `Product-Only 3D Commercial Assessment (Estimated): "${product.name}" has a verified product photo suitable for a clean Product-Only 3D Commercial (floating bottle/compact rotation, studio lighting reflections, and texture/droplet macro motion) without needing human face/skin before-after claims.`
-          : `Product-Only 3D Commercial Assessment (Unverified): Verified product photo is currently unavailable, so packaging geometry, label clarity, and applicator details cannot be confirmed for 3D commercial modeling yet.`,
-        summaryMy: product.imageVerified
-          ? `Product-Only 3D ကြော်ငြာ သင့်တော်မှု သုံးသပ်ချက် (Estimated): "${product.nameMy}" တွင် အတည်ပြုပြီး Product ပုံပါရှိသဖြင့် လူမျက်နှာ/အသားအရေ Before-After မလိုဘဲ Product-Only 3D Commercial (ဘူး/ထုပ်ပိုးမှု 3D လှည့်ပြခြင်း၊ အရည်/အသား Macro ပြသခြင်း၊ Studio အလင်းပြေးခြင်း) ဖန်တီးရန် သင့်တော်ပါသည်။`
-          : `Product-Only 3D ကြော်ငြာ သင့်တော်မှု သုံးသပ်ချက် (Unverified): အတည်ပြုပြီး Product ပုံ မရရှိသေးသဖြင့် 3D ကြော်ငြာဖန်တီးရန် ဘူးပုံစံနှင့် တံဆိပ်အသေးစိတ်ကို မအတည်ပြုနိုင်သေးပါ။`,
-        creativeAnglesEn: [
-          'Hero 3D turntable reveal of the exact packaging with clean water/serum/velvet texture physics.',
-          'Macro close-up 3D cut highlighting key texture finish and applicator precision without exaggerated skin claims.',
-          'Clean Thai benefit callout cards paired with crisp studio reflections and basket CTA.',
-        ],
-        creativeAnglesMy: [
-          'Product ဘူးအစစ်ကို 3D လှည့်ပြပြီး အရည်/ခရင်မ်/အသား Texture ကို သပ်ရပ်စွာ Macro ရိုက်ချက်ဖြင့် ဖော်ပြခြင်း။',
-          'အသားအရေ Before-After လွန်ကဲသောပြောဆိုမှုမပါဘဲ ထုပ်ပိုးမှုနှင့် အသုံးပြုပုံအသေးစိတ်ကို 3D Animation ဖြင့် ပြသခြင်း။',
-          'Studio အလင်းပြေးမှုနှင့်အတူ ထိုင်းဝယ်သူများဖတ်ရလွယ်သော အဓိကအချက်အလက် Text Card များ ထည့်သွင်းခြင်း။',
-        ],
-        cautionsEn: [
-          'Keep 3D packaging labels and bottle proportions 100% faithful to the genuine Thai SKU.',
-          'Avoid banned instant-whitening, acne-cure, or medical visuals/claims in TikTok Shop Thailand ads.',
-        ],
-        cautionsMy: [
-          '3D ဖန်တီးရာတွင် ဘူးပုံစံနှင့် တံဆိပ်စာသားများကို ထိုင်းဈေးကွက်ရှိ ပစ္စည်းအစစ်အတိုင်း ၁၀၀% တူညီအောင် ထိန်းသိမ်းပါ။',
-          'TikTok Shop Thailand စည်းကမ်းအရ ချက်ချင်းဖြူစေသည်/ဆေးကုသနိုင်သည်ဟု အလွန်အကျွံ ဖော်ပြခြင်းကို ရှောင်ကြဉ်ပါ။',
-        ],
-      };
+  const formatEn = categoryDef.scoringProfile.formatLabelEn;
+  const formatMy = categoryDef.scoringProfile.formatLabelMy;
+
+  const aiContentSuitability = {
+    adFormat,
+    suitabilityRating,
+    status: statuses.aiContentStatus,
+    summaryEn: product.imageVerified
+      ? `${formatEn} Assessment (Estimated · ${categoryDef.labelEn}): "${product.name}" has a verified product photo suitable for ${formatEn.toLowerCase()} execution focusing on ${categoryDef.aiProfile.sellingPointsFocusEn}.`
+      : `${formatEn} Assessment (Unverified · ${categoryDef.labelEn}): Verified product photo is currently unavailable, so visual presentation and SKU details cannot be confirmed for ${formatEn.toLowerCase()} yet. Inspect live TikTok Shop buyer photos first.`,
+    summaryMy: product.imageVerified
+      ? `${formatMy} သင့်တော်မှု သုံးသပ်ချက် (Estimated · ${categoryDef.labelMy}): "${product.nameMy}" တွင် အတည်ပြုပြီး Product ပုံပါရှိသဖြင့် ${formatMy} ပုံစံဖြင့် ဖန်တီးတင်ဆက်ရန် သင့်တော်မှုရှိပါသည်။`
+      : `${formatMy} သင့်တော်မှု သုံးသပ်ချက် (Unverified · ${categoryDef.labelMy}): အတည်ပြုပြီး Product ပုံ မရရှိသေးသဖြင့် ${formatMy} အတွက် Product ပုံစံအတိအကျကို မအတည်ပြုနိုင်သေးပါ။ TikTok Shop ရှိ တကယ့်ပုံများကို အရင်စစ်ဆေးပါ။`,
+    creativeAnglesEn: [...categoryDef.aiProfile.creativeAnglesEn],
+    creativeAnglesMy: [...categoryDef.aiProfile.creativeAnglesMy],
+    cautionsEn: [...categoryDef.aiProfile.cautionsEn],
+    cautionsMy: [...categoryDef.aiProfile.cautionsMy],
+  };
 
   // 10. Final Recommendation
   const verdict = deriveFallbackVerdict(evaluation);
@@ -722,8 +670,8 @@ export function buildKalodataFallbackAnalysis(
     'priority-test': {
       headlineEn: 'Priority Test Candidate — Strong Kalodata metrics with high data confidence',
       headlineMy: 'ဦးစားပေး စမ်းသပ်သင့်သည် — Kalodata ဒေတာခိုင်မာပြီး ယုံကြည်စိတ်ချရမှု မြင့်မားသည်',
-      actionEn: `Confirm stock and active affiliate plan in TikTok Shop Thailand, then launch 2–3 focused ${isFashion ? 'AI Virtual Female Model' : 'Product-only 3D Commercial'} test videos.`,
-      actionMy: `TikTok Shop Thailand တွင် Stock နှင့် Affiliate Plan ကို စစ်ဆေးပြီး ${isFashion ? 'AI Virtual Female Model' : 'Product-only 3D Commercial'} စမ်းသပ်ဗီဒီယို ၂–၃ ခု စတင်တင်သင့်ပါသည်။`,
+      actionEn: `Confirm stock and active affiliate plan in TikTok Shop Thailand, then launch 2–3 focused ${formatEn} test videos.`,
+      actionMy: `TikTok Shop Thailand တွင် Stock နှင့် Affiliate Plan ကို စစ်ဆေးပြီး ${formatMy} စမ်းသပ်ဗီဒီယို ၂–၃ ခု စတင်တင်သင့်ပါသည်။`,
     },
     'test-with-caution': {
       headlineEn: 'Test With Caution — Promising signals, verify remaining data gaps first',
@@ -813,5 +761,11 @@ export function buildKalodataFallbackAnalysis(
       actionPlanEn: rec.actionEn,
       actionPlanMy: rec.actionMy,
     },
+    analyzedCategory: product.category,
+    categoryVerificationStatus: categoryCheck.status,
+    categoryVerificationNoteEn: categoryCheck.noteEn,
+    categoryVerificationNoteMy: categoryCheck.noteMy,
+    affiliateStrategyEn: categoryDef.aiProfile.affiliateStrategyFocusEn,
+    affiliateStrategyMy: categoryDef.aiProfile.affiliateStrategyFocusMy,
   };
 }

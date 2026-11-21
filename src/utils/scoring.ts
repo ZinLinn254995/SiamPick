@@ -4,6 +4,7 @@ import type {
   CriterionVerification,
   DataStatus,
   OpportunityEvaluation,
+  ProductCategory,
   ProductScoreSnapshot,
   ResearchProduct,
   ScoreFactorKey,
@@ -11,6 +12,7 @@ import type {
   StrategyPreset,
   StrategyWeightMap,
 } from '../types/product.ts';
+import { getCategoryDefinition } from './categoryRegistry.ts';
 
 export interface ScoringCriterionSpec {
   key: ScoreFactorKey;
@@ -95,51 +97,88 @@ export function deriveStrategyPresetFromWeight(salesWeightPct: number): Strategy
 }
 
 /**
- * Computes exact integer weights for all 7 factors from the Strategy Slider (salesWeightPct: 10..90).
- * Guaranteed invariant: sum of all 7 weights === 100 for every input.
- * - salesWeightPct = 50 -> Balanced Focus: [20, 20, 15, 15, 10, 10, 10]
- * - salesWeightPct = 70 -> Sales Focus:    [25, 24, 15, 10, 8, 10, 8]
- * - salesWeightPct = 30 -> Commission Focus:[15, 16, 13, 25, 11, 10, 10]
+ * Computes exact integer weights for all 7 factors from the Strategy Slider (salesWeightPct: 10..90)
+ * plus optional Phase 8 category-specific profile calibration.
+ * Guaranteed invariant: sum of all 7 weights === 100 for EVERY category and EVERY slider value.
+ * - Fashion & Cosmetics deltas are all 0 -> exact Phase 2–7 baseline [20, 20, 15, 15, 10, 10, 10] at 50%.
+ * - Other categories (e.g. Electronics, Home, Food, Health) apply small zero-sum emphasis shifts
+ *   (e.g. Electronics boosts sales/demand/competition & reduces aesthetic AI content weight) while
+ *   strictly keeping every factor >= 2 pts and exact sum === 100 pts.
  */
-export function computeStrategyWeights(salesWeightPct = 50): StrategyWeightMap {
+export function computeStrategyWeights(
+  salesWeightPct = 50,
+  category?: ProductCategory
+): StrategyWeightMap {
   const clamped = Number.isFinite(salesWeightPct)
     ? Math.max(10, Math.min(90, Math.round(salesWeightPct)))
     : 50;
 
+  let weights: StrategyWeightMap;
+
   if (clamped === 50) {
-    return { ...BALANCED_BASE_WEIGHTS };
+    weights = { ...BALANCED_BASE_WEIGHTS };
+  } else {
+    const target = clamped > 50 ? MAX_SALES_FOCUS_WEIGHTS : MAX_COMMISSION_FOCUS_WEIGHTS;
+    const ratio = Math.abs(clamped - 50) / 40; // 0..1
+
+    const rawEntries = SCORING_FACTOR_ORDER.map((key) => {
+      const exact = BALANCED_BASE_WEIGHTS[key] + (target[key] - BALANCED_BASE_WEIGHTS[key]) * ratio;
+      const floored = Math.floor(exact);
+      return {
+        key,
+        floored,
+        remainder: exact - floored,
+      };
+    });
+
+    let remainderPoints = 100 - rawEntries.reduce((sum, e) => sum + e.floored, 0);
+    const byRemainder = [...rawEntries].sort((a, b) => b.remainder - a.remainder);
+
+    weights = {} as StrategyWeightMap;
+    for (const entry of rawEntries) {
+      weights[entry.key] = entry.floored;
+    }
+    for (let i = 0; i < byRemainder.length && remainderPoints > 0; i += 1) {
+      weights[byRemainder[i].key] += 1;
+      remainderPoints -= 1;
+    }
   }
 
-  const target = clamped > 50 ? MAX_SALES_FOCUS_WEIGHTS : MAX_COMMISSION_FOCUS_WEIGHTS;
-  const ratio = Math.abs(clamped - 50) / 40; // 0..1
-
-  const rawEntries = SCORING_FACTOR_ORDER.map((key) => {
-    const exact = BALANCED_BASE_WEIGHTS[key] + (target[key] - BALANCED_BASE_WEIGHTS[key]) * ratio;
-    const floored = Math.floor(exact);
-    return {
-      key,
-      floored,
-      remainder: exact - floored,
-    };
-  });
-
-  let remainderPoints = 100 - rawEntries.reduce((sum, e) => sum + e.floored, 0);
-  const byRemainder = [...rawEntries].sort((a, b) => b.remainder - a.remainder);
-
-  const weights = {} as StrategyWeightMap;
-  for (const entry of rawEntries) {
-    weights[entry.key] = entry.floored;
-  }
-  for (let i = 0; i < byRemainder.length && remainderPoints > 0; i += 1) {
-    weights[byRemainder[i].key] += 1;
-    remainderPoints -= 1;
+  if (category) {
+    const deltas = getCategoryDefinition(category).scoringProfile.weightDeltas;
+    const adjusted = {} as StrategyWeightMap;
+    let total = 0;
+    for (const key of SCORING_FACTOR_ORDER) {
+      const next = Math.max(2, weights[key] + (deltas[key] ?? 0));
+      adjusted[key] = next;
+      total += next;
+    }
+    // Re-normalize any floor clamping diff onto the largest weight so sum is ALWAYS strictly 100
+    let diff = 100 - total;
+    if (diff !== 0) {
+      const ordered = [...SCORING_FACTOR_ORDER].sort((a, b) => adjusted[b] - adjusted[a]);
+      for (let i = 0; diff !== 0 && i < ordered.length * 4; i += 1) {
+        const k = ordered[i % ordered.length];
+        if (diff > 0) {
+          adjusted[k] += 1;
+          diff -= 1;
+        } else if (adjusted[k] > 2) {
+          adjusted[k] -= 1;
+          diff += 1;
+        }
+      }
+    }
+    return adjusted;
   }
 
   return weights;
 }
 
-export function getScoringRubricForStrategy(salesWeightPct = 50): ScoringCriterionSpec[] {
-  const weights = computeStrategyWeights(salesWeightPct);
+export function getScoringRubricForStrategy(
+  salesWeightPct = 50,
+  category?: ProductCategory
+): ScoringCriterionSpec[] {
+  const weights = computeStrategyWeights(salesWeightPct, category);
   return SCORING_FACTOR_ORDER.map((key) => ({
     key,
     maxPoints: weights[key],
@@ -935,11 +974,9 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
   const videoSharePct =
     rev !== null && videoRev !== null ? Math.round((videoRev / rev) * 1000) / 10 : null;
 
-  const isFashion = product.category === 'womens-fashion';
-  const strongKeywords = isFashion ? FASHION_STRONG_MODEL_KEYWORDS : BEAUTY_STRONG_3D_KEYWORDS;
-  const weakKeywords = isFashion
-    ? FASHION_LOW_FIT_OR_SENSITIVE_KEYWORDS
-    : BEAUTY_LOW_FIT_OR_UNCERTAIN_KEYWORDS;
+  const categoryProfile = getCategoryDefinition(product.category).scoringProfile;
+  const strongKeywords = categoryProfile.strongCreativeKeywords;
+  const weakKeywords = categoryProfile.weakCreativeKeywords;
 
   const matchedStrong = strongKeywords.some((kw) => haystack.includes(kw));
   const matchedWeak = weakKeywords.some((kw) => haystack.includes(kw));
@@ -956,7 +993,7 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
     score -= 4;
   }
 
-  // Verified product photo is essential visual reference for both AI Virtual Model & 3D Commercial
+  // Verified product photo is essential visual reference for AI / short-video commercial planning
   if (hasVerifiedImage) {
     score += 14;
   } else {
@@ -978,7 +1015,7 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
       status = 'unverified';
       score = Math.min(score, 54);
     } else {
-      // Matched sensitive/poor-fit keyword (e.g. underwear/refill sachet)
+      // Matched sensitive/poor-fit keyword (e.g. underwear/refill sachet/spare part)
       status = 'estimated';
       score = Math.min(score, 48);
     }
@@ -990,12 +1027,8 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
 
   const finalScore = clampScore(Math.max(15, score));
 
-  const formatLabelEn = isFashion
-    ? 'AI Virtual Female Model Ad'
-    : 'Product-Only 3D Commercial';
-  const formatLabelMy = isFashion
-    ? 'AI Virtual Female Model ကြော်ငြာ'
-    : 'Product-only 3D Commercial ကြော်ငြာ';
+  const formatLabelEn = categoryProfile.formatLabelEn;
+  const formatLabelMy = categoryProfile.formatLabelMy;
 
   let fitTagEn = 'Moderate fit';
   let fitTagMy = 'အသင့်အတင့်';
@@ -1014,27 +1047,11 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
   const reasonPartsMy: string[] = [];
 
   if (matchedWeak) {
-    reasonPartsEn.push(
-      isFashion
-        ? 'intimate/accessory or low-silhouette item poses policy/visual risk for AI virtual model try-on'
-        : 'pouch/consumable/utility format limits hero-packaging 3D commercial impact'
-    );
-    reasonPartsMy.push(
-      isFashion
-        ? 'အတွင်းခံ/အသေးစားပစ္စည်းဖြစ်၍ AI Virtual Female Model ကြော်ငြာအတွက် ကန့်သတ်ချက်ရှိသည်'
-        : 'အထုပ်သေး/Refill/အသုံးအဆောင်ပုံစံဖြစ်၍ Product-only 3D Commercial အတွက် ဆွဲဆောင်မှုနည်းနိုင်သည်'
-    );
+    reasonPartsEn.push(categoryProfile.weakFitReasonEn);
+    reasonPartsMy.push(categoryProfile.weakFitReasonMy);
   } else if (matchedStrong) {
-    reasonPartsEn.push(
-      isFashion
-        ? 'clear wearable garment/bag silhouette fits AI virtual female model showcase'
-        : 'clear hero beauty packaging/texture fits product-only 3D commercial renders'
-    );
-    reasonPartsMy.push(
-      isFashion
-        ? 'ဝတ်ဆင်ပုံထင်ရှားသော Fashion ပစ္စည်းဖြစ်၍ AI Virtual Female Model ပြသရန် သင့်တော်သည်'
-        : 'Packaging နှင့် Texture ထင်ရှားသော Beauty ပစ္စည်းဖြစ်၍ Product-only 3D Commercial ဖန်တီးရန် သင့်တော်သည်'
-    );
+    reasonPartsEn.push(categoryProfile.strongFitReasonEn);
+    reasonPartsMy.push(categoryProfile.strongFitReasonMy);
   } else {
     reasonPartsEn.push('uncertain SKU visual form from title alone — capped conservatively');
     reasonPartsMy.push('Product အမည်အရ ပုံစံမသေချာသဖြင့် အမှတ်အမြင့်မပေးဘဲ ကန့်သတ်ထားသည်');
@@ -1063,8 +1080,8 @@ function evaluateAiContentSuitability(product: ResearchProduct): {
 }
 
 /**
- * Evaluates a single product using the Phase 2 7-Factor 100-Point Product Scoring Engine.
- * - Uses Strategy Slider weights (always summing to 100).
+ * Evaluates a single product using the Phase 2/8 7-Factor 100-Point Product Scoring Engine.
+ * - Uses Strategy Slider + category-specific profile weights (always summing to 100).
  * - Redistributes Unavailable factor weights proportionally across available factors (NEVER scores missing data as 0/weight).
  * - Calculates and surfaces Data Confidence separately so missing data never masks risk.
  * - Generates concrete Strengths, Weaknesses, Risks, and Data Confidence explanations in EN & MY.
@@ -1079,7 +1096,7 @@ export function evaluateProductOpportunity(
       : 50;
   const strategyPreset =
     options?.strategyPreset ?? deriveStrategyPresetFromWeight(salesWeightPct);
-  const weights = computeStrategyWeights(salesWeightPct);
+  const weights = computeStrategyWeights(salesWeightPct, product.category);
   const peers = options?.peerProducts ?? [];
 
   const rawByKey: Record<

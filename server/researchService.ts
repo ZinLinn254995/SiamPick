@@ -31,6 +31,7 @@ import {
   formatCredits,
   KALODATA_USD_PER_CREDIT,
 } from '../src/utils/kalodataPricing.ts';
+import { getCategoryDefinition } from '../src/utils/categoryRegistry.ts';
 import { verifyKalodataImageUrl } from './imageRetriever.ts';
 import {
   fetchKalodataCreditBalance,
@@ -737,9 +738,17 @@ function buildKalodataProductSummary(
   if (mappedCategory === 'cosmetics-beauty') {
     missingDataEn.push('Thai FDA (อย.) notification number on the seller listing.');
     missingDataMy.push('ဆိုင်စာမျက်နှာရှိ ထိုင်း FDA (อย.) မှတ်ပုံတင်နံပါတ်။');
-  } else {
+  } else if (mappedCategory === 'womens-fashion') {
     missingDataEn.push('Garment size chart measurements (cm) and real buyer fit/fabric photos.');
     missingDataMy.push('အဝတ်အထည် Size Chart (cm) နှင့် ဝယ်သူများ၏ အထည်သား/ဝတ်ဆင်ပုံ ဓာတ်ပုံများ။');
+  } else {
+    const catDef = getCategoryDefinition(mappedCategory);
+    if (catDef.aiProfile.riskChecklistEn[0]) {
+      missingDataEn.push(catDef.aiProfile.riskChecklistEn[0]);
+    }
+    if (catDef.aiProfile.riskChecklistMy[0]) {
+      missingDataMy.push(catDef.aiProfile.riskChecklistMy[0]);
+    }
   }
 
   if (!imageCheck.imageVerified) {
@@ -1041,7 +1050,21 @@ export async function runThailandProductResearch(
     researchMode,
     deepDiveCount,
     includeReviewInsights,
+    selectedSubcategoryIds: config.selectedSubcategoryIds,
+    resolvedCategoryIdMap: config.resolvedCategoryIdMap,
   });
+
+  if (plan.streams.length === 0 || plan.categoryIds.length === 0) {
+    throw new ResearchApiError(
+      400,
+      'UNSUPPORTED_CATEGORY',
+      'None of the selected categories have a verified or live-synced Kalodata Thailand Category ID yet. Please sync live Thailand categories (0.1 credits) or select a verified category.',
+      {
+        errorMy:
+          'ရွေးချယ်ထားသော Category များအတွက် Kalodata Thailand Category ID မအတည်ပြုရသေးပါ။ Live TH Categories ကို Sync (0.1 cr) လုပ်ပါ သို့မဟုတ် အတည်ပြုပြီး Category ကို ရွေးချယ်ပါ။',
+      }
+    );
+  }
 
   // Hard Server-Side Spending Protection Gate (applies to Fast, Balanced & Deep BEFORE any API call)
   if (plan.estimatedCredits > spendingLimitCredits + 1e-6) {
@@ -1164,11 +1187,33 @@ export async function runThailandProductResearch(
           continue;
         }
 
-        // Strict Category Gate: pri_category.category_id MUST match verified TH IDs
+        // Strict Category Gate: match returned pri/sec/ter category IDs against requested L1/L2 stream IDs
         const priCategory = parseKalodataCategoryRef(item.pri_category);
+        const secCategory = parseKalodataCategoryRef(item.sec_category);
+        const terCategory = parseKalodataCategoryRef(item.ter_category);
         const priId = priCategory?.category_id ?? '';
-        const mappedCategory = resolveProductCategoryFromKalodataId(priId);
-        if (!mappedCategory || !streamIdSet.has(priId)) {
+        const secId = secCategory?.category_id ?? '';
+        const terId = terCategory?.category_id ?? '';
+
+        const matchesRequestedId =
+          (priId && streamIdSet.has(priId)) ||
+          (secId && streamIdSet.has(secId)) ||
+          (terId && streamIdSet.has(terId));
+
+        const mappedCategory =
+          resolveProductCategoryFromKalodataId(
+            priId,
+            priCategory?.category_name ?? null,
+            config.resolvedCategoryIdMap
+          ) ??
+          resolveProductCategoryFromKalodataId(
+            secId,
+            secCategory?.category_name ?? null,
+            config.resolvedCategoryIdMap
+          ) ??
+          (matchesRequestedId && stream.categories.length === 1 ? stream.categories[0] : null);
+
+        if (!mappedCategory || !matchesRequestedId) {
           filteredOutCount += 1;
           continue;
         }

@@ -1,6 +1,48 @@
-export type ProductCategory = 'womens-fashion' | 'cosmetics-beauty';
+export type ProductCategory =
+  | 'womens-fashion'
+  | 'cosmetics-beauty'
+  | 'electronics'
+  | 'home-living'
+  | 'kitchen'
+  | 'health-personal-care'
+  | 'food-beverages'
+  | 'baby-kids'
+  | 'sports-outdoor'
+  | 'automotive'
+  | 'pet-supplies'
+  | 'toys-hobbies'
+  | 'books-stationery'
+  | 'jewelry-accessories';
 
 export type CategoryFilter = 'all' | ProductCategory;
+
+export type CategoryApiSupportStatus =
+  | 'verified'
+  | 'docs-verified'
+  | 'synced'
+  | 'requires-sync'
+  | 'unsupported';
+
+export type CategoryVerificationStatus = 'verified' | 'unverified';
+
+export interface KalodataSubcategoryOption {
+  id: string;
+  name: string;
+  parentCategory: ProductCategory | null;
+  parentCategoryId?: string | null;
+  rank?: number | null;
+  revenueThb?: number | null;
+}
+
+export interface SyncedKalodataCategoryCache {
+  schemaVersion: number;
+  syncedAt: string | null;
+  subcategoriesSyncedAt: string | null;
+  l1IdBySlug: Partial<Record<ProductCategory, string>>;
+  l1NameBySlug: Partial<Record<ProductCategory, string>>;
+  unsupportedSlugs: ProductCategory[];
+  subcategories: KalodataSubcategoryOption[];
+}
 
 export type StrategyPreset = 'balanced' | 'sales-first' | 'commission-first';
 
@@ -169,6 +211,9 @@ export interface ResearchConfig {
   market: 'Thailand TikTok Shop';
   category: CategoryFilter;
   selectedCategories?: ProductCategory[];
+  selectedSubcategoryIds?: string[];
+  selectedSubcategoryNames?: string[];
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>;
   bothCategoryMode?: BothCategoryMode;
   researchMode?: ResearchMode;
   deepDiveCount?: number;
@@ -182,6 +227,7 @@ export interface ResearchConfig {
 
 export interface ResearchCostEstimate {
   selectedCategories: ProductCategory[];
+  selectedSubcategoryIds?: string[];
   categoryIds: string[];
   quantity: number;
   bothCategoryMode: BothCategoryMode;
@@ -341,6 +387,8 @@ export interface ResearchHistoryRecord {
   researchedAt: string; // ISO date & time
   researchMode: ResearchMode;
   selectedCategories: ProductCategory[];
+  selectedSubcategoryIds?: string[];
+  selectedSubcategoryNames?: string[];
   bothCategoryMode: BothCategoryMode;
   requestedQuantity: number;
   productCount: number;
@@ -740,7 +788,11 @@ export type AiRecommendationVerdict =
 
 export type AiAdCreativeFormat =
   | 'ai-virtual-female-model'
-  | 'product-only-3d-commercial';
+  | 'product-only-3d-commercial'
+  | 'tech-feature-demo'
+  | 'home-problem-solution-demo'
+  | 'lifestyle-usage-demo'
+  | 'consumable-trust-demo';
 
 export interface AiAnalysisDataFact {
   key: string;
@@ -826,11 +878,19 @@ export interface AiProductAnalysis {
   risksAndDrawbacksEn: string[];
   risksAndDrawbacksMy: string[];
 
-  // 9. AI Advertising Content Suitability (Fashion: Virtual Female Model | Beauty: Product-only 3D)
+  // 9. AI Advertising Content Suitability (Category-adapted ad creative strategy)
   aiContentSuitability: AiContentSuitabilityEvaluation;
 
   // 10. Final Recommendation
   finalRecommendation: AiFinalRecommendation;
+
+  // Phase 8: Universal Category Analysis & Verification Metadata
+  analyzedCategory?: ProductCategory;
+  categoryVerificationStatus?: CategoryVerificationStatus;
+  categoryVerificationNoteEn?: string;
+  categoryVerificationNoteMy?: string;
+  affiliateStrategyEn?: string;
+  affiliateStrategyMy?: string;
 }
 
 export interface CachedAiAnalysisEntry {

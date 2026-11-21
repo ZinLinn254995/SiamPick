@@ -19,6 +19,7 @@ import {
   getCanonicalProductId,
 } from './scoring.ts';
 import { getCachedAiAnalysisForProduct } from './aiAnalysisCache.ts';
+import { getCategoryDefinition } from './categoryRegistry.ts';
 
 const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = {
   High: 3,
@@ -193,12 +194,12 @@ export function deriveProductDecisionSummary(
       `AI သုံးသပ်ချက်တွင် "${aiVerdict === 'skip' ? 'ကျော်သွားသင့်သည်' : 'စောင့်ကြည့်အဆင့်'}" ဟု အကြံပြုထားပါသည်။`
     );
   }
-  if (product.category === 'cosmetics-beauty') {
-    cautionsEn.push('Verify Thai FDA registration and avoid exaggerated medical or skin claims.');
-    cautionsMy.push('ထိုင်း FDA မှတ်ပုံတင်နှင့် ကြော်ငြာစကားလုံး စည်းမျဉ်းများကို စစ်ဆေးပါ။');
-  } else {
-    cautionsEn.push('Check size chart accuracy and fabric expectations to minimize fashion returns.');
-    cautionsMy.push('Fashion Return နည်းစေရန် Size Chart နှင့် အထည်အရည်အသွေး မှန်ကန်မှုကို စစ်ဆေးပါ။');
+  const categoryDef = getCategoryDefinition(product.category);
+  if (categoryDef.aiProfile.riskChecklistEn[0]) {
+    cautionsEn.push(categoryDef.aiProfile.riskChecklistEn[0]);
+  }
+  if (categoryDef.aiProfile.riskChecklistMy[0]) {
+    cautionsMy.push(categoryDef.aiProfile.riskChecklistMy[0]);
   }
 
   let verdict: ProductDecisionVerdict;
@@ -751,14 +752,9 @@ export function computeBestProductSelections(
       ? (() => {
           const top = aiEligible[0];
           const aiScore = getAvailableCriterionScore(top.evaluation, 'aiContentSuitability') ?? 0;
-          const formatEn =
-            top.product.category === 'womens-fashion'
-              ? 'AI Virtual Female Model'
-              : 'Product-Only 3D Commercial';
-          const formatMy =
-            top.product.category === 'womens-fashion'
-              ? 'AI Virtual Female Model ကြော်ငြာ'
-              : 'Product-Only 3D Commercial';
+          const topCatDef = getCategoryDefinition(top.product.category);
+          const formatEn = topCatDef.scoringProfile.formatLabelEn;
+          const formatMy = topCatDef.scoringProfile.formatLabelMy;
           return {
             category: 'bestAiContentPotential',
             product: top.product,
