@@ -51,9 +51,9 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     requiredDataSourcesMy:
       'လက်ရှိရရှိထားသော Product Data + Kalodata Product Detail API (Fast Mode တွင် မပါသေးပါက)။',
     estimatedCostNoteEn:
-      'Low credit impact — reuses already-fetched product data first; optional Product Detail lookup uses ~0.1 credit only if needed (Phase 9.2). No credits are spent in Phase 9.1.',
+      'Low credit impact — reuses already-fetched product data & cache first (0 cr); calls verified Product Detail API (0.1 cr) only if missing.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ်နည်းသည် — ရှိပြီးသား Product Data ကို အရင်ပြန်သုံးပြီး လိုအပ်မှသာ Product Detail API (~0.1 cr) ခေါ်မည် (Phase 9.2)။ Phase 9.1 တွင် Credit လုံးဝ မကုန်ပါ။',
+      'Credit ကုန်ကျစရိတ်နည်းသည် — ရှိပြီးသား Product Data နှင့် Cache ကို အရင်ပြန်သုံးပြီး (0 cr) လိုအပ်မှသာ Product Detail API (0.1 cr) ခေါ်ပါမည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'Any unavailable field (such as SKU list or rating count) is explicitly labeled as Unavailable without guessing or filling placeholder numbers.',
@@ -92,16 +92,16 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'Product ၏ ရောင်းအားတက်နေသည်လား၊ တည်ငြိမ်နေသည်လား နှင့် ဈေးကွက်အခြေအနေအမှန်ကို ရှင်းလင်းစွာ နားလည်နိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Kalodata Product Rank & Product Detail metrics + Product Trend API (if daily/weekly breakdown is requested in Phase 9.2).',
+      'Existing Kalodata Sales & Revenue metrics + optional Product Detail API (0.1 cr only if missing). Historical Daily/Weekly/Monthly Trend API is currently Unavailable / Not Verified.',
     requiredDataSourcesMy:
-      'Kalodata Product Rank နှင့် Product Detail Data + Product Trend API (Phase 9.2 တွင် အချိန်အလိုက် Trend လိုအပ်ပါက)။',
+      'ရှိပြီးသား Kalodata ရောင်းအားနှင့် ဝင်ငွေ Data + လိုအပ်မှသာ Product Detail API (0.1 cr)။ Daily/Weekly/Monthly Trend API သည် လက်ရှိတွင် Unavailable / Not Verified ဖြစ်သည်။',
     estimatedCostNoteEn:
-      'Low to moderate credit impact — baseline 7-day sales & revenue come from existing research data; historical trend queries may use additional credits in Phase 9.2. Zero credits used in Phase 9.1.',
+      'Low credit impact — reuses existing verified sales & revenue metrics (0 cr) and never calls unverified trend endpoints.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ် နည်းမှအလယ်အလတ် — ၇ ရက် ရောင်းအား/ဝင်ငွေကို ရှိပြီးသား Data မှ ယူနိုင်ပြီး အချိန်အလိုက် Trend API အတွက် Phase 9.2 တွင် Credit အနည်းငယ် ထပ်ကုန်နိုင်သည်။ Phase 9.1 တွင် Credit မကုန်ပါ။',
+      'Credit ကုန်ကျစရိတ်နည်းသည် — ရှိပြီးသား ရောင်းအား/ဝင်ငွေ Data ကို ပြန်သုံးပြီး (0 cr) အတည်မပြုရသေးသော Trend API များ မခေါ်ပါ။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
-      'If Daily / Weekly / Monthly trend series are not returned by the API, the report explicitly states trend data is unavailable rather than interpolating fake charts.',
+      'If Daily / Weekly / Monthly trend series are not returned by a verified API, the report explicitly states trend data is unavailable rather than interpolating fake charts.',
     missingDataBehaviorMy:
       'Daily / Weekly / Monthly Trend Data မရရှိပါက အတုအယောင် ဂရပ်မဆွဲဘဲ Trend Data မရရှိနိုင်ကြောင်း ရှင်းလင်းစွာ ဖော်ပြပါမည်။',
   },
@@ -137,13 +137,13 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'Affiliate လုပ်ပါက တစ်ခုချင်းစီနှင့် အရေအတွက်အလိုက် ဘယ်လောက်ဝင်ငွေရနိုင်မလဲဆိုတာ လက်တွေ့ကျကျ တွက်ချက်သိရှိနိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Existing verified price & commission rate + optional Kalodata Product Detail API for promotion/SKU price range (Phase 9.2).',
+      'Existing verified price & affiliate commission rate (100% local computation).',
     requiredDataSourcesMy:
-      'ရှိပြီးသား တရားဝင်ဈေးနှုန်းနှင့် ကော်မရှင်နှုန်း + လိုအပ်ပါက Promotion/SKU ဈေးအတွက် Product Detail API (Phase 9.2)။',
+      'ရှိပြီးသား တရားဝင်ဈေးနှုန်းနှင့် ကော်မရှင်နှုန်း (100% Local တွက်ချက်မှု)။',
     estimatedCostNoteEn:
-      'Lowest credit impact — core profit calculations run locally from existing verified price & commission data with zero extra API calls when already present. Zero credits used in Phase 9.1.',
+      'Zero credit impact (0 cr) — all profit scenarios calculate locally from verified price & commission with zero extra API calls.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ် အနည်းဆုံး — ဈေးနှုန်းနှင့် ကော်မရှင် Data ရှိပြီးသားဖြစ်ပါက API ထပ်မခေါ်ဘဲ Local တွင် တွက်ချက်နိုင်သည်။ Phase 9.1 တွင် Credit လုံးဝ မကုန်ပါ။',
+      'Credit ကုန်ကျစရိတ် 0 cr — ဈေးနှုန်းနှင့် ကော်မရှင် Data ဖြင့် API ထပ်မခေါ်ဘဲ Local တွင် တိုက်ရိုက်တွက်ချက်ပေးပါသည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'If commission rate or unit price is unavailable, earning scenarios are withheld and the missing input is clearly flagged instead of assuming a default rate.',
@@ -180,13 +180,13 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'ပြိုင်ဆိုင်မှု ပြင်းထန်မှုအခြေအနေနှင့် ကိုယ်တိုင်ဝင်ရောက်ယှဉ်ပြိုင်နိုင်ခြေ ရှိမရှိကို ရှင်းလင်းစွာ သိရှိနိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Existing creator count metric + Kalodata Product Creators / Creator Rank API (Phase 9.2).',
+      'Existing creator count + Kalodata Product Detail API (0.1 cr only if missing). Creator Rank / Top Creators Breakdown API is currently Unavailable / Not Verified.',
     requiredDataSourcesMy:
-      'ရှိပြီးသား Creator အရေအတွက် + Kalodata Product Creators / Creator Rank API (Phase 9.2)။',
+      'ရှိပြီးသား Creator အရေအတွက် + လိုအပ်မှသာ Product Detail API (0.1 cr)။ Creator Rank / Top Creators API သည် လက်ရှိတွင် Unavailable / Not Verified ဖြစ်သည်။',
     estimatedCostNoteEn:
-      'Moderate credit impact — fetching top creator lists and sales shares requires dedicated Creator API query in Phase 9.2 (~0.1–0.3 cr). Zero credits used in Phase 9.1.',
+      'Low credit impact — reuses existing/cached Creator Count (0 cr) or shares 1 Product Detail call (0.1 cr) if missing.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ် အလယ်အလတ် — ထိပ်တန်း Creator စာရင်းနှင့် ရောင်းအားဝေစုအတွက် Phase 9.2 တွင် Creator API (~0.1–0.3 cr) ခေါ်ရန်လိုအပ်နိုင်သည်။ Phase 9.1 တွင် Credit မကုန်ပါ။',
+      'Credit ကုန်ကျစရိတ်နည်းသည် — ရှိပြီးသား/Cache ထဲရှိ Creator အရေအတွက်ကို ပြန်သုံးပြီး (0 cr) မရှိသေးမှသာ Product Detail (0.1 cr) ခေါ်ပါမည်။',
     costSensitivity: 'moderate',
     missingDataBehaviorEn:
       'If top creator breakdown is unavailable, only verified aggregate creator counts (if present) are displayed and missing creator lists are marked Unavailable.',
@@ -227,13 +227,13 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'ဘယ်လို Video ပုံစံတွေက ဒီ Product ကို ရောင်းအားကောင်းစေသလဲဆိုတာ တိကျစွာ နားလည်နိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Existing matched video signals (from Video-First discovery if present) + Kalodata Product Video Rank API (Phase 9.2).',
+      'Existing matched Myanmar video signals + Kalodata Product Video Channel metrics (0.1 cr Product Detail only if missing). Product-scoped Video List API is Unavailable / Not Verified.',
     requiredDataSourcesMy:
-      'ရှိပြီးသား Myanmar Video Signal များ + Kalodata Product Video Rank API (Phase 9.2)။',
+      'ရှိပြီးသား မြန်မာ Video Signal များ + Kalodata Product Video Channel Data (လိုအပ်မှသာ 0.1 cr)။ Product-scoped Video List API သည် Unavailable / Not Verified ဖြစ်သည်။',
     estimatedCostNoteEn:
-      'Moderate credit impact — querying product-linked videos typically uses ~0.1–0.2 credits per product in Phase 9.2. Zero credits used in Phase 9.1.',
+      'Low credit impact — reuses existing video metrics & matched videos (0 cr); never wastes credits on unverified broad video scans.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ် အလယ်အလတ် — Product နှင့်ချိတ်ထားသော Video များရယူရန် Phase 9.2 တွင် ~0.1–0.2 cr ခန့် ကုန်ကျနိုင်သည်။ Phase 9.1 တွင် Credit မကုန်ပါ။',
+      'Credit ကုန်ကျစရိတ်နည်းသည် — ရှိပြီးသား Video Data နှင့် ချိတ်ဆက် Video များကို ပြန်သုံးပြီး (0 cr) မလိုအပ်ဘဲ broad video scan မခေါ်ပါ။',
     costSensitivity: 'moderate',
     missingDataBehaviorEn:
       'If no linked affiliate videos or no Myanmar-language videos are found, the module reports 0 matched videos honestly without fabricating sample links or metrics.',
@@ -270,13 +270,13 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'Customer များ၏ အမြင်အမှန်နှင့် Product အပေါ် တုံ့ပြန်မှုကို နားလည်ပြီး ပြန်ပို့နှုန်းများနိုင်သည့် Product များကို ရှောင်ရှားနိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Kalodata Product Review / Comment API — strictly opt-in and only invoked when the user explicitly selects this option in Phase 9.2.',
+      'Kalodata Product Comment Insight API (1.0 cr) — strictly opt-in and only invoked when explicitly selected and not already cached.',
     requiredDataSourcesMy:
-      'Kalodata Product Review / Comment API — အသုံးပြုသူက ဤ Option ကို ကိုယ်တိုင်ရွေးချယ်မှသာ Phase 9.2 တွင် ခေါ်ယူမည်ဖြစ်သည်။',
+      'Kalodata Product Comment Insight API (1.0 cr) — အသုံးပြုသူက ဤ Option ကို ကိုယ်တိုင်ရွေးချယ်ပြီး Cache မရှိသေးမှသာ ခေါ်ယူမည်ဖြစ်သည်။',
     estimatedCostNoteEn:
-      'High credit sensitivity (Opt-In Only) — Review API calls cost significantly more (~1.0 cr/request). This option will NEVER run automatically; API calls happen only if you explicitly select it in Phase 9.2. Zero credits used in Phase 9.1.',
+      'High credit sensitivity (Opt-In Only) — Comment Insight API costs 1.0 cr per uncached product (0 cr if already cached). This option will NEVER run automatically.',
     estimatedCostNoteMy:
-      'ကုန်ကျစရိတ်မြင့်နိုင်သည် (ကိုယ်တိုင်ရွေးမှသာ ခေါ်မည်) — Review API သည် Credit ကုန်ကျစရိတ်များနိုင်သောကြောင့် (~1.0 cr) ဤ Option ကို ရွေးချယ်မှသာ Phase 9.2 တွင် ခေါ်မည်ဖြစ်သည်။ Phase 9.1 တွင် Credit လုံးဝ မကုန်ပါ။',
+      'ကုန်ကျစရိတ်မြင့်နိုင်သည် (ကိုယ်တိုင်ရွေးမှသာ ခေါ်မည်) — Comment Insight API သည် Cache မရှိသေးပါက 1.0 cr ကုန်ကျမည်ဖြစ်၍ ဤ Option ကို ရွေးချယ်မှသာ ခေါ်မည်ဖြစ်သည်။',
     costSensitivity: 'high',
     missingDataBehaviorEn:
       'If reviews are unavailable or restricted by the upstream API, the module clearly reports “Reviews Unavailable” instead of summarizing nonexistent comments.',
@@ -315,18 +315,18 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'ရွေးချယ်ထားသော Product ၏ ပြိုင်ဘက်များနှင့် ဈေးကွက်အနေအထားကို ရှင်းလင်းစွာ နှိုင်းယှဉ်နားလည်နိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Same-category peer products from current research session + optional Kalodata category peer lookup (Phase 9.2).',
+      'Same-category peer products already present in the current Research Results session (100% local comparison).',
     requiredDataSourcesMy:
-      'လက်ရှိ Research Session ရှိ Category တူ Product များ + လိုအပ်ပါက Kalodata Category Peer API (Phase 9.2)။',
+      'လက်ရှိ Research Results Session ရှိ Category တူ Product များ (100% Local နှိုင်းယှဉ်မှု)။',
     estimatedCostNoteEn:
-      'Low to moderate credit impact — compares against already-fetched peer products first (0 cr) and only fetches extra competitors if explicitly requested in Phase 9.2. Zero credits used in Phase 9.1.',
+      'Zero credit impact (0 cr) — compares strictly against already-fetched same-category peer products in your current session with zero extra API calls.',
     estimatedCostNoteMy:
-      'Credit ကုန်ကျစရိတ် နည်းမှအလယ်အလတ် — ရှိပြီးသား Category တူ Product များဖြင့် အရင်နှိုင်းယှဉ်ပြီး (0 cr) ထပ်မံရှာဖွေရန်လိုမှသာ Phase 9.2 တွင် Credit သုံးမည်။ Phase 9.1 တွင် Credit မကုန်ပါ။',
-    costSensitivity: 'moderate',
+      'Credit ကုန်ကျစရိတ် 0 cr — လက်ရှိ Session ထဲရှိ ရှာဖွေပြီးသား Category တူ Product များဖြင့်သာ API ထပ်မခေါ်ဘဲ နှိုင်းယှဉ်ပေးပါသည်။',
+    costSensitivity: 'low',
     missingDataBehaviorEn:
-      'If fewer than 2 comparable peer products or specific competitor metrics are unavailable, comparisons are limited strictly to verified fields and gaps are disclosed.',
+      'If no comparable same-category peer products exist in the current session, the module honestly reports Unavailable without calling extra paid APIs.',
     missingDataBehaviorMy:
-      'နှိုင်းယှဉ်ရန် အလားတူ Product မလုံလောက်ပါက သို့မဟုတ် Data မပြည့်စုံပါက အတည်ပြုပြီး Data များကိုသာ နှိုင်းယှဉ်ပြီး မရှိသည့်အချက်များကို ရှင်းပြပါမည်။',
+      'လက်ရှိ Session တွင် နှိုင်းယှဉ်ရန် Category တူ Product မရှိပါက Credit ထပ်မသုံးဘဲ Unavailable ဟု ရိုးသားစွာ ဖော်ပြပါမည်။',
   },
   {
     id: 'ai-strategic-recommendation',
@@ -362,13 +362,13 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeMy:
       'Affiliate လုပ်ငန်းအတွက် လက်တွေ့အသုံးချနိုင်မည့် ရှင်းလင်းသော Strategy နှင့် ဆုံးဖြတ်ချက်အကြံပြုချက် ရရှိမည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Verified product metrics + results from any other selected Deep Dive modules + Gemini AI analysis endpoint (Phase 9.2).',
+      'Verified product metrics + results from completed Deep Dive modules + server-side Gemini AI synthesis endpoint.',
     requiredDataSourcesMy:
-      'အတည်ပြုပြီး Product Data + အခြားရွေးချယ်ထားသော Deep Dive ရလဒ်များ + Gemini AI Analysis Endpoint (Phase 9.2)။',
+      'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive ရလဒ်များ + Server-side Gemini AI Endpoint။',
     estimatedCostNoteEn:
-      'Uses 0 Kalodata credits (relies on already-fetched data) and 1 Gemini AI call when executed in Phase 9.2. Zero API calls or credits are used in Phase 9.1.',
+      'Uses 0 Kalodata credits (relies on already-fetched data) and 1 server-side Gemini AI call. Output is clearly labeled as AI Interpretation.',
     estimatedCostNoteMy:
-      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်ပြီး Phase 9.2 တွင် Gemini AI Call ၁ ကြိမ်သာ သုံးမည်။ Phase 9.1 တွင် မည်သည့် API မျှ မခေါ်ပါ။',
+      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်ပြီး Server-side Gemini AI Call ၁ ကြိမ်သာ သုံးမည်။ ရလဒ်ကို AI Interpretation ဟု ရှင်းလင်းစွာ ခွဲခြားဖော်ပြပါမည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'AI strictly NEVER fabricates missing metrics. Whenever inputs (e.g., reviews, videos, or creator shares) are incomplete, AI explicitly explains those data limitations and lowers confidence accordingly.',
@@ -394,11 +394,12 @@ export function createInitialDeepDiveSlots(): Record<
   for (const option of DEEP_DIVE_ANALYSIS_OPTIONS) {
     slots[option.id] = {
       analysisId: option.id,
-      status: 'not-implemented',
+      status: 'idle',
       updatedAt: null,
       result: null,
-      statusNoteEn: 'Not Implemented Yet — Execution engine will be connected in Phase 9.2.',
-      statusNoteMy: 'မလုပ်ဆောင်ရသေးပါ (Not Implemented Yet) — Phase 9.2 တွင် Analysis Engine ချိတ်ဆက်မည်ဖြစ်သည်။',
+      error: null,
+      statusNoteEn: 'Ready — Run this module individually or with your selection.',
+      statusNoteMy: 'အဆင်သင့် — ဤ Analysis ကို တစ်ခုချင်း သို့မဟုတ် ရွေးချယ်ပြီး Run နိုင်ပါသည်။',
     };
   }
   return slots;
@@ -417,6 +418,7 @@ export function createInitialDeepDiveWorkspaceState(): DeepDiveWorkspaceState {
     slots: createInitialDeepDiveSlots(),
     lastAttemptedRunIds: [],
     lastAttemptedRunAt: null,
+    totalCreditsUsedInSession: 0,
   };
 }
 

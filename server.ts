@@ -20,7 +20,9 @@ import type {
 import { evaluateProductOpportunity } from './src/utils/scoring.ts';
 import { isValidProductCategory, UNIVERSAL_CATEGORIES } from './src/utils/categoryRegistry.ts';
 import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
+import { generateDeepDiveAiStrategy } from './server/deepDiveAiService.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
+import type { DeepDiveAnalysisId, DeepDiveCompletedModuleDigest } from './src/types/deepDive.ts';
 import {
   clampDeepDiveCount,
   clampMyanmarReviewScanLimit,
@@ -874,6 +876,121 @@ async function startServer() {
         ok: false,
         error: sanitizeServerError(error, 'Unexpected server error during data enrichment.'),
         code: 'ENRICHMENT_INTERNAL_ERROR',
+      });
+    }
+  });
+
+  // Phase 9.2: Deep Dive AI Strategic Recommendation (Option #8 — 0 Kalodata credits, server-side Gemini only)
+  app.post('/api/deep-dive/ai-strategy', async (req, res) => {
+    try {
+      const body = req.body as Record<string, unknown> | undefined;
+      const rawProduct =
+        body?.product && typeof body.product === 'object'
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid product object (id, name, category) is required for AI Strategic Recommendation.',
+          errorMy: 'AI Strategic Recommendation အတွက် မှန်ကန်သော Product အချက်အလက် လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      const rawWeight =
+        typeof body?.salesWeightPct === 'number' && Number.isFinite(body.salesWeightPct)
+          ? Math.max(10, Math.min(90, Math.round(body.salesWeightPct)))
+          : 50;
+
+      const validIds = new Set<DeepDiveAnalysisId>([
+        'product-intelligence',
+        'sales-market-intelligence',
+        'affiliate-profit-analysis',
+        'creator-competition-analysis',
+        'video-intelligence',
+        'customer-review-intelligence',
+        'market-competitor-comparison',
+      ]);
+
+      const completedModules: DeepDiveCompletedModuleDigest[] = Array.isArray(body?.completedModules)
+        ? body.completedModules
+            .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+            .filter(
+              (item) =>
+                typeof item.analysisId === 'string' &&
+                validIds.has(item.analysisId as DeepDiveAnalysisId)
+            )
+            .slice(0, 7)
+            .map((item) => ({
+              analysisId: item.analysisId as DeepDiveAnalysisId,
+              outcome: item.outcome === 'unavailable' ? 'unavailable' : 'completed',
+              dataStatus:
+                item.dataStatus === 'verified' ||
+                item.dataStatus === 'estimated' ||
+                item.dataStatus === 'unverified' ||
+                item.dataStatus === 'unavailable'
+                  ? item.dataStatus
+                  : 'unverified',
+              headlineEn: typeof item.headlineEn === 'string' ? item.headlineEn.slice(0, 240) : '',
+              summaryEn: typeof item.summaryEn === 'string' ? item.summaryEn.slice(0, 500) : '',
+              metrics: Array.isArray(item.metrics)
+                ? item.metrics
+                    .filter((m): m is Record<string, unknown> => Boolean(m) && typeof m === 'object')
+                    .slice(0, 12)
+                    .map((m) => ({
+                      label: typeof m.label === 'string' ? m.label.slice(0, 80) : '',
+                      value: typeof m.value === 'string' ? m.value.slice(0, 120) : '',
+                      status:
+                        m.status === 'verified' ||
+                        m.status === 'estimated' ||
+                        m.status === 'unverified' ||
+                        m.status === 'unavailable'
+                          ? m.status
+                          : 'unverified',
+                    }))
+                : [],
+              unavailableNotes: Array.isArray(item.unavailableNotes)
+                ? item.unavailableNotes
+                    .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+                    .map((n) => n.trim().slice(0, 220))
+                    .slice(0, 5)
+                : [],
+            }))
+        : [];
+
+      const product = rawProduct as unknown as ResearchProduct;
+      const evaluation = evaluateProductOpportunity(product, {
+        salesWeightPct: rawWeight,
+      });
+
+      const response = await generateDeepDiveAiStrategy({
+        product,
+        evaluation,
+        completedModules,
+        salesWeightPct: rawWeight,
+      });
+
+      if (!response.ok) {
+        res.status(200).json(response);
+        return;
+      }
+
+      res.status(200).json(response);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        code: 'UPSTREAM_ERROR',
+        error: sanitizeServerError(error, 'Unexpected server error during Deep Dive AI analysis.'),
+        errorMy: 'Deep Dive AI ခွဲခြမ်းစိတ်ဖြာမှုတွင် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
       });
     }
   });

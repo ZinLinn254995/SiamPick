@@ -127,11 +127,11 @@ import {
   buildDeepDiveTargetContext,
   clearAllDeepDiveOptions,
   createInitialDeepDiveWorkspaceState,
-  recordNotImplementedRunAttempt,
   selectAllDeepDiveOptions,
   toggleDeepDiveExpansion,
   toggleDeepDiveSelection,
 } from './utils/deepDiveRegistry';
+import { runDeepDiveModules } from './utils/deepDiveEngine';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -920,8 +920,102 @@ export default function App() {
     updateActiveDeepDiveState((current) => toggleDeepDiveExpansion(current, id));
   };
 
+  const resolveDeepDivePeerProducts = (target: DeepDiveSourceContext): ResearchProduct[] => {
+    if (target.originView === 'hunting') {
+      return liveResults;
+    }
+    if (target.originView === 'saved') {
+      return savedRecords.map((rec) => rec.product);
+    }
+    // For history origin, prefer the matching history session's products if available
+    const matchedHistory = researchHistory.find((rec) =>
+      rec.products.some(
+        (p) =>
+          p.id === target.originalProductId ||
+          getCanonicalProductId(p) === target.canonicalProductId
+      )
+    );
+    return matchedHistory ? matchedHistory.products : liveResults;
+  };
+
+  const executeDeepDiveForTarget = async (
+    target: DeepDiveSourceContext,
+    analysisIds: DeepDiveAnalysisId[],
+    forceRefresh = false
+  ) => {
+    if (analysisIds.length === 0) return;
+    const key = target.canonicalProductId;
+    const currentSnapshot =
+      deepDiveStatesByProduct[key] ?? createInitialDeepDiveWorkspaceState();
+    const peers = resolveDeepDivePeerProducts(target);
+    const runTimestamp = new Date().toISOString();
+
+    setDeepDiveStatesByProduct((prev) => {
+      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          lastAttemptedRunIds: [...analysisIds],
+          lastAttemptedRunAt: runTimestamp,
+        },
+      };
+    });
+
+    const outcome = await runDeepDiveModules({
+      product: target.product,
+      analysisIds,
+      peerProducts: peers,
+      existingSlots: currentSnapshot.slots,
+      spendingLimitCredits,
+      salesWeightPct,
+      forceRefresh,
+      onSlotUpdate: (analysisId, nextSlot) => {
+        setDeepDiveStatesByProduct((prev) => {
+          const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+          return {
+            ...prev,
+            [key]: {
+              ...current,
+              slots: {
+                ...current.slots,
+                [analysisId]: nextSlot,
+              },
+            },
+          };
+        });
+      },
+    });
+
+    if (outcome.totalCreditsUsed > 0) {
+      setDeepDiveStatesByProduct((prev) => {
+        const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            totalCreditsUsedInSession:
+              Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
+              1000,
+          },
+        };
+      });
+      setBalanceRefreshSignal((n) => n + 1);
+    }
+  };
+
   const handleDeepDiveRunSelected = () => {
-    updateActiveDeepDiveState((current) => recordNotImplementedRunAttempt(current));
+    if (!deepDiveTarget) return;
+    const current =
+      deepDiveStatesByProduct[deepDiveTarget.canonicalProductId] ??
+      createInitialDeepDiveWorkspaceState();
+    if (current.selectedIds.length === 0) return;
+    void executeDeepDiveForTarget(deepDiveTarget, [...current.selectedIds], false);
+  };
+
+  const handleDeepDiveRunSingle = (id: DeepDiveAnalysisId, forceRefresh = false) => {
+    if (!deepDiveTarget) return;
+    void executeDeepDiveForTarget(deepDiveTarget, [id], forceRefresh);
   };
 
   const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
@@ -1340,6 +1434,7 @@ export default function App() {
             onClearAll={handleDeepDiveClearAll}
             onToggleExpand={handleDeepDiveToggleExpand}
             onRunSelected={handleDeepDiveRunSelected}
+            onRunSingle={handleDeepDiveRunSingle}
             onBack={() => {
               setActiveView(deepDiveTarget.originView);
               window.scrollTo({ top: 0, behavior: 'smooth' });
