@@ -74,13 +74,43 @@ function isValidEntry(value: unknown): value is CachedAiAnalysisEntry {
   );
 }
 
+export const MAX_AI_ANALYSIS_CACHE_ENTRIES = 150;
+
+let memoizedAiCacheRaw: string | null = null;
+let memoizedAiCacheMap: Record<string, CachedAiAnalysisEntry> | null = null;
+
+function pruneAiCacheEntries(
+  entries: Record<string, CachedAiAnalysisEntry>,
+  maxEntries: number
+): Record<string, CachedAiAnalysisEntry> {
+  const list = Object.entries(entries);
+  if (list.length <= maxEntries) return entries;
+  list.sort((a, b) => {
+    const timeA = Date.parse(a[1].cachedAt || '') || 0;
+    const timeB = Date.parse(b[1].cachedAt || '') || 0;
+    return timeB - timeA;
+  });
+  const kept: Record<string, CachedAiAnalysisEntry> = {};
+  for (const [k, v] of list.slice(0, Math.max(1, maxEntries))) {
+    kept[k] = v;
+  }
+  return kept;
+}
+
 export function loadAiAnalysisCacheMap(): Record<string, CachedAiAnalysisEntry> {
   const storage = getStorage();
   if (!storage) return {};
 
   try {
     const raw = storage.getItem(AI_ANALYSIS_CACHE_STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) {
+      memoizedAiCacheRaw = null;
+      memoizedAiCacheMap = null;
+      return {};
+    }
+    if (raw === memoizedAiCacheRaw && memoizedAiCacheMap) {
+      return { ...memoizedAiCacheMap };
+    }
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return {};
     const env = parsed as Partial<AiAnalysisCacheEnvelopeV1>;
@@ -92,8 +122,12 @@ export function loadAiAnalysisCacheMap(): Record<string, CachedAiAnalysisEntry> 
         clean[key] = entry;
       }
     }
-    return clean;
+    memoizedAiCacheRaw = raw;
+    memoizedAiCacheMap = clean;
+    return { ...clean };
   } catch {
+    memoizedAiCacheRaw = null;
+    memoizedAiCacheMap = null;
     return {};
   }
 }
@@ -112,22 +146,41 @@ function persistAiAnalysisCacheMap(
     };
   }
 
-  const envelope: AiAnalysisCacheEnvelopeV1 = {
-    schemaVersion: AI_ANALYSIS_CACHE_SCHEMA_VERSION,
-    updatedAt: new Date().toISOString(),
-    entries,
-  };
+  const boundedEntries = pruneAiCacheEntries(entries, MAX_AI_ANALYSIS_CACHE_ENTRIES);
 
-  try {
+  const tryWrite = (targetEntries: Record<string, CachedAiAnalysisEntry>): StorageWriteResult => {
+    const envelope: AiAnalysisCacheEnvelopeV1 = {
+      schemaVersion: AI_ANALYSIS_CACHE_SCHEMA_VERSION,
+      updatedAt: new Date().toISOString(),
+      entries: targetEntries,
+    };
     const serialized = JSON.stringify(envelope);
     storage.setItem(AI_ANALYSIS_CACHE_STORAGE_KEY, serialized);
+    memoizedAiCacheRaw = serialized;
+    memoizedAiCacheMap = { ...targetEntries };
     return {
       ok: true,
       quotaExceeded: false,
       bytesUsed: serialized.length * 2,
     };
+  };
+
+  try {
+    return tryWrite(boundedEntries);
   } catch (err) {
     const quotaExceeded = isQuotaExceededError(err);
+    // If quota is tight, safely prune oldest 50% of AI cache entries ONLY (never touching History or Saved Products)
+    if (quotaExceeded && Object.keys(boundedEntries).length > 1) {
+      try {
+        const reduced = pruneAiCacheEntries(
+          boundedEntries,
+          Math.max(1, Math.floor(Object.keys(boundedEntries).length / 2))
+        );
+        return tryWrite(reduced);
+      } catch {
+        // Fall through to structured quota warning
+      }
+    }
     return {
       ok: false,
       quotaExceeded,

@@ -27,7 +27,7 @@ import {
   ScoreTier,
   VerificationState,
 } from '../types/product';
-import { formatThb } from '../utils/format';
+import { formatThb, isSafeHttpUrl } from '../utils/format';
 import { DEFAULT_SPENDING_LIMIT_CREDITS } from '../utils/kalodataPricing';
 import {
   evaluateProductOpportunity,
@@ -1243,7 +1243,7 @@ export function ResearchReportDrawer({
                       <span className="text-zinc-400">· {src.sourceType}</span>
                     </div>
 
-                    {src.url && src.verified ? (
+                    {src.verified && isSafeHttpUrl(src.url) ? (
                       <a
                         href={src.url}
                         target="_blank"
@@ -1291,79 +1291,83 @@ export function ResearchReportDrawer({
         </div>
 
         {/* Sticky Decision & Export Footer */}
-        <div className="shrink-0 bg-white border-t border-zinc-200 px-5 sm:px-7 py-3.5 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleCopyReport}
-            className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-700" aria-hidden="true" />
-                <span>{t.reportCopied}</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" aria-hidden="true" />
-                <span>{t.reportCopy}</span>
-              </>
-            )}
-          </button>
+        <div className="shrink-0 bg-white border-t border-zinc-200 px-4 sm:px-7 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCopyReport}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
+                  <span>{t.reportCopied}</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>{t.reportCopy}</span>
+                </>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={handleExportSingleCsv}
-            aria-label={t.exportCsvBtn}
-            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{t.reportExportCsv}</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleExportSingleCsv}
+              aria-label={t.exportCsvBtn}
+              className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.reportExportCsv}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={handleExportSingleJson}
-            aria-label={t.exportJsonBtn}
-            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
-          >
-            <Download className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{t.reportExportJson}</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleExportSingleJson}
+              aria-label={t.exportJsonBtn}
+              className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.reportExportJson}</span>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => onReject(product.id)}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
-              isRejected
-                ? 'bg-zinc-100 text-zinc-900 border-zinc-300 hover:bg-zinc-200'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:border-red-300 hover:text-red-700 hover:bg-red-50/40'
-            }`}
-          >
-            {isRejected ? (
-              <>
-                <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                <span>{t.btnRestoreProduct}</span>
-              </>
-            ) : (
-              <>
-                <X className="w-4 h-4" aria-hidden="true" />
-                <span>{t.btnRejectProduct}</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 sm:flex-1">
+            <button
+              type="button"
+              onClick={() => onReject(product.id)}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                isRejected
+                  ? 'bg-zinc-100 text-zinc-900 border-zinc-300 hover:bg-zinc-200'
+                  : 'bg-white text-zinc-700 border-zinc-200 hover:border-red-300 hover:text-red-700 hover:bg-red-50/40'
+              }`}
+            >
+              {isRejected ? (
+                <>
+                  <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>{t.btnRestoreProduct}</span>
+                </>
+              ) : (
+                <>
+                  <X className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>{t.btnRejectProduct}</span>
+                </>
+              )}
+            </button>
 
-          <button
-            type="button"
-            onClick={() => onSave(product.id)}
-            className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-              isSaved
-                ? 'bg-emerald-700 hover:bg-emerald-800'
-                : 'bg-zinc-950 hover:bg-zinc-800'
-            }`}
-          >
-            <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} aria-hidden="true" />
-            <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => onSave(product.id)}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                isSaved
+                  ? 'bg-emerald-700 hover:bg-emerald-800'
+                  : 'bg-zinc-950 hover:bg-zinc-800'
+              }`}
+            >
+              <Bookmark className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`} aria-hidden="true" />
+              <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

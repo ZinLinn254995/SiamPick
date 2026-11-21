@@ -660,14 +660,33 @@ export function buildCompleteTextReport(params: {
   return lines.join('\n');
 }
 
+export function sanitizeDownloadFilename(filename: string): string {
+  const cleaned = filename
+    .replace(/\.\.+/g, '-')
+    .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+/, '')
+    .slice(0, 120)
+    .trim();
+  return cleaned || 'siampick-export.txt';
+}
+
 export function triggerFileDownload(content: string, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename;
+  link.download = sanitizeDownloadFilename(filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Delay revocation slightly so mobile Safari/Chrome finish reading the Blob URL reliably
+  setTimeout(() => {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Ignore revocation errors
+    }
+  }, 1000);
 }

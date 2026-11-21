@@ -83,19 +83,31 @@ export function isSafeExternalUrl(rawUrl: string): boolean {
   try {
     const parsed = new URL(rawUrl);
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
-    const host = parsed.hostname.toLowerCase();
+    if (parsed.username || parsed.password) return false;
+    const rawHost = parsed.hostname.toLowerCase().replace(/\.+$/, '');
+    const host = rawHost.startsWith('[') && rawHost.endsWith(']') ? rawHost.slice(1, -1) : rawHost;
+    if (!host) return false;
     if (
       host === 'localhost' ||
+      host.endsWith('.localhost') ||
       host === '0.0.0.0' ||
+      host === '::' ||
       host === '::1' ||
-      host === '[::1]' ||
+      host === '0:0:0:0:0:0:0:1' ||
       host.endsWith('.local') ||
       host.endsWith('.internal') ||
       /^127\./.test(host) ||
       /^10\./.test(host) ||
       /^192\.168\./.test(host) ||
       /^169\.254\./.test(host) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+      /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host) ||
+      /^0\./.test(host) ||
+      /^fe[89ab][0-9a-f]:/i.test(host) ||
+      /^f[cd][0-9a-f]{2}:/i.test(host) ||
+      /^::ffff:/i.test(host) ||
+      /^\d+$/.test(host) ||
+      /^0x[0-9a-f]+$/i.test(host)
     ) {
       return false;
     }

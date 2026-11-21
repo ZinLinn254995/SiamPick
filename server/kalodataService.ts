@@ -178,10 +178,30 @@ function buildBurmeseError(message: string, upstreamCode?: string): string {
   return `Kalodata Free Credit Balance API ခေါ်ဆိုမှု မအောင်မြင်ပါ (${upstreamCode ? `Code ${upstreamCode}: ` : ''}${message})။`;
 }
 
+const FREE_BALANCE_MAX_ATTEMPTS = 2;
+const FREE_BALANCE_RETRY_DELAY_MS = 500;
+
+function isTransientHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function isAbortTimeoutError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const name = 'name' in err ? String((err as { name?: unknown }).name ?? '') : '';
+  const msg = 'message' in err ? String((err as { message?: unknown }).message ?? '') : '';
+  return (
+    name === 'TimeoutError' ||
+    name === 'AbortError' ||
+    msg.toLowerCase().includes('timeout') ||
+    msg.toLowerCase().includes('aborted')
+  );
+}
+
 /**
  * Calls Kalodata Open Center's Free Credit Balance endpoint strictly from the backend.
  * Official endpoint: GET https://www.kalodata.com/openapi/v1/credit/balance
  * Official header:   secret-key: <KALODATA_API_KEY>
+ * Safe to retry ONCE on transient network/timeout/5xx errors because this endpoint costs 0 credits.
  */
 export async function fetchKalodataCreditBalance(): Promise<KalodataBalanceResult> {
   const checkedAt = new Date().toISOString();
@@ -207,109 +227,151 @@ export async function fetchKalodataCreditBalance(): Promise<KalodataBalanceResul
     };
   }
 
-  try {
-    const response = await fetch(KALODATA_BALANCE_ENDPOINT, {
-      method: 'GET',
-      signal: AbortSignal.timeout(10_000),
-      headers: {
-        [KALODATA_AUTH_HEADER]: apiKey,
-        Accept: 'application/json',
-        'Content-Type': 'application/json;charset=utf-8',
-      },
-    });
+  let lastResult: KalodataBalanceResult | null = null;
 
-    const rawText = await response.text();
-    let parsed: Record<string, unknown> | null = null;
+  for (let attempt = 1; attempt <= FREE_BALANCE_MAX_ATTEMPTS; attempt += 1) {
     try {
-      const json = JSON.parse(rawText) as unknown;
-      if (json && typeof json === 'object' && !Array.isArray(json)) {
-        parsed = json as Record<string, unknown>;
-      }
-    } catch {
-      parsed = null;
-    }
+      const response = await fetch(KALODATA_BALANCE_ENDPOINT, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+        headers: {
+          [KALODATA_AUTH_HEADER]: apiKey,
+          Accept: 'application/json',
+          'Content-Type': 'application/json;charset=utf-8',
+        },
+      });
 
-    if (!parsed) {
-      const snippet = rawText.trim().slice(0, 180) || `HTTP ${response.status}`;
+      const rawText = await response.text();
+      let parsed: Record<string, unknown> | null = null;
+      try {
+        const json = JSON.parse(rawText) as unknown;
+        if (json && typeof json === 'object' && !Array.isArray(json)) {
+          parsed = json as Record<string, unknown>;
+        }
+      } catch {
+        parsed = null;
+      }
+
+      if (!parsed) {
+        const snippet = rawText.trim().slice(0, 180) || `HTTP ${response.status}`;
+        lastResult = {
+          ok: false,
+          configured: true,
+          endpoint: KALODATA_BALANCE_ENDPOINT,
+          authHeader: KALODATA_AUTH_HEADER,
+          httpStatus: response.status,
+          checkedAt,
+          balance: null,
+          unit: null,
+          fields: [],
+          rawData: null,
+          upstreamCode: `HTTP_${response.status}`,
+          error: `Unexpected non-JSON response from Kalodata (HTTP ${response.status}): ${snippet}`,
+          errorMy: `Kalodata မှ JSON မဟုတ်သော တုံ့ပြန်မှု ရရှိပါသည် (HTTP ${response.status})။`,
+        };
+        if (attempt < FREE_BALANCE_MAX_ATTEMPTS && isTransientHttpStatus(response.status)) {
+          await new Promise((resolve) => setTimeout(resolve, FREE_BALANCE_RETRY_DELAY_MS));
+          continue;
+        }
+        return lastResult;
+      }
+
+      const upstreamCode =
+        parsed.code !== undefined && parsed.code !== null ? String(parsed.code) : undefined;
+      const errorCategory =
+        typeof parsed.errorCategory === 'string' && parsed.errorCategory.trim()
+          ? parsed.errorCategory.trim()
+          : undefined;
+      const upstreamMessage =
+        typeof parsed.message === 'string' && parsed.message.trim()
+          ? parsed.message.trim()
+          : typeof parsed.msg === 'string' && parsed.msg.trim()
+            ? parsed.msg.trim()
+            : '';
+
+      // Kalodata OpenAPI returns HTTP 200 even on business/auth errors with { success: false, code, message }
+      const isExplicitFailure =
+        !response.ok ||
+        parsed.success === false ||
+        (upstreamCode !== undefined &&
+          upstreamCode !== '0' &&
+          upstreamCode !== '200' &&
+          parsed.success !== true);
+
+      if (isExplicitFailure) {
+        const errMsg = upstreamMessage || `Kalodata API returned HTTP ${response.status}`;
+        lastResult = {
+          ok: false,
+          configured: true,
+          endpoint: KALODATA_BALANCE_ENDPOINT,
+          authHeader: KALODATA_AUTH_HEADER,
+          httpStatus: response.status,
+          checkedAt,
+          balance: null,
+          unit: null,
+          fields: [],
+          rawData: parsed.data ?? null,
+          upstreamCode,
+          errorCategory,
+          error: errMsg,
+          errorMy: buildBurmeseError(errMsg, upstreamCode),
+        };
+        if (attempt < FREE_BALANCE_MAX_ATTEMPTS && isTransientHttpStatus(response.status)) {
+          await new Promise((resolve) => setTimeout(resolve, FREE_BALANCE_RETRY_DELAY_MS));
+          continue;
+        }
+        return lastResult;
+      }
+
+      const dataPayload = 'data' in parsed ? parsed.data : parsed;
+      const summary = extractBalanceSummary(dataPayload);
+
       return {
-        ok: false,
+        ok: true,
         configured: true,
         endpoint: KALODATA_BALANCE_ENDPOINT,
         authHeader: KALODATA_AUTH_HEADER,
         httpStatus: response.status,
+        checkedAt,
+        balance: summary.balance,
+        unit: summary.unit,
+        fields: summary.fields,
+        rawData: dataPayload,
+        upstreamCode,
+      };
+    } catch (err) {
+      const timedOut = isAbortTimeoutError(err);
+      const message =
+        err instanceof Error ? err.message : 'Network error connecting to Kalodata OpenAPI.';
+      lastResult = {
+        ok: false,
+        configured: true,
+        endpoint: KALODATA_BALANCE_ENDPOINT,
+        authHeader: KALODATA_AUTH_HEADER,
+        httpStatus: null,
         checkedAt,
         balance: null,
         unit: null,
         fields: [],
         rawData: null,
-        upstreamCode: `HTTP_${response.status}`,
-        error: `Unexpected non-JSON response from Kalodata (HTTP ${response.status}): ${snippet}`,
-        errorMy: `Kalodata မှ JSON မဟုတ်သော တုံ့ပြန်မှု ရရှိပါသည် (HTTP ${response.status})။`,
+        upstreamCode: timedOut ? 'TIMEOUT' : 'NETWORK_ERROR',
+        error: timedOut
+          ? 'Kalodata Free Credit Balance request timed out after 10 seconds.'
+          : `Failed to reach Kalodata OpenAPI: ${message}`,
+        errorMy: timedOut
+          ? 'Kalodata Credit Balance စစ်ဆေးမှု အချိန်ကျော်လွန်သွားပါသည် (10s Timeout)။ ခေတ္တစောင့်ပြီး ထပ်မံစမ်းသပ်ပါ။'
+          : `Kalodata OpenAPI သို့ ချိတ်ဆက်၍ မရပါ (${message})။`,
       };
+      if (attempt < FREE_BALANCE_MAX_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, FREE_BALANCE_RETRY_DELAY_MS));
+        continue;
+      }
+      return lastResult;
     }
+  }
 
-    const upstreamCode =
-      parsed.code !== undefined && parsed.code !== null ? String(parsed.code) : undefined;
-    const errorCategory =
-      typeof parsed.errorCategory === 'string' && parsed.errorCategory.trim()
-        ? parsed.errorCategory.trim()
-        : undefined;
-    const upstreamMessage =
-      typeof parsed.message === 'string' && parsed.message.trim()
-        ? parsed.message.trim()
-        : typeof parsed.msg === 'string' && parsed.msg.trim()
-          ? parsed.msg.trim()
-          : '';
-
-    // Kalodata OpenAPI returns HTTP 200 even on business/auth errors with { success: false, code, message }
-    const isExplicitFailure =
-      !response.ok ||
-      parsed.success === false ||
-      (upstreamCode !== undefined &&
-        upstreamCode !== '0' &&
-        upstreamCode !== '200' &&
-        parsed.success !== true);
-
-    if (isExplicitFailure) {
-      const errMsg = upstreamMessage || `Kalodata API returned HTTP ${response.status}`;
-      return {
-        ok: false,
-        configured: true,
-        endpoint: KALODATA_BALANCE_ENDPOINT,
-        authHeader: KALODATA_AUTH_HEADER,
-        httpStatus: response.status,
-        checkedAt,
-        balance: null,
-        unit: null,
-        fields: [],
-        rawData: parsed.data ?? null,
-        upstreamCode,
-        errorCategory,
-        error: errMsg,
-        errorMy: buildBurmeseError(errMsg, upstreamCode),
-      };
-    }
-
-    const dataPayload = 'data' in parsed ? parsed.data : parsed;
-    const summary = extractBalanceSummary(dataPayload);
-
-    return {
-      ok: true,
-      configured: true,
-      endpoint: KALODATA_BALANCE_ENDPOINT,
-      authHeader: KALODATA_AUTH_HEADER,
-      httpStatus: response.status,
-      checkedAt,
-      balance: summary.balance,
-      unit: summary.unit,
-      fields: summary.fields,
-      rawData: dataPayload,
-      upstreamCode,
-    };
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Network error connecting to Kalodata OpenAPI.';
-    return {
+  return (
+    lastResult ?? {
       ok: false,
       configured: true,
       endpoint: KALODATA_BALANCE_ENDPOINT,
@@ -321,10 +383,10 @@ export async function fetchKalodataCreditBalance(): Promise<KalodataBalanceResul
       fields: [],
       rawData: null,
       upstreamCode: 'NETWORK_ERROR',
-      error: `Failed to reach Kalodata OpenAPI: ${message}`,
-      errorMy: `Kalodata OpenAPI သို့ ချိတ်ဆက်၍ မရပါ (${message})။`,
-    };
-  }
+      error: 'Unable to reach Kalodata OpenAPI.',
+      errorMy: 'Kalodata OpenAPI သို့ ချိတ်ဆက်၍ မရပါ။',
+    }
+  );
 }
 
 const KALODATA_PRODUCT_RANK_ENDPOINT = 'https://www.kalodata.com/openapi/v1/tiktok/product/rank';
@@ -378,7 +440,7 @@ export async function fetchKalodataProductRank(
   params: KalodataProductRankRequest
 ): Promise<KalodataProductRankResult> {
   const checkedAt = new Date().toISOString();
-  const apiKey = getStrictKalodataApiKey();
+  const apiKey = getKalodataApiKey();
 
   if (!apiKey) {
     return {
@@ -610,14 +672,6 @@ export interface KalodataCategoryRankResult {
   errorMy?: string;
 }
 
-function getStrictKalodataApiKey(): string | null {
-  const key = (process.env.KALODATA_API_KEY ?? '').trim();
-  if (!key || key === 'MY_KALODATA_API_KEY') {
-    return null;
-  }
-  return key;
-}
-
 function normalizeCategoryRankItem(item: Record<string, unknown>): KalodataCategoryRankItem {
   return {
     category_id:
@@ -642,7 +696,7 @@ export async function fetchKalodataCategoryRank(
   params: KalodataCategoryRankRequest
 ): Promise<KalodataCategoryRankResult> {
   const checkedAt = new Date().toISOString();
-  const apiKey = getStrictKalodataApiKey();
+  const apiKey = getKalodataApiKey();
 
   if (!apiKey) {
     return {
@@ -841,7 +895,7 @@ async function callKalodataPostDetailEndpoint(
   timeoutMs = 15_000
 ): Promise<KalodataDetailApiResult<Record<string, unknown>>> {
   const checkedAt = new Date().toISOString();
-  const apiKey = getStrictKalodataApiKey();
+  const apiKey = getKalodataApiKey();
 
   if (!apiKey) {
     return {

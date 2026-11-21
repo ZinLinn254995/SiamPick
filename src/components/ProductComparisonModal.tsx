@@ -246,7 +246,7 @@ export function ProductComparisonModal({
                 <tr className="border-b border-zinc-200 bg-zinc-50/70">
                   <th
                     scope="col"
-                    className="sticky left-0 z-10 bg-zinc-50 px-4 sm:px-5 py-4 w-48 min-w-[170px] text-xs font-semibold text-zinc-600 align-bottom border-r border-zinc-200/80"
+                    className="sticky left-0 z-10 bg-zinc-50 px-3 sm:px-5 py-3.5 sm:py-4 w-32 min-w-[120px] sm:w-48 sm:min-w-[170px] text-xs font-semibold text-zinc-600 align-bottom border-r border-zinc-200/80"
                   >
                     {isMy ? 'နှိုင်းယှဉ်ချက်များ' : 'Comparison Metrics'}
                   </th>
@@ -258,7 +258,7 @@ export function ProductComparisonModal({
                       <th
                         key={col.item.selectionKey}
                         scope="col"
-                        className="px-4 py-4 min-w-[240px] max-w-[300px] align-top border-r border-zinc-100 last:border-r-0"
+                        className="px-3.5 sm:px-4 py-3.5 sm:py-4 min-w-[200px] sm:min-w-[240px] max-w-[280px] sm:max-w-[300px] align-top border-r border-zinc-100 last:border-r-0"
                       >
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 font-normal">
@@ -321,7 +321,7 @@ export function ProductComparisonModal({
                   <tr key={row.key} className="hover:bg-zinc-50/50 transition-colors">
                     <th
                       scope="row"
-                      className="sticky left-0 z-10 bg-white px-4 sm:px-5 py-3 font-medium text-zinc-700 align-top border-r border-zinc-200/80"
+                      className="sticky left-0 z-10 bg-white px-3 sm:px-5 py-3 font-medium text-zinc-700 align-top border-r border-zinc-200/80"
                     >
                       <div>{isMy ? row.labelMy : row.labelEn}</div>
                       {row.isDifferent && (
@@ -335,7 +335,7 @@ export function ProductComparisonModal({
                       return (
                         <td
                           key={`${row.key}-${matrix.columns[idx].item.selectionKey}`}
-                          className={`px-4 py-3 align-top leading-relaxed border-r border-zinc-100 last:border-r-0 ${
+                          className={`px-3.5 sm:px-4 py-3 align-top leading-relaxed border-r border-zinc-100 last:border-r-0 ${
                             isUnavailable
                               ? 'text-zinc-400 italic'
                               : row.isNumeric

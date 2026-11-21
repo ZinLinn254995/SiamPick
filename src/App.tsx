@@ -56,6 +56,7 @@ import {
   MIN_SPENDING_LIMIT_CREDITS,
 } from './utils/kalodataPricing';
 import { evaluateProductBatch, getCanonicalProductId } from './utils/scoring';
+import { isSafeHttpUrl } from './utils/format';
 import {
   computeBestProductSelections,
   DEFAULT_PRODUCT_FILTERS,
@@ -127,6 +128,18 @@ interface HuntErrorState {
 }
 
 const SPENDING_LIMIT_STORAGE_KEY = 'siampick_spending_limit_credits_v1';
+const LANGUAGE_STORAGE_KEY = 'siampick_language_v1';
+const RESEARCH_CLIENT_TIMEOUT_MS = 180_000;
+
+function loadSavedLanguage(): Language {
+  try {
+    const raw = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (raw === 'my' || raw === 'en') return raw;
+  } catch {
+    // Ignore storage unavailability
+  }
+  return 'en';
+}
 
 function loadSavedSpendingLimit(): number {
   try {
@@ -147,7 +160,7 @@ function loadSavedSpendingLimit(): number {
 }
 
 export default function App() {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>(() => loadSavedLanguage());
   const [activeView, setActiveView] = useState<AppView>('hunting');
 
   // Research Settings State
@@ -221,6 +234,7 @@ export default function App() {
   const settingsSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const huntingInFlightRef = useRef(false);
   const hasMountedSavedRef = useRef(false);
 
   // Persist Saved Products to localStorage whenever updated (surfaces QuotaExceeded cleanly)
@@ -234,6 +248,15 @@ export default function App() {
       setStorageAlert(writeRes);
     }
   }, [savedRecords]);
+
+  // Persist user language preference across refreshes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      // Ignore storage unavailability
+    }
+  }, [language]);
 
   // Persist user Spending Limit across refreshes
   useEffect(() => {
@@ -430,13 +453,19 @@ export default function App() {
   };
 
   const handleStartHunting = async (forceResumeOverride?: boolean) => {
-    if (selectedCategories.length === 0) {
+    if (selectedCategories.length === 0 || huntingInFlightRef.current) {
       return;
     }
 
+    huntingInFlightRef.current = true;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, RESEARCH_CLIENT_TIMEOUT_MS);
 
     const shouldForceResume = forceResumeOverride === true || quotaStatus.paused;
     const derivedCategory: CategoryFilter =
@@ -578,16 +607,25 @@ export default function App() {
       });
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
+        if (timedOut) {
+          setHuntError({
+            messageEn: 'Product research request timed out. Please check your connection and try again.',
+            messageMy: 'Product ရှာဖွေမှု အချိန်ကျော်လွန်သွားပါသည်။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်မံစမ်းသပ်ပါ။',
+            code: 'CLIENT_TIMEOUT',
+          });
+        }
         return;
       }
       const message =
         err instanceof Error ? err.message : 'Unable to complete product research.';
       setHuntError({ messageEn: message });
     } finally {
+      window.clearTimeout(timeoutId);
       if (abortControllerRef.current === controller) {
         abortControllerRef.current = null;
         setIsHunting(false);
       }
+      huntingInFlightRef.current = false;
     }
   };
 
@@ -1307,15 +1345,21 @@ export default function App() {
                               {src.title}{' '}
                               <span className="text-zinc-400">({src.domain})</span>
                             </span>
-                            <a
-                              href={src.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 font-medium text-zinc-900 hover:underline whitespace-nowrap shrink-0"
-                            >
-                              <span>{t.sourceOpenLink}</span>
-                              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                            </a>
+                            {isSafeHttpUrl(src.url) ? (
+                              <a
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-medium text-zinc-900 hover:underline whitespace-nowrap shrink-0"
+                              >
+                                <span>{t.sourceOpenLink}</span>
+                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                              </a>
+                            ) : (
+                              <span className="text-zinc-400 whitespace-nowrap shrink-0">
+                                {t.sourcePendingLink}
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>

@@ -50,7 +50,10 @@ function isValidSavedRecord(value: unknown): value is SavedProductRecord {
   if (!record.product || typeof record.product !== 'object') return false;
 
   const product = record.product as Record<string, unknown>;
-  const validPrice = typeof product.priceThb === 'number' || product.priceThb === null;
+  const validPrice =
+    typeof product.priceThb === 'number' ||
+    product.priceThb === null ||
+    product.priceThb === undefined;
   return (
     typeof product.id === 'string' &&
     typeof product.name === 'string' &&
@@ -69,6 +72,10 @@ function normalizeSavedRecord(record: SavedProductRecord): SavedProductRecord {
     sources: safeSources.map((s) => ({ ...s })),
     product: {
       ...record.product,
+      priceThb:
+        typeof record.product.priceThb === 'number' && Number.isFinite(record.product.priceThb)
+          ? record.product.priceThb
+          : null,
       sources: Array.isArray(record.product.sources)
         ? record.product.sources.map((s) => ({ ...s }))
         : safeSources.map((s) => ({ ...s })),
@@ -102,6 +109,9 @@ function normalizeSavedRecord(record: SavedProductRecord): SavedProductRecord {
       missingDataMy: Array.isArray(record.product.missingDataMy)
         ? record.product.missingDataMy
         : [],
+      videoIdeas: Array.isArray(record.product.videoIdeas)
+        ? record.product.videoIdeas
+        : ([] as unknown as ResearchProduct['videoIdeas']),
     },
   };
 }

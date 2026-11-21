@@ -81,8 +81,36 @@ function isValidHistoryRecord(value: unknown): value is ResearchHistoryRecord {
   return true;
 }
 
+function normalizeArchivedProduct(product: ResearchProduct): ResearchProduct {
+  return {
+    ...product,
+    priceThb:
+      typeof product.priceThb === 'number' && Number.isFinite(product.priceThb)
+        ? product.priceThb
+        : null,
+    sources: Array.isArray(product.sources) ? product.sources : [],
+    reviewStrengthsEn: Array.isArray(product.reviewStrengthsEn) ? product.reviewStrengthsEn : [],
+    reviewStrengthsMy: Array.isArray(product.reviewStrengthsMy) ? product.reviewStrengthsMy : [],
+    customerComplaintsEn: Array.isArray(product.customerComplaintsEn)
+      ? product.customerComplaintsEn
+      : [],
+    customerComplaintsMy: Array.isArray(product.customerComplaintsMy)
+      ? product.customerComplaintsMy
+      : [],
+    demandEvidenceEn: Array.isArray(product.demandEvidenceEn) ? product.demandEvidenceEn : [],
+    demandEvidenceMy: Array.isArray(product.demandEvidenceMy) ? product.demandEvidenceMy : [],
+    generalRisksEn: Array.isArray(product.generalRisksEn) ? product.generalRisksEn : [],
+    generalRisksMy: Array.isArray(product.generalRisksMy) ? product.generalRisksMy : [],
+    missingDataEn: Array.isArray(product.missingDataEn) ? product.missingDataEn : [],
+    missingDataMy: Array.isArray(product.missingDataMy) ? product.missingDataMy : [],
+    videoIdeas: Array.isArray(product.videoIdeas)
+      ? product.videoIdeas
+      : ([] as unknown as ResearchProduct['videoIdeas']),
+  };
+}
+
 function normalizeHistoryRecord(raw: ResearchHistoryRecord): ResearchHistoryRecord {
-  const validProducts = raw.products.filter(isValidProduct);
+  const validProducts = raw.products.filter(isValidProduct).map(normalizeArchivedProduct);
   const mode: ResearchMode =
     raw.researchMode === 'balanced' || raw.researchMode === 'deep' ? raw.researchMode : 'fast';
   const categories: ProductCategory[] = Array.isArray(raw.selectedCategories)

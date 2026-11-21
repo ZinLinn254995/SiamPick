@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
 import type { Language } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
+
+const BALANCE_CLIENT_TIMEOUT_MS = 12_000;
 
 interface KalodataBalanceEntry {
   key: string;
@@ -42,16 +44,31 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
   const [status, setStatus] = useState<KalodataBalanceResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
 
   const checkBalance = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, BALANCE_CLIENT_TIMEOUT_MS);
+
     setLoading(true);
     setFetchError(null);
     try {
       const res = await fetch('/api/kalodata/balance', {
         method: 'GET',
         cache: 'no-store',
+        signal: controller.signal,
       });
       const data = (await res.json().catch(() => null)) as KalodataBalanceResponse | null;
+      if (abortRef.current !== controller) return;
       if (!data) {
         setStatus(null);
         setFetchError(`HTTP ${res.status}`);
@@ -59,15 +76,32 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
       }
       setStatus(data);
     } catch (err) {
+      if (abortRef.current !== controller) return;
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        if (timedOut) {
+          setStatus(null);
+          setFetchError('Request timed out (12s)');
+        }
+        return;
+      }
       setStatus(null);
       setFetchError(err instanceof Error ? err.message : 'Network error');
     } finally {
+      window.clearTimeout(timeoutId);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void checkBalance();
+    return () => {
+      abortRef.current?.abort();
+      inFlightRef.current = false;
+    };
   }, [checkBalance, refreshSignal]);
 
   const errorMessage =
@@ -121,7 +155,7 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
                   <span className="font-mono font-semibold text-zinc-950 tabular-nums">
                     {status.balance !== null
                       ? status.balance.toLocaleString()
-                      : JSON.stringify(status.rawData)}
+                      : t.dataStatusLabels.unavailable}
                   </span>
                   {status.balance !== null && status.unit && (
                     <span className="ml-1 text-xs text-zinc-500 font-mono">{status.unit}</span>

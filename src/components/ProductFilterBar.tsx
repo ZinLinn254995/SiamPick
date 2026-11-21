@@ -88,7 +88,7 @@ export function ProductFilterBar({
         <div className="flex flex-wrap items-center gap-3">
           {/* Category Quick Switch */}
           <div
-            className="inline-flex items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
+            className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
             role="group"
             aria-label={t.settingCategoryLabel}
           >
@@ -116,7 +116,7 @@ export function ProductFilterBar({
 
           {/* Active / Saved / Rejected Queue Switch */}
           <div
-            className="inline-flex items-center gap-4 text-xs font-medium pl-1"
+            className="inline-flex max-w-full items-center gap-4 text-xs font-medium pl-1 overflow-x-auto"
             role="group"
             aria-label="Review queue"
           >
@@ -131,7 +131,7 @@ export function ProductFilterBar({
                 key={q.id}
                 type="button"
                 onClick={() => onChangeDecisionFilter(q.id)}
-                className={`py-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
+                className={`py-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                   decisionFilter === q.id
                     ? 'text-zinc-950 border-zinc-950'
                     : 'text-zinc-500 border-transparent hover:text-zinc-900'
@@ -146,7 +146,7 @@ export function ProductFilterBar({
 
         {/* Right Controls: 8-Field Sort + Highest/Lowest + Multi-Filter Toggle + Export CSV/JSON */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-1.5">
+          <div className="inline-flex items-center gap-1.5 w-full sm:w-auto">
             <label htmlFor="results-sort-field" className="text-xs font-medium text-zinc-500 sr-only">
               {t.sortLabel}
             </label>
@@ -155,7 +155,7 @@ export function ProductFilterBar({
               value={sortField}
               onChange={(e) => onChangeSortField(e.target.value as ProductSortField)}
               aria-label={t.sortLabel}
-              className="min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+              className="min-h-[38px] min-w-0 flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
             >
               {SORT_FIELDS.map((field) => (
                 <option key={field} value={field}>

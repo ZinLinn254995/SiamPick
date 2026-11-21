@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   ArrowUpRight,
   Bookmark,
@@ -51,7 +52,7 @@ function dataStatusColorClass(status: DataStatus): string {
   return 'text-zinc-400';
 }
 
-export function ResearchResultCard({
+export const ResearchResultCard = memo(function ResearchResultCard({
   product,
   evaluation: providedEvaluation,
   decisionSummary: providedDecisionSummary,
@@ -445,4 +446,4 @@ export function ResearchResultCard({
       </div>
     </article>
   );
-}
+});

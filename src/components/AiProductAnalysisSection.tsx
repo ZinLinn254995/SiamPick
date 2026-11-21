@@ -151,6 +151,7 @@ export function AiProductAnalysisSection({
   };
 
   const handleConfirmRunGemini = async () => {
+    if (isAnalyzing) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;

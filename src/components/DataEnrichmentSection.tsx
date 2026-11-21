@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -103,6 +103,15 @@ export function DataEnrichmentSection({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      inFlightRef.current = false;
+    };
+  }, []);
   const [cacheWarning, setCacheWarning] = useState<string | null>(null);
   const [lastSummary, setLastSummary] = useState<ProductEnrichmentExecutionSummary | null>(null);
 
@@ -212,6 +221,17 @@ export function DataEnrichmentSection({
   };
 
   const handleConfirmEnrich = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 45_000);
+
     setConfirmOpen(false);
     setErrorMsg(null);
     setCacheWarning(null);
@@ -221,6 +241,7 @@ export function DataEnrichmentSection({
       const response = await fetch('/api/enrich-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           product,
           requestedLayers: selection,
@@ -245,6 +266,8 @@ export function DataEnrichmentSection({
         errorMy?: string;
       } | null;
 
+      if (abortRef.current !== controller) return;
+
       if (!response.ok || !payload?.ok || !payload.product) {
         setErrorMsg(
           isMy
@@ -268,9 +291,24 @@ export function DataEnrichmentSection({
       setLastSummary(summary);
       onProductEnriched?.(payload.product, payload.shopDetail ?? null, summary);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        if (timedOut) {
+          setErrorMsg(
+            isMy
+              ? 'Kalodata ဒေတာဖြည့်စွက်မှု အချိန်ကျော်လွန်သွားပါသည် (45s Timeout)။ ထပ်မံစမ်းသပ်ပါ။'
+              : 'Data enrichment request timed out after 45 seconds. Please try again.'
+          );
+        }
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'Network error during enrichment.';
       setErrorMsg(msg);
     } finally {
+      window.clearTimeout(timeoutId);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      inFlightRef.current = false;
       setIsEnriching(false);
     }
   };

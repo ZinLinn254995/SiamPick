@@ -87,6 +87,29 @@ function isValidReviewRecord(val: unknown): val is KalodataReviewInsightData {
   );
 }
 
+export const MAX_ENRICHMENT_CACHE_ENTRIES_PER_BUCKET = 200;
+
+let memoizedEnrichCacheRaw: string | null = null;
+let memoizedEnrichCache: EnrichmentCacheEnvelopeV1 | null = null;
+
+function pruneRecordMapByUpdatedAt<T extends { updatedAt?: string }>(
+  map: Record<string, T>,
+  maxEntries: number
+): Record<string, T> {
+  const entries = Object.entries(map);
+  if (entries.length <= maxEntries) return map;
+  entries.sort((a, b) => {
+    const tA = Date.parse(a[1].updatedAt || '') || 0;
+    const tB = Date.parse(b[1].updatedAt || '') || 0;
+    return tB - tA;
+  });
+  const kept: Record<string, T> = {};
+  for (const [k, v] of entries.slice(0, Math.max(1, maxEntries))) {
+    kept[k] = v;
+  }
+  return kept;
+}
+
 /**
  * Loads the dedicated Phase 4 LocalStorage Enrichment Cache safely.
  * Keyed by canonical Product ID (for Product Detail & Review Insights) and Shop ID (for Shop Detail).
@@ -98,7 +121,20 @@ export function loadEnrichmentCache(): EnrichmentCacheEnvelopeV1 {
 
   try {
     const raw = storage.getItem(ENRICHMENT_CACHE_STORAGE_KEY);
-    if (!raw) return emptyCache();
+    if (!raw) {
+      memoizedEnrichCacheRaw = null;
+      memoizedEnrichCache = null;
+      return emptyCache();
+    }
+    if (raw === memoizedEnrichCacheRaw && memoizedEnrichCache) {
+      return {
+        schemaVersion: memoizedEnrichCache.schemaVersion,
+        updatedAt: memoizedEnrichCache.updatedAt,
+        products: { ...memoizedEnrichCache.products },
+        shops: { ...memoizedEnrichCache.shops },
+        reviews: { ...memoizedEnrichCache.reviews },
+      };
+    }
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return emptyCache();
 
@@ -123,14 +159,25 @@ export function loadEnrichmentCache(): EnrichmentCacheEnvelopeV1 {
       }
     }
 
-    return {
+    const result: EnrichmentCacheEnvelopeV1 = {
       schemaVersion: ENRICHMENT_CACHE_SCHEMA_VERSION,
       updatedAt: typeof env.updatedAt === 'string' ? env.updatedAt : new Date().toISOString(),
       products,
       shops,
       reviews,
     };
+    memoizedEnrichCacheRaw = raw;
+    memoizedEnrichCache = result;
+    return {
+      schemaVersion: result.schemaVersion,
+      updatedAt: result.updatedAt,
+      products: { ...result.products },
+      shops: { ...result.shops },
+      reviews: { ...result.reviews },
+    };
   } catch {
+    memoizedEnrichCacheRaw = null;
+    memoizedEnrichCache = null;
     return emptyCache();
   }
 }
@@ -147,24 +194,66 @@ function persistEnrichmentCache(cache: EnrichmentCacheEnvelopeV1): StorageWriteR
     };
   }
 
-  const envelope: EnrichmentCacheEnvelopeV1 = {
+  const bounded: EnrichmentCacheEnvelopeV1 = {
     schemaVersion: ENRICHMENT_CACHE_SCHEMA_VERSION,
     updatedAt: new Date().toISOString(),
-    products: cache.products,
-    shops: cache.shops,
-    reviews: cache.reviews,
+    products: pruneRecordMapByUpdatedAt(cache.products, MAX_ENRICHMENT_CACHE_ENTRIES_PER_BUCKET),
+    shops: pruneRecordMapByUpdatedAt(cache.shops, MAX_ENRICHMENT_CACHE_ENTRIES_PER_BUCKET),
+    reviews: pruneRecordMapByUpdatedAt(cache.reviews, MAX_ENRICHMENT_CACHE_ENTRIES_PER_BUCKET),
   };
 
-  try {
+  const tryWrite = (envelope: EnrichmentCacheEnvelopeV1): StorageWriteResult => {
     const serialized = JSON.stringify(envelope);
     storage.setItem(ENRICHMENT_CACHE_STORAGE_KEY, serialized);
+    memoizedEnrichCacheRaw = serialized;
+    memoizedEnrichCache = {
+      schemaVersion: envelope.schemaVersion,
+      updatedAt: envelope.updatedAt,
+      products: { ...envelope.products },
+      shops: { ...envelope.shops },
+      reviews: { ...envelope.reviews },
+    };
     return {
       ok: true,
       quotaExceeded: false,
       bytesUsed: serialized.length * 2,
     };
+  };
+
+  try {
+    return tryWrite(bounded);
   } catch (err) {
     const quotaExceeded = isQuotaExceededError(err);
+    // Prune oldest 50% of enrichment cache ONLY (never deleting Research History or Saved Products)
+    if (quotaExceeded) {
+      const totalEntries =
+        Object.keys(bounded.products).length +
+        Object.keys(bounded.shops).length +
+        Object.keys(bounded.reviews).length;
+      if (totalEntries > 2) {
+        try {
+          const reduced: EnrichmentCacheEnvelopeV1 = {
+            schemaVersion: ENRICHMENT_CACHE_SCHEMA_VERSION,
+            updatedAt: new Date().toISOString(),
+            products: pruneRecordMapByUpdatedAt(
+              bounded.products,
+              Math.max(1, Math.floor(Object.keys(bounded.products).length / 2))
+            ),
+            shops: pruneRecordMapByUpdatedAt(
+              bounded.shops,
+              Math.max(1, Math.floor(Object.keys(bounded.shops).length / 2))
+            ),
+            reviews: pruneRecordMapByUpdatedAt(
+              bounded.reviews,
+              Math.max(1, Math.floor(Object.keys(bounded.reviews).length / 2))
+            ),
+          };
+          return tryWrite(reduced);
+        } catch {
+          // Fall through to structured quota warning
+        }
+      }
+    }
     return {
       ok: false,
       quotaExceeded,

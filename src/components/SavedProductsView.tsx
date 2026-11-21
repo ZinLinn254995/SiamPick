@@ -19,7 +19,7 @@ import {
   SavedProductRecord,
   ScoreTier,
 } from '../types/product';
-import { formatThb } from '../utils/format';
+import { formatThb, isSafeHttpUrl } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
 import {
   buildProductsExportCsv,
@@ -285,7 +285,7 @@ export function SavedProductsView({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4">
               <div
-                className="inline-flex items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
+                className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
                 role="group"
                 aria-label={t.settingCategoryLabel}
               >
@@ -498,7 +498,7 @@ export function SavedProductsView({
                                     <span className="truncate max-w-xl">
                                       {isMy ? src.labelMy : src.labelEn}
                                     </span>
-                                    {src.verified && src.url ? (
+                                    {src.verified && isSafeHttpUrl(src.url) ? (
                                       <a
                                         href={src.url}
                                         target="_blank"

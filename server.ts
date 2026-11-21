@@ -154,8 +154,62 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
   };
 }
 
+const ALLOWED_KALODATA_REGIONS = new Set([
+  'US', 'BR', 'MX', 'ID', 'JP', 'MY', 'PH', 'SG', 'TH', 'VN',
+  'GB', 'ES', 'DE', 'FR', 'IT', 'PL', 'NL', 'BE', 'CZ', 'AT', 'GR', 'PT', 'HU', 'IE',
+]);
+const ALLOWED_KALODATA_LANGUAGES = new Set([
+  'zh-CN', 'en-US', 'id-ID', 'th-TH', 'vi-VN', 'es-ES', 'ja-JP', 'pt-BR',
+  'ko-KR', 'fr-FR', 'de-DE', 'pl-PL', 'nl-NL', 'cs-CZ', 'el-GR', 'hu-HU', 'pt-PT', 'it-IT',
+]);
+const ALLOWED_KALODATA_CURRENCIES = new Set([
+  'CNY', 'USD', 'IDR', 'VND', 'THB', 'MYR', 'JPY', 'PHP', 'GBP', 'SGD',
+  'MXN', 'EUR', 'BRL', 'PLN', 'CZK', 'HUF',
+]);
+const ALLOWED_KALODATA_DATE_RANGES = new Set<KalodataCategoryRankDateRange>([
+  'last7Day',
+  'last30Day',
+  'last90Day',
+  'last180Day',
+  'last365Day',
+]);
+const ALLOWED_PRODUCT_RANK_SORT_FIELDS = new Set([
+  'revenue',
+  'sale',
+  'revenue_growth_rate',
+  'commission_rate',
+  'creator_num',
+  'unit_price',
+  'rank',
+]);
+const MAX_PROXY_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB safety cap
+
+function isValidKalodataId(value: string): boolean {
+  return /^[A-Za-z0-9_-]{3,64}$/.test(value);
+}
+
+function sanitizeServerError(error: unknown, fallbackMessage: string): string {
+  if (!(error instanceof Error) || !error.message) {
+    return fallbackMessage;
+  }
+  const msg = error.message
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED]')
+    .replace(/(secret[-_]?key|api[-_]?key|authorization|bearer)\s*[:=]\s*[^\s,;]+/gi, '$1=[REDACTED]')
+    .trim();
+  if (!msg || msg.length > 260 || /\/app\/|node_modules|at\s+\S+\s+\(/.test(msg)) {
+    return fallbackMessage;
+  }
+  return msg;
+}
+
 async function startServer() {
   const app = express();
+  app.disable('x-powered-by');
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -176,226 +230,279 @@ async function startServer() {
 
   app.get('/api/kalodata/balance', async (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const result = await fetchKalodataCreditBalance();
-    res.status(200).json(result);
+    try {
+      const result = await fetchKalodataCreditBalance();
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        configured: false,
+        error: sanitizeServerError(error, 'Unexpected server error while checking Kalodata balance.'),
+        code: 'BALANCE_INTERNAL_ERROR',
+      });
+    }
   });
 
   app.post('/api/kalodata/product-rank', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-    const sortInput =
-      body.sort_field && typeof body.sort_field === 'object'
-        ? (body.sort_field as Record<string, unknown>)
-        : {};
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const sortInput =
+        body.sort_field && typeof body.sort_field === 'object'
+          ? (body.sort_field as Record<string, unknown>)
+          : {};
 
-    const params: KalodataProductRankRequest = {
-      region: typeof body.region === 'string' && body.region.trim() ? body.region.trim() : 'TH',
-      language:
-        typeof body.language === 'string' && body.language.trim() ? body.language.trim() : 'en-US',
-      currency:
-        typeof body.currency === 'string' && body.currency.trim() ? body.currency.trim() : 'THB',
-      date_range:
-        typeof body.date_range === 'string' && body.date_range.trim()
-          ? body.date_range.trim()
+      const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
+      const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
+      const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
+      const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
+      const rawSortField = typeof sortInput.field === 'string' ? sortInput.field.trim() : '';
+
+      const params: KalodataProductRankRequest = {
+        region: ALLOWED_KALODATA_REGIONS.has(rawRegion) ? rawRegion : 'TH',
+        language: ALLOWED_KALODATA_LANGUAGES.has(rawLanguage) ? rawLanguage : 'en-US',
+        currency: ALLOWED_KALODATA_CURRENCIES.has(rawCurrency) ? rawCurrency : 'THB',
+        date_range: ALLOWED_KALODATA_DATE_RANGES.has(rawDateRange as KalodataCategoryRankDateRange)
+          ? rawDateRange
           : 'last7Day',
-      page_number:
-        typeof body.page_number === 'number' && Number.isInteger(body.page_number) && body.page_number >= 1
-          ? body.page_number
-          : 1,
-      page_size:
-        typeof body.page_size === 'number' &&
-        Number.isInteger(body.page_size) &&
-        body.page_size >= 1 &&
-        body.page_size <= 100
-          ? body.page_size
-          : 10,
-      sort_field: {
-        field:
-          typeof sortInput.field === 'string' && sortInput.field.trim()
-            ? sortInput.field.trim()
-            : 'revenue',
-        type: sortInput.type === 'ASC' ? 'ASC' : 'DESC',
-      },
-    };
+        page_number:
+          typeof body.page_number === 'number' &&
+          Number.isInteger(body.page_number) &&
+          body.page_number >= 1 &&
+          body.page_number <= 50
+            ? body.page_number
+            : 1,
+        page_size:
+          typeof body.page_size === 'number' &&
+          Number.isInteger(body.page_size) &&
+          body.page_size >= 1 &&
+          body.page_size <= 100
+            ? body.page_size
+            : 10,
+        sort_field: {
+          field: ALLOWED_PRODUCT_RANK_SORT_FIELDS.has(rawSortField) ? rawSortField : 'revenue',
+          type: sortInput.type === 'ASC' ? 'ASC' : 'DESC',
+        },
+      };
 
-    if (body.is_affiliate === 0 || body.is_affiliate === 1) {
-      params.is_affiliate = body.is_affiliate;
-    }
-    if (body.need_image === 0 || body.need_image === 1 || body.need_image === 2) {
-      params.need_image = body.need_image;
-    }
-    if (typeof body.need_extra === 'boolean') {
-      params.need_extra = body.need_extra;
-    }
-    if (Array.isArray(body.category_ids)) {
-      const ids = body.category_ids.filter((id): id is string => typeof id === 'string' && id.trim().length > 0);
-      if (ids.length > 0) params.category_ids = ids;
-    }
-    if (typeof body.commission_rate === 'string' && body.commission_rate.trim()) {
-      params.commission_rate = body.commission_rate.trim();
-    }
-    if (typeof body.unit_price_range === 'string' && body.unit_price_range.trim()) {
-      params.unit_price_range = body.unit_price_range.trim();
-    }
-    if (typeof body.keyword === 'string' && body.keyword.trim()) {
-      params.keyword = body.keyword.trim();
-    }
+      if (body.is_affiliate === 0 || body.is_affiliate === 1) {
+        params.is_affiliate = body.is_affiliate;
+      }
+      if (body.need_image === 0 || body.need_image === 1 || body.need_image === 2) {
+        params.need_image = body.need_image;
+      }
+      if (typeof body.need_extra === 'boolean') {
+        params.need_extra = body.need_extra;
+      }
+      if (Array.isArray(body.category_ids)) {
+        const ids = body.category_ids
+          .filter(
+            (id): id is string =>
+              typeof id === 'string' && isValidKalodataId(id.trim())
+          )
+          .map((id) => id.trim())
+          .slice(0, 50);
+        if (ids.length > 0) params.category_ids = ids;
+      }
+      if (typeof body.commission_rate === 'string') {
+        const trimmed = body.commission_rate.trim();
+        if (trimmed.length > 0 && trimmed.length <= 32) {
+          params.commission_rate = trimmed;
+        }
+      }
+      if (typeof body.unit_price_range === 'string') {
+        const trimmed = body.unit_price_range.trim();
+        if (trimmed.length > 0 && trimmed.length <= 64) {
+          params.unit_price_range = trimmed;
+        }
+      }
+      if (typeof body.keyword === 'string') {
+        const trimmed = body.keyword.trim();
+        if (trimmed.length > 0 && trimmed.length <= 120) {
+          params.keyword = trimmed;
+        }
+      }
 
-    const result = await fetchKalodataProductRank(params);
-    res.status(200).json(result);
+      const result = await fetchKalodataProductRank(params);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: sanitizeServerError(error, 'Unexpected server error during product rank query.'),
+        code: 'PRODUCT_RANK_INTERNAL_ERROR',
+      });
+    }
   });
 
   app.post('/api/kalodata/category-rank', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-    const sortInput =
-      body.sort_field && typeof body.sort_field === 'object'
-        ? (body.sort_field as Record<string, unknown>)
-        : {};
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const sortInput =
+        body.sort_field && typeof body.sort_field === 'object'
+          ? (body.sort_field as Record<string, unknown>)
+          : {};
 
-    const allowedRegions = new Set([
-      'US', 'BR', 'MX', 'ID', 'JP', 'MY', 'PH', 'SG', 'TH', 'VN',
-      'GB', 'ES', 'DE', 'FR', 'IT', 'PL', 'NL', 'BE', 'CZ', 'AT', 'GR', 'PT', 'HU', 'IE',
-    ]);
-    const allowedLanguages = new Set([
-      'zh-CN', 'en-US', 'id-ID', 'th-TH', 'vi-VN', 'es-ES', 'ja-JP', 'pt-BR',
-      'ko-KR', 'fr-FR', 'de-DE', 'pl-PL', 'nl-NL', 'cs-CZ', 'el-GR', 'hu-HU', 'pt-PT', 'it-IT',
-    ]);
-    const allowedCurrencies = new Set([
-      'CNY', 'USD', 'IDR', 'VND', 'THB', 'MYR', 'JPY', 'PHP', 'GBP', 'SGD',
-      'MXN', 'EUR', 'BRL', 'PLN', 'CZK', 'HUF',
-    ]);
-    const allowedDateRanges = new Set<KalodataCategoryRankDateRange>([
-      'last7Day',
-      'last30Day',
-      'last90Day',
-      'last180Day',
-      'last365Day',
-    ]);
-    const allowedSortFields = new Set<KalodataCategoryRankSortField>([
-      'revenue',
-      'revenue_growth_rate',
-      'top3_shop_revenue_ratio',
-      'average_revenue',
-      'rank',
-      'category_id',
-      'category_name',
-    ]);
+      const allowedSortFields = new Set<KalodataCategoryRankSortField>([
+        'revenue',
+        'revenue_growth_rate',
+        'top3_shop_revenue_ratio',
+        'average_revenue',
+        'rank',
+        'category_id',
+        'category_name',
+      ]);
 
-    const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
-    const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
-    const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
-    const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
-    const rawSortField = typeof sortInput.field === 'string' ? sortInput.field.trim() : '';
+      const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
+      const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
+      const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
+      const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
+      const rawSortField = typeof sortInput.field === 'string' ? sortInput.field.trim() : '';
 
-    const params: KalodataCategoryRankRequest = {
-      region: allowedRegions.has(rawRegion) ? rawRegion : 'TH',
-      language: allowedLanguages.has(rawLanguage) ? rawLanguage : 'en-US',
-      currency: allowedCurrencies.has(rawCurrency) ? rawCurrency : 'THB',
-      date_range: allowedDateRanges.has(rawDateRange as KalodataCategoryRankDateRange)
-        ? (rawDateRange as KalodataCategoryRankDateRange)
-        : 'last30Day',
-      page_number:
-        typeof body.page_number === 'number' && Number.isInteger(body.page_number) && body.page_number >= 1
-          ? body.page_number
-          : 1,
-      page_size:
-        typeof body.page_size === 'number' &&
-        Number.isInteger(body.page_size) &&
-        body.page_size >= 1 &&
-        body.page_size <= 100
-          ? body.page_size
-          : 100,
-      sort_field: {
-        field: allowedSortFields.has(rawSortField as KalodataCategoryRankSortField)
-          ? (rawSortField as KalodataCategoryRankSortField)
-          : 'revenue',
-        type: sortInput.type === 'ASC' ? 'ASC' : 'DESC',
-      },
-    };
+      const params: KalodataCategoryRankRequest = {
+        region: ALLOWED_KALODATA_REGIONS.has(rawRegion) ? rawRegion : 'TH',
+        language: ALLOWED_KALODATA_LANGUAGES.has(rawLanguage) ? rawLanguage : 'en-US',
+        currency: ALLOWED_KALODATA_CURRENCIES.has(rawCurrency) ? rawCurrency : 'THB',
+        date_range: ALLOWED_KALODATA_DATE_RANGES.has(rawDateRange as KalodataCategoryRankDateRange)
+          ? (rawDateRange as KalodataCategoryRankDateRange)
+          : 'last30Day',
+        page_number:
+          typeof body.page_number === 'number' &&
+          Number.isInteger(body.page_number) &&
+          body.page_number >= 1 &&
+          body.page_number <= 50
+            ? body.page_number
+            : 1,
+        page_size:
+          typeof body.page_size === 'number' &&
+          Number.isInteger(body.page_size) &&
+          body.page_size >= 1 &&
+          body.page_size <= 100
+            ? body.page_size
+            : 100,
+        sort_field: {
+          field: allowedSortFields.has(rawSortField as KalodataCategoryRankSortField)
+            ? (rawSortField as KalodataCategoryRankSortField)
+            : 'revenue',
+          type: sortInput.type === 'ASC' ? 'ASC' : 'DESC',
+        },
+      };
 
-    if (body.category_level === 1 || body.category_level === 2 || body.category_level === 3) {
-      params.category_level = body.category_level;
-    }
-
-    if (Array.isArray(body.category_ids)) {
-      const ids = body.category_ids
-        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0 && id.trim().length <= 64)
-        .map((id) => id.trim())
-        .slice(0, 50);
-      if (ids.length > 0) {
-        params.category_ids = ids;
+      if (body.category_level === 1 || body.category_level === 2 || body.category_level === 3) {
+        params.category_level = body.category_level;
       }
-    }
 
-    if (typeof body.revenue_range === 'string') {
-      const trimmedRange = body.revenue_range.trim();
-      if (trimmedRange.length > 0 && trimmedRange.length <= 64) {
-        params.revenue_range = trimmedRange;
+      if (Array.isArray(body.category_ids)) {
+        const ids = body.category_ids
+          .filter(
+            (id): id is string =>
+              typeof id === 'string' && isValidKalodataId(id.trim())
+          )
+          .map((id) => id.trim())
+          .slice(0, 50);
+        if (ids.length > 0) {
+          params.category_ids = ids;
+        }
       }
-    }
 
-    const result = await fetchKalodataCategoryRank(params);
-    res.status(200).json(result);
+      if (typeof body.revenue_range === 'string') {
+        const trimmedRange = body.revenue_range.trim();
+        if (trimmedRange.length > 0 && trimmedRange.length <= 64) {
+          params.revenue_range = trimmedRange;
+        }
+      }
+
+      const result = await fetchKalodataCategoryRank(params);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: sanitizeServerError(error, 'Unexpected server error during category rank query.'),
+        code: 'CATEGORY_RANK_INTERNAL_ERROR',
+      });
+    }
   });
 
   app.post('/api/kalodata/product-detail', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const body = req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-    const kind =
-      body.kind === 'shop' || body.kind === 'comments' ? body.kind : 'product';
-    const region = typeof body.region === 'string' && body.region.trim() ? body.region.trim() : 'TH';
-    const language =
-      typeof body.language === 'string' && body.language.trim() ? body.language.trim() : 'en-US';
-    const currency =
-      typeof body.currency === 'string' && body.currency.trim() ? body.currency.trim() : 'THB';
-    const dateRange =
-      typeof body.date_range === 'string' && body.date_range.trim()
-        ? body.date_range.trim()
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const kind =
+        body.kind === 'shop' || body.kind === 'comments' ? body.kind : 'product';
+      const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
+      const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
+      const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
+      const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
+
+      const region = ALLOWED_KALODATA_REGIONS.has(rawRegion) ? rawRegion : 'TH';
+      const language = ALLOWED_KALODATA_LANGUAGES.has(rawLanguage) ? rawLanguage : 'en-US';
+      const currency = ALLOWED_KALODATA_CURRENCIES.has(rawCurrency) ? rawCurrency : 'THB';
+      const dateRange = ALLOWED_KALODATA_DATE_RANGES.has(
+        rawDateRange as KalodataCategoryRankDateRange
+      )
+        ? rawDateRange
         : 'last30Day';
 
-    if (kind === 'shop') {
-      const shopId = typeof body.shop_id === 'string' ? body.shop_id.trim() : '';
-      if (!shopId) {
-        res.status(400).json({ ok: false, error: 'shop_id is required.' });
+      if (kind === 'shop') {
+        const shopId = typeof body.shop_id === 'string' ? body.shop_id.trim() : '';
+        if (!shopId || !isValidKalodataId(shopId)) {
+          res.status(400).json({
+            ok: false,
+            error: 'A valid shop_id is required.',
+            code: 'INVALID_SHOP_ID',
+          });
+          return;
+        }
+        const result = await fetchKalodataShopDetail({
+          region,
+          language,
+          currency,
+          date_range: dateRange,
+          shop_id: shopId,
+          need_extra: true,
+        });
+        res.status(200).json(result);
         return;
       }
-      const result = await fetchKalodataShopDetail({
+
+      const productId = typeof body.product_id === 'string' ? body.product_id.trim() : '';
+      if (!productId || !isValidKalodataId(productId)) {
+        res.status(400).json({
+          ok: false,
+          error: 'A valid product_id is required.',
+          code: 'INVALID_PRODUCT_ID',
+        });
+        return;
+      }
+
+      if (kind === 'comments') {
+        const result = await fetchKalodataProductCommentInsight({
+          product_id: productId,
+          country_code: region.toLowerCase(),
+        });
+        res.status(200).json(result);
+        return;
+      }
+
+      const result = await fetchKalodataProductDetail({
         region,
         language,
         currency,
         date_range: dateRange,
-        shop_id: shopId,
+        product_id: productId,
         need_extra: true,
       });
       res.status(200).json(result);
-      return;
-    }
-
-    const productId = typeof body.product_id === 'string' ? body.product_id.trim() : '';
-    if (!productId) {
-      res.status(400).json({ ok: false, error: 'product_id is required.' });
-      return;
-    }
-
-    if (kind === 'comments') {
-      const result = await fetchKalodataProductCommentInsight({
-        product_id: productId,
-        country_code: region.toLowerCase(),
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        error: sanitizeServerError(error, 'Unexpected server error during detail lookup.'),
+        code: 'PRODUCT_DETAIL_INTERNAL_ERROR',
       });
-      res.status(200).json(result);
-      return;
     }
-
-    const result = await fetchKalodataProductDetail({
-      region,
-      language,
-      currency,
-      date_range: dateRange,
-      product_id: productId,
-      need_extra: true,
-    });
-    res.status(200).json(result);
   });
 
   /**
@@ -421,6 +528,12 @@ async function startServer() {
         },
       });
 
+      // Verify final URL after any upstream redirect stays on a safe external host
+      if (upstream.url && !isSafeExternalUrl(upstream.url)) {
+        res.status(403).end();
+        return;
+      }
+
       if (!upstream.ok) {
         res.status(404).end();
         return;
@@ -432,9 +545,15 @@ async function startServer() {
         return;
       }
 
+      const declaredLength = Number(upstream.headers.get('content-length') ?? '0');
+      if (Number.isFinite(declaredLength) && declaredLength > MAX_PROXY_IMAGE_BYTES) {
+        res.status(413).end();
+        return;
+      }
+
       const buffer = Buffer.from(await upstream.arrayBuffer());
-      if (buffer.byteLength < 1024) {
-        res.status(404).end();
+      if (buffer.byteLength < 1024 || buffer.byteLength > MAX_PROXY_IMAGE_BYTES) {
+        res.status(buffer.byteLength > MAX_PROXY_IMAGE_BYTES ? 413 : 404).end();
         return;
       }
 
@@ -462,10 +581,8 @@ async function startServer() {
         });
         return;
       }
-      const message =
-        error instanceof Error ? error.message : 'Unexpected server error during research.';
       res.status(500).json({
-        error: message,
+        error: sanitizeServerError(error, 'Unexpected server error during research.'),
         code: 'INTERNAL_ERROR',
       });
     }
@@ -531,11 +648,9 @@ async function startServer() {
       const analysis = await analyzeSingleProductWithGemini(product, evaluation);
       res.status(200).json({ ok: true, analysis });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unexpected error during product analysis.';
       res.status(500).json({
         ok: false,
-        error: message,
+        error: sanitizeServerError(error, 'Unexpected error during product analysis.'),
         code: 'ANALYSIS_INTERNAL_ERROR',
       });
     }
@@ -655,15 +770,55 @@ async function startServer() {
         });
         return;
       }
-      const message =
-        error instanceof Error ? error.message : 'Unexpected server error during data enrichment.';
       res.status(500).json({
         ok: false,
-        error: message,
+        error: sanitizeServerError(error, 'Unexpected server error during data enrichment.'),
         code: 'ENRICHMENT_INTERNAL_ERROR',
       });
     }
   });
+
+  // Clean JSON error middleware for malformed JSON payloads or oversized requests
+  app.use(
+    (
+      err: Error & { status?: number; type?: string },
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      if (res.headersSent) {
+        next(err);
+        return;
+      }
+      if (err?.type === 'entity.too.large' || err?.status === 413) {
+        res.status(413).json({
+          ok: false,
+          error: 'Request payload is too large (max 1MB).',
+          errorMy: 'ပေးပို့သော Request ဒေတာပမာဏ ကြီးလွန်းနေပါသည် (အများဆုံး 1MB)။',
+          code: 'PAYLOAD_TOO_LARGE',
+        });
+        return;
+      }
+      if (err instanceof SyntaxError || err?.type === 'entity.parse.failed' || err?.status === 400) {
+        res.status(400).json({
+          ok: false,
+          error: 'Malformed JSON request body.',
+          errorMy: 'Request JSON ပုံစံ မမှန်ကန်ပါ။',
+          code: 'INVALID_JSON',
+        });
+        return;
+      }
+      if (req.path.startsWith('/api/')) {
+        res.status(500).json({
+          ok: false,
+          error: 'Internal server error.',
+          code: 'INTERNAL_ERROR',
+        });
+        return;
+      }
+      next(err);
+    }
+  );
 
   if (!IS_PRODUCTION) {
     const { createServer: createViteServer } = await import('vite');
