@@ -880,8 +880,9 @@ async function startServer() {
     }
   });
 
-  // Phase 9.2: Deep Dive AI Strategic Recommendation (Option #8 — 0 Kalodata credits, server-side Gemini only)
+  // Phase 9.2: Deep Dive AI Strategic Recommendation (Option #8 — 0 Kalodata credits, separate Gemini API billing, server-side only)
   app.post('/api/deep-dive/ai-strategy', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
       const body = req.body as Record<string, unknown> | undefined;
       const rawProduct =
@@ -980,7 +981,15 @@ async function startServer() {
       });
 
       if (!response.ok) {
-        res.status(200).json(response);
+        const statusCode =
+          response.code === 'RATE_LIMITED'
+            ? 429
+            : response.code === 'TIMEOUT'
+              ? 504
+              : response.code === 'AUTH_ERROR' || response.code === 'INVALID_RESPONSE'
+                ? 502
+                : 503;
+        res.status(statusCode).json(response);
         return;
       }
 

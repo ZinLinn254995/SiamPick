@@ -164,14 +164,14 @@ async function defaultEnrichProductFn(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  const json = (await response.json()) as DeepDiveEnrichResponsePayload;
-  if (!response.ok || !json.ok) {
+  const json = (await response.json().catch(() => null)) as DeepDiveEnrichResponsePayload | null;
+  if (!response.ok || !json || !json.ok) {
     return {
       ok: false,
-      code: json.code ?? `HTTP_${response.status}`,
-      error: json.error ?? `Enrichment request failed (HTTP ${response.status}).`,
+      code: json?.code ?? `HTTP_${response.status}`,
+      error: json?.error ?? `Enrichment request failed (HTTP ${response.status}).`,
       errorMy:
-        json.errorMy ??
+        json?.errorMy ??
         `Kalodata ဒေတာရယူမှု မအောင်မြင်ပါ (HTTP ${response.status})။`,
     };
   }
@@ -188,14 +188,14 @@ async function defaultRunAiStrategyFn(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  const json = (await response.json()) as DeepDiveAiApiResponse;
-  if (!response.ok || !json.ok) {
+  const json = (await response.json().catch(() => null)) as DeepDiveAiApiResponse | null;
+  if (!response.ok || !json || !json.ok) {
     return {
       ok: false,
-      code: json.code ?? `HTTP_${response.status}`,
-      error: json.error ?? `AI Strategic Recommendation failed (HTTP ${response.status}).`,
+      code: json?.code ?? `HTTP_${response.status}`,
+      error: json?.error ?? `AI Strategic Recommendation failed (HTTP ${response.status}).`,
       errorMy:
-        json.errorMy ??
+        json?.errorMy ??
         `AI Strategic Recommendation ခေါ်ဆိုမှု မအောင်မြင်ပါ (HTTP ${response.status})။`,
     };
   }
@@ -219,7 +219,7 @@ function moduleNeedsProductDetail(
     case 'product-intelligence':
       return true;
     case 'sales-market-intelligence':
-      return m?.salesVolume === null && m?.revenueThb === null;
+      return (m?.salesVolume ?? null) === null && (m?.revenueThb ?? null) === null;
     case 'creator-competition-analysis':
       return m?.creatorNumber === null || m?.creatorNumber === undefined;
     case 'video-intelligence': {
@@ -284,9 +284,12 @@ export function estimateDeepDiveExecutionCost(
         plannedKalodataApiCalls: 0,
         estimatedCredits: 0,
         estimatedUsd: 0,
+        separateAiBilling: true,
         reusesExistingOrCache: true,
-        noteEn: '0 Kalodata credits — uses 1 server-side Gemini AI synthesis call.',
-        noteMy: 'Kalodata Credit 0 cr — Server-side Gemini AI Call ၁ ကြိမ်သာ သုံးမည်။',
+        noteEn:
+          '0 Kalodata credits — uses 1 server-side Gemini AI API call (billed separately by Google Gemini API; NOT free).',
+        noteMy:
+          'Kalodata Credit 0 cr — Server-side Gemini AI API Call ၁ ကြိမ်အတွက် Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိသည် (အခမဲ့ မဟုတ်ပါ)။',
       });
       continue;
     }
@@ -401,6 +404,7 @@ export function estimateDeepDiveExecutionCost(
     deduplicatedLayers: Array.from(plannedLayers),
     plannedKalodataApiCalls,
     plannedGeminiCalls,
+    hasSeparateAiBilling: plannedGeminiCalls > 0,
     estimatedCredits,
     estimatedUsd: roundUsd(estimatedCredits * KALODATA_USD_PER_CREDIT),
     includesOptInReviewApi: uniqueIds.includes('customer-review-intelligence'),
@@ -513,6 +517,14 @@ async function ensureLayerOnSession(
       apiCallsMade: 0,
       creditsUsed: 0,
       reusedFromCache: true,
+      sourceLabelEn:
+        layer === 'productDetail'
+          ? 'Shared Kalodata Product Detail (deduplicated · 0 extra cr)'
+          : 'Shared Kalodata Comment Insight (deduplicated · 0 extra cr)',
+      sourceLabelMy:
+        layer === 'productDetail'
+          ? 'မျှဝေသုံးစွဲထားသော Kalodata Product Detail (ထပ်မခေါ်ပါ · 0 extra cr)'
+          : 'မျှဝေသုံးစွဲထားသော Kalodata Comment Insight (ထပ်မခေါ်ပါ · 0 extra cr)',
     };
   }
 
@@ -582,16 +594,14 @@ async function ensureLayerOnSession(
 
       if (res.productDetail) {
         session.deps.saveCacheFn({ productDetail: res.productDetail });
-      }
-      if (res.product) {
-        session.workingProduct = res.product;
-      } else if (res.productDetail) {
         const merged = mergeEnrichmentIntoProduct(
-          current,
+          session.workingProduct,
           { productDetail: res.productDetail },
           { salesWeightPct: session.salesWeightPct }
         );
         session.workingProduct = merged.product;
+      } else if (res.product) {
+        session.workingProduct = res.product;
       }
 
       const layerStatus = res.summary?.layerResults.productDetail;
@@ -685,16 +695,14 @@ async function ensureLayerOnSession(
 
     if (res.reviewInsight) {
       session.deps.saveCacheFn({ reviewInsight: res.reviewInsight });
-    }
-    if (res.product) {
-      session.workingProduct = res.product;
-    } else if (res.reviewInsight) {
       const merged = mergeEnrichmentIntoProduct(
-        current,
+        session.workingProduct,
         { reviewInsight: res.reviewInsight },
         { salesWeightPct: session.salesWeightPct }
       );
       session.workingProduct = merged.product;
+    } else if (res.product) {
+      session.workingProduct = res.product;
     }
 
     const layerStatus = res.summary?.layerResults.reviewInsights;
@@ -834,18 +842,20 @@ async function executeProductIntelligence(
       status: skuCount !== null ? 'verified' : 'unavailable',
     },
     {
-      key: 'ratingReview',
-      labelEn: 'Rating & Reviews',
-      labelMy: 'Rating နှင့် Review အရေအတွက်',
-      valueEn:
-        rating !== null || reviewCount !== null
-          ? `${rating !== null ? `${rating}/5` : 'Rating Unavailable'} · ${reviewCount !== null ? `${fmtNum(reviewCount)} reviews` : 'Count Unavailable'}`
-          : 'Unavailable',
-      valueMy:
-        rating !== null || reviewCount !== null
-          ? `${rating !== null ? `${rating}/5` : 'Rating မရရှိပါ'} · ${reviewCount !== null ? `Review ${fmtNum(reviewCount)} ခု` : 'အရေအတွက် မရရှိပါ'}`
-          : 'မရရှိနိုင်ပါ',
-      status: rating !== null && reviewCount !== null ? 'verified' : reviewCount !== null || rating !== null ? 'unverified' : 'unavailable',
+      key: 'reviewCount',
+      labelEn: 'Review Count',
+      labelMy: 'Review အရေအတွက်',
+      valueEn: reviewCount !== null ? `${fmtNum(reviewCount)} reviews` : 'Unavailable',
+      valueMy: reviewCount !== null ? `Review ${fmtNum(reviewCount)} ခု` : 'မရရှိနိုင်ပါ',
+      status: reviewCount !== null ? 'verified' : 'unavailable',
+    },
+    {
+      key: 'customerRating',
+      labelEn: 'Customer Rating (5-Star)',
+      labelMy: '5-Star Customer Rating',
+      valueEn: rating !== null ? `${rating}/5` : 'Unavailable',
+      valueMy: rating !== null ? `${rating}/5` : 'မရရှိနိုင်ပါ',
+      status: rating !== null ? 'verified' : 'unavailable',
     },
     {
       key: 'shopDelivery',
@@ -2092,14 +2102,15 @@ async function executeAiStrategicRecommendation(
     unavailableNotesEn: s.dataLimitationsEn,
     unavailableNotesMy: s.dataLimitationsMy,
     dataSourcesEn: [
-      `Gemini AI Interpretation (${s.modelUsed})`,
+      `Gemini AI Interpretation (${s.modelUsed} · 1 Gemini API call · separate AI billing)`,
       'Verified Product Data + Completed Deep Dive Modules (0 Kalodata cr)',
     ],
     dataSourcesMy: [
-      `Gemini AI Interpretation (${s.modelUsed})`,
+      `Gemini AI Interpretation (${s.modelUsed} · Gemini API ၁ ကြိမ် · AI API စရိတ် သီးခြားရှိသည်)`,
       'အတည်ပြုပြီး Product Data + Deep Dive ရလဒ်များ (0 Kalodata cr)',
     ],
     apiCallsMade: 0,
+    aiApiCallsMade: 1,
     creditsUsed: 0,
     reusedFromCache: false,
     completedAt: s.generatedAt || completedAt,

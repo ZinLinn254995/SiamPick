@@ -377,13 +377,15 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">
-              {result.creditsUsed > 0
-                ? `${formatCredits(result.creditsUsed)} cr`
-                : result.reusedFromCache
-                  ? isMy
+              {result.isAiInterpretation || (result.aiApiCallsMade ?? 0) > 0
+                ? isMy
+                  ? '0 Kalodata cr · +1 Gemini AI API call (AI စရိတ် သီးခြားရှိ)'
+                  : '0 Kalodata cr · +1 Gemini AI call (separate AI billing)'
+                : result.creditsUsed > 0
+                  ? `${formatCredits(result.creditsUsed)} Kalodata cr`
+                  : result.reusedFromCache
                     ? '0 cr (Cache / Local)'
-                    : '0 cr (Cache / Local)'
-                  : '0 Kalodata cr'}
+                    : '0 Kalodata cr'}
             </span>
           </div>
 
@@ -497,6 +499,7 @@ export function DeepDiveWorkspaceView({
         rerunSingleBtn: 'ပြန် Run',
         runningBtn: 'လုပ်ဆောင်နေ...',
         highCostTag: 'Opt-in (1.0 cr · Cache မရှိမှ)',
+        aiCostTag: '0 Kalodata cr · Gemini API စရိတ် သီးခြားရှိ',
         disclosureLabels: {
           whatItDoes: '၁။ ဒီ Analysis က ဘာလုပ်ပေးနိုင်သလဲ',
           whatItChecks: '၂။ စစ်ဆေးမည့် အချက်အလက်များ',
@@ -542,6 +545,7 @@ export function DeepDiveWorkspaceView({
         rerunSingleBtn: 'Re-run',
         runningBtn: 'Running...',
         highCostTag: 'Opt-in (1.0 cr if uncached)',
+        aiCostTag: '0 Kalodata cr · Separate Gemini API billing',
         disclosureLabels: {
           whatItDoes: '1. What this analysis does',
           whatItChecks: '2. Data points checked',
@@ -828,6 +832,17 @@ export function DeepDiveWorkspaceView({
                           </span>
                           <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
                             {copy.highCostTag}
+                          </span>
+                        </>
+                      )}
+
+                      {option.id === 'ai-strategic-recommendation' && (
+                        <>
+                          <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                            {copy.aiCostTag}
                           </span>
                         </>
                       )}

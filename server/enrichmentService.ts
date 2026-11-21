@@ -49,6 +49,30 @@ const serverShopDetailCache = new Map<string, CacheEntry<KalodataShopEnrichmentR
 const serverReviewInsightCache = new Map<string, CacheEntry<KalodataReviewInsightData>>();
 const serverVideoProductsCache = new Map<string, CacheEntry<Record<string, unknown>[]>>();
 
+// Server-side in-flight deduplication prevents duplicate paid Kalodata API calls
+// when two concurrent requests ask for the same productId/shopId before cache populates.
+const inFlightProductDetail = new Map<
+  string,
+  Promise<{
+    record: KalodataProductDetailEnrichmentRecord | null;
+    error?: { en: string; my: string };
+  }>
+>();
+const inFlightShopDetail = new Map<
+  string,
+  Promise<{
+    record: KalodataShopEnrichmentRecord | null;
+    error?: { en: string; my: string };
+  }>
+>();
+const inFlightReviewInsight = new Map<
+  string,
+  Promise<{
+    record: KalodataReviewInsightData | null;
+    error?: { en: string; my: string };
+  }>
+>();
+
 function getValidEntry<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
   const entry = map.get(key);
   if (!entry) return null;
@@ -124,6 +148,9 @@ export function clearServerEnrichmentCache(): void {
   serverShopDetailCache.clear();
   serverReviewInsightCache.clear();
   serverVideoProductsCache.clear();
+  inFlightProductDetail.clear();
+  inFlightShopDetail.clear();
+  inFlightReviewInsight.clear();
 }
 
 export function toProductDetailRecord(
@@ -381,34 +408,70 @@ export async function enrichSingleProduct(
     layerResults.productDetail = 'reused-cache';
     deduplicatedCallsSaved += 1;
   } else if (pdAction === 'fetch') {
-    actualApiCalls += 1;
-    const res = await fetchKalodataProductDetail({
-      region: 'TH',
-      language: 'en-US',
-      currency: 'THB',
-      date_range: dateRange,
-      product_id: rawKalodataProductId,
-      need_extra: true,
-    });
-    if (res.ok && res.data) {
-      const parsed = parseKalodataProductDetail(rawKalodataProductId, res.data);
-      if (parsed) {
-        resolvedProductDetail = toProductDetailRecord(parsed, dateRange, enrichedAt);
-        setServerCachedProductDetail(resolvedProductDetail);
-        layerResults.productDetail = 'fetched';
+    const existingInFlight = !forceRefresh ? inFlightProductDetail.get(rawKalodataProductId) : null;
+    if (existingInFlight) {
+      const shared = await existingInFlight;
+      if (shared.record) {
+        resolvedProductDetail = shared.record;
+        layerResults.productDetail = 'reused-cache';
+        deduplicatedCallsSaved += 1;
       } else {
         layerResults.productDetail = 'failed';
-        layerErrors.productDetail = {
-          en: 'Kalodata returned empty Product Detail payload.',
-          my: 'Kalodata မှ Product Detail ဒေတာ မရရှိပါ။',
+        layerErrors.productDetail = shared.error ?? {
+          en: 'Failed to fetch Kalodata Product Detail.',
+          my: 'Kalodata Product Detail ရယူမှု မအောင်မြင်ပါ။',
         };
       }
     } else {
-      layerResults.productDetail = 'failed';
-      layerErrors.productDetail = {
-        en: res.error ?? 'Failed to fetch Kalodata Product Detail.',
-        my: res.errorMy ?? 'Kalodata Product Detail ရယူမှု မအောင်မြင်ပါ။',
-      };
+      actualApiCalls += 1;
+      const fetchPromise = (async () => {
+        const res = await fetchKalodataProductDetail({
+          region: 'TH',
+          language: 'en-US',
+          currency: 'THB',
+          date_range: dateRange,
+          product_id: rawKalodataProductId,
+          need_extra: true,
+        });
+        if (res.ok && res.data) {
+          const parsed = parseKalodataProductDetail(rawKalodataProductId, res.data);
+          if (parsed) {
+            const record = toProductDetailRecord(parsed, dateRange, enrichedAt);
+            setServerCachedProductDetail(record);
+            return { record };
+          }
+          return {
+            record: null,
+            error: {
+              en: 'Kalodata returned empty Product Detail payload.',
+              my: 'Kalodata မှ Product Detail ဒေတာ မရရှိပါ။',
+            },
+          };
+        }
+        return {
+          record: null,
+          error: {
+            en: res.error ?? 'Failed to fetch Kalodata Product Detail.',
+            my: res.errorMy ?? 'Kalodata Product Detail ရယူမှု မအောင်မြင်ပါ။',
+          },
+        };
+      })();
+
+      inFlightProductDetail.set(rawKalodataProductId, fetchPromise);
+      try {
+        const outcome = await fetchPromise;
+        if (outcome.record) {
+          resolvedProductDetail = outcome.record;
+          layerResults.productDetail = 'fetched';
+        } else {
+          layerResults.productDetail = 'failed';
+          layerErrors.productDetail = outcome.error;
+        }
+      } finally {
+        if (inFlightProductDetail.get(rawKalodataProductId) === fetchPromise) {
+          inFlightProductDetail.delete(rawKalodataProductId);
+        }
+      }
     }
   }
 
@@ -447,34 +510,70 @@ export async function enrichSingleProduct(
         layerResults.shopDetail = 'reused-cache';
         deduplicatedCallsSaved += 1;
       } else {
-        actualApiCalls += 1;
-        const res = await fetchKalodataShopDetail({
-          region: 'TH',
-          language: 'en-US',
-          currency: 'THB',
-          date_range: dateRange,
-          shop_id: finalShopId,
-          need_extra: true,
-        });
-        if (res.ok && res.data) {
-          const parsed = parseKalodataShopDetail(finalShopId, res.data);
-          if (parsed) {
-            resolvedShopDetail = toShopEnrichmentRecord(parsed, dateRange, enrichedAt);
-            setServerCachedShopDetail(resolvedShopDetail);
-            layerResults.shopDetail = 'fetched';
+        const existingShopInFlight = !forceRefresh ? inFlightShopDetail.get(finalShopId) : null;
+        if (existingShopInFlight) {
+          const shared = await existingShopInFlight;
+          if (shared.record) {
+            resolvedShopDetail = shared.record;
+            layerResults.shopDetail = 'reused-cache';
+            deduplicatedCallsSaved += 1;
           } else {
             layerResults.shopDetail = 'failed';
-            layerErrors.shopDetail = {
-              en: 'Kalodata returned empty Shop Detail payload.',
-              my: 'Kalodata မှ Shop Detail ဒေတာ မရရှိပါ။',
+            layerErrors.shopDetail = shared.error ?? {
+              en: 'Failed to fetch Kalodata Shop Detail.',
+              my: 'Kalodata Shop Detail ရယူမှု မအောင်မြင်ပါ။',
             };
           }
         } else {
-          layerResults.shopDetail = 'failed';
-          layerErrors.shopDetail = {
-            en: res.error ?? 'Failed to fetch Kalodata Shop Detail.',
-            my: res.errorMy ?? 'Kalodata Shop Detail ရယူမှု မအောင်မြင်ပါ။',
-          };
+          actualApiCalls += 1;
+          const shopPromise = (async () => {
+            const res = await fetchKalodataShopDetail({
+              region: 'TH',
+              language: 'en-US',
+              currency: 'THB',
+              date_range: dateRange,
+              shop_id: finalShopId,
+              need_extra: true,
+            });
+            if (res.ok && res.data) {
+              const parsed = parseKalodataShopDetail(finalShopId, res.data);
+              if (parsed) {
+                const record = toShopEnrichmentRecord(parsed, dateRange, enrichedAt);
+                setServerCachedShopDetail(record);
+                return { record };
+              }
+              return {
+                record: null,
+                error: {
+                  en: 'Kalodata returned empty Shop Detail payload.',
+                  my: 'Kalodata မှ Shop Detail ဒေတာ မရရှိပါ။',
+                },
+              };
+            }
+            return {
+              record: null,
+              error: {
+                en: res.error ?? 'Failed to fetch Kalodata Shop Detail.',
+                my: res.errorMy ?? 'Kalodata Shop Detail ရယူမှု မအောင်မြင်ပါ။',
+              },
+            };
+          })();
+
+          inFlightShopDetail.set(finalShopId, shopPromise);
+          try {
+            const outcome = await shopPromise;
+            if (outcome.record) {
+              resolvedShopDetail = outcome.record;
+              layerResults.shopDetail = 'fetched';
+            } else {
+              layerResults.shopDetail = 'failed';
+              layerErrors.shopDetail = outcome.error;
+            }
+          } finally {
+            if (inFlightShopDetail.get(finalShopId) === shopPromise) {
+              inFlightShopDetail.delete(finalShopId);
+            }
+          }
         }
       }
     }
@@ -490,30 +589,66 @@ export async function enrichSingleProduct(
     layerResults.reviewInsights = 'reused-cache';
     deduplicatedCallsSaved += 1;
   } else if (riAction === 'fetch') {
-    actualApiCalls += 1;
-    const res = await fetchKalodataProductCommentInsight({
-      product_id: rawKalodataProductId,
-      country_code: 'th',
-    });
-    if (res.ok && res.data) {
-      const parsed = parseKalodataCommentInsight(rawKalodataProductId, res.data);
-      if (parsed) {
-        resolvedReviewInsight = toReviewInsightRecord(parsed, enrichedAt);
-        setServerCachedReviewInsight(resolvedReviewInsight);
-        layerResults.reviewInsights = 'fetched';
+    const existingRiInFlight = !forceRefresh ? inFlightReviewInsight.get(rawKalodataProductId) : null;
+    if (existingRiInFlight) {
+      const shared = await existingRiInFlight;
+      if (shared.record) {
+        resolvedReviewInsight = shared.record;
+        layerResults.reviewInsights = 'reused-cache';
+        deduplicatedCallsSaved += 1;
       } else {
         layerResults.reviewInsights = 'failed';
-        layerErrors.reviewInsights = {
-          en: 'Kalodata returned empty Review Insight payload.',
-          my: 'Kalodata မှ Review Insight ဒေတာ မရရှိပါ။',
+        layerErrors.reviewInsights = shared.error ?? {
+          en: 'Failed to fetch Kalodata Review Insights.',
+          my: 'Kalodata Review Insights ရယူမှု မအောင်မြင်ပါ။',
         };
       }
     } else {
-      layerResults.reviewInsights = 'failed';
-      layerErrors.reviewInsights = {
-        en: res.error ?? 'Failed to fetch Kalodata Review Insights.',
-        my: res.errorMy ?? 'Kalodata Review Insights ရယူမှု မအောင်မြင်ပါ။',
-      };
+      actualApiCalls += 1;
+      const riPromise = (async () => {
+        const res = await fetchKalodataProductCommentInsight({
+          product_id: rawKalodataProductId,
+          country_code: 'th',
+        });
+        if (res.ok && res.data) {
+          const parsed = parseKalodataCommentInsight(rawKalodataProductId, res.data);
+          if (parsed) {
+            const record = toReviewInsightRecord(parsed, enrichedAt);
+            setServerCachedReviewInsight(record);
+            return { record };
+          }
+          return {
+            record: null,
+            error: {
+              en: 'Kalodata returned empty Review Insight payload.',
+              my: 'Kalodata မှ Review Insight ဒေတာ မရရှိပါ။',
+            },
+          };
+        }
+        return {
+          record: null,
+          error: {
+            en: res.error ?? 'Failed to fetch Kalodata Review Insights.',
+            my: res.errorMy ?? 'Kalodata Review Insights ရယူမှု မအောင်မြင်ပါ။',
+          },
+        };
+      })();
+
+      inFlightReviewInsight.set(rawKalodataProductId, riPromise);
+      try {
+        const outcome = await riPromise;
+        if (outcome.record) {
+          resolvedReviewInsight = outcome.record;
+          layerResults.reviewInsights = 'fetched';
+        } else {
+          layerResults.reviewInsights = 'failed';
+          layerErrors.reviewInsights = outcome.error;
+        }
+      } finally {
+        if (inFlightReviewInsight.get(rawKalodataProductId) === riPromise) {
+          inFlightReviewInsight.delete(rawKalodataProductId);
+        }
+      }
     }
   }
 

@@ -336,10 +336,12 @@ test('Phase 9.1 UI Wiring & Zero-API Verification: Deep Dive entry points exist 
   assert.ok(appSrc.includes('DeepDiveWorkspaceView'));
   assert.ok(appSrc.includes("activeView === 'deep-dive'"));
 
-  // Progressive Disclosure reuses SiamPick's InfoPopover & ChevronDown/ChevronUp patterns
+  // Progressive Disclosure reuses SiamPick's InfoPopover & ChevronDown/ChevronUp patterns,
+  // and Phase 9.2 isolated execution slots render inside DeepDiveWorkspaceView without direct fetch calls
   assert.ok(workspaceSrc.includes('InfoPopover'));
   assert.ok(workspaceSrc.includes('aria-expanded={isExpanded}'));
-  assert.ok(workspaceSrc.includes('Not Implemented Yet'));
+  assert.ok(workspaceSrc.includes('data-execution-status={slot.status}'));
+  assert.ok(workspaceSrc.includes('ModuleResultPanel'));
 
   // Zero fetch / API calls inside Phase 9.1 Deep Dive files
   assert.equal(/\bfetch\s*\(/.test(workspaceSrc), false);

@@ -144,6 +144,7 @@ export interface DeepDiveModuleResult {
   dataSourcesEn: string[];
   dataSourcesMy: string[];
   apiCallsMade: number;
+  aiApiCallsMade?: number;
   creditsUsed: number;
   reusedFromCache: boolean;
   completedAt: string;
@@ -204,7 +205,9 @@ export interface DeepDiveModuleCostEstimate {
   requiredApiLayer: 'productDetail' | 'shopDetail' | 'reviewInsights' | 'gemini-ai' | 'none';
   plannedKalodataApiCalls: number;
   estimatedCredits: number;
+  /** Estimated Kalodata USD only — excludes separate Google Gemini API billing when separateAiBilling is true */
   estimatedUsd: number;
+  separateAiBilling?: boolean;
   reusesExistingOrCache: boolean;
   noteEn: string;
   noteMy: string;
@@ -216,7 +219,9 @@ export interface DeepDiveExecutionCostEstimate {
   deduplicatedLayers: ('productDetail' | 'shopDetail' | 'reviewInsights')[];
   plannedKalodataApiCalls: number;
   plannedGeminiCalls: number;
+  hasSeparateAiBilling: boolean;
   estimatedCredits: number;
+  /** Estimated Kalodata USD only — excludes separate Google Gemini API token billing */
   estimatedUsd: number;
   includesOptInReviewApi: boolean;
   modules: DeepDiveModuleCostEstimate[];

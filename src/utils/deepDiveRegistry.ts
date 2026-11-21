@@ -366,9 +366,9 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     requiredDataSourcesMy:
       'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive ရလဒ်များ + Server-side Gemini AI Endpoint။',
     estimatedCostNoteEn:
-      'Uses 0 Kalodata credits (relies on already-fetched data) and 1 server-side Gemini AI call. Output is clearly labeled as AI Interpretation.',
+      '0 Kalodata credits (reuses already-fetched data), PLUS 1 server-side Gemini AI API call (billed separately by Google Gemini API — NOT free). Output is clearly labeled as AI Interpretation.',
     estimatedCostNoteMy:
-      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်ပြီး Server-side Gemini AI Call ၁ ကြိမ်သာ သုံးမည်။ ရလဒ်ကို AI Interpretation ဟု ရှင်းလင်းစွာ ခွဲခြားဖော်ပြပါမည်။',
+      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်သော်လည်း Server-side Gemini AI API Call ၁ ကြိမ်အတွက် Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိပါမည် (အခမဲ့ မဟုတ်ပါ)။ ရလဒ်ကို AI Interpretation ဟု ရှင်းလင်းစွာ ခွဲခြားဖော်ပြပါမည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'AI strictly NEVER fabricates missing metrics. Whenever inputs (e.g., reviews, videos, or creator shares) are incomplete, AI explicitly explains those data limitations and lowers confidence accordingly.',

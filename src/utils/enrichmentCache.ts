@@ -339,6 +339,17 @@ export function absorbProductsIntoEnrichmentCache(
       cache.products[m.productId] = {
         productId: m.productId,
         productShopId: m.sellerId ?? null,
+        ...(m.sellerName ? { sellerName: m.sellerName } : {}),
+        ...(m.priCategory ? { priCategory: m.priCategory } : {}),
+        ...(m.secCategory ? { secCategory: m.secCategory } : {}),
+        ...(m.terCategory ? { terCategory: m.terCategory } : {}),
+        ...(m.revenueGrowthRate !== null && m.revenueGrowthRate !== undefined
+          ? { revenueGrowthRate: m.revenueGrowthRate }
+          : {}),
+        ...(m.showcaseRevenueThb !== null && m.showcaseRevenueThb !== undefined
+          ? { showcaseRevenueThb: m.showcaseRevenueThb }
+          : {}),
+        ...(m.skuCount !== null && m.skuCount !== undefined ? { skuCount: m.skuCount } : {}),
         minPriceThb: m.minPriceThb ?? null,
         maxPriceThb: m.maxPriceThb ?? null,
         unitPriceThb: m.unitPriceThb ?? product.priceThb,
@@ -353,6 +364,7 @@ export function absorbProductsIntoEnrichmentCache(
         liveNumber: m.liveNumber ?? null,
         deliveryType: m.deliveryType ?? null,
         productReviewCount: m.productReviewCount ?? product.reviewCount ?? null,
+        ...(m.productDescription ? { productDescription: m.productDescription } : {}),
         launchDate: m.launchDate ?? null,
         trendPointsCount: m.trendPointsCount ?? 0,
         trendPeakThb: m.trendPeakThb ?? null,

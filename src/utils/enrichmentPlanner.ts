@@ -606,13 +606,23 @@ export function mergeEnrichmentIntoProduct(
     nextMetrics.detailEnriched = true;
     nextMetrics.productDetailUpdatedAt = pd.updatedAt ?? nowIso;
     if (pd.productShopId) nextMetrics.sellerId = pd.productShopId;
+    if (pd.sellerName) nextMetrics.sellerName = pd.sellerName;
+    if (pd.priCategory) nextMetrics.priCategory = pd.priCategory;
+    if (pd.secCategory) nextMetrics.secCategory = pd.secCategory;
+    if (pd.terCategory) nextMetrics.terCategory = pd.terCategory;
     if (pd.unitPriceThb !== null && pd.unitPriceThb > 0) nextMetrics.unitPriceThb = pd.unitPriceThb;
     if (pd.minPriceThb !== null && pd.minPriceThb > 0) nextMetrics.minPriceThb = pd.minPriceThb;
     if (pd.maxPriceThb !== null && pd.maxPriceThb > 0) nextMetrics.maxPriceThb = pd.maxPriceThb;
     if (pd.revenueThb !== null) nextMetrics.revenueThb = pd.revenueThb;
+    if (pd.revenueGrowthRate !== undefined && pd.revenueGrowthRate !== null) {
+      nextMetrics.revenueGrowthRate = pd.revenueGrowthRate;
+    }
     if (pd.salesVolume !== null) nextMetrics.salesVolume = pd.salesVolume;
     if (pd.videoRevenueThb !== null) nextMetrics.videoRevenueThb = pd.videoRevenueThb;
     if (pd.liveRevenueThb !== null) nextMetrics.liveRevenueThb = pd.liveRevenueThb;
+    if (pd.showcaseRevenueThb !== undefined && pd.showcaseRevenueThb !== null) {
+      nextMetrics.showcaseRevenueThb = pd.showcaseRevenueThb;
+    }
     if (pd.shoppingMallRevenueThb !== null) {
       nextMetrics.shoppingMallRevenueThb = pd.shoppingMallRevenueThb;
     }
@@ -622,6 +632,9 @@ export function mergeEnrichmentIntoProduct(
     if (pd.creatorNumber !== null) nextMetrics.creatorNumber = pd.creatorNumber;
     if (pd.videoNumber !== null) nextMetrics.videoNumber = pd.videoNumber;
     if (pd.liveNumber !== null) nextMetrics.liveNumber = pd.liveNumber;
+    if (pd.skuCount !== undefined && pd.skuCount !== null && pd.skuCount > 0) {
+      nextMetrics.skuCount = Math.round(pd.skuCount);
+    }
     if (pd.deliveryType) nextMetrics.deliveryType = pd.deliveryType;
     if (pd.productReviewCount !== null && pd.productReviewCount > 0) {
       nextMetrics.productReviewCount = Math.round(pd.productReviewCount);
