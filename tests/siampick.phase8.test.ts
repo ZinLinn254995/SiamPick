@@ -14,16 +14,24 @@ import {
   buildResolvedCategoryIdMap,
   CATEGORY_BY_ID,
   createEmptySyncedCategoryCache,
+  formatCategoryCatalogCountSummary,
+  getCategoryCatalogCounts,
   getCategoryDefinition,
   getEffectiveCategoryCatalog,
   getSelectableCategories,
   loadSyncedKalodataCategories,
+  matchKalodataCategoryNameToSlug,
   mergeSyncedL1Categories,
   mergeSyncedL2Subcategories,
   saveSyncedKalodataCategories,
   UNIVERSAL_CATEGORIES,
   verifyProductCategoryAlignment,
 } from '../src/utils/categoryRegistry.ts';
+import {
+  fetchKalodataCategoryRank,
+  getKalodataCategoryIdsForFilter,
+  getKalodataCategoryIdsForSelection,
+} from '../server/kalodataService.ts';
 import { buildKalodataExecutionPlan } from '../src/utils/kalodataPricing.ts';
 import {
   computeStrategyWeights,
@@ -717,3 +725,344 @@ test('Phase 8 Storage Backward Compatibility: loads legacy Fashion & Cosmetics H
   assert.deepEqual(reloadedHistory[0].selectedSubcategoryNames, ['Headphones & Earphones']);
   assert.equal(reloadedHistory[1].id, 'res-legacy-001');
 });
+
+// ============================================================================
+// 7. Phase 8.1 — Category Count Accuracy (Unsynced, Syncing, 14/13/1, Error, Re-Sync)
+// ============================================================================
+test('Phase 8.1 Category Counts: accurately reports Total / Supported / Pending / Unsupported across unsynced, syncing, 14-13-1 synced, error, and re-sync states', () => {
+  installMockLocalStorage();
+
+  // 1) Unsynced state (before first live sync): 14 Total, 3 Supported, 11 Pending Sync, 0 Unsupported
+  const unsyncedCache = createEmptySyncedCategoryCache();
+  const unsyncedCounts = getCategoryCatalogCounts(unsyncedCache);
+  assert.equal(unsyncedCounts.total, 14);
+  assert.equal(unsyncedCounts.supported, 3);
+  assert.equal(unsyncedCounts.verified, 3);
+  assert.equal(unsyncedCounts.synced, 0);
+  assert.equal(unsyncedCounts.requiresSync, 11);
+  assert.equal(unsyncedCounts.unsupported, 0);
+  assert.equal(unsyncedCounts.syncState, 'unsynced');
+  assert.equal(
+    formatCategoryCatalogCountSummary(unsyncedCounts, 'en'),
+    '14 Total · 3 Supported · 11 Pending Sync · 0 Unsupported'
+  );
+  assert.equal(
+    formatCategoryCatalogCountSummary(unsyncedCounts, 'my'),
+    'စုစုပေါင်း 14 · ပံ့ပိုး 3 · Sync လို 11 · မပံ့ပိုး 0'
+  );
+
+  // 2) Syncing state: preserves accurate live counts without inflating supported
+  const syncingCounts = getCategoryCatalogCounts(unsyncedCache, { isSyncing: true });
+  assert.equal(syncingCounts.syncState, 'syncing');
+  assert.equal(syncingCounts.total, 14);
+  assert.equal(syncingCounts.supported, 3);
+
+  // 3) Synced state with exact 14 Total · 13 Supported · 1 Unsupported (books-stationery missing)
+  const thirteenCategoriesLive = [
+    { category_id: '601152', category_name: 'Womenswear & Underwear' },
+    { category_id: '601450', category_name: 'Beauty & Personal Care' },
+    { category_id: '601739', category_name: 'Phones & Electronics' },
+    { category_id: '600001', category_name: 'Home Supplies' },
+    { category_id: '600024', category_name: 'Kitchenware' },
+    { category_id: '601303', category_name: 'Health' },
+    { category_id: '601226', category_name: 'Food & Beverages' },
+    { category_id: '601352', category_name: 'Baby & Maternity' },
+    { category_id: '603014', category_name: 'Sports & Outdoor' },
+    { category_id: '605248', category_name: 'Automotive & Motorcycle' },
+    { category_id: '602118', category_name: 'Pet Supplies' },
+    { category_id: '604206', category_name: 'Toys & Hobbies' },
+    { category_id: '604968', category_name: 'Fashion Accessories' },
+  ];
+
+  const synced13 = mergeSyncedL1Categories(
+    unsyncedCache,
+    thirteenCategoriesLive,
+    '2026-11-21T04:00:00.000Z'
+  );
+  const counts13 = getCategoryCatalogCounts(synced13);
+  assert.equal(counts13.total, 14);
+  assert.equal(counts13.supported, 13);
+  assert.equal(counts13.unsupported, 1);
+  assert.equal(counts13.requiresSync, 0);
+  assert.equal(counts13.syncState, 'synced');
+  assert.equal(
+    formatCategoryCatalogCountSummary(counts13, 'en'),
+    '14 Total · 13 Supported · 1 Unsupported'
+  );
+  assert.equal(
+    formatCategoryCatalogCountSummary(counts13, 'my'),
+    'စုစုပေါင်း 14 · ပံ့ပိုး 13 · မပံ့ပိုး 1'
+  );
+
+  // Verify unsupported category is strictly disabled and excluded from selectable & resolved IDs
+  const catalog13 = getEffectiveCategoryCatalog(synced13);
+  const booksEntry = catalog13.find((e) => e.id === 'books-stationery');
+  assert.equal(booksEntry?.apiSupportStatus, 'unsupported');
+  assert.equal(booksEntry?.selectable, false);
+  assert.equal(booksEntry?.kalodataId, null);
+  assert.equal(getSelectableCategories(synced13).length, 13);
+  assert.equal(getSelectableCategories(synced13).includes('books-stationery'), false);
+  assert.equal(buildResolvedCategoryIdMap(synced13)['books-stationery'], undefined);
+
+  // 4) Sync failure / empty response: error state reported without corrupting previous synced counts
+  const afterEmptyFailure = mergeSyncedL1Categories(synced13, [], '2026-11-21T04:05:00.000Z');
+  assert.deepEqual(afterEmptyFailure, synced13);
+  const errorCounts = getCategoryCatalogCounts(afterEmptyFailure, { hasError: true });
+  assert.equal(errorCounts.syncState, 'error');
+  assert.equal(errorCounts.supported, 13);
+  assert.equal(errorCounts.unsupported, 1);
+
+  // 5) Re-sync where a previously supported category disappears -> automatically becomes unsupported (12 / 2)
+  const twelveCategoriesLive = thirteenCategoriesLive.filter((c) => c.category_id !== '602118');
+  const resynced12 = mergeSyncedL1Categories(
+    synced13,
+    twelveCategoriesLive,
+    '2026-11-21T04:10:00.000Z'
+  );
+  const counts12 = getCategoryCatalogCounts(resynced12);
+  assert.equal(counts12.total, 14);
+  assert.equal(counts12.supported, 12);
+  assert.equal(counts12.unsupported, 2);
+  assert.equal(
+    getEffectiveCategoryCatalog(resynced12).find((e) => e.id === 'pet-supplies')?.apiSupportStatus,
+    'unsupported'
+  );
+  assert.equal(buildResolvedCategoryIdMap(resynced12)['pet-supplies'], undefined);
+
+  // 6) Re-sync where all 14 categories are returned -> automatically updates to 14 Supported / 0 Unsupported
+  const allFourteenLive = [
+    ...thirteenCategoriesLive,
+    { category_id: '605500', category_name: 'Books, Magazines & Audio' },
+  ];
+  const resynced14 = mergeSyncedL1Categories(
+    resynced12,
+    allFourteenLive,
+    '2026-11-21T04:15:00.000Z'
+  );
+  const counts14 = getCategoryCatalogCounts(resynced14);
+  assert.equal(counts14.total, 14);
+  assert.equal(counts14.supported, 14);
+  assert.equal(counts14.unsupported, 0);
+  assert.equal(
+    formatCategoryCatalogCountSummary(counts14, 'en'),
+    '14 Total · 14 Supported · 0 Unsupported'
+  );
+  assert.equal(buildResolvedCategoryIdMap(resynced14)['books-stationery'], '605500');
+});
+
+// ============================================================================
+// 8. Phase 8.1 — All Categories Filter (getKalodataCategoryIdsForFilter('all'))
+// ============================================================================
+test('Phase 8.1 All Categories Filter: includes all verified static + synced IDs (including Home & Living) and excludes unsupported IDs', () => {
+  // Before sync: MUST include ALL 3 verified static IDs (Fashion, Cosmetics, AND Home & Living)
+  const staticAllIds = getKalodataCategoryIdsForFilter('all');
+  assert.deepEqual(staticAllIds, ['601152', '601450', '600001']);
+
+  // After 13-supported / 1-unsupported sync: MUST include all 13 IDs and strictly exclude unsupported
+  const synced13Cache = mergeSyncedL1Categories(
+    createEmptySyncedCategoryCache(),
+    [
+      { category_id: '601152', category_name: 'Womenswear & Underwear' },
+      { category_id: '601450', category_name: 'Beauty & Personal Care' },
+      { category_id: '601739', category_name: 'Phones & Electronics' },
+      { category_id: '600001', category_name: 'Home Supplies' },
+      { category_id: '600024', category_name: 'Kitchenware' },
+      { category_id: '601303', category_name: 'Health' },
+      { category_id: '601226', category_name: 'Food & Beverages' },
+      { category_id: '601352', category_name: 'Baby & Maternity' },
+      { category_id: '603014', category_name: 'Sports & Outdoor' },
+      { category_id: '605248', category_name: 'Automotive & Motorcycle' },
+      { category_id: '602118', category_name: 'Pet Supplies' },
+      { category_id: '604206', category_name: 'Toys & Hobbies' },
+      { category_id: '604968', category_name: 'Fashion Accessories' },
+    ],
+    '2026-11-21T04:00:00.000Z'
+  );
+
+  const resolvedMap = buildResolvedCategoryIdMap(synced13Cache);
+  const allIdsWithMap = getKalodataCategoryIdsForFilter('all', resolvedMap, {
+    syncedCache: synced13Cache,
+  });
+  assert.equal(allIdsWithMap.length, 13);
+  assert.ok(allIdsWithMap.includes('601152')); // womens-fashion
+  assert.ok(allIdsWithMap.includes('601450')); // cosmetics-beauty
+  assert.ok(allIdsWithMap.includes('600001')); // home-living
+  assert.ok(allIdsWithMap.includes('601739')); // electronics
+  assert.ok(allIdsWithMap.includes('600024')); // kitchen
+  assert.ok(allIdsWithMap.includes('604968')); // jewelry-accessories
+
+  // Even if someone passes a bogus ID for an explicitly unsupported slug, unsupportedSet MUST exclude it
+  const guardedAllIds = getKalodataCategoryIdsForFilter(
+    'all',
+    { ...resolvedMap, 'books-stationery': '999999' },
+    { unsupportedSlugs: ['books-stationery'] }
+  );
+  assert.equal(guardedAllIds.includes('999999'), false);
+  assert.equal(guardedAllIds.length, 13);
+
+  // Filtering directly on an unsupported category returns []
+  assert.deepEqual(
+    getKalodataCategoryIdsForFilter('books-stationery', resolvedMap, {
+      syncedCache: synced13Cache,
+    }),
+    []
+  );
+
+  // Selection helper also excludes unsupported categories cleanly
+  const selectedIds = getKalodataCategoryIdsForSelection(
+    ['womens-fashion', 'home-living', 'electronics', 'books-stationery'],
+    resolvedMap,
+    { syncedCache: synced13Cache }
+  );
+  assert.deepEqual(selectedIds, ['601152', '600001', '601739']);
+});
+
+// ============================================================================
+// 9. Phase 8.1 — Category Name Collision Fixes & Mocked L1/L2 Kalodata API Sync (0 Paid Calls)
+// ============================================================================
+test('Phase 8.1 Category Sync (Mocked API): fixes L1 name collisions, validates L1/L2 request payloads, and handles API failure cleanly without live calls', async () => {
+  // Verify fixed name-matching collisions (no longer hijacked by broad /fashion/i or /audio/i)
+  assert.equal(matchKalodataCategoryNameToSlug('Books, Magazines & Audio'), 'books-stationery');
+  assert.equal(matchKalodataCategoryNameToSlug('Fashion Accessories'), 'jewelry-accessories');
+  assert.equal(matchKalodataCategoryNameToSlug("Kids' Fashion"), 'baby-kids');
+  assert.equal(matchKalodataCategoryNameToSlug('Womenswear & Underwear'), 'womens-fashion');
+  assert.equal(matchKalodataCategoryNameToSlug('Phones & Electronics'), 'electronics');
+  assert.equal(matchKalodataCategoryNameToSlug('Beauty & Personal Care'), 'cosmetics-beauty');
+  assert.equal(matchKalodataCategoryNameToSlug('Kitchenware'), 'kitchen');
+
+  const originalFetch = globalThis.fetch;
+  const originalKey = process.env.KALODATA_API_KEY;
+  process.env.KALODATA_API_KEY = 'mock-kalodata-test-key-never-sent-to-client';
+
+  const capturedBodies: Array<Record<string, unknown>> = [];
+
+  try {
+    // Mock 1: Successful L1 TH sync returning 13 categories (books omitted -> 1 unsupported)
+    globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+      const parsedBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      capturedBodies.push(parsedBody);
+
+      if (parsedBody.category_level === 1) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            code: '0',
+            data: [
+              { category_id: '601152', category_name: 'Womenswear & Underwear', rank: 2, revenue: 9000000 },
+              { category_id: '601450', category_name: 'Beauty & Personal Care', rank: 1, revenue: 12000000 },
+              { category_id: '601739', category_name: 'Phones & Electronics', rank: 3, revenue: 8000000 },
+              { category_id: '600001', category_name: 'Home Supplies', rank: 4, revenue: 7000000 },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (parsedBody.category_level === 2) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            code: '0',
+            data: [
+              {
+                category_id: '800101',
+                category_name: 'Headphones & Earphones',
+                parent_category_id: '601739',
+                rank: 1,
+                revenue: 1500000,
+              },
+              {
+                category_id: '800102',
+                category_name: 'Power Banks & Chargers',
+                parent_category_id: '601739',
+                rank: 2,
+                revenue: 950000,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, code: '500', message: 'Upstream temporarily unavailable' }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }) as typeof fetch;
+
+    const l1Res = await fetchKalodataCategoryRank({
+      region: 'TH',
+      language: 'en-US',
+      currency: 'THB',
+      date_range: 'last30Day',
+      page_number: 1,
+      page_size: 100,
+      category_level: 1,
+      sort_field: { field: 'revenue', type: 'DESC' },
+    });
+
+    assert.equal(l1Res.ok, true);
+    assert.equal(l1Res.items.length, 4);
+    assert.equal(capturedBodies[0].region, 'TH');
+    assert.equal(capturedBodies[0].category_level, 1);
+
+    const cacheAfterL1 = mergeSyncedL1Categories(createEmptySyncedCategoryCache(), l1Res.items);
+    assert.equal(getCategoryCatalogCounts(cacheAfterL1).supported, 4);
+    assert.equal(getCategoryCatalogCounts(cacheAfterL1).unsupported, 10);
+
+    // Mock 2: L2 subcategory sync with parent category_ids=['601739']
+    const l2Res = await fetchKalodataCategoryRank({
+      region: 'TH',
+      language: 'en-US',
+      currency: 'THB',
+      date_range: 'last30Day',
+      page_number: 1,
+      page_size: 100,
+      category_level: 2,
+      category_ids: ['601739'],
+      sort_field: { field: 'revenue', type: 'DESC' },
+    });
+
+    assert.equal(l2Res.ok, true);
+    assert.deepEqual(capturedBodies[1].category_ids, ['601739']);
+    assert.equal(l2Res.items[0].parent_category_id, '601739');
+
+    const cacheAfterL2 = mergeSyncedL2Subcategories(cacheAfterL1, l2Res.items);
+    assert.equal(cacheAfterL2.subcategories.length, 2);
+    assert.equal(cacheAfterL2.subcategories[0].parentCategory, 'electronics');
+    assert.equal(cacheAfterL2.subcategories[0].rank, 1);
+    assert.equal(cacheAfterL2.subcategories[0].revenueThb, 1500000);
+
+    // Verify L2 subcategory IDs flow cleanly into execution plan's API category_ids
+    const l2Plan = buildKalodataExecutionPlan(['electronics'], 10, 'combined', {
+      researchMode: 'fast',
+      resolvedCategoryIdMap: buildResolvedCategoryIdMap(cacheAfterL2),
+      selectedSubcategoryIds: ['800101'],
+    });
+    assert.deepEqual(l2Plan.categoryIds, ['800101']);
+    assert.deepEqual(l2Plan.streams[0].categoryIds, ['800101']);
+
+    // Mock 3: Upstream failure returns ok: false gracefully
+    const failRes = await fetchKalodataCategoryRank({
+      region: 'TH',
+      language: 'en-US',
+      currency: 'THB',
+      date_range: 'last30Day',
+      page_number: 1,
+      page_size: 100,
+      category_level: 3,
+      sort_field: { field: 'revenue', type: 'DESC' },
+    });
+    assert.equal(failRes.ok, false);
+    assert.equal(failRes.httpStatus, 503);
+    assert.equal(failRes.items.length, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) {
+      delete process.env.KALODATA_API_KEY;
+    } else {
+      process.env.KALODATA_API_KEY = originalKey;
+    }
+  }
+});
+

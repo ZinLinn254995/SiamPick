@@ -714,7 +714,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
     kalodataNamePatterns: [
       /baby\s*&?\s*maternity/i,
       /baby\s*&?\s*kids/i,
-      /kids?\s*fashion/i,
+      /kids?['’]?\s*fashion/i,
       /maternity|infant|toddler/i,
     ],
     mismatchSignatureKeywords: [
@@ -1336,23 +1336,27 @@ export function matchKalodataCategoryNameToSlug(
   const raw = (categoryName ?? '').trim();
   if (!raw) return null;
 
-  // Check more specific patterns first so "Beauty & Personal Care" matches cosmetics-beauty
-  // before general "health" and "Kitchen" matches kitchen before general "home".
+  // Check more specific multi-word / collision-prone categories BEFORE broad patterns:
+  // - 'books-stationery' BEFORE 'electronics' so "Books, Magazines & Audio" is never stolen by /audio/i
+  // - 'jewelry-accessories' & 'baby-kids' BEFORE 'womens-fashion' so "Fashion Accessories" & "Kids' Fashion"
+  //   are never stolen by /fashion/i
+  // - 'cosmetics-beauty' BEFORE 'health-personal-care' so "Beauty & Personal Care" matches cosmetics-beauty
+  // - 'kitchen' BEFORE 'home-living' so "Kitchenware" matches kitchen
   const priorityOrder: ProductCategory[] = [
     'cosmetics-beauty',
+    'books-stationery',
+    'jewelry-accessories',
+    'baby-kids',
     'womens-fashion',
     'kitchen',
     'home-living',
     'electronics',
     'health-personal-care',
     'food-beverages',
-    'baby-kids',
     'sports-outdoor',
     'automotive',
     'pet-supplies',
     'toys-hobbies',
-    'books-stationery',
-    'jewelry-accessories',
   ];
 
   for (const slug of priorityOrder) {
@@ -1501,9 +1505,22 @@ export function loadSyncedKalodataCategories(): SyncedKalodataCategoryCache {
       }
     }
 
-    const unsupportedSlugs = Array.isArray(parsed.unsupportedSlugs)
-      ? parsed.unsupportedSlugs.filter(isValidProductCategory)
-      : [];
+    const unsupportedSlugs = Array.from(
+      new Set(
+        Array.isArray(parsed.unsupportedSlugs)
+          ? parsed.unsupportedSlugs.filter(
+              (slug): slug is ProductCategory =>
+                isValidProductCategory(slug) && !CATEGORY_BY_ID[slug].defaultKalodataId
+            )
+          : []
+      )
+    );
+
+    // Ensure unsupported slugs never simultaneously hold stale dynamic IDs
+    for (const slug of unsupportedSlugs) {
+      delete l1IdBySlug[slug];
+      delete l1NameBySlug[slug];
+    }
 
     const subcategories: KalodataSubcategoryOption[] = Array.isArray(parsed.subcategories)
       ? parsed.subcategories.filter(
@@ -1548,11 +1565,14 @@ export interface KalodataCategoryRankLikeItem {
   category_name: string;
   rank?: number | null;
   revenue?: number | null;
+  parent_category_id?: string | null;
 }
 
 /**
  * Merges live Kalodata TH L1 category rank items into the synced cache.
- * - Matched categories receive their real live `category_id` & `category_name` ('synced').
+ * - Recomputes dynamic L1 mappings cleanly from the latest live list so re-syncs
+ *   automatically update statuses and counts (both newly unlocked and newly unsupported).
+ * - Empty liveItems leaves `previous` untouched so failed/empty calls never corrupt cache.
  * - Categories with no static verified ID AND no match in the live L1 list are honestly
  *   marked in `unsupportedSlugs` so SiamPick NEVER pretends an unsupported category works.
  */
@@ -1561,33 +1581,38 @@ export function mergeSyncedL1Categories(
   liveItems: readonly KalodataCategoryRankLikeItem[],
   syncedAt = new Date().toISOString()
 ): SyncedKalodataCategoryCache {
-  const nextIdMap: Partial<Record<ProductCategory, string>> = { ...previous.l1IdBySlug };
-  const nextNameMap: Partial<Record<ProductCategory, string>> = { ...previous.l1NameBySlug };
+  const validItems = liveItems
+    .map((item) => ({
+      id: String(item.category_id ?? '').trim(),
+      name: String(item.category_name ?? '').trim(),
+    }))
+    .filter((item) => /^[A-Za-z0-9_-]{3,64}$/.test(item.id) && item.name.length > 0);
+
+  if (validItems.length === 0) {
+    return previous;
+  }
+
+  const nextIdMap: Partial<Record<ProductCategory, string>> = {};
+  const nextNameMap: Partial<Record<ProductCategory, string>> = {};
   const matchedSlugs = new Set<ProductCategory>();
 
-  for (const item of liveItems) {
-    const id = String(item.category_id ?? '').trim();
-    const name = String(item.category_name ?? '').trim();
-    if (!id || !name) continue;
-
+  for (const item of validItems) {
     // First check exact static ID match
-    const byStaticId = UNIVERSAL_CATEGORIES.find((def) => def.defaultKalodataId === id);
-    const matchedSlug = byStaticId?.id ?? matchKalodataCategoryNameToSlug(name);
+    const byStaticId = UNIVERSAL_CATEGORIES.find((def) => def.defaultKalodataId === item.id);
+    const matchedSlug = byStaticId?.id ?? matchKalodataCategoryNameToSlug(item.name);
 
     if (matchedSlug && !matchedSlugs.has(matchedSlug)) {
       matchedSlugs.add(matchedSlug);
-      nextIdMap[matchedSlug] = id;
-      nextNameMap[matchedSlug] = name;
+      nextIdMap[matchedSlug] = item.id;
+      nextNameMap[matchedSlug] = item.name;
     }
   }
 
   // Honestly mark unmatched categories (that have no verified static fallback) as unsupported
   const unsupportedSlugs: ProductCategory[] = [];
-  if (liveItems.length > 0) {
-    for (const def of UNIVERSAL_CATEGORIES) {
-      if (!matchedSlugs.has(def.id) && !nextIdMap[def.id] && !def.defaultKalodataId) {
-        unsupportedSlugs.push(def.id);
-      }
+  for (const def of UNIVERSAL_CATEGORIES) {
+    if (!matchedSlugs.has(def.id) && !def.defaultKalodataId) {
+      unsupportedSlugs.push(def.id);
     }
   }
 
@@ -1615,12 +1640,27 @@ export function mergeSyncedL2Subcategories(
     byId.set(existing.id, existing);
   }
 
+  // Build reverse lookup from L1 Kalodata ID -> ProductCategory slug for accurate parent linking
+  const slugByL1Id = new Map<string, ProductCategory>();
+  for (const def of UNIVERSAL_CATEGORIES) {
+    const id = previous.l1IdBySlug[def.id] ?? def.defaultKalodataId;
+    if (id) slugByL1Id.set(id, def.id);
+  }
+
   for (const item of liveItems) {
     const id = String(item.category_id ?? '').trim();
     const name = String(item.category_name ?? '').trim();
-    if (!id || !name) continue;
+    if (!/^[A-Za-z0-9_-]{3,64}$/.test(id) || !name) continue;
+
+    const itemParentId =
+      typeof item.parent_category_id === 'string' && item.parent_category_id.trim()
+        ? item.parent_category_id.trim()
+        : null;
+    const effectiveParentId =
+      itemParentId ?? parentHint?.parentCategoryId ?? byId.get(id)?.parentCategoryId ?? null;
 
     const guessedParent =
+      (effectiveParentId ? slugByL1Id.get(effectiveParentId) : null) ??
       parentHint?.parentCategory ??
       matchKalodataCategoryNameToSlug(name) ??
       byId.get(id)?.parentCategory ??
@@ -1630,9 +1670,10 @@ export function mergeSyncedL2Subcategories(
       id,
       name,
       parentCategory: guessedParent,
-      parentCategoryId: parentHint?.parentCategoryId ?? byId.get(id)?.parentCategoryId ?? null,
-      rank: typeof item.rank === 'number' ? item.rank : null,
-      revenueThb: typeof item.revenue === 'number' ? item.revenue : null,
+      parentCategoryId: effectiveParentId,
+      rank: typeof item.rank === 'number' && Number.isFinite(item.rank) ? item.rank : null,
+      revenueThb:
+        typeof item.revenue === 'number' && Number.isFinite(item.revenue) ? item.revenue : null,
     });
   }
 
@@ -1656,18 +1697,19 @@ export function getEffectiveCategoryCatalog(
   const unsupportedSet = new Set<ProductCategory>(cache.unsupportedSlugs);
 
   return UNIVERSAL_CATEGORIES.map((def) => {
-    const syncedId = cache.l1IdBySlug[def.id] ?? null;
-    const syncedName = cache.l1NameBySlug[def.id] ?? null;
+    const isMarkedUnsupported = unsupportedSet.has(def.id) && !def.defaultKalodataId;
+    const syncedId = isMarkedUnsupported ? null : (cache.l1IdBySlug[def.id] ?? null);
+    const syncedName = isMarkedUnsupported ? null : (cache.l1NameBySlug[def.id] ?? null);
     const kalodataId = syncedId ?? def.defaultKalodataId;
     const kalodataName = syncedName ?? def.defaultKalodataName;
 
     let apiSupportStatus: CategoryApiSupportStatus;
-    if (syncedId) {
+    if (isMarkedUnsupported) {
+      apiSupportStatus = 'unsupported';
+    } else if (syncedId) {
       apiSupportStatus = def.defaultSupportStatus === 'verified' ? 'verified' : 'synced';
     } else if (def.defaultKalodataId) {
       apiSupportStatus = def.defaultSupportStatus;
-    } else if (unsupportedSet.has(def.id)) {
-      apiSupportStatus = 'unsupported';
     } else {
       apiSupportStatus = 'requires-sync';
     }
@@ -1677,13 +1719,98 @@ export function getEffectiveCategoryCatalog(
 
     return {
       ...def,
-      kalodataId,
-      kalodataName,
+      kalodataId: selectable ? kalodataId : null,
+      kalodataName: selectable ? kalodataName : null,
       apiSupportStatus,
       selectable,
       subcategories,
     };
   });
+}
+
+export type CategorySyncState = 'unsynced' | 'syncing' | 'synced' | 'error';
+
+export interface CategoryCatalogCounts {
+  total: number;
+  supported: number;
+  verified: number;
+  synced: number;
+  requiresSync: number;
+  unsupported: number;
+  syncState: CategorySyncState;
+}
+
+/**
+ * Single source of truth for Total / Supported / Pending Sync / Unsupported category counts
+ * across unsynced, syncing, synced, and error states.
+ */
+export function getCategoryCatalogCounts(
+  syncedCache?: SyncedKalodataCategoryCache | null,
+  options?: { isSyncing?: boolean; hasError?: boolean }
+): CategoryCatalogCounts {
+  const cache = syncedCache ?? createEmptySyncedCategoryCache();
+  const catalog = getEffectiveCategoryCatalog(cache);
+
+  let verified = 0;
+  let synced = 0;
+  let requiresSync = 0;
+  let unsupported = 0;
+
+  for (const entry of catalog) {
+    if (entry.apiSupportStatus === 'verified' || entry.apiSupportStatus === 'docs-verified') {
+      verified += 1;
+    } else if (entry.apiSupportStatus === 'synced') {
+      synced += 1;
+    } else if (entry.apiSupportStatus === 'unsupported') {
+      unsupported += 1;
+    } else {
+      requiresSync += 1;
+    }
+  }
+
+  const supported = verified + synced;
+  let syncState: CategorySyncState;
+  if (options?.isSyncing) {
+    syncState = 'syncing';
+  } else if (options?.hasError) {
+    syncState = 'error';
+  } else if (cache.syncedAt) {
+    syncState = 'synced';
+  } else {
+    syncState = 'unsynced';
+  }
+
+  return {
+    total: catalog.length,
+    supported,
+    verified,
+    synced,
+    requiresSync,
+    unsupported,
+    syncState,
+  };
+}
+
+/**
+ * Formats an honest, unambiguous category count summary:
+ * - After sync (0 pending): "14 Total · 13 Supported · 1 Unsupported"
+ * - Before sync (11 pending): "14 Total · 3 Supported · 11 Pending Sync · 0 Unsupported"
+ */
+export function formatCategoryCatalogCountSummary(
+  counts: CategoryCatalogCounts,
+  language: Language
+): string {
+  if (language === 'my') {
+    if (counts.requiresSync > 0) {
+      return `စုစုပေါင်း ${counts.total} · ပံ့ပိုး ${counts.supported} · Sync လို ${counts.requiresSync} · မပံ့ပိုး ${counts.unsupported}`;
+    }
+    return `စုစုပေါင်း ${counts.total} · ပံ့ပိုး ${counts.supported} · မပံ့ပိုး ${counts.unsupported}`;
+  }
+
+  if (counts.requiresSync > 0) {
+    return `${counts.total} Total · ${counts.supported} Supported · ${counts.requiresSync} Pending Sync · ${counts.unsupported} Unsupported`;
+  }
+  return `${counts.total} Total · ${counts.supported} Supported · ${counts.unsupported} Unsupported`;
 }
 
 /**

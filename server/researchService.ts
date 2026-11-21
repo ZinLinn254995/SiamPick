@@ -7,6 +7,12 @@ import type {
   FashionReturnRisk,
   GroundingSourceLink,
   KalodataCategoryRef,
+  KalodataProductDetailEnrichmentRecord,
+  MyanmarDiscoveryMode,
+  MyanmarReviewDiscoveryStats,
+  MyanmarVideoDiscoveryStats,
+  MyanmarVideoDiscoveryStopReason,
+  MyanmarVideoEvidenceItem,
   ProductCategory,
   ResearchConfig,
   ResearchDepthTag,
@@ -27,9 +33,16 @@ import {
 import {
   buildKalodataExecutionPlan,
   clampDeepDiveCount,
+  clampMyanmarReviewScanLimit,
+  clampMyanmarVideoScanPages,
   DEFAULT_SPENDING_LIMIT_CREDITS,
   formatCredits,
+  KALODATA_COMMENT_INSIGHT_CREDIT,
+  KALODATA_CREDITS_PER_100_ROWS,
+  KALODATA_MAX_PAGE_SIZE,
+  KALODATA_PRODUCT_DETAIL_CREDIT,
   KALODATA_USD_PER_CREDIT,
+  KALODATA_VIDEO_RANK_CREDIT_PER_100,
 } from '../src/utils/kalodataPricing.ts';
 import { getCategoryDefinition } from '../src/utils/categoryRegistry.ts';
 import { verifyKalodataImageUrl } from './imageRetriever.ts';
@@ -39,6 +52,7 @@ import {
   fetchKalodataProductDetail,
   fetchKalodataProductRank,
   fetchKalodataShopDetail,
+  fetchKalodataVideoRank,
   resolveProductCategoryFromKalodataId,
 } from './kalodataService.ts';
 import {
@@ -48,24 +62,71 @@ import {
   parseKalodataCommentInsight,
   parseKalodataProductDetail,
   parseKalodataShopDetail,
+  parseKalodataVideoRankItem,
   selectBestCandidatesForMode,
   type ParsedCommentInsight,
   type ParsedProductDetail,
   type ParsedShopDetail,
+  type ParsedVideoLinkedProduct,
   type RankCandidateRow,
 } from './kalodataAnalysis.ts';
 import {
   getServerCachedProductDetail,
   getServerCachedReviewInsight,
   getServerCachedShopDetail,
+  getServerCachedVideoProducts,
   setServerCachedProductDetail,
   setServerCachedReviewInsight,
   setServerCachedShopDetail,
+  setServerCachedVideoProducts,
   toProductDetailRecord,
   toReviewInsightRecord,
   toShopEnrichmentRecord,
 } from './enrichmentService.ts';
 import { buildStructuredReviewInsight } from '../src/utils/enrichmentPlanner.ts';
+import {
+  analyzeProductReviewsForMyanmar,
+  buildMyanmarVideoLanguageAnalysis,
+  detectMyanmarInVideoCandidate,
+  detectMyanmarLanguageSignals,
+  extractRawMyanmarTextCandidates,
+  type ReviewTextItem,
+} from '../src/utils/myanmarLanguageDetector.ts';
+
+export interface ResearchPipelineTestOverrides {
+  fetchCreditBalance?: () => Promise<{ ok: boolean; balance: number | null }>;
+  fetchProductRank?: (
+    params: Parameters<typeof fetchKalodataProductRank>[0]
+  ) => Promise<{
+    ok: boolean;
+    items: Record<string, unknown>[];
+    total?: number | null;
+    upstreamCode?: string;
+    error?: string;
+    errorMy?: string;
+  }>;
+  fetchVideoRank?: (
+    params: Parameters<typeof fetchKalodataVideoRank>[0]
+  ) => Promise<{
+    ok: boolean;
+    items: Record<string, unknown>[];
+    total?: number | null;
+    upstreamCode?: string;
+    error?: string;
+    errorMy?: string;
+  }>;
+  fetchProductDetail?: (
+    params: Parameters<typeof fetchKalodataProductDetail>[0]
+  ) => Promise<{ ok: boolean; data: Record<string, unknown> | null }>;
+  fetchShopDetail?: (
+    params: Parameters<typeof fetchKalodataShopDetail>[0]
+  ) => Promise<{ ok: boolean; data: Record<string, unknown> | null }>;
+  fetchCommentInsight?: (
+    params: Parameters<typeof fetchKalodataProductCommentInsight>[0]
+  ) => Promise<{ ok: boolean; data: Record<string, unknown> | null }>;
+  verifyImageUrl?: typeof verifyKalodataImageUrl;
+  maxReviewPages?: number;
+}
 
 export class ResearchApiError extends Error {
   status: number;
@@ -352,6 +413,8 @@ interface KalodataProductEnrichment {
   productDetail: ParsedProductDetail | null;
   shopDetail: ParsedShopDetail | null;
   commentInsight: ParsedCommentInsight | null;
+  matchedVideos?: MyanmarVideoEvidenceItem[];
+  sourceMode?: 'product-rank' | 'video-rank';
 }
 
 function buildKalodataProductSummary(
@@ -369,16 +432,20 @@ function buildKalodataProductSummary(
   },
   enrichment: KalodataProductEnrichment
 ): ResearchProduct {
-  const { researchMode, productDetail, shopDetail, commentInsight } = enrichment;
+  const { researchMode, productDetail, shopDetail, commentInsight, matchedVideos, sourceMode } =
+    enrichment;
   const productId =
     item.product_id !== undefined && item.product_id !== null
       ? String(item.product_id).trim()
       : `unknown-${Date.now()}`;
-  const productName = asString(item.product_name, `TikTok Shop Product ${productId}`);
+  const productName = asString(
+    item.product_name ?? productDetail?.productName,
+    `TikTok Shop Product ${productId}`
+  );
 
-  const priCategory = parseKalodataCategoryRef(item.pri_category);
-  const secCategory = parseKalodataCategoryRef(item.sec_category);
-  const terCategory = parseKalodataCategoryRef(item.ter_category);
+  const priCategory = parseKalodataCategoryRef(item.pri_category) ?? productDetail?.priCategory ?? null;
+  const secCategory = parseKalodataCategoryRef(item.sec_category) ?? productDetail?.secCategory ?? null;
+  const terCategory = parseKalodataCategoryRef(item.ter_category) ?? productDetail?.terCategory ?? null;
 
   const unitPriceRaw = productDetail?.unitPriceThb ?? toNullableFiniteNumber(item.unit_price);
   const priceThb =
@@ -411,10 +478,12 @@ function buildKalodataProductSummary(
 
   const revenueThb = productDetail?.revenueThb ?? toNullableFiniteNumber(item.revenue);
   const salesVolume = productDetail?.salesVolume ?? toNullableFiniteNumber(item.sales_volumn);
-  const revenueGrowthRate = toNullableFiniteNumber(item.revenue_growth_rate);
+  const revenueGrowthRate =
+    toNullableFiniteNumber(item.revenue_growth_rate) ?? productDetail?.revenueGrowthRate ?? null;
   const liveRevenueThb = productDetail?.liveRevenueThb ?? toNullableFiniteNumber(item.live_revenue);
   const videoRevenueThb = productDetail?.videoRevenueThb ?? toNullableFiniteNumber(item.video_revenue);
-  const showcaseRevenueThb = toNullableFiniteNumber(item.showcase_revenue);
+  const showcaseRevenueThb =
+    toNullableFiniteNumber(item.showcase_revenue) ?? productDetail?.showcaseRevenueThb ?? null;
   const shoppingMallRevenueThb = productDetail?.shoppingMallRevenueThb ?? null;
 
   const creatorNumber = productDetail?.creatorNumber ?? null;
@@ -435,10 +504,11 @@ function buildKalodataProductSummary(
       : null);
   const sellerName =
     shopDetail?.shopName ??
+    productDetail?.sellerName ??
     (typeof item.seller_name === 'string' && item.seller_name.trim() !== ''
       ? item.seller_name.trim()
       : null);
-  const skuCount = toNullableFiniteNumber(item.sku_count);
+  const skuCount = toNullableFiniteNumber(item.sku_count) ?? productDetail?.skuCount ?? null;
   const launchDate =
     productDetail?.launchDate ??
     (typeof item.launch_date === 'string' && item.launch_date.trim() !== ''
@@ -455,8 +525,7 @@ function buildKalodataProductSummary(
   const subCategory =
     subCategoryParts.length > 0
       ? subCategoryParts.join(' · ')
-      : priCategory?.category_name ||
-        (mappedCategory === 'womens-fashion' ? 'Womenswear & Underwear' : 'Beauty & Personal Care');
+      : priCategory?.category_name || getCategoryDefinition(mappedCategory).labelEn;
 
   const hasSalesMetrics = revenueThb !== null || salesVolume !== null;
   const demandLevel = computeKalodataDemandLevel(revenueThb, salesVolume, revenueGrowthRate);
@@ -608,7 +677,7 @@ function buildKalodataProductSummary(
   }
 
   const kalodataProductUrl = `https://www.kalodata.com/product/detail?id=${encodeURIComponent(productId)}&region=TH`;
-  const sourceEndpoints = ['TH Product Rank'];
+  const sourceEndpoints = [sourceMode === 'video-rank' ? 'TH Video Rank' : 'TH Product Rank'];
   if (productDetail) sourceEndpoints.push('Product Detail');
   if (shopDetail) sourceEndpoints.push('Shop Detail');
   if (commentInsight) sourceEndpoints.push('Comment Insight');
@@ -860,9 +929,12 @@ function buildKalodataProductSummary(
             commentsAnalyzed: commentInsight.commentsAnalyzed,
             averageRating: commentInsight.averageRating,
             ratedCommentCount: commentInsight.ratedCommentCount,
+            rawComments: commentInsight.rawComments,
+            pagesFetched: commentInsight.pagesFetched,
             updatedAt: researchedAt,
           })
         : null,
+      productDescription: productDetail?.productDescription ?? null,
       priCategory,
       secCategory,
       terCategory,
@@ -962,6 +1034,28 @@ function buildKalodataProductSummary(
     confidenceDetailMy: `Kalodata ${sourceEndpoints.join(' + ')} မှ တိုက်ရိုက်အတည်ပြုထားပါသည် — ဈေးနှုန်း (${formatThbInline(priceThb)})၊ ${dateRange} ရောင်းအား/ဝင်ငွေ၊ Category (${priCategory?.category_id ?? '—'})၊ Affiliate Commission (${commissionRate !== null ? `${commissionRate}%` : '—'})${productDetail ? `၊ Creator ${creatorNumber ?? '—'} ဦး၊ Review ${reviewCount ?? '—'} ခု` : ''}${shopDetail ? `၊ ဆိုင်အမျိုးအစား (${shopDetail.sellerType ?? '—'}) နှင့် ဆိုင်ဝင်ငွေ (${formatThbInline(shopDetail.revenueThb)})` : ''}။ API မှ မရရှိသောအချက်များကို Unavailable/Unverified အဖြစ် ရိုးသားစွာ ဖော်ပြထားပါသည်။`,
     missingDataEn,
     missingDataMy,
+    myanmarLanguage: (() => {
+      const rawTextCandidates = extractRawMyanmarTextCandidates({
+        rawItem: item,
+        productDetail: productDetail
+          ? { productDescription: productDetail.productDescription ?? null }
+          : null,
+        commentInsight: commentInsight
+          ? {
+              summary: commentInsight.summary,
+              positivePoints: commentInsight.positivePoints,
+              painPoints: commentInsight.painPoints,
+              usageScenarios: commentInsight.usageScenarios,
+              rawComments: commentInsight.rawComments,
+              allRawComments: commentInsight.allRawComments,
+            }
+          : null,
+      });
+      if (matchedVideos && matchedVideos.length > 0) {
+        return buildMyanmarVideoLanguageAnalysis(matchedVideos, rawTextCandidates);
+      }
+      return detectMyanmarLanguageSignals(rawTextCandidates);
+    })(),
   };
 
   const evaluation = evaluateProductOpportunity(draftProduct);
@@ -969,6 +1063,70 @@ function buildKalodataProductSummary(
     ...draftProduct,
     opportunityScore: evaluation.totalScore,
     confidenceLevel: evaluation.confidenceLevel,
+  };
+}
+
+function cachedProductDetailToParsed(
+  cachedPd: KalodataProductDetailEnrichmentRecord
+): ParsedProductDetail {
+  return {
+    productId: cachedPd.productId,
+    productShopId: cachedPd.productShopId,
+    ...(cachedPd.productName ? { productName: cachedPd.productName } : {}),
+    ...(cachedPd.sellerName ? { sellerName: cachedPd.sellerName } : {}),
+    ...(cachedPd.masterImageUrl ? { masterImageUrl: cachedPd.masterImageUrl } : {}),
+    ...(cachedPd.priCategory ? { priCategory: cachedPd.priCategory } : {}),
+    ...(cachedPd.secCategory ? { secCategory: cachedPd.secCategory } : {}),
+    ...(cachedPd.terCategory ? { terCategory: cachedPd.terCategory } : {}),
+    ...(cachedPd.revenueGrowthRate !== undefined ? { revenueGrowthRate: cachedPd.revenueGrowthRate } : {}),
+    ...(cachedPd.showcaseRevenueThb !== undefined ? { showcaseRevenueThb: cachedPd.showcaseRevenueThb } : {}),
+    ...(cachedPd.skuCount !== undefined ? { skuCount: cachedPd.skuCount } : {}),
+    minPriceThb: cachedPd.minPriceThb,
+    maxPriceThb: cachedPd.maxPriceThb,
+    unitPriceThb: cachedPd.unitPriceThb,
+    revenueThb: cachedPd.revenueThb,
+    salesVolume: cachedPd.salesVolume,
+    videoRevenueThb: cachedPd.videoRevenueThb,
+    liveRevenueThb: cachedPd.liveRevenueThb,
+    shoppingMallRevenueThb: cachedPd.shoppingMallRevenueThb,
+    commissionRatePct: cachedPd.commissionRatePct,
+    creatorNumber: cachedPd.creatorNumber,
+    videoNumber: cachedPd.videoNumber,
+    liveNumber: cachedPd.liveNumber,
+    deliveryType: cachedPd.deliveryType,
+    productReviewCount: cachedPd.productReviewCount,
+    productDescription: cachedPd.productDescription ?? null,
+    launchDate: cachedPd.launchDate,
+    trendPointsCount: cachedPd.trendPointsCount,
+    trendPeakThb: cachedPd.trendPeakThb,
+    trendAvgThb: cachedPd.trendAvgThb,
+  };
+}
+
+function synthesizeItemFromVideoAndDetail(
+  productId: string,
+  linked: ParsedVideoLinkedProduct | null,
+  detail: ParsedProductDetail | null
+): Record<string, unknown> {
+  return {
+    product_id: productId,
+    product_name: detail?.productName ?? linked?.productName ?? null,
+    unit_price: detail?.unitPriceThb ?? linked?.unitPriceThb ?? null,
+    commission_rate: detail?.commissionRatePct ?? linked?.commissionRatePct ?? null,
+    revenue: detail?.revenueThb ?? linked?.revenueThb ?? null,
+    sales_volumn: detail?.salesVolume ?? linked?.salesVolume ?? null,
+    revenue_growth_rate: detail?.revenueGrowthRate ?? null,
+    video_revenue: detail?.videoRevenueThb ?? null,
+    live_revenue: detail?.liveRevenueThb ?? null,
+    showcase_revenue: detail?.showcaseRevenueThb ?? null,
+    master_image_url: detail?.masterImageUrl ?? linked?.masterImageUrl ?? null,
+    seller_id: detail?.productShopId ?? linked?.sellerId ?? null,
+    seller_name: detail?.sellerName ?? linked?.sellerName ?? null,
+    sku_count: detail?.skuCount ?? null,
+    launch_date: detail?.launchDate ?? null,
+    pri_category: detail?.priCategory ?? linked?.priCategory ?? null,
+    sec_category: detail?.secCategory ?? linked?.secCategory ?? null,
+    ter_category: detail?.terCategory ?? linked?.terCategory ?? null,
   };
 }
 
@@ -994,10 +1152,149 @@ async function runWithConcurrency<T, R>(
   return results;
 }
 
+/**
+ * Retrieves available buyer reviews for a Thailand TikTok Shop product during Myanmar Review Discovery.
+ * - Reuses server cache first (0 credits).
+ * - Fetches Kalodata comment/insight (1.0 cr) when not cached.
+ * - Supports multi-page review pagination when `hasMore` / `nextCursor` is returned by the review source
+ *   up to `maxReviewPages` (defaults to 1 for Kalodata's single-snapshot endpoint).
+ */
+async function retrieveProductReviewsForDiscovery(
+  productId: string,
+  getCommentInsight: (
+    params: Parameters<typeof fetchKalodataProductCommentInsight>[0]
+  ) => Promise<{ ok: boolean; data: Record<string, unknown> | null }>,
+  researchedAt: string,
+  maxReviewPages: number
+): Promise<{
+  parsed: ParsedCommentInsight | null;
+  reviews: ReviewTextItem[];
+  apiCallsMade: number;
+  fromCache: boolean;
+}> {
+  const cached = getServerCachedReviewInsight(productId);
+  if (cached) {
+    const cachedRaw = Array.isArray(cached.rawComments) ? cached.rawComments : [];
+    const reviews: ReviewTextItem[] = cachedRaw
+      .filter((t) => typeof t === 'string' && t.trim().length > 0)
+      .map((text) => ({ text: text.trim(), rating: null, pageNumber: 1 }));
+    const parsedFromCache: ParsedCommentInsight = {
+      productId: cached.productId,
+      summary: cached.summary,
+      positivePoints: cached.positivePoints,
+      painPoints: cached.painPoints,
+      usageScenarios: cached.usageScenarios,
+      commentsAnalyzed: cached.commentsAnalyzed,
+      averageRating: cached.averageRating,
+      ratedCommentCount: cached.ratedCommentCount,
+      ...(cachedRaw.length > 0 ? { rawComments: cachedRaw } : {}),
+      ...(reviews.length > 0 ? { allRawComments: reviews } : {}),
+      pagesFetched: cached.pagesFetched ?? 1,
+    };
+    return { parsed: parsedFromCache, reviews, apiCallsMade: 0, fromCache: true };
+  }
+
+  let apiCallsMade = 0;
+  let mergedParsed: ParsedCommentInsight | null = null;
+  const mergedReviews: ReviewTextItem[] = [];
+  const seenReviewKeys = new Set<string>();
+  const safeMaxPages = Math.max(1, Math.min(5, Math.floor(maxReviewPages)));
+  let cursor: string | undefined;
+
+  for (let page = 1; page <= safeMaxPages; page += 1) {
+    apiCallsMade += 1;
+    const reqParams: Parameters<typeof fetchKalodataProductCommentInsight>[0] = {
+      product_id: productId,
+      country_code: 'th',
+      ...(page > 1 ? { page_number: page } : {}),
+      ...(cursor ? { cursor } : {}),
+    };
+    const res = await getCommentInsight(reqParams);
+    if (!res.ok || !res.data) {
+      break;
+    }
+
+    const pageParsed = parseKalodataCommentInsight(productId, res.data, page);
+    if (!pageParsed) {
+      break;
+    }
+
+    const pageReviews: ReviewTextItem[] =
+      pageParsed.allRawComments ??
+      (pageParsed.rawComments ?? []).map((text) => ({ text, rating: null, pageNumber: page }));
+
+    for (const rv of pageReviews) {
+      const key = rv.text.trim().toLowerCase();
+      if (!key || seenReviewKeys.has(key)) continue;
+      seenReviewKeys.add(key);
+      mergedReviews.push({
+        text: rv.text.trim(),
+        rating: rv.rating ?? null,
+        pageNumber: rv.pageNumber ?? page,
+      });
+    }
+
+    if (mergedParsed === null) {
+      mergedParsed = {
+        ...pageParsed,
+        allRawComments: mergedReviews,
+        rawComments: mergedReviews.slice(0, 60).map((r) => r.text.slice(0, 300)),
+        commentsAnalyzed: Math.max(pageParsed.commentsAnalyzed, mergedReviews.length),
+        pagesFetched: page,
+      };
+    } else {
+      const prev: ParsedCommentInsight = mergedParsed;
+      mergedParsed = {
+        ...prev,
+        summary: prev.summary ?? pageParsed.summary,
+        positivePoints:
+          prev.positivePoints.length > 0 ? prev.positivePoints : pageParsed.positivePoints,
+        painPoints: prev.painPoints.length > 0 ? prev.painPoints : pageParsed.painPoints,
+        usageScenarios:
+          prev.usageScenarios.length > 0 ? prev.usageScenarios : pageParsed.usageScenarios,
+        commentsAnalyzed: Math.max(
+          prev.commentsAnalyzed + pageParsed.commentsAnalyzed,
+          mergedReviews.length
+        ),
+        allRawComments: mergedReviews,
+        rawComments: mergedReviews.slice(0, 60).map((r) => r.text.slice(0, 300)),
+        hasMore: pageParsed.hasMore,
+        nextCursor: pageParsed.nextCursor,
+        pagesFetched: page,
+      };
+    }
+
+    if (!pageParsed.hasMore || page >= safeMaxPages) {
+      break;
+    }
+    cursor = pageParsed.nextCursor ?? undefined;
+  }
+
+  if (mergedParsed) {
+    setServerCachedReviewInsight(toReviewInsightRecord(mergedParsed, researchedAt));
+  }
+
+  return {
+    parsed: mergedParsed,
+    reviews: mergedReviews,
+    apiCallsMade,
+    fromCache: false,
+  };
+}
+
 export async function runThailandProductResearch(
   config: ResearchConfig,
-  options?: { forceResume?: boolean }
+  options?: { forceResume?: boolean; testOverrides?: ResearchPipelineTestOverrides }
 ): Promise<ResearchSessionResponse> {
+  const getCreditBalance = options?.testOverrides?.fetchCreditBalance ?? fetchKalodataCreditBalance;
+  const getProductRank = options?.testOverrides?.fetchProductRank ?? fetchKalodataProductRank;
+  const getVideoRank = options?.testOverrides?.fetchVideoRank ?? fetchKalodataVideoRank;
+  const getProductDetail = options?.testOverrides?.fetchProductDetail ?? fetchKalodataProductDetail;
+  const getShopDetail = options?.testOverrides?.fetchShopDetail ?? fetchKalodataShopDetail;
+  const getCommentInsight =
+    options?.testOverrides?.fetchCommentInsight ?? fetchKalodataProductCommentInsight;
+  const checkImageUrl = options?.testOverrides?.verifyImageUrl ?? verifyKalodataImageUrl;
+
   if (options?.forceResume) {
     resumeResearch();
   }
@@ -1046,12 +1343,31 @@ export async function runThailandProductResearch(
       ? config.spendingLimitCredits
       : DEFAULT_SPENDING_LIMIT_CREDITS;
 
+  const myanmarLanguageOnly = config.myanmarLanguageOnly === true;
+  const myanmarDiscoveryMode: MyanmarDiscoveryMode | undefined = myanmarLanguageOnly
+    ? config.myanmarDiscoveryMode === 'review-first'
+      ? 'review-first'
+      : 'video-first'
+    : undefined;
+  const isVideoFirstMyanmar = myanmarLanguageOnly && myanmarDiscoveryMode === 'video-first';
+  const isReviewFirstMyanmar = myanmarLanguageOnly && myanmarDiscoveryMode === 'review-first';
+  const myanmarVideoScanPages = isVideoFirstMyanmar
+    ? clampMyanmarVideoScanPages(config.myanmarVideoScanPages)
+    : undefined;
+  const myanmarReviewScanLimit = isReviewFirstMyanmar
+    ? clampMyanmarReviewScanLimit(config.myanmarReviewScanLimit)
+    : undefined;
+
   const plan = buildKalodataExecutionPlan(selectedCategories, config.quantity, bothCategoryMode, {
     researchMode,
     deepDiveCount,
     includeReviewInsights,
     selectedSubcategoryIds: config.selectedSubcategoryIds,
     resolvedCategoryIdMap: config.resolvedCategoryIdMap,
+    myanmarLanguageOnly,
+    myanmarDiscoveryMode,
+    myanmarVideoScanPages,
+    myanmarReviewScanLimit,
   });
 
   if (plan.streams.length === 0 || plan.categoryIds.length === 0) {
@@ -1079,7 +1395,7 @@ export async function runThailandProductResearch(
   }
 
   // Free Credit Balance check BEFORE calling any paid Kalodata endpoint (0 credits)
-  const balanceBeforeRes = await fetchKalodataCreditBalance();
+  const balanceBeforeRes = await getCreditBalance();
   const balanceBefore =
     balanceBeforeRes.ok && balanceBeforeRes.balance !== null ? balanceBeforeRes.balance : null;
 
@@ -1104,165 +1420,861 @@ export async function runThailandProductResearch(
         ? 'sales_volumn'
         : 'revenue';
 
-  const seenProductIds = new Set<string>();
-  const streamBuckets: RankCandidateRow[][] = [];
   const executedQueries: string[] = [];
   let rankApiCalls = 0;
+  let videoRankApiCalls = 0;
   let productDetailApiCalls = 0;
   let shopDetailApiCalls = 0;
   let commentInsightApiCalls = 0;
   let filteredOutCount = 0;
+  let myanmarCandidatesScanned = 0;
 
-  // Step 1: Kalodata Product Rank (Fast = last7Day tight; Balanced & Deep = last30Day wider candidate pool)
-  for (const stream of plan.streams) {
-    const streamIdSet = new Set(stream.categoryIds);
-    const streamPool: RankCandidateRow[] = [];
-    // In Balanced & Deep modes, collect the full page candidate pool so we can filter & compare before slicing to targetCount
-    const poolTarget =
-      researchMode === 'fast'
-        ? stream.targetCount
-        : Math.max(stream.targetCount, stream.pageSizes.reduce((acc, s) => acc + s, 0));
+  const productDetailMap = new Map<string, ParsedProductDetail>();
+  const shopDetailMap = new Map<string, ParsedShopDetail>();
+  const commentInsightMap = new Map<string, ParsedCommentInsight>();
+  const matchedVideosByProductId = new Map<string, MyanmarVideoEvidenceItem[]>();
+  let myanmarReviewDiscovery: MyanmarReviewDiscoveryStats | undefined;
+  let myanmarVideoDiscovery: MyanmarVideoDiscoveryStats | undefined;
 
-    for (let pageIdx = 0; pageIdx < stream.pageSizes.length; pageIdx += 1) {
-      if (researchMode === 'fast' && streamPool.length >= stream.targetCount) {
-        break;
+  let finalRows: RankCandidateRow[] = [];
+
+  if (isVideoFirstMyanmar) {
+    // Phase 9 Method 1: Video-First Myanmar Discovery (TH TikTok Shop)
+    // Official Kalodata OpenAPI flow:
+    // 1. POST /tiktok/video/rank (0.1 cr / 100-video page; valid sorts: 'revenue' | 'views')
+    // 2. For every Myanmar-matched video, resolve linked affiliate products via:
+    //    - Path A (Live Kalodata behavior): POST /tiktok/product/rank with video_id + is_affiliate=1 + need_image=1 (0.1 cr, 24h server-cached)
+    //    - Path B (Embedded payload fallback): hydrate embedded linkedProducts via cache / product/detail (0.1 cr)
+    // 3. Early-stops immediately when verifiedRows.length >= plan.quantity (e.g. 20), then re-ranks with SiamPick's untouched 7-Factor Scoring System.
+    const maxPagesPerStream = clampMyanmarVideoScanPages(myanmarVideoScanPages);
+    const primaryVideoSort: 'revenue' | 'views' =
+      config.strategyPreset === 'sales-first' || config.salesWeightPct >= 62 ? 'views' : 'revenue';
+    const secondaryVideoSort: 'revenue' | 'views' =
+      primaryVideoSort === 'revenue' ? 'views' : 'revenue';
+
+    const plannedCreditCeiling = Math.min(plan.estimatedCredits, spendingLimitCredits);
+    const reservedPostDiscoveryCredits =
+      (researchMode !== 'fast'
+        ? plan.productDetailApiCalls * KALODATA_PRODUCT_DETAIL_CREDIT
+        : 0) +
+      (researchMode === 'deep'
+        ? plan.shopDetailApiCalls * KALODATA_PRODUCT_DETAIL_CREDIT
+        : 0) +
+      (researchMode === 'deep' && plan.includeReviewInsights
+        ? plan.commentInsightApiCalls * KALODATA_COMMENT_INSIGHT_CREDIT
+        : 0);
+
+    const canSpendDiscoveryCredits = (deltaCredits: number): boolean => {
+      const usedCredits =
+        videoRankApiCalls * KALODATA_VIDEO_RANK_CREDIT_PER_100 +
+        rankApiCalls * KALODATA_CREDITS_PER_100_ROWS +
+        productDetailApiCalls * KALODATA_PRODUCT_DETAIL_CREDIT +
+        reservedPostDiscoveryCredits;
+      return usedCredits + deltaCredits <= plannedCreditCeiling + 1e-6;
+    };
+
+    const streamStates = plan.streams.map((stream) => ({
+      stream,
+      nextPage: 1,
+      pagesUsed: 0,
+      sortField: primaryVideoSort as 'revenue' | 'views',
+      pivotedSort: false,
+      exhausted: false,
+      verifiedCount: 0,
+    }));
+
+    const seenVideoIds = new Set<string>();
+    const seenCandidateProductIds = new Set<string>();
+    const verifiedProductIds = new Set<string>();
+    const verifiedRows: RankCandidateRow[] = [];
+
+    let videoPagesScanned = 0;
+    let totalVideosScanned = 0;
+    let matchedMyanmarVideos = 0;
+    let productDetailCacheHits = 0;
+    let nonAffiliateOrUnavailableSkipped = 0;
+    let budgetCapped = false;
+
+    const addVideoEvidenceForProduct = (
+      productId: string,
+      evidence: MyanmarVideoEvidenceItem
+    ): void => {
+      const existing = matchedVideosByProductId.get(productId);
+      if (!existing) {
+        matchedVideosByProductId.set(productId, [evidence]);
+        return;
       }
+      if (!existing.some((v) => v.videoId === evidence.videoId)) {
+        existing.push(evidence);
+      }
+    };
 
-      const pageNumber = pageIdx + 1;
-      const pageSize = stream.pageSizes[pageIdx];
-      rankApiCalls += 1;
-
-      const kalodataRes = await fetchKalodataProductRank({
-        region: 'TH',
-        language: 'en-US',
-        currency: 'THB',
-        date_range: dateRange,
-        page_number: pageNumber,
-        page_size: pageSize,
-        is_affiliate: 1,
-        category_ids: stream.categoryIds,
-        sort_field: {
-          field: sortField,
-          type: 'DESC',
-        },
-        need_image: 1,
-        need_extra: true,
-      });
-
-      executedQueries.push(
-        `[${researchMode.toUpperCase()}] Kalodata TH Product Rank · category_ids=[${stream.categoryIds.join(',')}] · page=${pageNumber} · page_size=${pageSize} · sort=${sortField} DESC · ${dateRange}`
+    while (verifiedRows.length < plan.quantity && !budgetCapped) {
+      const activeStreams = streamStates.filter(
+        (st) => !st.exhausted && st.pagesUsed < maxPagesPerStream
       );
-
-      if (!kalodataRes.ok) {
-        if (streamPool.length > 0 || streamBuckets.some((b) => b.length > 0)) {
-          break;
-        }
-        const status = kalodataRes.upstreamCode === 'MISSING_API_KEY' ? 500 : 502;
-        throw new ResearchApiError(
-          status,
-          kalodataRes.upstreamCode ?? 'KALODATA_API_ERROR',
-          kalodataRes.error ?? 'Failed to fetch Thailand TikTok Shop products from Kalodata API.',
-          {
-            errorMy:
-              kalodataRes.errorMy ??
-              'Kalodata Product Rank API မှ ထိုင်း TikTok Shop Product များ ရယူ၍ မရပါ။',
-          }
-        );
-      }
-
-      for (const item of kalodataRes.items) {
-        const productId =
-          item.product_id !== undefined && item.product_id !== null
-            ? String(item.product_id).trim()
-            : '';
-        if (!productId || seenProductIds.has(productId)) {
-          filteredOutCount += 1;
-          continue;
-        }
-
-        // Strict Affiliate Gate: ONLY commission_rate > 0
-        const rawCommission = toNullableFiniteNumber(item.commission_rate);
-        if (rawCommission === null || rawCommission <= 0) {
-          filteredOutCount += 1;
-          continue;
-        }
-
-        // Strict Category Gate: match returned pri/sec/ter category IDs against requested L1/L2 stream IDs
-        const priCategory = parseKalodataCategoryRef(item.pri_category);
-        const secCategory = parseKalodataCategoryRef(item.sec_category);
-        const terCategory = parseKalodataCategoryRef(item.ter_category);
-        const priId = priCategory?.category_id ?? '';
-        const secId = secCategory?.category_id ?? '';
-        const terId = terCategory?.category_id ?? '';
-
-        const matchesRequestedId =
-          (priId && streamIdSet.has(priId)) ||
-          (secId && streamIdSet.has(secId)) ||
-          (terId && streamIdSet.has(terId));
-
-        const mappedCategory =
-          resolveProductCategoryFromKalodataId(
-            priId,
-            priCategory?.category_name ?? null,
-            config.resolvedCategoryIdMap
-          ) ??
-          resolveProductCategoryFromKalodataId(
-            secId,
-            secCategory?.category_name ?? null,
-            config.resolvedCategoryIdMap
-          ) ??
-          (matchesRequestedId && stream.categories.length === 1 ? stream.categories[0] : null);
-
-        if (!mappedCategory || !matchesRequestedId) {
-          filteredOutCount += 1;
-          continue;
-        }
-
-        seenProductIds.add(productId);
-        streamPool.push({ item, category: mappedCategory, categoryIds: stream.categoryIds });
-        if (streamPool.length >= poolTarget) {
-          break;
-        }
-      }
-
-      if (kalodataRes.items.length < pageSize) {
+      if (activeStreams.length === 0) {
         break;
       }
-    }
 
-    // Balanced & Deep apply multi-signal composite filtering & peer comparison across the candidate pool
-    const chosenForStream =
-      researchMode === 'fast'
-        ? streamPool.slice(0, stream.targetCount)
-        : selectBestCandidatesForMode(
-            streamPool,
-            stream.targetCount,
-            config.salesWeightPct,
-            config.strategyPreset
+      // In split mode, prioritize streams that haven't hit their targetCount yet.
+      // Only let other active streams fill remaining slots if all under-target streams are exhausted.
+      const underTargetStreams =
+        streamStates.length > 1
+          ? activeStreams.filter((st) => st.verifiedCount < st.stream.targetCount)
+          : activeStreams;
+      const roundStreams = underTargetStreams.length > 0 ? underTargetStreams : activeStreams;
+
+      let madeProgressInRound = false;
+
+      for (const st of roundStreams) {
+        if (verifiedRows.length >= plan.quantity || budgetCapped) {
+          break;
+        }
+        if (!canSpendDiscoveryCredits(KALODATA_VIDEO_RANK_CREDIT_PER_100)) {
+          budgetCapped = true;
+          break;
+        }
+
+        const pageNumber = st.nextPage;
+        st.nextPage += 1;
+        st.pagesUsed += 1;
+        videoRankApiCalls += 1;
+        videoPagesScanned += 1;
+        madeProgressInRound = true;
+
+        const kalodataRes = await getVideoRank({
+          region: 'TH',
+          language: 'en-US',
+          currency: 'THB',
+          date_range: dateRange,
+          page_number: pageNumber,
+          page_size: KALODATA_MAX_PAGE_SIZE,
+          category_ids: st.stream.categoryIds,
+          sort_field: {
+            field: st.sortField,
+            type: 'DESC',
+          },
+          need_extra: true,
+        });
+
+        executedQueries.push(
+          `[MYANMAR VIDEO-FIRST · ${researchMode.toUpperCase()}] Kalodata TH Video Rank · category_ids=[${st.stream.categoryIds.join(',')}] · page=${pageNumber} (${st.pagesUsed}/${maxPagesPerStream}) · page_size=${KALODATA_MAX_PAGE_SIZE} · sort=${st.sortField} DESC · ${dateRange}`
+        );
+
+        if (!kalodataRes.ok) {
+          if (verifiedRows.length > 0 || videoPagesScanned > 1) {
+            st.exhausted = true;
+            continue;
+          }
+          const status = kalodataRes.upstreamCode === 'MISSING_API_KEY' ? 500 : 502;
+          throw new ResearchApiError(
+            status,
+            kalodataRes.upstreamCode ?? 'KALODATA_API_ERROR',
+            kalodataRes.error ?? 'Failed to fetch Thailand TikTok Shop videos from Kalodata Video Rank API.',
+            {
+              errorMy:
+                kalodataRes.errorMy ??
+                'Kalodata Video Rank API မှ ထိုင်း TikTok Shop Video များ ရယူ၍ မရပါ။',
+            }
+          );
+        }
+
+        interface PageVideoLookupCandidate {
+          videoId: string;
+          videoEvidence: MyanmarVideoEvidenceItem;
+        }
+        interface PageProductCandidate {
+          productId: string;
+          linked: ParsedVideoLinkedProduct;
+        }
+        const pageVideosForProductRank: PageVideoLookupCandidate[] = [];
+        const pageEmbeddedCandidates: PageProductCandidate[] = [];
+        let newUnseenVideosInPage = 0;
+
+        for (const rawVideo of kalodataRes.items) {
+          const parsedVideo = parseKalodataVideoRankItem(rawVideo, pageNumber);
+          if (!parsedVideo) continue;
+          if (seenVideoIds.has(parsedVideo.videoId)) {
+            continue;
+          }
+          seenVideoIds.add(parsedVideo.videoId);
+          newUnseenVideosInPage += 1;
+          totalVideosScanned += 1;
+          myanmarCandidatesScanned += 1;
+
+          const detection = detectMyanmarInVideoCandidate({
+            caption: parsedVideo.caption,
+            title: parsedVideo.title,
+            hashtags: parsedVideo.hashtags,
+            creatorName: parsedVideo.creatorName,
+            creatorHandle: parsedVideo.creatorHandle,
+          });
+          if (!detection.matched || !detection.matchType) {
+            continue;
+          }
+
+          matchedMyanmarVideos += 1;
+          const videoEvidence: MyanmarVideoEvidenceItem = {
+            videoId: parsedVideo.videoId,
+            captionSnippet: detection.captionSnippet,
+            creatorName: parsedVideo.creatorName,
+            creatorHandle: parsedVideo.creatorHandle,
+            videoUrl: parsedVideo.videoUrl,
+            videoRevenueThb: parsedVideo.revenueThb,
+            videoSalesVolume: parsedVideo.salesVolume,
+            videoViews: parsedVideo.views,
+            publishDate: parsedVideo.publishDate,
+            matchType: detection.matchType,
+            matchedTerms: detection.matchedTerms,
+            myanmarLetterCount: detection.myanmarLetterCount,
+            isMixedThaiBurmese: detection.isMixedThaiBurmese,
+            pageNumber,
+          };
+
+          if (parsedVideo.linkedProducts.length === 0) {
+            // Live Kalodata /tiktok/video/rank does not embed product_id; resolve via /tiktok/product/rank?video_id=...
+            pageVideosForProductRank.push({
+              videoId: parsedVideo.videoId,
+              videoEvidence,
+            });
+          } else {
+            for (const linked of parsedVideo.linkedProducts) {
+              const pid = linked.productId.trim();
+              if (!pid) continue;
+              addVideoEvidenceForProduct(pid, videoEvidence);
+
+              if (seenCandidateProductIds.has(pid)) {
+                continue;
+              }
+              seenCandidateProductIds.add(pid);
+
+              // Fast pre-filter: if the video payload explicitly reports commission_rate <= 0, skip at 0 credits!
+              if (linked.rawCommissionRate !== null && linked.rawCommissionRate <= 0) {
+                nonAffiliateOrUnavailableSkipped += 1;
+                filteredOutCount += 1;
+                continue;
+              }
+
+              pageEmbeddedCandidates.push({ productId: pid, linked });
+            }
+          }
+        }
+
+        // Path A (Primary Live Kalodata Flow): Resolve linked TH affiliate products via POST /tiktok/product/rank with video_id + is_affiliate=1
+        let vidIdx = 0;
+        while (vidIdx < pageVideosForProductRank.length && verifiedRows.length < plan.quantity && !budgetCapped) {
+          const remainingSlots = plan.quantity - verifiedRows.length;
+          const chunkSize = Math.min(4, remainingSlots, pageVideosForProductRank.length - vidIdx);
+          const chunk = pageVideosForProductRank.slice(vidIdx, vidIdx + chunkSize);
+          vidIdx += chunkSize;
+
+          const runnableVideos: Array<{
+            candidate: PageVideoLookupCandidate;
+            cacheKey: string;
+            cachedItems: Record<string, unknown>[] | null;
+          }> = [];
+
+          for (const candidate of chunk) {
+            const cacheKey = `${candidate.videoId}|${dateRange}`;
+            const cachedItems = getServerCachedVideoProducts(cacheKey);
+            if (cachedItems) {
+              runnableVideos.push({ candidate, cacheKey, cachedItems });
+              continue;
+            }
+            const pendingUncached = runnableVideos.filter((r) => !r.cachedItems).length;
+            if (!canSpendDiscoveryCredits((pendingUncached + 1) * KALODATA_CREDITS_PER_100_ROWS)) {
+              budgetCapped = true;
+              continue;
+            }
+            runnableVideos.push({ candidate, cacheKey, cachedItems: null });
+          }
+
+          if (runnableVideos.length === 0) {
+            if (budgetCapped) break;
+            continue;
+          }
+
+          const resolvedBatches = await runWithConcurrency(
+            runnableVideos,
+            3,
+            async ({ candidate, cacheKey, cachedItems }) => {
+              if (cachedItems) {
+                productDetailCacheHits += 1;
+                return { candidate, items: cachedItems, ok: true };
+              }
+              rankApiCalls += 1;
+              const prodRes = await getProductRank({
+                region: 'TH',
+                language: 'en-US',
+                currency: 'THB',
+                date_range: dateRange,
+                page_number: 1,
+                page_size: 20,
+                video_id: candidate.videoId,
+                is_affiliate: 1,
+                need_image: 1,
+                need_extra: true,
+                sort_field: {
+                  field: 'revenue',
+                  type: 'DESC',
+                },
+              });
+              if (!prodRes.ok) {
+                return { candidate, items: [] as Record<string, unknown>[], ok: false };
+              }
+              setServerCachedVideoProducts(cacheKey, prodRes.items);
+              return { candidate, items: prodRes.items, ok: true };
+            }
           );
 
-    filteredOutCount += Math.max(0, streamPool.length - chosenForStream.length);
-    streamBuckets.push(chosenForStream);
-  }
+          for (const { candidate, items } of resolvedBatches) {
+            let validAffiliateCountForVideo = 0;
 
-  // Combine streams cleanly (interleave evenly when split across 2 categories)
-  const selectedRows: RankCandidateRow[] = [];
-  if (streamBuckets.length <= 1) {
-    selectedRows.push(...(streamBuckets[0] ?? []));
+            for (const prodItem of items) {
+              const pid = String(prodItem.product_id ?? '').trim();
+              if (!pid) continue;
+
+              const rawComm = toNullableFiniteNumber(prodItem.commission_rate);
+              const commPct = rawComm !== null ? normalizeKalodataCommissionPct(rawComm) : null;
+              if (commPct === null || commPct <= 0) {
+                filteredOutCount += 1;
+                continue;
+              }
+
+              validAffiliateCountForVideo += 1;
+              addVideoEvidenceForProduct(pid, candidate.videoEvidence);
+              seenCandidateProductIds.add(pid);
+
+              if (verifiedProductIds.has(pid) || verifiedRows.length >= plan.quantity) {
+                continue;
+              }
+
+              const priCat = parseKalodataCategoryRef(prodItem.pri_category);
+              const secCat = parseKalodataCategoryRef(prodItem.sec_category);
+              const mappedCategory =
+                resolveProductCategoryFromKalodataId(
+                  priCat?.category_id ?? '',
+                  priCat?.category_name ?? null,
+                  config.resolvedCategoryIdMap
+                ) ??
+                resolveProductCategoryFromKalodataId(
+                  secCat?.category_id ?? '',
+                  secCat?.category_name ?? null,
+                  config.resolvedCategoryIdMap
+                ) ??
+                st.stream.categories[0];
+
+              verifiedProductIds.add(pid);
+              verifiedRows.push({
+                item: prodItem,
+                category: mappedCategory,
+                categoryIds: st.stream.categoryIds,
+              });
+              st.verifiedCount += 1;
+            }
+
+            if (validAffiliateCountForVideo === 0) {
+              nonAffiliateOrUnavailableSkipped += 1;
+            }
+          }
+        }
+
+        // Path B (Embedded Linked Products Fallback): Hydrate unique products when video/rank payload already includes product_ids
+        let candIdx = 0;
+        while (candIdx < pageEmbeddedCandidates.length && verifiedRows.length < plan.quantity && !budgetCapped) {
+          const remainingSlots = plan.quantity - verifiedRows.length;
+          const chunkSize = Math.min(4, remainingSlots, pageEmbeddedCandidates.length - candIdx);
+          const chunk = pageEmbeddedCandidates.slice(candIdx, candIdx + chunkSize);
+          candIdx += chunkSize;
+
+          const runnable: Array<{
+            candidate: PageProductCandidate;
+            cached: KalodataProductDetailEnrichmentRecord | null;
+          }> = [];
+
+          for (const candidate of chunk) {
+            const cachedPd = getServerCachedProductDetail(candidate.productId);
+            if (cachedPd) {
+              runnable.push({ candidate, cached: cachedPd });
+              continue;
+            }
+            if (
+              !canSpendDiscoveryCredits(
+                (runnable.filter((r) => !r.cached).length + 1) * KALODATA_PRODUCT_DETAIL_CREDIT
+              )
+            ) {
+              budgetCapped = true;
+              continue;
+            }
+            runnable.push({ candidate, cached: null });
+          }
+
+          if (runnable.length === 0) {
+            if (budgetCapped) break;
+            continue;
+          }
+
+          const hydratedResults = await runWithConcurrency(runnable, 4, async ({ candidate, cached }) => {
+            const pid = candidate.productId;
+            if (cached) {
+              productDetailCacheHits += 1;
+              return { candidate, detail: cachedProductDetailToParsed(cached) };
+            }
+            productDetailApiCalls += 1;
+            const res = await getProductDetail({
+              region: 'TH',
+              language: 'en-US',
+              currency: 'THB',
+              date_range: 'last30Day',
+              product_id: pid,
+              need_extra: true,
+              need_image: 1,
+            });
+            if (!res.ok || !res.data) {
+              return { candidate, detail: null as ParsedProductDetail | null };
+            }
+            const parsed = parseKalodataProductDetail(pid, res.data);
+            if (parsed) {
+              setServerCachedProductDetail(toProductDetailRecord(parsed, 'last30Day', researchedAt));
+            }
+            return { candidate, detail: parsed };
+          });
+
+          for (const { candidate, detail } of hydratedResults) {
+            if (verifiedRows.length >= plan.quantity) {
+              break;
+            }
+            const pid = candidate.productId;
+            if (verifiedProductIds.has(pid)) {
+              continue;
+            }
+
+            // Strict Affiliate Gate: ONLY commission_rate > 0
+            const effectiveCommission =
+              detail?.commissionRatePct ?? candidate.linked.commissionRatePct ?? null;
+            if (effectiveCommission === null || effectiveCommission <= 0) {
+              nonAffiliateOrUnavailableSkipped += 1;
+              filteredOutCount += 1;
+              continue;
+            }
+
+            if (detail) {
+              productDetailMap.set(pid, detail);
+            }
+
+            const synthesizedItem = synthesizeItemFromVideoAndDetail(pid, candidate.linked, detail);
+            const priCat = parseKalodataCategoryRef(synthesizedItem.pri_category);
+            const secCat = parseKalodataCategoryRef(synthesizedItem.sec_category);
+            const mappedCategory =
+              resolveProductCategoryFromKalodataId(
+                priCat?.category_id ?? '',
+                priCat?.category_name ?? null,
+                config.resolvedCategoryIdMap
+              ) ??
+              resolveProductCategoryFromKalodataId(
+                secCat?.category_id ?? '',
+                secCat?.category_name ?? null,
+                config.resolvedCategoryIdMap
+              ) ??
+              st.stream.categories[0];
+
+            verifiedProductIds.add(pid);
+            verifiedRows.push({
+              item: synthesizedItem,
+              category: mappedCategory,
+              categoryIds: st.stream.categoryIds,
+            });
+            st.verifiedCount += 1;
+          }
+        }
+
+        const pageExhausted =
+          kalodataRes.items.length < KALODATA_MAX_PAGE_SIZE || newUnseenVideosInPage === 0;
+        if (pageExhausted) {
+          if (
+            !st.pivotedSort &&
+            st.pagesUsed < maxPagesPerStream &&
+            verifiedRows.length < plan.quantity &&
+            newUnseenVideosInPage === 0
+          ) {
+            // Kalodata pagination capped/repeated on primary sort — pivot once to secondary official sort ('views' <-> 'revenue')!
+            st.sortField = secondaryVideoSort;
+            st.nextPage = 1;
+            st.pivotedSort = true;
+          } else {
+            st.exhausted = true;
+          }
+        }
+      }
+
+      if (!madeProgressInRound) {
+        break;
+      }
+    }
+
+    // Sort each product's matched video evidence by revenue desc, then pageNumber asc
+    for (const [, list] of matchedVideosByProductId) {
+      list.sort((a, b) => {
+        const revDiff = (b.videoRevenueThb ?? -1) - (a.videoRevenueThb ?? -1);
+        if (revDiff !== 0) return revDiff;
+        return a.pageNumber - b.pageNumber;
+      });
+    }
+
+    const stopReason: MyanmarVideoDiscoveryStopReason =
+      verifiedRows.length >= plan.quantity
+        ? 'target-reached'
+        : budgetCapped
+          ? 'budget-capped'
+          : streamStates.every((s) => s.exhausted)
+            ? 'source-exhausted'
+            : 'max-pages-reached';
+
+    myanmarVideoDiscovery = {
+      requestedQuantity: plan.quantity,
+      videoPagesScanned,
+      maxVideoScanPages: maxPagesPerStream * plan.streams.length,
+      totalVideosScanned,
+      matchedMyanmarVideos,
+      uniqueCandidateProductsFound: seenCandidateProductIds.size,
+      affiliateProductsVerified: verifiedRows.length,
+      nonAffiliateOrUnavailableSkipped,
+      videoRankApiCalls,
+      productDetailApiCalls: rankApiCalls + productDetailApiCalls,
+      productDetailCacheHits,
+      stopReason,
+    };
+
+    executedQueries.push(
+      `[MYANMAR VIDEO-FIRST SUMMARY] Scanned ${videoPagesScanned} page(s) (${totalVideosScanned} TH videos) · ${matchedMyanmarVideos} Myanmar video(s) matched · ${seenCandidateProductIds.size} unique product(s) · ${verifiedRows.length}/${plan.quantity} affiliate product(s) verified · ${nonAffiliateOrUnavailableSkipped} skipped · ${rankApiCalls} video->product lookup(s) + ${productDetailApiCalls} detail call(s) (${productDetailCacheHits} cached) · stop=${stopReason}`
+    );
+
+    finalRows = verifiedRows.slice(0, plan.quantity);
   } else {
-    const maxLen = Math.max(...streamBuckets.map((b) => b.length));
-    for (let i = 0; i < maxLen && selectedRows.length < plan.quantity; i += 1) {
-      for (const bucket of streamBuckets) {
-        if (bucket[i] && selectedRows.length < plan.quantity) {
-          selectedRows.push(bucket[i]);
+    // Standard Thailand Product Hunting (Filter OFF) OR Legacy Review-First Myanmar Discovery
+    const seenProductIds = new Set<string>();
+    const streamBuckets: RankCandidateRow[][] = [];
+
+    // Step 1: Kalodata Product Rank (Fast = last7Day tight; Balanced & Deep = last30Day wider candidate pool)
+    for (const stream of plan.streams) {
+      const streamIdSet = new Set(stream.categoryIds);
+      const streamPool: RankCandidateRow[] = [];
+      const poolTarget =
+        researchMode === 'fast' && !isReviewFirstMyanmar
+          ? stream.targetCount
+          : Math.max(stream.targetCount, stream.pageSizes.reduce((acc, s) => acc + s, 0));
+
+      for (let pageIdx = 0; pageIdx < stream.pageSizes.length; pageIdx += 1) {
+        if (researchMode === 'fast' && !isReviewFirstMyanmar && streamPool.length >= stream.targetCount) {
+          break;
+        }
+
+        const pageNumber = pageIdx + 1;
+        const pageSize = stream.pageSizes[pageIdx];
+        rankApiCalls += 1;
+
+        const kalodataRes = await getProductRank({
+          region: 'TH',
+          language: 'en-US',
+          currency: 'THB',
+          date_range: dateRange,
+          page_number: pageNumber,
+          page_size: pageSize,
+          is_affiliate: 1,
+          category_ids: stream.categoryIds,
+          sort_field: {
+            field: sortField,
+            type: 'DESC',
+          },
+          need_image: 1,
+          need_extra: true,
+        });
+
+        executedQueries.push(
+          `[${researchMode.toUpperCase()}] Kalodata TH Product Rank · category_ids=[${stream.categoryIds.join(',')}] · page=${pageNumber} · page_size=${pageSize} · sort=${sortField} DESC · ${dateRange}${isReviewFirstMyanmar ? ` · myanmarReviewDiscovery=ON (limit=${myanmarReviewScanLimit})` : ''}`
+        );
+
+        if (!kalodataRes.ok) {
+          if (streamPool.length > 0 || streamBuckets.some((b) => b.length > 0)) {
+            break;
+          }
+          const status = kalodataRes.upstreamCode === 'MISSING_API_KEY' ? 500 : 502;
+          throw new ResearchApiError(
+            status,
+            kalodataRes.upstreamCode ?? 'KALODATA_API_ERROR',
+            kalodataRes.error ?? 'Failed to fetch Thailand TikTok Shop products from Kalodata API.',
+            {
+              errorMy:
+                kalodataRes.errorMy ??
+                'Kalodata Product Rank API မှ ထိုင်း TikTok Shop Product များ ရယူ၍ မရပါ။',
+            }
+          );
+        }
+
+        for (const item of kalodataRes.items) {
+          const productId =
+            item.product_id !== undefined && item.product_id !== null
+              ? String(item.product_id).trim()
+              : '';
+          if (!productId || seenProductIds.has(productId)) {
+            filteredOutCount += 1;
+            continue;
+          }
+
+          // Strict Affiliate Gate: ONLY commission_rate > 0
+          const rawCommission = toNullableFiniteNumber(item.commission_rate);
+          if (rawCommission === null || rawCommission <= 0) {
+            filteredOutCount += 1;
+            continue;
+          }
+
+          // Strict Category Gate: match returned pri/sec/ter category IDs against requested L1/L2 stream IDs
+          const priCategory = parseKalodataCategoryRef(item.pri_category);
+          const secCategory = parseKalodataCategoryRef(item.sec_category);
+          const terCategory = parseKalodataCategoryRef(item.ter_category);
+          const priId = priCategory?.category_id ?? '';
+          const secId = secCategory?.category_id ?? '';
+          const terId = terCategory?.category_id ?? '';
+
+          const matchesRequestedId =
+            (priId && streamIdSet.has(priId)) ||
+            (secId && streamIdSet.has(secId)) ||
+            (terId && streamIdSet.has(terId));
+
+          const mappedCategory =
+            resolveProductCategoryFromKalodataId(
+              priId,
+              priCategory?.category_name ?? null,
+              config.resolvedCategoryIdMap
+            ) ??
+            resolveProductCategoryFromKalodataId(
+              secId,
+              secCategory?.category_name ?? null,
+              config.resolvedCategoryIdMap
+            ) ??
+            (matchesRequestedId && stream.categories.length === 1 ? stream.categories[0] : null);
+
+          if (!mappedCategory || !matchesRequestedId) {
+            filteredOutCount += 1;
+            continue;
+          }
+
+          seenProductIds.add(productId);
+          streamPool.push({ item, category: mappedCategory, categoryIds: stream.categoryIds });
+          if (streamPool.length >= poolTarget) {
+            break;
+          }
+        }
+
+        if (kalodataRes.items.length < pageSize) {
+          break;
+        }
+      }
+
+      if (isReviewFirstMyanmar) {
+        streamBuckets.push(streamPool);
+      } else {
+        const chosenForStream =
+          researchMode === 'fast'
+            ? streamPool.slice(0, stream.targetCount)
+            : selectBestCandidatesForMode(
+                streamPool,
+                stream.targetCount,
+                config.salesWeightPct,
+                config.strategyPreset
+              );
+
+        filteredOutCount += Math.max(0, streamPool.length - chosenForStream.length);
+        streamBuckets.push(chosenForStream);
+      }
+    }
+
+    // Combine streams cleanly (interleave evenly when split across multiple categories)
+    const combinedCandidates: RankCandidateRow[] = [];
+    const combineCap = isReviewFirstMyanmar ? Number.MAX_SAFE_INTEGER : plan.quantity;
+    if (streamBuckets.length <= 1) {
+      combinedCandidates.push(...(streamBuckets[0] ?? []).slice(0, combineCap));
+    } else {
+      const maxLen = Math.max(...streamBuckets.map((b) => b.length));
+      for (let i = 0; i < maxLen && combinedCandidates.length < combineCap; i += 1) {
+        for (const bucket of streamBuckets) {
+          if (bucket[i] && combinedCandidates.length < combineCap) {
+            combinedCandidates.push(bucket[i]);
+          }
         }
       }
     }
+
+    if (isReviewFirstMyanmar) {
+      // Legacy Review-First Myanmar Discovery (preserved for explicit backward compatibility)
+      const totalCandidatesFound = combinedCandidates.length;
+      const effectiveScanLimit = clampMyanmarReviewScanLimit(myanmarReviewScanLimit);
+
+      const candidatesToCheck: RankCandidateRow[] = [];
+      let uncachedBudgetUsed = 0;
+      for (const candidate of combinedCandidates) {
+        const pid = String(candidate.item.product_id ?? '').trim();
+        if (!pid) continue;
+        const isCached = Boolean(getServerCachedReviewInsight(pid));
+        if (isCached) {
+          candidatesToCheck.push(candidate);
+        } else if (uncachedBudgetUsed < effectiveScanLimit) {
+          uncachedBudgetUsed += 1;
+          candidatesToCheck.push(candidate);
+        }
+      }
+
+      const maxReviewPages = options?.testOverrides?.maxReviewPages ?? 1;
+      let candidatesCheckedForReviews = 0;
+      let productsWithReviewsAvailable = 0;
+      let productsReviewUnavailable = 0;
+      let productsNoMyanmarReview = 0;
+      let matchedMyanmarReviewProducts = 0;
+      let totalReviewsInspected = 0;
+      let reviewApiCallsMade = 0;
+      let reviewCacheHits = 0;
+
+      const inspectionResults = await runWithConcurrency(candidatesToCheck, 3, async (row) => {
+        const pid = String(row.item.product_id ?? '').trim();
+        const retrieved = await retrieveProductReviewsForDiscovery(
+          pid,
+          getCommentInsight,
+          researchedAt,
+          maxReviewPages
+        );
+        const analysis = analyzeProductReviewsForMyanmar(retrieved.reviews);
+        return {
+          row,
+          pid,
+          parsed: retrieved.parsed,
+          apiCallsMade: retrieved.apiCallsMade,
+          fromCache: retrieved.fromCache,
+          analysis,
+        };
+      });
+
+      const matchedRows: RankCandidateRow[] = [];
+      for (const res of inspectionResults) {
+        candidatesCheckedForReviews += 1;
+        myanmarCandidatesScanned += 1;
+        commentInsightApiCalls += res.apiCallsMade;
+        reviewApiCallsMade += res.apiCallsMade;
+        if (res.fromCache) {
+          reviewCacheHits += 1;
+        }
+        totalReviewsInspected += res.analysis.totalReviewsChecked;
+
+        if (res.parsed) {
+          commentInsightMap.set(res.pid, res.parsed);
+        }
+
+        if (res.analysis.reviewStatus === 'review-unavailable') {
+          productsReviewUnavailable += 1;
+          filteredOutCount += 1;
+        } else if (res.analysis.reviewStatus === 'checked-no-match') {
+          productsWithReviewsAvailable += 1;
+          productsNoMyanmarReview += 1;
+          filteredOutCount += 1;
+        } else {
+          productsWithReviewsAvailable += 1;
+          matchedMyanmarReviewProducts += 1;
+          matchedRows.push(res.row);
+        }
+      }
+
+      filteredOutCount += Math.max(0, totalCandidatesFound - candidatesCheckedForReviews);
+
+      myanmarReviewDiscovery = {
+        totalCandidatesFound,
+        candidatesCheckedForReviews,
+        productsWithReviewsAvailable,
+        productsReviewUnavailable,
+        productsNoMyanmarReview,
+        matchedMyanmarReviewProducts,
+        totalReviewsInspected,
+        reviewScanLimit: effectiveScanLimit,
+        reviewApiCallsMade,
+        reviewCacheHits,
+      };
+
+      executedQueries.push(
+        `[MYANMAR REVIEW DISCOVERY] Checked ${candidatesCheckedForReviews}/${totalCandidatesFound} TH candidate(s) · ${reviewApiCallsMade} Kalodata review call(s) · ${reviewCacheHits} cached · ${totalReviewsInspected} review(s) inspected · ${matchedMyanmarReviewProducts} matched · ${productsNoMyanmarReview} no-match · ${productsReviewUnavailable} review-unavailable`
+      );
+
+      finalRows = matchedRows.slice(0, plan.quantity);
+    } else {
+      finalRows = combinedCandidates.slice(0, plan.quantity);
+    }
   }
 
-  const finalRows = selectedRows.slice(0, plan.quantity);
-
   if (finalRows.length === 0) {
+    if (myanmarLanguageOnly) {
+      const balanceAfterRes = await getCreditBalance();
+      const balanceAfter =
+        balanceAfterRes.ok && balanceAfterRes.balance !== null ? balanceAfterRes.balance : null;
+      const actualCredits =
+        balanceBefore !== null && balanceAfter !== null
+          ? Math.max(0, Math.round((balanceBefore - balanceAfter) * 10000) / 10000)
+          : null;
+      const actualUsd =
+        actualCredits !== null
+          ? Math.round(actualCredits * KALODATA_USD_PER_CREDIT * 10000) / 10000
+          : null;
+      return {
+        products: [],
+        requestedQuantity: plan.quantity,
+        verifiedProductCount: 0,
+        filteredOutCount,
+        researchedAt,
+        searchQueries: executedQueries,
+        groundingSources: [],
+        researchSourceMode: 'kalodata-openapi',
+        myanmarFilterApplied: true,
+        myanmarDiscoveryMode,
+        myanmarCandidatesScanned,
+        ...(myanmarReviewDiscovery ? { myanmarReviewDiscovery } : {}),
+        ...(myanmarVideoDiscovery ? { myanmarVideoDiscovery } : {}),
+        costSummary: {
+          researchMode,
+          estimatedCredits: plan.estimatedCredits,
+          estimatedUsd: plan.estimatedUsd,
+          plannedApiCalls: plan.plannedApiCalls,
+          actualApiCalls:
+            rankApiCalls + videoRankApiCalls + productDetailApiCalls + commentInsightApiCalls,
+          rankApiCalls,
+          ...(videoRankApiCalls > 0 ? { videoRankApiCalls } : {}),
+          productDetailApiCalls,
+          shopDetailApiCalls: 0,
+          commentInsightApiCalls,
+          deepDiveCount: plan.deepDiveCount,
+          includeReviewInsights: plan.includeReviewInsights,
+          geminiAnalysisApplied: false,
+          actualCredits,
+          actualUsd,
+          balanceBefore,
+          balanceAfter,
+          spendingLimitCredits,
+          bothCategoryMode: plan.bothCategoryMode,
+          categoryIds: plan.categoryIds,
+        },
+        config: {
+          ...config,
+          selectedCategories: plan.selectedCategories,
+          bothCategoryMode: plan.bothCategoryMode,
+          researchMode,
+          deepDiveCount: plan.deepDiveCount,
+          includeReviewInsights: plan.includeReviewInsights,
+          spendingLimitCredits,
+          quantity: plan.quantity,
+          myanmarLanguageOnly: true,
+          myanmarDiscoveryMode,
+          ...(myanmarVideoScanPages !== undefined ? { myanmarVideoScanPages } : {}),
+          ...(myanmarReviewScanLimit !== undefined ? { myanmarReviewScanLimit } : {}),
+        },
+      };
+    }
+
     throw new ResearchApiError(
       404,
       'NO_AFFILIATE_PRODUCTS',
@@ -1274,69 +2286,57 @@ export async function runThailandProductResearch(
   }
 
   // Step 2: Bounded Kalodata Detail API Enrichment (Balanced = Top <=3 Product Detail; Deep = Top N Product + deduplicated Shop Detail + optional <=2 Comment Insight)
-  const productDetailMap = new Map<string, ParsedProductDetail>();
-  const shopDetailMap = new Map<string, ParsedShopDetail>();
-  const commentInsightMap = new Map<string, ParsedCommentInsight>();
-
   if (plan.productDetailApiCalls > 0) {
-    const detailTargets = finalRows.slice(0, Math.min(finalRows.length, plan.productDetailApiCalls));
-    const detailResults = await runWithConcurrency(detailTargets, 4, async (row) => {
+    const detailTargets = finalRows.slice(
+      0,
+      Math.min(finalRows.length, isVideoFirstMyanmar ? plan.deepDiveCount || finalRows.length : plan.productDetailApiCalls)
+    );
+
+    // In Video-First mode, productDetailMap is already populated during discovery — only fetch missing entries if any!
+    const missingDetailTargets = detailTargets.filter((row) => {
       const pid = String(row.item.product_id ?? '').trim();
-      if (!pid) return null;
-      const cachedPd = getServerCachedProductDetail(pid);
-      if (cachedPd) {
-        return {
-          productId: cachedPd.productId,
-          productShopId: cachedPd.productShopId,
-          minPriceThb: cachedPd.minPriceThb,
-          maxPriceThb: cachedPd.maxPriceThb,
-          unitPriceThb: cachedPd.unitPriceThb,
-          revenueThb: cachedPd.revenueThb,
-          salesVolume: cachedPd.salesVolume,
-          videoRevenueThb: cachedPd.videoRevenueThb,
-          liveRevenueThb: cachedPd.liveRevenueThb,
-          shoppingMallRevenueThb: cachedPd.shoppingMallRevenueThb,
-          commissionRatePct: cachedPd.commissionRatePct,
-          creatorNumber: cachedPd.creatorNumber,
-          videoNumber: cachedPd.videoNumber,
-          liveNumber: cachedPd.liveNumber,
-          deliveryType: cachedPd.deliveryType,
-          productReviewCount: cachedPd.productReviewCount,
-          launchDate: cachedPd.launchDate,
-          trendPointsCount: cachedPd.trendPointsCount,
-          trendPeakThb: cachedPd.trendPeakThb,
-          trendAvgThb: cachedPd.trendAvgThb,
-        } satisfies ParsedProductDetail;
-      }
-      productDetailApiCalls += 1;
-      const res = await fetchKalodataProductDetail({
-        region: 'TH',
-        language: 'en-US',
-        currency: 'THB',
-        date_range: 'last30Day',
-        product_id: pid,
-        need_extra: true,
-      });
-      if (!res.ok || !res.data) return null;
-      const parsed = parseKalodataProductDetail(pid, res.data);
-      if (parsed) {
-        setServerCachedProductDetail(toProductDetailRecord(parsed, 'last30Day', researchedAt));
-      }
-      return parsed;
+      return Boolean(pid) && !productDetailMap.has(pid);
     });
 
-    for (const parsed of detailResults) {
-      if (parsed) productDetailMap.set(parsed.productId, parsed);
+    if (missingDetailTargets.length > 0) {
+      const detailResults = await runWithConcurrency(missingDetailTargets, 4, async (row) => {
+        const pid = String(row.item.product_id ?? '').trim();
+        if (!pid) return null;
+        const cachedPd = getServerCachedProductDetail(pid);
+        if (cachedPd) {
+          return cachedProductDetailToParsed(cachedPd);
+        }
+        productDetailApiCalls += 1;
+        const res = await getProductDetail({
+          region: 'TH',
+          language: 'en-US',
+          currency: 'THB',
+          date_range: 'last30Day',
+          product_id: pid,
+          need_extra: true,
+        });
+        if (!res.ok || !res.data) return null;
+        const parsed = parseKalodataProductDetail(pid, res.data);
+        if (parsed) {
+          setServerCachedProductDetail(toProductDetailRecord(parsed, 'last30Day', researchedAt));
+        }
+        return parsed;
+      });
+
+      for (const parsed of detailResults) {
+        if (parsed) productDetailMap.set(parsed.productId, parsed);
+      }
+      executedQueries.push(
+        `[${researchMode.toUpperCase()}] Kalodata TH Product Detail · ${productDetailApiCalls} call(s) (last30Day, capped top ${detailTargets.length})`
+      );
     }
-    executedQueries.push(
-      `[${researchMode.toUpperCase()}] Kalodata TH Product Detail · ${productDetailApiCalls} call(s) (last30Day, capped top ${detailTargets.length})`
-    );
 
     // Step 2b (Deep Research only): Deduplicated Shop Detail calls across unique shops of top finalists
     if (researchMode === 'deep' && plan.shopDetailApiCalls > 0) {
+      const shopTargets = finalRows.slice(0, Math.min(finalRows.length, plan.deepDiveCount || finalRows.length));
       const uniqueShopIds = Array.from(
         new Set(
-          detailTargets
+          shopTargets
             .map((row) => {
               const pid = String(row.item.product_id ?? '').trim();
               const detailShop = productDetailMap.get(pid)?.productShopId;
@@ -1370,7 +2370,7 @@ export async function runThailandProductResearch(
           } satisfies ParsedShopDetail;
         }
         shopDetailApiCalls += 1;
-        const res = await fetchKalodataShopDetail({
+        const res = await getShopDetail({
           region: 'TH',
           language: 'en-US',
           currency: 'THB',
@@ -1397,11 +2397,20 @@ export async function runThailandProductResearch(
     }
 
     // Step 2c (Deep Research opt-in only): Buyer Review Insight (comment/insight, 1.0 cr/item, capped <=2)
-    if (researchMode === 'deep' && plan.commentInsightApiCalls > 0) {
-      const commentTargets = detailTargets.slice(0, plan.commentInsightApiCalls);
+    // Skips products whose review insights were already fetched during Review-First Myanmar Discovery!
+    if (
+      researchMode === 'deep' &&
+      plan.includeReviewInsights &&
+      !isReviewFirstMyanmar &&
+      plan.commentInsightApiCalls > 0
+    ) {
+      const commentTargets = finalRows.slice(0, plan.commentInsightApiCalls);
       const commentResults = await runWithConcurrency(commentTargets, 2, async (row) => {
         const pid = String(row.item.product_id ?? '').trim();
         if (!pid) return null;
+        if (commentInsightMap.has(pid)) {
+          return commentInsightMap.get(pid) ?? null;
+        }
         const cachedCmt = getServerCachedReviewInsight(pid);
         if (cachedCmt) {
           return {
@@ -1413,10 +2422,12 @@ export async function runThailandProductResearch(
             commentsAnalyzed: cachedCmt.commentsAnalyzed,
             averageRating: cachedCmt.averageRating,
             ratedCommentCount: cachedCmt.ratedCommentCount,
+            ...(cachedCmt.rawComments ? { rawComments: cachedCmt.rawComments } : {}),
+            ...(cachedCmt.pagesFetched ? { pagesFetched: cachedCmt.pagesFetched } : {}),
           } satisfies ParsedCommentInsight;
         }
         commentInsightApiCalls += 1;
-        const res = await fetchKalodataProductCommentInsight({
+        const res = await getCommentInsight({
           product_id: pid,
           country_code: 'th',
         });
@@ -1440,7 +2451,7 @@ export async function runThailandProductResearch(
   }
 
   // Step 3: Free Credit Balance check AFTER all paid Kalodata calls (0 credits) to measure true actual spend
-  const balanceAfterRes = await fetchKalodataCreditBalance();
+  const balanceAfterRes = await getCreditBalance();
   const balanceAfter =
     balanceAfterRes.ok && balanceAfterRes.balance !== null ? balanceAfterRes.balance : null;
   const actualCredits =
@@ -1452,7 +2463,11 @@ export async function runThailandProductResearch(
       ? Math.round(actualCredits * KALODATA_USD_PER_CREDIT * 10000) / 10000
       : null;
   const actualApiCalls =
-    rankApiCalls + productDetailApiCalls + shopDetailApiCalls + commentInsightApiCalls;
+    rankApiCalls +
+    videoRankApiCalls +
+    productDetailApiCalls +
+    shopDetailApiCalls +
+    commentInsightApiCalls;
 
   // Step 4: Verify product images concurrently and assemble honest 4-state ResearchProducts
   let builtProducts = await runWithConcurrency(finalRows, 15, async (entry) => {
@@ -1464,7 +2479,25 @@ export async function runThailandProductResearch(
         ? String(entry.item.seller_id).trim()
         : '');
     const shopDetail = shopId ? (shopDetailMap.get(shopId) ?? null) : null;
-    const commentInsight = commentInsightMap.get(pid) ?? null;
+    const cachedCmtFallback =
+      myanmarLanguageOnly && !commentInsightMap.has(pid)
+        ? getServerCachedReviewInsight(pid)
+        : null;
+    const commentInsight: ParsedCommentInsight | null =
+      commentInsightMap.get(pid) ??
+      (cachedCmtFallback
+        ? {
+            productId: cachedCmtFallback.productId,
+            summary: cachedCmtFallback.summary,
+            positivePoints: cachedCmtFallback.positivePoints,
+            painPoints: cachedCmtFallback.painPoints,
+            usageScenarios: cachedCmtFallback.usageScenarios,
+            commentsAnalyzed: cachedCmtFallback.commentsAnalyzed,
+            averageRating: cachedCmtFallback.averageRating,
+            ratedCommentCount: cachedCmtFallback.ratedCommentCount,
+            ...(cachedCmtFallback.rawComments ? { rawComments: cachedCmtFallback.rawComments } : {}),
+          }
+        : null);
 
     const extractKalodataImageUrl = (item: Record<string, unknown>): string | null => {
       const candidateKeys = [
@@ -1490,8 +2523,9 @@ export async function runThailandProductResearch(
       return null;
     };
 
-    const masterImageUrl = extractKalodataImageUrl(entry.item);
-    const imageCheck = await verifyKalodataImageUrl(masterImageUrl);
+    const masterImageUrl =
+      extractKalodataImageUrl(entry.item) ?? productDetail?.masterImageUrl ?? null;
+    const imageCheck = await checkImageUrl(masterImageUrl);
 
     return buildKalodataProductSummary(
       entry.item,
@@ -1505,6 +2539,8 @@ export async function runThailandProductResearch(
         productDetail,
         shopDetail,
         commentInsight,
+        matchedVideos: isVideoFirstMyanmar ? matchedVideosByProductId.get(pid) : undefined,
+        sourceMode: isVideoFirstMyanmar ? 'video-rank' : 'product-rank',
       }
     );
   });
@@ -1527,7 +2563,7 @@ export async function runThailandProductResearch(
     }
   }
 
-  // Step 6: Phase 2 7-Factor 100-Point Peer-Compared Product Scoring Engine
+  // Step 6: Phase 2 7-Factor 100-Point Peer-Compared Product Scoring Engine (UNTOUCHED — 0 bonus points)
   const batchEvaluations = evaluateProductBatch(builtProducts, {
     salesWeightPct: config.salesWeightPct,
     strategyPreset: config.strategyPreset,
@@ -1569,6 +2605,15 @@ export async function runThailandProductResearch(
     searchQueries: executedQueries,
     groundingSources,
     researchSourceMode: 'kalodata-openapi',
+    myanmarFilterApplied: myanmarLanguageOnly,
+    ...(myanmarLanguageOnly
+      ? {
+          myanmarDiscoveryMode,
+          myanmarCandidatesScanned,
+          ...(myanmarReviewDiscovery ? { myanmarReviewDiscovery } : {}),
+          ...(myanmarVideoDiscovery ? { myanmarVideoDiscovery } : {}),
+        }
+      : {}),
     costSummary: {
       researchMode,
       estimatedCredits: plan.estimatedCredits,
@@ -1576,6 +2621,7 @@ export async function runThailandProductResearch(
       plannedApiCalls: plan.plannedApiCalls,
       actualApiCalls,
       rankApiCalls,
+      ...(videoRankApiCalls > 0 ? { videoRankApiCalls } : {}),
       productDetailApiCalls,
       shopDetailApiCalls,
       commentInsightApiCalls,
@@ -1599,6 +2645,14 @@ export async function runThailandProductResearch(
       includeReviewInsights: plan.includeReviewInsights,
       spendingLimitCredits,
       quantity: plan.quantity,
+      ...(myanmarLanguageOnly
+        ? {
+            myanmarLanguageOnly: true,
+            myanmarDiscoveryMode,
+            ...(myanmarVideoScanPages !== undefined ? { myanmarVideoScanPages } : {}),
+            ...(myanmarReviewScanLimit !== undefined ? { myanmarReviewScanLimit } : {}),
+          }
+        : {}),
     },
   };
 }

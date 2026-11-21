@@ -193,6 +193,7 @@ export interface ProductResultsFilterState {
   category: CategoryFilter;
   researchMode: 'all' | ResearchMode;
   aiContentSuitability: 'all' | AiVideoSuitability;
+  myanmarLanguageOnly?: boolean;
 }
 
 export interface ComparisonSelectionItem {
@@ -205,7 +206,7 @@ export interface ComparisonSelectionItem {
   researchDate?: string | null;
 }
 
-export type AppView = 'hunting' | 'history' | 'saved';
+export type AppView = 'hunting' | 'history' | 'saved' | 'deep-dive';
 
 export interface ResearchConfig {
   market: 'Thailand TikTok Shop';
@@ -223,6 +224,10 @@ export interface ResearchConfig {
   strategyPreset: StrategyPreset;
   salesWeightPct: number;
   quantity: ResearchQuantity;
+  myanmarLanguageOnly?: boolean;
+  myanmarDiscoveryMode?: MyanmarDiscoveryMode;
+  myanmarVideoScanPages?: number;
+  myanmarReviewScanLimit?: number;
 }
 
 export interface ResearchCostEstimate {
@@ -236,6 +241,7 @@ export interface ResearchCostEstimate {
   deepDiveCount: number;
   includeReviewInsights: boolean;
   rankApiCalls: number;
+  videoRankApiCalls?: number;
   productDetailApiCalls: number;
   shopDetailApiCalls: number;
   commentInsightApiCalls: number;
@@ -244,6 +250,10 @@ export interface ResearchCostEstimate {
   estimatedUsd: number;
   usesPagination: boolean;
   usesGeminiAnalysis: boolean;
+  myanmarLanguageOnly?: boolean;
+  myanmarDiscoveryMode?: MyanmarDiscoveryMode;
+  myanmarVideoScanPages?: number;
+  myanmarReviewScanLimit?: number;
 }
 
 export interface ResearchCostSummary {
@@ -253,6 +263,7 @@ export interface ResearchCostSummary {
   plannedApiCalls: number;
   actualApiCalls: number;
   rankApiCalls: number;
+  videoRankApiCalls?: number;
   productDetailApiCalls: number;
   shopDetailApiCalls: number;
   commentInsightApiCalls: number;
@@ -290,6 +301,11 @@ export interface ResearchSessionResponse {
   groundingSources: GroundingSourceLink[];
   researchSourceMode?: 'kalodata-openapi';
   costSummary?: ResearchCostSummary;
+  myanmarFilterApplied?: boolean;
+  myanmarDiscoveryMode?: MyanmarDiscoveryMode;
+  myanmarCandidatesScanned?: number;
+  myanmarReviewDiscovery?: MyanmarReviewDiscoveryStats;
+  myanmarVideoDiscovery?: MyanmarVideoDiscoveryStats;
   config: ResearchConfig;
 }
 
@@ -525,7 +541,124 @@ export interface KalodataReviewInsightData {
   commentsAnalyzed: number;
   averageRating: number | null;
   ratedCommentCount: number;
+  rawComments?: string[];
+  pagesFetched?: number;
   updatedAt: string;
+}
+
+export type MyanmarSignalSource =
+  | 'title'
+  | 'description'
+  | 'reviews'
+  | 'comments'
+  | 'videoContent';
+
+export type MyanmarSignalAvailability = 'matched' | 'checked-no-match' | 'unavailable';
+
+export type MyanmarReviewStatus = 'matched' | 'checked-no-match' | 'review-unavailable';
+
+export type MyanmarConfidenceLevel = 'High' | 'Medium' | 'Low' | 'None';
+
+export type MyanmarMatchType =
+  | 'myanmar-script'
+  | 'zawgyi-script'
+  | 'burmese-romanized-term';
+
+export interface MyanmarLanguageEvidenceItem {
+  source: MyanmarSignalSource;
+  matchType: MyanmarMatchType;
+  snippet: string;
+  matchedTerms: string[];
+  myanmarCharCount: number;
+}
+
+export interface MyanmarReviewEvidenceItem {
+  reviewIndex: number;
+  snippet: string;
+  myanmarLetterCount: number;
+  matchType: 'myanmar-script' | 'zawgyi-script';
+  isMixedThaiBurmese: boolean;
+  rating?: number | null;
+  pageNumber?: number;
+}
+
+export interface MyanmarReviewDiscoveryStats {
+  totalCandidatesFound: number;
+  candidatesCheckedForReviews: number;
+  productsWithReviewsAvailable: number;
+  productsReviewUnavailable: number;
+  productsNoMyanmarReview: number;
+  matchedMyanmarReviewProducts: number;
+  totalReviewsInspected: number;
+  reviewScanLimit: number;
+  reviewApiCallsMade: number;
+  reviewCacheHits: number;
+}
+
+export type MyanmarDiscoveryMode = 'video-first' | 'review-first';
+
+export type MyanmarVideoDiscoveryStopReason =
+  | 'target-reached'
+  | 'max-pages-reached'
+  | 'source-exhausted'
+  | 'budget-capped';
+
+export interface MyanmarVideoEvidenceItem {
+  videoId: string;
+  captionSnippet: string;
+  creatorName?: string | null;
+  creatorHandle?: string | null;
+  videoUrl?: string | null;
+  videoRevenueThb?: number | null;
+  videoSalesVolume?: number | null;
+  videoViews?: number | null;
+  publishDate?: string | null;
+  matchType: MyanmarMatchType;
+  matchedTerms: string[];
+  myanmarLetterCount: number;
+  isMixedThaiBurmese: boolean;
+  pageNumber: number;
+}
+
+export interface MyanmarVideoDiscoveryStats {
+  requestedQuantity: number;
+  videoPagesScanned: number;
+  maxVideoScanPages: number;
+  totalVideosScanned: number;
+  matchedMyanmarVideos: number;
+  uniqueCandidateProductsFound: number;
+  affiliateProductsVerified: number;
+  nonAffiliateOrUnavailableSkipped: number;
+  videoRankApiCalls: number;
+  productDetailApiCalls: number;
+  productDetailCacheHits: number;
+  stopReason: MyanmarVideoDiscoveryStopReason;
+}
+
+export interface MyanmarSignalSourceStatus {
+  source: MyanmarSignalSource;
+  availability: MyanmarSignalAvailability;
+  checkedItemCount: number;
+  noteEn?: string;
+  noteMy?: string;
+}
+
+export interface MyanmarLanguageAnalysis {
+  matched: boolean;
+  confidence: MyanmarConfidenceLevel;
+  matchedSources: MyanmarSignalSource[];
+  evidences: MyanmarLanguageEvidenceItem[];
+  sourceStatuses: Record<MyanmarSignalSource, MyanmarSignalSourceStatus>;
+  totalMyanmarCharCount: number;
+  reviewStatus: MyanmarReviewStatus;
+  totalReviewsChecked: number;
+  matchedReviewCount: number;
+  skippedTooShortCount: number;
+  matchedReviews: MyanmarReviewEvidenceItem[];
+  matchedVideoCount?: number;
+  matchedVideos?: MyanmarVideoEvidenceItem[];
+  marketScopeNoteEn: string;
+  marketScopeNoteMy: string;
 }
 
 export interface KalodataShopEnrichmentRecord {
@@ -549,6 +682,15 @@ export interface KalodataShopEnrichmentRecord {
 export interface KalodataProductDetailEnrichmentRecord {
   productId: string;
   productShopId: string | null;
+  productName?: string | null;
+  sellerName?: string | null;
+  masterImageUrl?: string | null;
+  priCategory?: KalodataCategoryRef | null;
+  secCategory?: KalodataCategoryRef | null;
+  terCategory?: KalodataCategoryRef | null;
+  revenueGrowthRate?: number | null;
+  showcaseRevenueThb?: number | null;
+  skuCount?: number | null;
   minPriceThb: number | null;
   maxPriceThb: number | null;
   unitPriceThb: number | null;
@@ -563,6 +705,7 @@ export interface KalodataProductDetailEnrichmentRecord {
   liveNumber: number | null;
   deliveryType: string | null;
   productReviewCount: number | null;
+  productDescription?: string | null;
   launchDate: string | null;
   trendPointsCount: number;
   trendPeakThb: number | null;
@@ -668,6 +811,7 @@ export interface KalodataProductMetrics {
   shopVideoNumber?: number | null;
   shopLiveNumber?: number | null;
   reviewInsight?: KalodataReviewInsightData | null;
+  productDescription?: string | null;
   priCategory: KalodataCategoryRef | null;
   secCategory: KalodataCategoryRef | null;
   terCategory: KalodataCategoryRef | null;
@@ -767,6 +911,9 @@ export interface ResearchProduct {
 
   // Phase 3: Optional attached Gemini AI / Kalodata Fallback Product Analysis
   aiAnalysis?: AiProductAnalysis;
+
+  // Phase 9: Optional deterministic Myanmar-language signal detection (Thailand TikTok Shop only)
+  myanmarLanguage?: MyanmarLanguageAnalysis;
 }
 
 export type AiAnalysisSource = 'gemini' | 'kalodata-fallback';

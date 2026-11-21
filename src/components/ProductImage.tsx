@@ -69,12 +69,12 @@ export function ProductImage({
   if (hasError || !activeSrc) {
     return (
       <div
-        className={`w-full h-full bg-zinc-100/90 flex flex-col items-center justify-center p-6 text-center ${className}`}
+        className={`w-full h-full bg-zinc-100/90 dark:bg-zinc-800/80 flex flex-col items-center justify-center p-6 text-center ${className}`}
         role="img"
         aria-label={unavailableLabel}
       >
-        <ImageOff className="w-6 h-6 text-zinc-400 mb-2" aria-hidden="true" />
-        <span className="text-xs font-medium text-zinc-500 max-w-[200px]">
+        <ImageOff className="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2" aria-hidden="true" />
+        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 max-w-[200px]">
           {unavailableLabel}
         </span>
       </div>

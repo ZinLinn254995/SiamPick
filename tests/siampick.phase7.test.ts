@@ -37,8 +37,12 @@ import {
   persistSavedProductsWithStatus,
 } from '../src/utils/savedProductsStorage.ts';
 import {
+  clearLatestResearchSession,
   createResearchHistoryRecord,
+  LATEST_RESEARCH_SESSION_STORAGE_KEY,
+  loadLatestResearchSession,
   loadResearchHistory,
+  persistLatestResearchSession,
   persistResearchHistory,
   RESEARCH_HISTORY_STORAGE_KEY,
 } from '../src/utils/researchHistoryStorage.ts';
@@ -48,6 +52,11 @@ import {
   resumeResearch,
 } from '../server/researchService.ts';
 import { analyzeSingleProductWithGemini } from '../server/aiProductAnalysis.ts';
+import {
+  persistTheme,
+  resolveInitialTheme,
+  THEME_STORAGE_KEY,
+} from '../src/hooks/useTheme.ts';
 
 class MemoryStorage implements Storage {
   private store = new Map<string, string>();
@@ -666,3 +675,236 @@ test('Phase 7 Gemini AI Fallback Reliability: Missing GEMINI_API_KEY gracefully 
     }
   }
 });
+
+test('Latest Research Results Persistence: Restores across reopen, replaces on new search, falls back to history, recovers from corruption, and stays isolated on quota/delete', () => {
+  const mem = installMockStorage();
+
+  const savedItem = createSavedRecord(makeProduct({ id: 'kd_saved_keep' }));
+  assert.equal(persistSavedProductsWithStatus([savedItem]).ok, true);
+
+  const firstConfig: ResearchConfig = {
+    market: 'Thailand TikTok Shop',
+    category: 'womens-fashion',
+    selectedCategories: ['womens-fashion'],
+    bothCategoryMode: 'combined',
+    researchMode: 'fast',
+    spendingLimitCredits: 2,
+    priceLimit: 'unrestricted',
+    strategyPreset: 'balanced',
+    salesWeightPct: 50,
+    quantity: 10,
+    myanmarLanguageOnly: true,
+    myanmarVideoScanPages: 5,
+  };
+
+  const firstProduct = makeProduct({
+    id: 'kd_first_run',
+    name: 'First Run Linen Blazer',
+    aiAnalysis: makeAiAnalysis('first_run', 'High'),
+  });
+
+  // 1. Persist first search session (simulating app close & reopen)
+  const writeFirst = persistLatestResearchSession({
+    products: [firstProduct],
+    sessionMeta: {
+      requestedQuantity: 10,
+      verifiedProductCount: 1,
+      filteredOutCount: 0,
+      myanmarFilterApplied: true,
+      myanmarVideoDiscovery: {
+        requestedQuantity: 10,
+        videoPagesScanned: 3,
+        maxVideoScanPages: 5,
+        totalVideosScanned: 300,
+        matchedMyanmarVideos: 4,
+        uniqueCandidateProductsFound: 2,
+        affiliateProductsVerified: 1,
+        nonAffiliateOrUnavailableSkipped: 1,
+        videoRankApiCalls: 3,
+        productDetailApiCalls: 0,
+        productDetailCacheHits: 1,
+        stopReason: 'max-pages-reached',
+      },
+    },
+    lastCostSummary: null,
+    researchSourceMode: 'kalodata-openapi',
+    researchedAt: '2026-07-10T09:00:00.000Z',
+    groundingSources: [],
+    searchQueries: ['video-first:womens-fashion'],
+    activeHuntConfig: firstConfig,
+    rejectedIds: ['kd_rejected_1'],
+  });
+  assert.equal(writeFirst.ok, true);
+
+  const restoredFirst = loadLatestResearchSession();
+  assert.ok(restoredFirst);
+  assert.equal(restoredFirst.products.length, 1);
+  assert.equal(restoredFirst.products[0].id, 'kd_first_run');
+  assert.equal(restoredFirst.products[0].aiAnalysis?.source, 'gemini');
+  assert.equal(restoredFirst.sessionMeta.myanmarFilterApplied, true);
+  assert.equal(restoredFirst.sessionMeta.myanmarVideoDiscovery?.affiliateProductsVerified, 1);
+  assert.deepEqual(restoredFirst.rejectedIds, ['kd_rejected_1']);
+  assert.equal(restoredFirst.activeHuntConfig?.myanmarVideoScanPages, 5);
+
+  // 2. New search completes -> replaces old results completely
+  const secondProduct = makeProduct({
+    id: 'kd_second_run',
+    name: 'Second Run Glow Serum',
+    category: 'cosmetics-beauty',
+  });
+  const secondConfig: ResearchConfig = {
+    ...firstConfig,
+    category: 'cosmetics-beauty',
+    selectedCategories: ['cosmetics-beauty'],
+    myanmarLanguageOnly: false,
+  };
+  const writeSecond = persistLatestResearchSession({
+    products: [secondProduct],
+    sessionMeta: {
+      requestedQuantity: 20,
+      verifiedProductCount: 1,
+      filteredOutCount: 2,
+      myanmarFilterApplied: false,
+    },
+    lastCostSummary: null,
+    researchSourceMode: 'kalodata-openapi',
+    researchedAt: '2026-07-11T10:30:00.000Z',
+    groundingSources: [],
+    searchQueries: ['cosmetics-beauty'],
+    activeHuntConfig: secondConfig,
+    rejectedIds: [],
+  });
+  assert.equal(writeSecond.ok, true);
+
+  const restoredSecond = loadLatestResearchSession();
+  assert.ok(restoredSecond);
+  assert.equal(restoredSecond.products.length, 1);
+  assert.equal(restoredSecond.products[0].id, 'kd_second_run');
+  assert.equal(restoredSecond.sessionMeta.requestedQuantity, 20);
+  assert.equal(restoredSecond.sessionMeta.myanmarFilterApplied, false);
+  assert.deepEqual(restoredSecond.rejectedIds, []);
+
+  // 3. Isolation: Deleting Research History or Saved Products must NOT remove latest Research Results
+  const histSession: ResearchSessionResponse = {
+    products: [makeProduct({ id: 'kd_history_fallback' })],
+    requestedQuantity: 10,
+    verifiedProductCount: 1,
+    filteredOutCount: 0,
+    researchedAt: '2026-07-09T08:00:00.000Z',
+    config: secondConfig,
+    groundingSources: [],
+    searchQueries: [],
+    researchSourceMode: 'kalodata-openapi',
+  };
+  const histRecord = createResearchHistoryRecord(histSession, secondConfig);
+  assert.equal(persistResearchHistory([histRecord]).ok, true);
+  assert.equal(persistResearchHistory([]).ok, true);
+  assert.equal(persistSavedProductsWithStatus([]).ok, true);
+
+  const stillThere = loadLatestResearchSession();
+  assert.ok(stillThere);
+  assert.equal(stillThere.products[0].id, 'kd_second_run');
+
+  // 4. Fallback to newest ResearchHistoryRecord when dedicated session key is missing or corrupted
+  clearLatestResearchSession();
+  assert.equal(loadLatestResearchSession(), null);
+  const fromHistory = loadLatestResearchSession([histRecord]);
+  assert.ok(fromHistory);
+  assert.equal(fromHistory.products[0].id, 'kd_history_fallback');
+  assert.equal(fromHistory.researchedAt, '2026-07-09T08:00:00.000Z');
+
+  // Corrupted JSON recovers safely to history fallback (or null if no history)
+  mem.setItem(LATEST_RESEARCH_SESSION_STORAGE_KEY, '{not-valid-json');
+  assert.equal(loadLatestResearchSession(), null);
+  const recoveredFromHistory = loadLatestResearchSession([histRecord]);
+  assert.ok(recoveredFromHistory);
+  assert.equal(recoveredFromHistory.products[0].id, 'kd_history_fallback');
+
+  // 5. QuotaExceededError returns ok=false without deleting Saved Products or Research History
+  assert.equal(persistSavedProductsWithStatus([savedItem]).ok, true);
+  assert.equal(persistResearchHistory([histRecord]).ok, true);
+
+  const originalSetItem = mem.setItem.bind(mem);
+  mem.setItem = (key: string, value: string) => {
+    if (key === LATEST_RESEARCH_SESSION_STORAGE_KEY) {
+      const err = new Error('QuotaExceededError');
+      err.name = 'QuotaExceededError';
+      throw err;
+    }
+    originalSetItem(key, value);
+  };
+
+  const quotaRes = persistLatestResearchSession({
+    products: [secondProduct],
+    sessionMeta: {
+      requestedQuantity: 10,
+      verifiedProductCount: 1,
+      filteredOutCount: 0,
+    },
+    lastCostSummary: null,
+    researchSourceMode: 'kalodata-openapi',
+    researchedAt: '2026-07-11T11:00:00.000Z',
+    groundingSources: [],
+    searchQueries: [],
+    activeHuntConfig: secondConfig,
+    rejectedIds: [],
+  });
+  assert.equal(quotaRes.ok, false);
+  assert.equal(quotaRes.quotaExceeded, true);
+  assert.equal(loadSavedProducts().length, 1);
+  assert.equal(loadSavedProducts()[0].id, 'kd_saved_keep');
+  assert.equal(loadResearchHistory().length, 1);
+  assert.equal(loadResearchHistory()[0].id, histRecord.id);
+});
+
+test('Light Mode / Dark Mode Persistence: Resolves default light theme, persists dark/light toggle to localStorage, and ignores invalid values', () => {
+  const mem = installMockStorage();
+  const originalWindow = globalThis.window;
+
+  Object.defineProperty(globalThis, 'window', {
+    value: {
+      localStorage: mem,
+      matchMedia: () => ({ matches: false }),
+    },
+    configurable: true,
+    writable: true,
+  });
+
+  try {
+    // Defaults to light when no preference and OS is light
+    assert.equal(resolveInitialTheme(), 'light');
+
+    // Persists dark mode
+    persistTheme('dark');
+    assert.equal(mem.getItem(THEME_STORAGE_KEY), 'dark');
+    assert.equal(resolveInitialTheme(), 'dark');
+
+    // Persists light mode
+    persistTheme('light');
+    assert.equal(mem.getItem(THEME_STORAGE_KEY), 'light');
+    assert.equal(resolveInitialTheme(), 'light');
+
+    // Ignores corrupted value and respects OS prefers-color-scheme: dark fallback
+    mem.setItem(THEME_STORAGE_KEY, 'invalid-theme');
+    Object.defineProperty(globalThis, 'window', {
+      value: {
+        localStorage: mem,
+        matchMedia: () => ({ matches: true }),
+      },
+      configurable: true,
+      writable: true,
+    });
+    assert.equal(resolveInitialTheme(), 'dark');
+  } finally {
+    if (originalWindow === undefined) {
+      delete (globalThis as { window?: unknown }).window;
+    } else {
+      Object.defineProperty(globalThis, 'window', {
+        value: originalWindow,
+        configurable: true,
+        writable: true,
+      });
+    }
+  }
+});
+

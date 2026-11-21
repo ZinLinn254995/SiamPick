@@ -20,6 +20,7 @@ import {
 } from './scoring.ts';
 import { getCachedAiAnalysisForProduct } from './aiAnalysisCache.ts';
 import { getCategoryDefinition } from './categoryRegistry.ts';
+import { detectMyanmarLanguageForProduct } from './myanmarLanguageDetector.ts';
 
 const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = {
   High: 3,
@@ -37,6 +38,7 @@ export const DEFAULT_PRODUCT_FILTERS: Readonly<ProductResultsFilterState> = {
   category: 'all',
   researchMode: 'all',
   aiContentSuitability: 'all',
+  myanmarLanguageOnly: false,
 };
 
 export function countActiveFilters(filters: ProductResultsFilterState): number {
@@ -50,6 +52,7 @@ export function countActiveFilters(filters: ProductResultsFilterState): number {
   if (filters.category !== 'all') count += 1;
   if (filters.researchMode !== 'all') count += 1;
   if (filters.aiContentSuitability !== 'all') count += 1;
+  if (filters.myanmarLanguageOnly === true) count += 1;
   return count;
 }
 
@@ -503,6 +506,22 @@ export function filterProducts(
     if (filters.aiContentSuitability !== 'all') {
       const band = getEffectiveAiSuitabilityBand(product, evaluation);
       if (band !== filters.aiContentSuitability) return false;
+    }
+
+    // 10. Optional Myanmar Discovery Filter (Video-First or Review-First · Thailand TikTok Shop only)
+    if (filters.myanmarLanguageOnly === true) {
+      const analysis = product.myanmarLanguage ?? detectMyanmarLanguageForProduct(product);
+      const hasVideoMatch =
+        Array.isArray(analysis.matchedVideos) && analysis.matchedVideos.length >= 1;
+      const hasReviewMatch =
+        analysis.reviewStatus === 'matched' && analysis.matchedReviewCount >= 1;
+      const hasAnyMatch =
+        hasVideoMatch ||
+        hasReviewMatch ||
+        (analysis.matched && analysis.evidences.length > 0);
+      if (!hasAnyMatch) {
+        return false;
+      }
     }
 
     return true;

@@ -9,6 +9,7 @@ import type {
   KalodataProductDetailEnrichmentRecord,
   KalodataReviewInsightData,
   KalodataShopEnrichmentRecord,
+  MyanmarDiscoveryMode,
   ProductCategory,
   ResearchConfig,
   ResearchMode,
@@ -17,11 +18,13 @@ import type {
   StrategyPreset,
 } from './src/types/product.ts';
 import { evaluateProductOpportunity } from './src/utils/scoring.ts';
-import { isValidProductCategory } from './src/utils/categoryRegistry.ts';
+import { isValidProductCategory, UNIVERSAL_CATEGORIES } from './src/utils/categoryRegistry.ts';
 import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
 import {
   clampDeepDiveCount,
+  clampMyanmarReviewScanLimit,
+  clampMyanmarVideoScanPages,
   DEFAULT_SPENDING_LIMIT_CREDITS,
   MAX_RESEARCH_QUANTITY,
   MAX_SPENDING_LIMIT_CREDITS,
@@ -62,6 +65,29 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 function validateConfig(body: unknown): { config: ResearchConfig; forceResume: boolean } {
   const input = body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 
+  let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+  if (
+    input.resolvedCategoryIdMap &&
+    typeof input.resolvedCategoryIdMap === 'object' &&
+    !Array.isArray(input.resolvedCategoryIdMap)
+  ) {
+    const sanitizedMap: Partial<Record<ProductCategory, string>> = {};
+    for (const [slug, id] of Object.entries(
+      input.resolvedCategoryIdMap as Record<string, unknown>
+    )) {
+      if (
+        isValidProductCategory(slug) &&
+        typeof id === 'string' &&
+        /^[A-Za-z0-9_-]{3,64}$/.test(id.trim())
+      ) {
+        sanitizedMap[slug] = id.trim();
+      }
+    }
+    if (Object.keys(sanitizedMap).length > 0) {
+      resolvedCategoryIdMap = sanitizedMap;
+    }
+  }
+
   let selectedCategories: ProductCategory[];
   if (Array.isArray(input.selectedCategories)) {
     selectedCategories = Array.from(
@@ -78,7 +104,9 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
         : 'all';
     selectedCategories =
       legacyCategory === 'all'
-        ? ['womens-fashion', 'cosmetics-beauty']
+        ? UNIVERSAL_CATEGORIES.filter(
+            (def) => Boolean(def.defaultKalodataId) || Boolean(resolvedCategoryIdMap?.[def.id])
+          ).map((def) => def.id)
         : [legacyCategory];
   }
 
@@ -104,29 +132,6 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
         .map((name) => name.trim().slice(0, 120))
         .slice(0, 30)
     : undefined;
-
-  let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
-  if (
-    input.resolvedCategoryIdMap &&
-    typeof input.resolvedCategoryIdMap === 'object' &&
-    !Array.isArray(input.resolvedCategoryIdMap)
-  ) {
-    const sanitizedMap: Partial<Record<ProductCategory, string>> = {};
-    for (const [slug, id] of Object.entries(
-      input.resolvedCategoryIdMap as Record<string, unknown>
-    )) {
-      if (
-        isValidProductCategory(slug) &&
-        typeof id === 'string' &&
-        /^[A-Za-z0-9_-]{3,64}$/.test(id.trim())
-      ) {
-        sanitizedMap[slug] = id.trim();
-      }
-    }
-    if (Object.keys(sanitizedMap).length > 0) {
-      resolvedCategoryIdMap = sanitizedMap;
-    }
-  }
 
   const bothCategoryMode: BothCategoryMode =
     input.bothCategoryMode === 'split' ? 'split' : 'combined';
@@ -181,6 +186,37 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
       : 50;
   const salesWeightPct = Math.max(10, Math.min(90, rawWeight));
 
+  const myanmarDiscoveryMode: MyanmarDiscoveryMode | undefined =
+    input.myanmarLanguageOnly === true
+      ? input.myanmarDiscoveryMode === 'review-first'
+        ? 'review-first'
+        : 'video-first'
+      : undefined;
+
+  const rawVideoScanPages =
+    typeof input.myanmarVideoScanPages === 'number' && Number.isFinite(input.myanmarVideoScanPages)
+      ? Math.floor(input.myanmarVideoScanPages)
+      : typeof input.myanmarVideoScanPages === 'string' &&
+          input.myanmarVideoScanPages.trim() !== ''
+        ? Math.floor(Number(input.myanmarVideoScanPages))
+        : undefined;
+  const myanmarVideoScanPages =
+    input.myanmarLanguageOnly === true && myanmarDiscoveryMode === 'video-first'
+      ? clampMyanmarVideoScanPages(rawVideoScanPages)
+      : undefined;
+
+  const rawReviewScanLimit =
+    typeof input.myanmarReviewScanLimit === 'number' && Number.isFinite(input.myanmarReviewScanLimit)
+      ? Math.floor(input.myanmarReviewScanLimit)
+      : typeof input.myanmarReviewScanLimit === 'string' &&
+          input.myanmarReviewScanLimit.trim() !== ''
+        ? Math.floor(Number(input.myanmarReviewScanLimit))
+        : undefined;
+  const myanmarReviewScanLimit =
+    input.myanmarLanguageOnly === true && myanmarDiscoveryMode === 'review-first'
+      ? clampMyanmarReviewScanLimit(rawReviewScanLimit)
+      : undefined;
+
   return {
     config: {
       market: 'Thailand TikTok Shop',
@@ -202,6 +238,14 @@ function validateConfig(body: unknown): { config: ResearchConfig; forceResume: b
       strategyPreset,
       salesWeightPct,
       quantity,
+      ...(input.myanmarLanguageOnly === true
+        ? {
+            myanmarLanguageOnly: true,
+            myanmarDiscoveryMode,
+            ...(myanmarVideoScanPages !== undefined ? { myanmarVideoScanPages } : {}),
+            ...(myanmarReviewScanLimit !== undefined ? { myanmarReviewScanLimit } : {}),
+          }
+        : {}),
     },
     forceResume: input.forceResume === true,
   };

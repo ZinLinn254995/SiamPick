@@ -43,10 +43,10 @@ interface AiProductAnalysisSectionProps {
 const CLIENT_ANALYZE_TIMEOUT_MS = 65_000;
 
 function statusTextColor(status: DataStatus): string {
-  if (status === 'verified') return 'text-emerald-700';
-  if (status === 'estimated') return 'text-amber-700';
-  if (status === 'unverified') return 'text-zinc-500';
-  return 'text-zinc-400';
+  if (status === 'verified') return 'text-emerald-700 dark:text-emerald-400';
+  if (status === 'estimated') return 'text-amber-700 dark:text-amber-400';
+  if (status === 'unverified') return 'text-zinc-500 dark:text-zinc-400';
+  return 'text-zinc-400 dark:text-zinc-500';
 }
 
 function verdictStyle(verdict: AiRecommendationVerdict): {
@@ -56,23 +56,23 @@ function verdictStyle(verdict: AiRecommendationVerdict): {
   switch (verdict) {
     case 'priority-test':
       return {
-        container: 'bg-emerald-50/70 border-emerald-200/90',
-        label: 'text-emerald-800',
+        container: 'bg-emerald-50/70 dark:bg-emerald-950/35 border-emerald-200/90 dark:border-emerald-800/60',
+        label: 'text-emerald-800 dark:text-emerald-300',
       };
     case 'test-with-caution':
       return {
-        container: 'bg-amber-50/70 border-amber-200/90',
-        label: 'text-amber-800',
+        container: 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200/90 dark:border-amber-800/60',
+        label: 'text-amber-800 dark:text-amber-300',
       };
     case 'monitor':
       return {
-        container: 'bg-zinc-50 border-zinc-200/90',
-        label: 'text-zinc-800',
+        container: 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200/90 dark:border-zinc-800',
+        label: 'text-zinc-800 dark:text-zinc-200',
       };
     default:
       return {
-        container: 'bg-zinc-100/80 border-zinc-300/90',
-        label: 'text-zinc-700',
+        container: 'bg-zinc-100/80 dark:bg-zinc-800/80 border-zinc-300/90 dark:border-zinc-700',
+        label: 'text-zinc-700 dark:text-zinc-300',
       };
   }
 }
@@ -283,13 +283,13 @@ export function AiProductAnalysisSection({
   return (
     <section
       id="rep-ai-analysis"
-      className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4"
+      className="scroll-mt-4 pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-4"
     >
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-zinc-900 shrink-0" aria-hidden="true" />
-          <h3 className="font-display text-sm font-semibold text-zinc-950">
+          <Sparkles className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0" aria-hidden="true" />
+          <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
             {t.aiSectionHeading}
           </h3>
           <InfoPopover
@@ -303,15 +303,15 @@ export function AiProductAnalysisSection({
         <div className="text-xs font-medium shrink-0">
           {analysis ? (
             analysis.source === 'gemini' ? (
-              <span className="text-emerald-700 inline-flex items-center gap-1">
+              <span className="text-emerald-700 dark:text-emerald-400 inline-flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{loadedFromCache ? t.aiBadgeGeminiCached : t.aiBadgeGeminiLive}</span>
               </span>
             ) : (
-              <span className="text-amber-700">{t.aiBadgeFallback}</span>
+              <span className="text-amber-700 dark:text-amber-400">{t.aiBadgeFallback}</span>
             )
           ) : (
-            <span className="font-mono text-[11px] text-zinc-500">{t.aiBadgeReady}</span>
+            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{t.aiBadgeReady}</span>
           )}
         </div>
       </div>
@@ -320,13 +320,13 @@ export function AiProductAnalysisSection({
       {((analysis && analysis.geminiFailed) || reanalyzeFailedNotice) && (
         <div
           role="status"
-          className="p-4 rounded-xl bg-amber-50/90 border border-amber-300/80 text-xs text-amber-950 space-y-2.5"
+          className="p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-700/60 text-xs text-amber-950 dark:text-amber-200 space-y-2.5"
         >
           <div className="flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+            <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
             <div className="space-y-1">
-              <div className="font-semibold text-amber-950">{t.aiFallbackBannerTitle}</div>
-              <p className="text-amber-900 leading-relaxed">
+              <div className="font-semibold text-amber-950 dark:text-amber-200">{t.aiFallbackBannerTitle}</div>
+              <p className="text-amber-900 dark:text-amber-200 leading-relaxed">
                 {reanalyzeFailedNotice
                   ? isMy
                     ? reanalyzeFailedNotice.my
@@ -343,7 +343,7 @@ export function AiProductAnalysisSection({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
-                className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-amber-950 bg-white border border-amber-300 rounded-lg hover:bg-amber-100/60 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-amber-950 dark:text-amber-200 bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700/70 rounded-lg hover:bg-amber-100/60 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.aiRetryGeminiBtn}</span>
@@ -357,17 +357,17 @@ export function AiProductAnalysisSection({
       {analysis && analysis.source === 'gemini' && hasNewerData && !reanalyzeFailedNotice && (
         <div
           role="status"
-          className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-300/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+          className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300/90 dark:border-zinc-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
         >
           <div className="space-y-0.5">
-            <div className="font-semibold text-zinc-900">{t.aiStaleDataBannerTitle}</div>
-            <p className="text-zinc-600 leading-relaxed">{t.aiStaleDataBannerDesc}</p>
+            <div className="font-semibold text-zinc-900 dark:text-zinc-100">{t.aiStaleDataBannerTitle}</div>
+            <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">{t.aiStaleDataBannerDesc}</p>
           </div>
           {!isAnalyzing && !confirmOpen && (
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{t.aiReanalyzeBtn}</span>
@@ -378,21 +378,21 @@ export function AiProductAnalysisSection({
 
       {/* LocalStorage Cache Quota Warning (if cache save hit browser limit) */}
       {cacheWarning && (
-        <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+        <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/35 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200">
           {cacheWarning}
         </div>
       )}
 
       {/* Explicit Cost & Confirmation Gate Before EVERY Gemini API Call */}
       {confirmOpen && !isAnalyzing && (
-        <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-300 space-y-3 text-xs">
+        <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 space-y-3 text-xs">
           <div className="space-y-1">
-            <div className="font-display font-semibold text-zinc-950">{t.aiConfirmTitle}</div>
-            <p className="text-zinc-600 leading-relaxed">{t.aiConfirmDesc}</p>
+            <div className="font-display font-semibold text-zinc-950 dark:text-zinc-50">{t.aiConfirmTitle}</div>
+            <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">{t.aiConfirmDesc}</p>
           </div>
-          <ul className="space-y-1 text-zinc-700 list-disc pl-4 marker:text-zinc-400">
-            <li className="font-medium text-zinc-900">{t.aiConfirmCallDetail}</li>
-            <li className="text-emerald-800 font-medium">{t.aiConfirmKalodataCost}</li>
+          <ul className="space-y-1 text-zinc-700 dark:text-zinc-300 list-disc pl-4 marker:text-zinc-400">
+            <li className="font-medium text-zinc-900 dark:text-zinc-100">{t.aiConfirmCallDetail}</li>
+            <li className="text-emerald-800 dark:text-emerald-300 font-medium">{t.aiConfirmKalodataCost}</li>
             <li>{t.aiConfirmTokenNote}</li>
             <li>{t.aiConfirmCacheNote}</li>
           </ul>
@@ -400,7 +400,7 @@ export function AiProductAnalysisSection({
             <button
               type="button"
               onClick={handleConfirmRunGemini}
-              className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{t.aiConfirmProceedBtn}</span>
@@ -408,7 +408,7 @@ export function AiProductAnalysisSection({
             <button
               type="button"
               onClick={() => setConfirmOpen(false)}
-              className="inline-flex items-center min-h-[38px] px-3.5 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-400 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center min-h-[38px] px-3.5 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 rounded-lg transition-colors cursor-pointer"
             >
               {t.aiConfirmCancelBtn}
             </button>
@@ -418,17 +418,17 @@ export function AiProductAnalysisSection({
 
       {/* Loading State */}
       {isAnalyzing && (
-        <div className="p-6 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-3 text-xs sm:text-sm text-zinc-700">
-          <Loader2 className="w-4 h-4 animate-spin text-zinc-900 shrink-0" aria-hidden="true" />
+        <div className="p-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 flex items-center gap-3 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300">
+          <Loader2 className="w-4 h-4 animate-spin text-zinc-900 dark:text-zinc-100 shrink-0" aria-hidden="true" />
           <span>{t.aiAnalyzingLabel}</span>
         </div>
       )}
 
       {/* Empty Ready State (No Cached Analysis Yet — Zero Auto API Calls) */}
       {!analysis && !isAnalyzing && (
-        <div className="p-5 rounded-xl bg-zinc-50/90 border border-zinc-200/90 space-y-4">
+        <div className="p-5 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/60 border border-zinc-200/90 dark:border-zinc-800 space-y-4">
           <div className="flex items-center gap-1.5">
-            <h4 className="font-display text-sm font-semibold text-zinc-950">{t.aiEmptyTitle}</h4>
+            <h4 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">{t.aiEmptyTitle}</h4>
             <InfoPopover
               variant="info"
               label={t.aiEmptyTitle}
@@ -438,13 +438,13 @@ export function AiProductAnalysisSection({
           </div>
 
           {/* Factual Kalodata Basis Preview */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-zinc-200/80">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
             {liveDataBasis.slice(0, 4).map((fact) => (
               <div key={fact.key} className="text-xs">
-                <div className="text-[11px] text-zinc-500">
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   {isMy ? fact.labelMy : fact.labelEn}
                 </div>
-                <div className="font-mono text-xs font-medium text-zinc-900 tabular-nums truncate">
+                <div className="font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums truncate">
                   {isMy ? fact.valueMy : fact.valueEn}
                 </div>
                 <div className={`text-[10px] font-medium ${statusTextColor(fact.status)}`}>
@@ -459,7 +459,7 @@ export function AiProductAnalysisSection({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-xs font-medium text-white bg-zinc-950 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.aiRunAnalysisBtn}</span>
@@ -467,9 +467,9 @@ export function AiProductAnalysisSection({
               <button
                 type="button"
                 onClick={handlePreviewFallback}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-400 hover:text-zinc-950 rounded-lg transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer"
               >
-                <Database className="w-3.5 h-3.5 text-zinc-500" aria-hidden="true" />
+                <Database className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                 <span>{t.aiPreviewFallbackBtn}</span>
               </button>
             </div>
@@ -481,10 +481,10 @@ export function AiProductAnalysisSection({
       {analysis && !isAnalyzing && (
         <div className="space-y-5">
           {/* Block A: Strictly Factual Kalodata Market Data Basis */}
-          <div className="p-4 rounded-xl bg-zinc-50/90 border border-zinc-200/80 space-y-3">
+          <div className="p-4 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900">
-                <Database className="w-3.5 h-3.5 text-zinc-600" aria-hidden="true" />
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                <Database className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" aria-hidden="true" />
                 <span>{t.aiDataBasisHeading}</span>
                 <InfoPopover
                   variant="info"
@@ -493,18 +493,18 @@ export function AiProductAnalysisSection({
                   content={t.aiDataSeparationNote}
                 />
               </div>
-              <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
+              <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
                 {t.cardConfidence}: {t.confidenceLabels[analysis.overallDataConfidence]}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2.5 pt-2 border-t border-zinc-200/70">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2.5 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70">
               {analysis.dataBasis.map((fact) => (
                 <div key={fact.key} className="min-w-0">
-                  <div className="text-[11px] text-zinc-500 truncate">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
                     {isMy ? fact.labelMy : fact.labelEn}
                   </div>
-                  <div className="font-mono text-xs font-medium text-zinc-950 tabular-nums truncate">
+                  <div className="font-mono text-xs font-medium text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
                     {isMy ? fact.valueMy : fact.valueEn}
                   </div>
                   <div className={`text-[10px] font-medium ${statusTextColor(fact.status)}`}>
@@ -518,7 +518,7 @@ export function AiProductAnalysisSection({
           {/* Block B: AI Strategic Interpretation (All 10 Structured Sections) */}
           <div className="space-y-5">
             <div className="flex items-center gap-1.5">
-              <h4 className="font-display text-xs font-semibold text-zinc-700">
+              <h4 className="font-display text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {t.aiInterpretationHeading}
               </h4>
               <InfoPopover
@@ -533,12 +533,12 @@ export function AiProductAnalysisSection({
             {analysis.categoryVerificationStatus === 'unverified' && (
               <div
                 role="status"
-                className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-300/90 flex items-start gap-2.5 text-xs text-amber-950"
+                className="p-3.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300/90 dark:border-amber-700/70 flex items-start gap-2.5 text-xs text-amber-950 dark:text-amber-200"
               >
-                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" aria-hidden="true" />
+                <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
                 <div className="space-y-0.5">
                   <div className="font-semibold">{t.aiCategoryUnverifiedTitle}</div>
-                  <p className="text-amber-900 leading-relaxed">
+                  <p className="text-amber-900 dark:text-amber-200 leading-relaxed">
                     {isMy
                       ? analysis.categoryVerificationNoteMy ?? analysis.categoryVerificationNoteEn
                       : analysis.categoryVerificationNoteEn ?? analysis.categoryVerificationNoteMy}
@@ -553,20 +553,20 @@ export function AiProductAnalysisSection({
               return (
                 <div className={`p-4 rounded-xl border space-y-2 ${style.container}`}>
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-display text-xs font-semibold text-zinc-900">
+                    <span className="font-display text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                       {t.aiSecFinalRecommendation}
                     </span>
                     <span className={`text-xs font-semibold ${style.label}`}>
                       {t.aiVerdictLabels[analysis.finalRecommendation.verdict]}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-zinc-950 leading-snug">
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
                     {isMy
                       ? analysis.finalRecommendation.headlineMy
                       : analysis.finalRecommendation.headlineEn}
                   </p>
-                  <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
-                    <strong className="font-medium text-zinc-900">{t.aiNextActionLabel}:</strong>{' '}
+                  <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                    <strong className="font-medium text-zinc-900 dark:text-zinc-100">{t.aiNextActionLabel}:</strong>{' '}
                     {isMy
                       ? analysis.finalRecommendation.actionPlanMy
                       : analysis.finalRecommendation.actionPlanEn}
@@ -577,22 +577,22 @@ export function AiProductAnalysisSection({
 
             {/* 01. Product Strengths & Weaknesses */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-2">
-                <h5 className="font-display text-xs font-semibold text-emerald-800">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+                <h5 className="font-display text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                   {t.aiSecStrengths}
                 </h5>
-                <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-emerald-600">
+                <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-emerald-600">
                   {(isMy ? analysis.strengthsMy : analysis.strengthsEn).map((item, i) => (
                     <li key={`${i}-${item}`}>{item}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-2">
-                <h5 className="font-display text-xs font-semibold text-zinc-900">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+                <h5 className="font-display text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                   {t.aiSecWeaknesses}
                 </h5>
-                <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
+                <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-zinc-400">
                   {(isMy ? analysis.weaknessesMy : analysis.weaknessesEn).map((item, i) => (
                     <li key={`${i}-${item}`}>{item}</li>
                   ))}
@@ -602,9 +602,9 @@ export function AiProductAnalysisSection({
 
             {/* 02, 03, 04, 05: Sales & Revenue, Growth, Commission, Competition */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecSalesRevenue}
                   </h5>
                   <span
@@ -613,14 +613,14 @@ export function AiProductAnalysisSection({
                     {t.dataStatusLabels[analysis.salesAndRevenueStatus]}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.salesAndRevenueMy : analysis.salesAndRevenueEn}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecGrowthPotential}
                   </h5>
                   <span
@@ -629,14 +629,14 @@ export function AiProductAnalysisSection({
                     {t.dataStatusLabels[analysis.growthPotentialStatus]}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.growthPotentialMy : analysis.growthPotentialEn}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecCommissionPotential}
                   </h5>
                   <span
@@ -645,14 +645,14 @@ export function AiProductAnalysisSection({
                     {t.dataStatusLabels[analysis.commissionPotentialStatus]}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.commissionPotentialMy : analysis.commissionPotentialEn}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecCompetition}
                   </h5>
                   <span
@@ -661,7 +661,7 @@ export function AiProductAnalysisSection({
                     {t.dataStatusLabels[analysis.competitionStatus]}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.competitionAnalysisMy : analysis.competitionAnalysisEn}
                 </p>
               </div>
@@ -669,39 +669,39 @@ export function AiProductAnalysisSection({
 
             {/* 06. Target Customer Profile & 07. Why Choose This Product */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <h5 className="font-display text-xs font-semibold text-zinc-950">
+                  <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecTargetCustomer}
                   </h5>
-                  <span className="text-[11px] font-medium text-amber-700 shrink-0">
+                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 shrink-0">
                     {t.aiInferenceBadge} · {t.dataStatusLabels[analysis.targetCustomerStatus]}
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.targetCustomerMy : analysis.targetCustomerEn}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
-                <h5 className="font-display text-xs font-semibold text-zinc-950">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
+                <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                   {t.aiSecWhyChoose}
                 </h5>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy ? analysis.whyChooseMy : analysis.whyChooseEn}
                 </p>
               </div>
             </div>
 
             {/* 08. Potential Risks & Drawbacks */}
-            <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-2">
+            <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
               <div className="flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-700 shrink-0" aria-hidden="true" />
-                <h5 className="font-display text-xs font-semibold text-zinc-950">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" aria-hidden="true" />
+                <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                   {t.aiSecRisksDrawbacks}
                 </h5>
               </div>
-              <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-amber-600">
+              <ul className="space-y-1.5 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-amber-600">
                 {(isMy ? analysis.risksAndDrawbacksMy : analysis.risksAndDrawbacksEn).map(
                   (risk, i) => (
                     <li key={`${i}-${risk}`}>{risk}</li>
@@ -712,11 +712,11 @@ export function AiProductAnalysisSection({
 
             {/* 08b. Category-Tailored Affiliate Strategy (Phase 8) */}
             {(analysis.affiliateStrategyEn || analysis.affiliateStrategyMy) && (
-              <div className="p-4 rounded-xl bg-white border border-zinc-200/90 space-y-1.5">
-                <h5 className="font-display text-xs font-semibold text-zinc-950">
+              <div className="p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-1.5">
+                <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                   {t.aiAffiliateStrategyHeading}
                 </h5>
-                <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+                <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                   {isMy
                     ? analysis.affiliateStrategyMy ?? analysis.affiliateStrategyEn
                     : analysis.affiliateStrategyEn ?? analysis.affiliateStrategyMy}
@@ -725,19 +725,19 @@ export function AiProductAnalysisSection({
             )}
 
             {/* 09. AI Advertising Content Suitability (Universal Category-Aware Ad Format) */}
-            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 border border-zinc-200/90 space-y-3.5">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/90 dark:border-zinc-800 space-y-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   {isModelFormat ? (
-                    <UserCheck className="w-4 h-4 text-zinc-800 shrink-0" aria-hidden="true" />
+                    <UserCheck className="w-4 h-4 text-zinc-800 dark:text-zinc-200 shrink-0" aria-hidden="true" />
                   ) : (
-                    <Box className="w-4 h-4 text-zinc-800 shrink-0" aria-hidden="true" />
+                    <Box className="w-4 h-4 text-zinc-800 dark:text-zinc-200 shrink-0" aria-hidden="true" />
                   )}
                   <div>
-                    <h5 className="font-display text-xs font-semibold text-zinc-950">
+                    <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.aiSecAdSuitability}
                     </h5>
-                    <div className="text-[11px] font-medium text-zinc-600">
+                    <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
                       {t.aiAdFormatLabels[analysis.aiContentSuitability.adFormat] ??
                         t.aiAdFormatBeauty}
                     </div>
@@ -745,7 +745,7 @@ export function AiProductAnalysisSection({
                 </div>
 
                 <div className="text-right text-[11px]">
-                  <div className="font-semibold text-zinc-950">
+                  <div className="font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiVideoLabels[analysis.aiContentSuitability.suitabilityRating]}
                   </div>
                   <div className={`font-medium ${statusTextColor(analysis.aiContentSuitability.status)}`}>
@@ -754,18 +754,18 @@ export function AiProductAnalysisSection({
                 </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-zinc-700 leading-relaxed">
+              <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {isMy
                   ? analysis.aiContentSuitability.summaryMy
                   : analysis.aiContentSuitability.summaryEn}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-zinc-200/80">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-zinc-800">
+                  <div className="text-[11px] font-semibold text-zinc-800 dark:text-zinc-200">
                     {t.aiAdAnglesHeading}
                   </div>
-                  <ul className="space-y-1 text-xs text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
+                  <ul className="space-y-1 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-zinc-400">
                     {(isMy
                       ? analysis.aiContentSuitability.creativeAnglesMy
                       : analysis.aiContentSuitability.creativeAnglesEn
@@ -776,10 +776,10 @@ export function AiProductAnalysisSection({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-amber-800">
+                  <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
                     {t.aiAdCautionsHeading}
                   </div>
-                  <ul className="space-y-1 text-xs text-zinc-700 leading-relaxed list-disc pl-4 marker:text-amber-600">
+                  <ul className="space-y-1 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-amber-600">
                     {(isMy
                       ? analysis.aiContentSuitability.cautionsMy
                       : analysis.aiContentSuitability.cautionsEn
@@ -792,7 +792,7 @@ export function AiProductAnalysisSection({
             </div>
 
             {/* Footer Metadata + Explicit Manual Re-Analyze Control */}
-            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-zinc-500">
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono tabular-nums">
                 <span>
                   {t.aiAnalyzedAtLabel}: {formatResearchDateTime(analysis.analyzedAt, language)}
@@ -803,7 +803,7 @@ export function AiProductAnalysisSection({
                   </span>
                 )}
                 {analysis.source === 'gemini' && (
-                  <span className="font-sans text-emerald-700 font-medium">
+                  <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
                     · {t.aiCachedLocallyLabel}
                   </span>
                 )}
@@ -811,7 +811,7 @@ export function AiProductAnalysisSection({
                   <button
                     type="button"
                     onClick={() => setShowPreviousHistory((prev) => !prev)}
-                    className="font-sans text-zinc-700 underline underline-offset-2 hover:text-zinc-950 cursor-pointer"
+                    className="font-sans text-zinc-700 dark:text-zinc-300 underline underline-offset-2 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
                   >
                     {isMy
                       ? showPreviousHistory
@@ -828,7 +828,7 @@ export function AiProductAnalysisSection({
                 <button
                   type="button"
                   onClick={() => setConfirmOpen(true)}
-                  className="inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 hover:border-zinc-400 hover:text-zinc-950 rounded-lg transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer"
                 >
                   {analysis.source === 'gemini' ? (
                     <>
@@ -847,30 +847,30 @@ export function AiProductAnalysisSection({
 
             {/* Distinct Archive of Older AI Analyses (Before Newer Enriched Data) */}
             {showPreviousHistory && previousAnalyses.length > 0 && (
-              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/90 space-y-3 text-xs">
-                <div className="font-semibold text-zinc-800">
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/90 dark:border-zinc-800 space-y-3 text-xs">
+                <div className="font-semibold text-zinc-800 dark:text-zinc-200">
                   {isMy
                     ? 'ယခင်ဒေတာဖြင့် သုံးသပ်ခဲ့သော AI မှတ်တမ်းဟောင်းများ (ဒေတာအသစ်မတိုင်မီ)'
                     : 'Previous AI Analyses (Generated on Earlier Kalodata Data)'}
                 </div>
-                <div className="divide-y divide-zinc-200/80">
+                <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
                   {previousAnalyses.map((prevItem, idx) => (
                     <div key={`${prevItem.dataFingerprint}-${idx}`} className="py-2.5 first:pt-0 last:pb-0 space-y-1">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                        <span className="font-mono text-zinc-500 tabular-nums">
+                        <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
                           {formatResearchDateTime(prevItem.analyzedAt, language)} ·{' '}
                           {t.confidenceLabels[prevItem.overallDataConfidence]}
                         </span>
-                        <span className="font-semibold text-zinc-800">
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                           {t.aiVerdictLabels[prevItem.finalRecommendation.verdict]}
                         </span>
                       </div>
-                      <p className="text-zinc-700 leading-relaxed">
+                      <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
                         {isMy
                           ? prevItem.finalRecommendation.headlineMy
                           : prevItem.finalRecommendation.headlineEn}
                       </p>
-                      <p className="text-zinc-500 leading-relaxed">
+                      <p className="text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         {isMy ? prevItem.whyChooseMy : prevItem.whyChooseEn}
                       </p>
                     </div>

@@ -1,5 +1,6 @@
 import type {
   BothCategoryMode,
+  MyanmarDiscoveryMode,
   ProductCategory,
   ResearchCostEstimate,
   ResearchMode,
@@ -15,6 +16,7 @@ import type {
  */
 export const KALODATA_MAX_PAGE_SIZE = 100;
 export const KALODATA_CREDITS_PER_100_ROWS = 0.1;
+export const KALODATA_VIDEO_RANK_CREDIT_PER_100 = 0.1;
 export const KALODATA_PRODUCT_DETAIL_CREDIT = 0.1;
 export const KALODATA_SHOP_DETAIL_CREDIT = 0.1;
 export const KALODATA_COMMENT_INSIGHT_CREDIT = 1.0;
@@ -31,6 +33,14 @@ export const DEFAULT_DEEP_DIVE_COUNT = 5;
 export const MIN_DEEP_DIVE_COUNT = 1;
 export const MAX_DEEP_DIVE_COUNT = 10;
 export const DEEP_COMMENT_INSIGHT_CAP = 2;
+
+export const DEFAULT_MYANMAR_REVIEW_SCAN_LIMIT = 5;
+export const MIN_MYANMAR_REVIEW_SCAN_LIMIT = 1;
+export const MAX_MYANMAR_REVIEW_SCAN_LIMIT = 30;
+
+export const DEFAULT_MYANMAR_VIDEO_SCAN_PAGES = 10;
+export const MIN_MYANMAR_VIDEO_SCAN_PAGES = 1;
+export const MAX_MYANMAR_VIDEO_SCAN_PAGES = 25;
 
 import {
   CATEGORY_BY_ID,
@@ -66,6 +76,10 @@ export interface KalodataPlanOptions {
   includeReviewInsights?: boolean;
   selectedSubcategoryIds?: string[];
   resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>;
+  myanmarLanguageOnly?: boolean;
+  myanmarDiscoveryMode?: MyanmarDiscoveryMode;
+  myanmarVideoScanPages?: number;
+  myanmarReviewScanLimit?: number;
 }
 
 function isValidKalodataCategoryId(value: unknown): value is string {
@@ -98,15 +112,22 @@ function roundUsd(value: number): number {
  * - Balanced & Deep modes: wider candidate pool (up to 2× target or +30 rows, strictly capped at 100/page)
  *   so we filter and compare stronger candidates within the exact same 0.1 Credit per 100-row rank bracket.
  */
-function buildStreamPageSizes(targetCount: number, mode: ResearchMode): number[] {
+function buildStreamPageSizes(
+  targetCount: number,
+  mode: ResearchMode,
+  myanmarLanguageOnly = false
+): number[] {
   if (targetCount <= 0) return [];
   const pages = Math.ceil(targetCount / KALODATA_MAX_PAGE_SIZE);
   const pageSizes: number[] = [];
 
   for (let p = 0; p < pages; p += 1) {
     const remaining = targetCount - p * KALODATA_MAX_PAGE_SIZE;
-    const buffered =
-      mode === 'fast'
+    // When Myanmar Language Filter is ON, scan up to the full 100-row bracket within the EXACT same 0.1 Credit call (0 extra API calls, 0 extra cost).
+    // When OFF, keep original Fast/Balanced/Deep page sizing 100% unchanged.
+    const buffered = myanmarLanguageOnly
+      ? KALODATA_MAX_PAGE_SIZE
+      : mode === 'fast'
         ? remaining + 10
         : Math.max(remaining * 2, remaining + 30);
     const desired = Math.min(KALODATA_MAX_PAGE_SIZE, buffered);
@@ -123,6 +144,28 @@ export function clampDeepDiveCount(raw: number | undefined, quantity: number): n
   return Math.max(
     MIN_DEEP_DIVE_COUNT,
     Math.min(MAX_DEEP_DIVE_COUNT, safeQty, requested)
+  );
+}
+
+export function clampMyanmarReviewScanLimit(raw: number | undefined): number {
+  const requested =
+    typeof raw === 'number' && Number.isFinite(raw)
+      ? Math.floor(raw)
+      : DEFAULT_MYANMAR_REVIEW_SCAN_LIMIT;
+  return Math.max(
+    MIN_MYANMAR_REVIEW_SCAN_LIMIT,
+    Math.min(MAX_MYANMAR_REVIEW_SCAN_LIMIT, requested)
+  );
+}
+
+export function clampMyanmarVideoScanPages(raw: number | undefined): number {
+  const requested =
+    typeof raw === 'number' && Number.isFinite(raw)
+      ? Math.floor(raw)
+      : DEFAULT_MYANMAR_VIDEO_SCAN_PAGES;
+  return Math.max(
+    MIN_MYANMAR_VIDEO_SCAN_PAGES,
+    Math.min(MAX_MYANMAR_VIDEO_SCAN_PAGES, requested)
   );
 }
 
@@ -185,6 +228,21 @@ export function buildKalodataExecutionPlan(
         ? Math.min(safeQuantity, BALANCED_DETAIL_CAP)
         : 0;
 
+  const myanmarLanguageOnly = options?.myanmarLanguageOnly === true;
+  const myanmarDiscoveryMode: MyanmarDiscoveryMode | undefined = myanmarLanguageOnly
+    ? options?.myanmarDiscoveryMode === 'review-first'
+      ? 'review-first'
+      : 'video-first'
+    : undefined;
+  const effectiveVideoScanPages =
+    myanmarLanguageOnly && myanmarDiscoveryMode === 'video-first'
+      ? clampMyanmarVideoScanPages(options?.myanmarVideoScanPages)
+      : 0;
+  const effectiveReviewScanLimit =
+    myanmarLanguageOnly && myanmarDiscoveryMode === 'review-first'
+      ? clampMyanmarReviewScanLimit(options?.myanmarReviewScanLimit)
+      : 0;
+
   if (resolvedEntries.length === 0 && validSubcategoryIds.length === 0) {
     return {
       selectedCategories: [],
@@ -197,6 +255,7 @@ export function buildKalodataExecutionPlan(
       deepDiveCount: effectiveDeepDiveCount,
       includeReviewInsights,
       rankApiCalls: 0,
+      videoRankApiCalls: 0,
       productDetailApiCalls: 0,
       shopDetailApiCalls: 0,
       commentInsightApiCalls: 0,
@@ -205,6 +264,10 @@ export function buildKalodataExecutionPlan(
       estimatedUsd: 0,
       usesPagination: false,
       usesGeminiAnalysis: researchMode !== 'fast',
+      myanmarLanguageOnly,
+      ...(myanmarDiscoveryMode ? { myanmarDiscoveryMode } : {}),
+      myanmarVideoScanPages: effectiveVideoScanPages,
+      myanmarReviewScanLimit: effectiveReviewScanLimit,
       streams: [],
     };
   }
@@ -212,7 +275,7 @@ export function buildKalodataExecutionPlan(
   const effectiveCategories = resolvedEntries.map((e) => e.category);
   const resolvedL1Ids = Array.from(new Set(resolvedEntries.map((e) => e.kalodataId)));
 
-  // When user picks explicit L2 subcategories, pass those exact subcategory IDs to Kalodata Product Rank;
+  // When user picks explicit L2 subcategories, pass those exact subcategory IDs to Kalodata;
   // otherwise pass the verified/synced L1 category IDs.
   const effectiveCategoryIds =
     validSubcategoryIds.length > 0 ? validSubcategoryIds : resolvedL1Ids;
@@ -225,6 +288,7 @@ export function buildKalodataExecutionPlan(
       : 'combined';
 
   const streams: KalodataQueryStreamPlan[] = [];
+  const isVideoFirst = myanmarLanguageOnly && myanmarDiscoveryMode === 'video-first';
 
   if (effectiveMode === 'split' && resolvedEntries.length >= 2) {
     const streamCount = resolvedEntries.length;
@@ -234,7 +298,9 @@ export function buildKalodataExecutionPlan(
     resolvedEntries.forEach((entry, idx) => {
       const targetCount = basePerStream + (idx < remainder ? 1 : 0);
       if (targetCount <= 0) return;
-      const pageSizes = buildStreamPageSizes(targetCount, researchMode);
+      const pageSizes = isVideoFirst
+        ? Array.from({ length: effectiveVideoScanPages }, () => KALODATA_MAX_PAGE_SIZE)
+        : buildStreamPageSizes(targetCount, researchMode, myanmarLanguageOnly);
       streams.push({
         categories: [entry.category],
         categoryIds: [entry.kalodataId],
@@ -244,7 +310,9 @@ export function buildKalodataExecutionPlan(
       });
     });
   } else {
-    const pageSizes = buildStreamPageSizes(safeQuantity, researchMode);
+    const pageSizes = isVideoFirst
+      ? Array.from({ length: effectiveVideoScanPages }, () => KALODATA_MAX_PAGE_SIZE)
+      : buildStreamPageSizes(safeQuantity, researchMode, myanmarLanguageOnly);
     streams.push({
       categories: effectiveCategories,
       categoryIds: effectiveCategoryIds,
@@ -255,17 +323,34 @@ export function buildKalodataExecutionPlan(
   }
 
   let rankApiCalls = 0;
+  let videoRankApiCalls = 0;
   let rankCredits = 0;
   let usesPagination = false;
 
-  for (const stream of streams) {
-    if (stream.pagesPlanned > 1) {
-      usesPagination = true;
+  if (isVideoFirst) {
+    // Video-First Myanmar Discovery (Method 1 — official Kalodata OpenAPI flow):
+    // 1. POST /tiktok/video/rank @ 0.1 cr/100-video page (up to effectiveVideoScanPages per stream, early-stops at quantity)
+    // 2. POST /tiktok/product/rank with video_id + is_affiliate=1 @ 0.1 cr per matched Myanmar video (returns full product rank metrics + image; cached = 0 cr)
+    // 3. Balanced/Deep only: optional product/detail + shop/detail + opt-in comment/insight on top finalists.
+    for (const stream of streams) {
+      if (stream.pagesPlanned > 1) {
+        usesPagination = true;
+      }
+      videoRankApiCalls += stream.pagesPlanned;
+      rankCredits += stream.pagesPlanned * KALODATA_VIDEO_RANK_CREDIT_PER_100;
     }
-    for (const pageSize of stream.pageSizes) {
-      rankApiCalls += 1;
-      rankCredits +=
-        KALODATA_CREDITS_PER_100_ROWS * Math.ceil(pageSize / KALODATA_MAX_PAGE_SIZE);
+    rankApiCalls = safeQuantity;
+    rankCredits += rankApiCalls * KALODATA_CREDITS_PER_100_ROWS;
+  } else {
+    for (const stream of streams) {
+      if (stream.pagesPlanned > 1) {
+        usesPagination = true;
+      }
+      for (const pageSize of stream.pageSizes) {
+        rankApiCalls += 1;
+        rankCredits +=
+          KALODATA_CREDITS_PER_100_ROWS * Math.ceil(pageSize / KALODATA_MAX_PAGE_SIZE);
+      }
     }
   }
 
@@ -274,10 +359,17 @@ export function buildKalodataExecutionPlan(
   // Upper-bound estimate for shop/detail (deduplicated at runtime when products share the same shop)
   const shopDetailApiCalls =
     researchMode === 'deep' ? effectiveDeepDiveCount : 0;
-  const commentInsightApiCalls =
+  const deepCommentInsightCalls =
     researchMode === 'deep' && includeReviewInsights
       ? Math.min(effectiveDeepDiveCount, DEEP_COMMENT_INSIGHT_CAP)
       : 0;
+  // In Video-First mode, 0 review insight calls are required (unless user explicitly opted into Deep Review Insights).
+  // In legacy Review-First mode, comment/insight runs up to myanmarReviewScanLimit.
+  // When Filter OFF, commentInsightApiCalls is 100% unchanged!
+  const commentInsightApiCalls =
+    myanmarLanguageOnly && myanmarDiscoveryMode === 'review-first'
+      ? Math.max(deepCommentInsightCalls, effectiveReviewScanLimit)
+      : deepCommentInsightCalls;
 
   const detailCredits =
     productDetailApiCalls * KALODATA_PRODUCT_DETAIL_CREDIT +
@@ -285,7 +377,11 @@ export function buildKalodataExecutionPlan(
     commentInsightApiCalls * KALODATA_COMMENT_INSIGHT_CREDIT;
 
   const plannedApiCalls =
-    rankApiCalls + productDetailApiCalls + shopDetailApiCalls + commentInsightApiCalls;
+    rankApiCalls +
+    videoRankApiCalls +
+    productDetailApiCalls +
+    shopDetailApiCalls +
+    commentInsightApiCalls;
   const estimatedCredits = roundCredits(rankCredits + detailCredits);
   const estimatedUsd = roundUsd(estimatedCredits * KALODATA_USD_PER_CREDIT);
 
@@ -296,10 +392,11 @@ export function buildKalodataExecutionPlan(
     quantity: safeQuantity,
     bothCategoryMode: effectiveMode,
     researchMode,
-    dateRange,
+    dateRange: isVideoFirst ? 'last30Day' : dateRange,
     deepDiveCount: effectiveDeepDiveCount,
     includeReviewInsights,
     rankApiCalls,
+    videoRankApiCalls,
     productDetailApiCalls,
     shopDetailApiCalls,
     commentInsightApiCalls,
@@ -308,6 +405,10 @@ export function buildKalodataExecutionPlan(
     estimatedUsd,
     usesPagination,
     usesGeminiAnalysis: researchMode !== 'fast',
+    myanmarLanguageOnly,
+    ...(myanmarDiscoveryMode ? { myanmarDiscoveryMode } : {}),
+    myanmarVideoScanPages: effectiveVideoScanPages,
+    myanmarReviewScanLimit: effectiveReviewScanLimit,
     streams,
   };
 }

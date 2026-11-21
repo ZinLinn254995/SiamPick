@@ -98,7 +98,7 @@ export function ProductFilterBar({
           {/* Category Quick Switch (Compact — expands cleanly via Filters dropdown when >4 categories) */}
           {quickSwitchCategories.length <= 4 ? (
             <div
-              className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
+              className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
               role="group"
               aria-label={t.settingCategoryLabel}
             >
@@ -107,8 +107,8 @@ export function ProductFilterBar({
                 onClick={() => updateFilter('category', 'all')}
                 className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                   filters.category === 'all'
-                    ? 'bg-white text-zinc-950 shadow-xs'
-                    : 'text-zinc-600 hover:text-zinc-950'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                 }`}
               >
                 {t.categoryAll}
@@ -120,8 +120,8 @@ export function ProductFilterBar({
                   onClick={() => updateFilter('category', catId)}
                   className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                     filters.category === catId
-                      ? 'bg-white text-zinc-950 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-950'
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                   }`}
                 >
                   {getCategoryLabel(catId, language, { short: true })}
@@ -133,7 +133,7 @@ export function ProductFilterBar({
               value={filters.category}
               onChange={(e) => updateFilter('category', e.target.value as CategoryFilter)}
               aria-label={t.settingCategoryLabel}
-              className="min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+              className="min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               <option value="all">{t.categoryAll}</option>
               {quickSwitchCategories.map((catId) => (
@@ -163,12 +163,12 @@ export function ProductFilterBar({
                 onClick={() => onChangeDecisionFilter(q.id)}
                 className={`py-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                   decisionFilter === q.id
-                    ? 'text-zinc-950 border-zinc-950'
-                    : 'text-zinc-500 border-transparent hover:text-zinc-900'
+                    ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100'
+                    : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
                 {q.label}{' '}
-                <span className="font-mono tabular-nums text-zinc-400">({q.count})</span>
+                <span className="font-mono tabular-nums text-zinc-400 dark:text-zinc-500">({q.count})</span>
               </button>
             ))}
           </div>
@@ -177,7 +177,7 @@ export function ProductFilterBar({
         {/* Right Controls: 8-Field Sort + Highest/Lowest + Multi-Filter Toggle + Export CSV/JSON */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-1.5 w-full sm:w-auto">
-            <label htmlFor="results-sort-field" className="text-xs font-medium text-zinc-500 sr-only">
+            <label htmlFor="results-sort-field" className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sr-only">
               {t.sortLabel}
             </label>
             <select
@@ -185,7 +185,7 @@ export function ProductFilterBar({
               value={sortField}
               onChange={(e) => onChangeSortField(e.target.value as ProductSortField)}
               aria-label={t.sortLabel}
-              className="min-h-[38px] min-w-0 flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+              className="min-h-[38px] min-w-0 flex-1 sm:flex-initial px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               {SORT_FIELDS.map((field) => (
                 <option key={field} value={field}>
@@ -200,7 +200,7 @@ export function ProductFilterBar({
               aria-label={
                 sortDirection === 'desc' ? t.sortDirHighest : t.sortDirLowest
               }
-              className="inline-flex items-center gap-1 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-800 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               {sortDirection === 'desc' ? (
                 <>
@@ -222,8 +222,8 @@ export function ProductFilterBar({
             aria-expanded={filtersOpen}
             className={`inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
               filtersOpen || activeFilterCount > 0
-                ? 'bg-zinc-950 text-white border-zinc-950'
-                : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400'
+                ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
             }`}
           >
             <Filter className="w-3.5 h-3.5" aria-hidden="true" />
@@ -238,7 +238,7 @@ export function ProductFilterBar({
               <button
                 type="button"
                 onClick={onExportCsv}
-                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-800 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Download className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.exportCsvBtn}</span>
@@ -246,7 +246,7 @@ export function ProductFilterBar({
               <button
                 type="button"
                 onClick={onExportJson}
-                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white border border-zinc-200 rounded-lg text-zinc-800 hover:border-zinc-400 hover:text-zinc-950 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 <Download className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.exportJsonBtn}</span>
@@ -258,11 +258,11 @@ export function ProductFilterBar({
 
       {/* Expandable 9-Criteria Multi-Filter Panel */}
       {filtersOpen && (
-        <div className="bg-white border border-zinc-200/90 rounded-xl p-4 sm:p-5 space-y-4">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {/* 1. Score Range */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterScoreRangeLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterScoreRangeLabel}</span>
               <select
                 value={filters.scoreRange}
                 onChange={(e) =>
@@ -271,7 +271,7 @@ export function ProductFilterBar({
                     e.target.value as ProductResultsFilterState['scoreRange']
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="80+">{t.filterScore80Plus}</option>
@@ -282,7 +282,7 @@ export function ProductFilterBar({
 
             {/* 2. Recommendation Tier */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterDecisionLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterDecisionLabel}</span>
               <select
                 value={filters.recommendationTier}
                 onChange={(e) =>
@@ -291,7 +291,7 @@ export function ProductFilterBar({
                     e.target.value as 'all' | ProductDecisionVerdict
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="recommended">{t.decisionVerdictLabels.recommended}</option>
@@ -307,13 +307,13 @@ export function ProductFilterBar({
 
             {/* 3. Data Confidence */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterConfidenceLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterConfidenceLabel}</span>
               <select
                 value={filters.confidenceLevel}
                 onChange={(e) =>
                   updateFilter('confidenceLevel', e.target.value as 'all' | ConfidenceLevel)
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="High">{t.confidenceLabels.High}</option>
@@ -324,7 +324,7 @@ export function ProductFilterBar({
 
             {/* 4. Competition Level */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterCompetitionLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterCompetitionLabel}</span>
               <select
                 value={filters.competitionLevel}
                 onChange={(e) =>
@@ -333,7 +333,7 @@ export function ProductFilterBar({
                     e.target.value as 'all' | CompetitionLevel | 'unavailable'
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="Low">{t.competitionLabels.Low}</option>
@@ -345,7 +345,7 @@ export function ProductFilterBar({
 
             {/* 5. Sales Performance */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterSalesLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterSalesLabel}</span>
               <select
                 value={filters.salesPerformance}
                 onChange={(e) =>
@@ -354,7 +354,7 @@ export function ProductFilterBar({
                     e.target.value as ProductResultsFilterState['salesPerformance']
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="strong">{t.filterPerfStrong}</option>
@@ -366,7 +366,7 @@ export function ProductFilterBar({
 
             {/* 6. Commission Potential */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterCommissionLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterCommissionLabel}</span>
               <select
                 value={filters.commissionPotential}
                 onChange={(e) =>
@@ -375,7 +375,7 @@ export function ProductFilterBar({
                     e.target.value as ProductResultsFilterState['commissionPotential']
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="high">{t.filterPerfStrong}</option>
@@ -387,11 +387,11 @@ export function ProductFilterBar({
 
             {/* 7. Product Category */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterCategoryLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterCategoryLabel}</span>
               <select
                 value={filters.category}
                 onChange={(e) => updateFilter('category', e.target.value as CategoryFilter)}
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.categoryAll}</option>
                 {UNIVERSAL_CATEGORIES.map((cat) => (
@@ -404,13 +404,13 @@ export function ProductFilterBar({
 
             {/* 8. Research Mode */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterModeLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterModeLabel}</span>
               <select
                 value={filters.researchMode}
                 onChange={(e) =>
                   updateFilter('researchMode', e.target.value as 'all' | ResearchMode)
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="fast">{t.modeFastTitle}</option>
@@ -421,7 +421,7 @@ export function ProductFilterBar({
 
             {/* 9. AI Content Suitability */}
             <label className="block space-y-1 text-xs">
-              <span className="font-medium text-zinc-600">{t.filterAiSuitabilityLabel}</span>
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterAiSuitabilityLabel}</span>
               <select
                 value={filters.aiContentSuitability}
                 onChange={(e) =>
@@ -430,7 +430,7 @@ export function ProductFilterBar({
                     e.target.value as 'all' | AiVideoSuitability
                   )
                 }
-                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="all">{t.filtersAllOption}</option>
                 <option value="High">{t.aiVideoLabels.High}</option>
@@ -438,14 +438,29 @@ export function ProductFilterBar({
                 <option value="Moderate">{t.aiVideoLabels.Moderate}</option>
               </select>
             </label>
+
+            {/* 10. Optional Myanmar Language Signal Filter (0 extra credits) */}
+            <label className="block space-y-1 text-xs">
+              <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterMyanmarSignalLabel}</span>
+              <select
+                value={filters.myanmarLanguageOnly ? 'matched' : 'all'}
+                onChange={(e) =>
+                  updateFilter('myanmarLanguageOnly', e.target.value === 'matched')
+                }
+                className="w-full min-h-[38px] px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+              >
+                <option value="all">{t.filtersAllOption}</option>
+                <option value="matched">{t.filterMyanmarSignalOnlyOption}</option>
+              </select>
+            </label>
           </div>
 
           {activeFilterCount > 0 && (
-            <div className="pt-3 border-t border-zinc-100 flex items-center justify-end">
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => onChangeFilters({ ...DEFAULT_PRODUCT_FILTERS })}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.filtersClearAllBtn}</span>

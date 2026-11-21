@@ -10,6 +10,12 @@ import {
   DataStatus,
   DemandLevel,
   Language,
+  MyanmarConfidenceLevel,
+  MyanmarMatchType,
+  MyanmarReviewStatus,
+  MyanmarSignalAvailability,
+  MyanmarSignalSource,
+  MyanmarVideoDiscoveryStopReason,
   ProductDecisionVerdict,
   ProductSortField,
   RiskSeverity,
@@ -251,6 +257,7 @@ export const TRANSLATIONS: Record<
     includeReviewInsightsLabel: string;
     includeReviewInsightsDesc: string;
     breakdownRankLabel: string;
+    breakdownVideoRankLabel: string;
     breakdownDetailLabel: string;
     breakdownShopLabel: string;
     breakdownReviewLabel: string;
@@ -458,6 +465,8 @@ export const TRANSLATIONS: Record<
     selectAllVerifiedAction: string;
     clearAllCategoriesAction: string;
     showAllCategoriesToggle: string;
+    showUnsupportedCategoriesToggle: string;
+    showPendingSyncCategoriesToggle: string;
     hideExtraCategoriesToggle: string;
     selectedCategoriesCountLabel: string;
     multiCategoryModeLabel: string;
@@ -471,6 +480,7 @@ export const TRANSLATIONS: Record<
     syncCategoriesConfirmProceed: string;
     syncCategoriesSyncedNote: string;
     syncCategoriesEmptyHint: string;
+    syncCategoriesEmptyResultError: string;
     subcategorySectionLabel: string;
     subcategoryLoadBtn: string;
     subcategoryLoadConfirmTitle: string;
@@ -482,6 +492,60 @@ export const TRANSLATIONS: Record<
     aiCategoryUnverifiedTitle: string;
     aiAffiliateStrategyHeading: string;
     navCategories: string;
+    // Phase 9: Myanmar Review Product Discovery (Thailand TikTok Shop Only)
+    myanmarFilterLabel: string;
+    myanmarFilterSubLabel: string;
+    myanmarFilterOff: string;
+    myanmarFilterOn: string;
+    myanmarFilterPopoverTitle: string;
+    myanmarFilterPopoverDesc: string;
+    myanmarFilterActiveBadge: string;
+    myanmarReviewScanLimitLabel: string;
+    myanmarReviewScanLimitHint: string;
+    myanmarVideoScanPagesLabel: string;
+    myanmarVideoScanPagesHint: string;
+    myanmarVideoDiscoveryBarTitle: string;
+    myanmarVideoStatPagesScanned: string;
+    myanmarVideoStatVideosScanned: string;
+    myanmarVideoStatMatchedVideos: string;
+    myanmarVideoStatCollectedProducts: string;
+    myanmarVideoStatSkippedNonAff: string;
+    myanmarVideoStopReasonLabels: Record<MyanmarVideoDiscoveryStopReason, string>;
+    myanmarVideoShortfallNotice: string;
+    myanmarVideoCardLabel: string;
+    myanmarVideosMatchedLabel: string;
+    myanmarVideoEvidenceHeading: string;
+    myanmarVideoOpenLinkLabel: string;
+    myanmarReviewStatusLabels: Record<MyanmarReviewStatus, string>;
+    myanmarMixedThaiBurmeseTag: string;
+    myanmarReviewsMatchedLabel: string;
+    myanmarReviewsCheckedLabel: string;
+    myanmarSkippedShortLabel: string;
+    myanmarDiscoveryBarTitle: string;
+    myanmarDiscoveryPartialNotice: string;
+    myanmarStatCandidatesFound: string;
+    myanmarStatCheckedReviews: string;
+    myanmarStatReviewsAvailable: string;
+    myanmarStatReviewUnavailable: string;
+    myanmarStatNoMyanmarReview: string;
+    myanmarStatMatchedProducts: string;
+    myanmarStatReviewsInspected: string;
+    myanmarSignalCardLabel: string;
+    myanmarSignalSectionHeading: string;
+    myanmarSignalSectionSubtitle: string;
+    myanmarConfidenceLabels: Record<MyanmarConfidenceLevel, string>;
+    myanmarSourceLabels: Record<MyanmarSignalSource, string>;
+    myanmarAvailabilityLabels: Record<MyanmarSignalAvailability, string>;
+    myanmarMatchTypeLabels: Record<MyanmarMatchType, string>;
+    myanmarEvidenceHeading: string;
+    myanmarNoEvidenceNote: string;
+    myanmarSourcesHeading: string;
+    myanmarEmptyTitle: string;
+    myanmarEmptyDesc: string;
+    myanmarEmptyScannedPrefix: string;
+    myanmarTurnOffFilterBtn: string;
+    filterMyanmarSignalLabel: string;
+    filterMyanmarSignalOnlyOption: string;
   }
 > = {
   en: {
@@ -790,6 +854,7 @@ export const TRANSLATIONS: Record<
     includeReviewInsightsLabel: 'Include Buyer Review Insights',
     includeReviewInsightsDesc: 'Real Thai buyer praise & complaints · +1.0 cr/item (max 2 items)',
     breakdownRankLabel: 'Rank',
+    breakdownVideoRankLabel: 'Video Rank',
     breakdownDetailLabel: 'Detail',
     breakdownShopLabel: 'Shop',
     breakdownReviewLabel: 'Reviews',
@@ -1041,10 +1106,12 @@ export const TRANSLATIONS: Record<
     reportExportCsv: 'CSV',
     reportExportJson: 'JSON',
     // Phase 8: Universal Product Category Support & Subcategory Sync
-    selectAllVerifiedAction: 'Select All Ready',
+    selectAllVerifiedAction: 'Select All Supported',
     clearAllCategoriesAction: 'Clear All',
-    showAllCategoriesToggle: 'All 14 categories',
-    hideExtraCategoriesToggle: 'Show ready only',
+    showAllCategoriesToggle: 'Show unavailable',
+    showUnsupportedCategoriesToggle: 'Show unsupported',
+    showPendingSyncCategoriesToggle: 'Show pending sync',
+    hideExtraCategoriesToggle: 'Show supported only',
     selectedCategoriesCountLabel: 'selected',
     multiCategoryModeLabel: 'Multi-Category Query Mode',
     multiCategoryCombinedDesc: 'Queries all selected category IDs together — lowest credit cost',
@@ -1053,7 +1120,7 @@ export const TRANSLATIONS: Record<
       verified: 'Verified',
       'docs-verified': 'Verified',
       synced: 'Synced',
-      'requires-sync': 'Sync needed',
+      'requires-sync': 'Pending Sync',
       unsupported: 'Unsupported',
     },
     syncCategoriesBtn: 'Sync TH Categories (0.1 cr)',
@@ -1065,6 +1132,8 @@ export const TRANSLATIONS: Record<
     syncCategoriesSyncedNote: 'TH categories synced locally',
     syncCategoriesEmptyHint:
       'Additional categories require one-time Kalodata TH category sync (0.1 cr) — unverified IDs are never guessed.',
+    syncCategoriesEmptyResultError:
+      'Kalodata returned 0 categories for this query. Previous category statuses were kept unchanged.',
     subcategorySectionLabel: 'Subcategories (Optional L2 Filter)',
     subcategoryLoadBtn: 'Load Subcategories (0.1 cr)',
     subcategoryLoadConfirmTitle: 'Load Official L2 Subcategories from Kalodata?',
@@ -1085,6 +1154,96 @@ export const TRANSLATIONS: Record<
     aiCategoryUnverifiedTitle: 'Category Alignment Unverified',
     aiAffiliateStrategyHeading: 'Affiliate Strategy',
     navCategories: 'Categories',
+    // Phase 9: Myanmar Video-First Discovery (Thailand TikTok Shop Only)
+    myanmarFilterLabel: 'Myanmar Video Discovery',
+    myanmarFilterSubLabel: 'TH TikTok Shop · Video-First (0.1 cr / 100 videos)',
+    myanmarFilterOff: 'OFF',
+    myanmarFilterOn: 'ON',
+    myanmarFilterPopoverTitle: 'Myanmar Video-First Product Discovery (TH Shop)',
+    myanmarFilterPopoverDesc:
+      'Scans Thailand TikTok Shop promotional videos via Kalodata Video Rank (0.1 credit per 100 videos), filters Myanmar-language videos (Burmese Unicode, Zawgyi, mixed Thai+Burmese, or explicit Myanmar hashtags), extracts unique linked TH affiliate products (commission > 0) across multiple pages until your requested quantity (e.g. 20) is reached, hydrates each via Product Detail (0.1 cr; cached = 0 cr), and re-ranks all collected products using SiamPick’s existing 7-Factor 100-Point Scoring System without bonus points. Never fabricates or pads missing products.',
+    myanmarFilterActiveBadge: 'Myanmar Video-First: ON (TH Shop)',
+    myanmarReviewScanLimitLabel: 'Candidates to Check Reviews',
+    myanmarReviewScanLimitHint:
+      'Maximum uncached Thailand candidate products to fetch buyer reviews for (1.0 credit per uncached product; cached products reuse reviews at 0 credits). Products beyond this limit are not checked and are reported honestly.',
+    myanmarVideoScanPagesLabel: 'Video Scan Depth (Pages × 100 Videos)',
+    myanmarVideoScanPagesHint:
+      'Maximum Kalodata Video Rank pages (100 TH videos per page = 0.1 cr/page) to paginate while collecting your full requested product quantity. Stops early the moment your full product count (e.g. 20) is verified.',
+    myanmarVideoDiscoveryBarTitle: 'Myanmar Video-First Discovery Scope (Thailand TikTok Shop)',
+    myanmarVideoStatPagesScanned: 'Pages Scanned',
+    myanmarVideoStatVideosScanned: 'TH Videos Scanned',
+    myanmarVideoStatMatchedVideos: 'Myanmar Videos',
+    myanmarVideoStatCollectedProducts: 'Affiliate Products',
+    myanmarVideoStatSkippedNonAff: 'Skipped (Non-Aff)',
+    myanmarVideoStopReasonLabels: {
+      'target-reached': 'Full Target Reached',
+      'max-pages-reached': 'Max Scan Pages Reached',
+      'source-exhausted': 'Kalodata Videos Exhausted',
+      'budget-capped': 'Budget Ceiling Reached',
+    },
+    myanmarVideoShortfallNotice:
+      'Fewer real Myanmar-video-backed affiliate products existed within this scan depth/budget — showing all verified matches honestly without padding or fabricating items. Increase Video Scan Depth pages to search deeper.',
+    myanmarVideoCardLabel: 'Myanmar Video Match',
+    myanmarVideosMatchedLabel: 'MY video(s)',
+    myanmarVideoEvidenceHeading: 'Confirmed Myanmar Promotional Videos',
+    myanmarVideoOpenLinkLabel: 'Open video',
+    myanmarReviewStatusLabels: {
+      matched: 'Myanmar Review Matched',
+      'checked-no-match': 'No Myanmar Review',
+      'review-unavailable': 'Review Unavailable',
+    },
+    myanmarMixedThaiBurmeseTag: 'Mixed TH+MY',
+    myanmarReviewsMatchedLabel: 'matched',
+    myanmarReviewsCheckedLabel: 'reviews checked',
+    myanmarSkippedShortLabel: 'too-short skipped',
+    myanmarDiscoveryBarTitle: 'Myanmar Review Discovery Scope (Thailand TikTok Shop)',
+    myanmarDiscoveryPartialNotice:
+      'Partial scan: not all Thailand candidates were checked for reviews due to the configured Review Check Limit.',
+    myanmarStatCandidatesFound: 'TH Candidates Found',
+    myanmarStatCheckedReviews: 'Checked for Reviews',
+    myanmarStatReviewsAvailable: 'Reviews Available',
+    myanmarStatReviewUnavailable: 'Review Unavailable',
+    myanmarStatNoMyanmarReview: 'No Myanmar Review',
+    myanmarStatMatchedProducts: 'Matched (≥1 MY Review)',
+    myanmarStatReviewsInspected: 'Reviews Inspected',
+    myanmarSignalCardLabel: 'Myanmar Review Match',
+    myanmarSignalSectionHeading: 'Myanmar Signal Evidence & Status',
+    myanmarSignalSectionSubtitle:
+      'Verified strictly from real Thailand TikTok Shop videos or buyer reviews returned by Kalodata. Unreturned sources are labeled Unavailable — never fabricated.',
+    myanmarConfidenceLabels: {
+      High: 'High',
+      Medium: 'Medium',
+      Low: 'Low',
+      None: 'None',
+    },
+    myanmarSourceLabels: {
+      title: 'Product Title',
+      description: 'Product Description',
+      reviews: 'Buyer Review Summary',
+      comments: 'Buyer Reviews (Original)',
+      videoContent: 'TikTok Video / Creator Text',
+    },
+    myanmarAvailabilityLabels: {
+      matched: 'Matched',
+      'checked-no-match': 'No Match',
+      unavailable: 'Unavailable',
+    },
+    myanmarMatchTypeLabels: {
+      'myanmar-script': 'Myanmar Unicode',
+      'zawgyi-script': 'Zawgyi Script',
+      'burmese-romanized-term': 'Myanmar Tag / Term',
+    },
+    myanmarEvidenceHeading: 'Confirmed Myanmar-Language Reviews',
+    myanmarNoEvidenceNote:
+      'No confirmed Myanmar-language review or video signal was found among the retrievable data for this product.',
+    myanmarSourcesHeading: 'Data Source Availability',
+    myanmarEmptyTitle: 'No Myanmar-Matched TH Affiliate Products Found',
+    myanmarEmptyDesc:
+      'We scanned Thailand TikTok Shop videos across your selected categories, but no affiliate products (commission > 0) linked to confirmed Myanmar-language videos matched within the configured scan depth. No results were fabricated.',
+    myanmarEmptyScannedPrefix: 'Thailand videos/candidates scanned:',
+    myanmarTurnOffFilterBtn: 'Turn OFF Myanmar Filter & Edit Settings',
+    filterMyanmarSignalLabel: 'Myanmar Match',
+    filterMyanmarSignalOnlyOption: 'Confirmed Myanmar Video / Review Only',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1392,6 +1551,7 @@ export const TRANSLATIONS: Record<
     includeReviewInsightsLabel: 'Buyer Review Insights ထပ်ထည့်ရန်',
     includeReviewInsightsDesc: 'ထိုင်းဝယ်သူ Review အားသာ/အားနည်းချက် · +1.0 cr/ခု (အများဆုံး ၂ ခု)',
     breakdownRankLabel: 'Rank',
+    breakdownVideoRankLabel: 'Video Rank',
     breakdownDetailLabel: 'Detail',
     breakdownShopLabel: 'Shop',
     breakdownReviewLabel: 'Reviews',
@@ -1643,10 +1803,12 @@ export const TRANSLATIONS: Record<
     reportExportCsv: 'CSV',
     reportExportJson: 'JSON',
     // Phase 8: Universal Product Category Support & Subcategory Sync
-    selectAllVerifiedAction: 'အဆင်သင့်အားလုံးရွေးမည်',
+    selectAllVerifiedAction: 'ပံ့ပိုးထားသမျှအားလုံးရွေးမည်',
     clearAllCategoriesAction: 'အားလုံးဖြုတ်မည်',
-    showAllCategoriesToggle: 'Category ၁၄ မျိုးလုံးကြည့်ရန်',
-    hideExtraCategoriesToggle: 'အဆင်သင့်များသာပြရန်',
+    showAllCategoriesToggle: 'မရနိုင်သေးသော Category ကြည့်ရန်',
+    showUnsupportedCategoriesToggle: 'မပံ့ပိုးသော Category ကြည့်ရန်',
+    showPendingSyncCategoriesToggle: 'Sync လိုသော Category ကြည့်ရန်',
+    hideExtraCategoriesToggle: 'ပံ့ပိုးထားသမျှသာပြရန်',
     selectedCategoriesCountLabel: 'ခု ရွေးထား',
     multiCategoryModeLabel: 'Category များစွာ ရှာဖွေမှုပုံစံ',
     multiCategoryCombinedDesc: 'ရွေးထားသော Category ID အားလုံးကို တစ်ခါတည်းပေါင်းရှာသည် — Credit အသက်သာဆုံး',
@@ -1667,6 +1829,8 @@ export const TRANSLATIONS: Record<
     syncCategoriesSyncedNote: 'TH Categories Sync လုပ်ပြီး',
     syncCategoriesEmptyHint:
       'ကျန် Category များကို အသုံးပြုရန် Kalodata TH Category Sync (0.1 cr) ၁ ကြိမ် လုပ်ဆောင်ရန် လိုအပ်ပါသည် — မသေချာသော ID များကို ခန့်မှန်းမထည့်ပါ။',
+    syncCategoriesEmptyResultError:
+      'Kalodata မှ Category စာရင်း 0 ခုသာ ပြန်ရသဖြင့် ယခင် Category အခြေအနေများကို မပြောင်းလဲဘဲ ထိန်းသိမ်းထားပါသည်။',
     subcategorySectionLabel: 'Subcategories (ရွေးချယ်နိုင်သော L2 စစ်ထုတ်မှု)',
     subcategoryLoadBtn: 'Subcategories ဖတ်မည် (0.1 cr)',
     subcategoryLoadConfirmTitle: 'Kalodata မှ တရားဝင် L2 Subcategories များကို ဖတ်ယူမလား?',
@@ -1687,5 +1851,95 @@ export const TRANSLATIONS: Record<
     aiCategoryUnverifiedTitle: 'Category ကိုက်ညီမှု အတည်မပြုနိုင်ပါ (Unverified)',
     aiAffiliateStrategyHeading: 'Affiliate ဗျူဟာ (Affiliate Strategy)',
     navCategories: 'Categories',
+    // Phase 9: Myanmar Video-First Discovery (Thailand TikTok Shop Only)
+    myanmarFilterLabel: 'မြန်မာ Video ပါ Product ရှာဖွေမှု',
+    myanmarFilterSubLabel: 'TH TikTok Shop · Video-First (Video ၁၀၀ လျှင် 0.1 cr)',
+    myanmarFilterOff: 'OFF',
+    myanmarFilterOn: 'ON',
+    myanmarFilterPopoverTitle: 'မြန်မာ Video-First Product Discovery (TH Shop)',
+    myanmarFilterPopoverDesc:
+      'Kalodata Video Rank API (Video ၁၀၀ လျှင် 0.1 Credit) ဖြင့် Thailand TikTok Shop ဗီဒီယိုများကို Page အလိုက် ရှာဖွေပြီး မြန်မာစာ (Unicode / Zawgyi / ထိုင်း+မြန်မာ ရောနှော သို့မဟုတ် မြန်မာ Hashtag) ပါဝင်သော ဗီဒီယိုများနှင့် ချိတ်ဆက်ထားသည့် Affiliate Product (commission > 0) များကို သင်တောင်းဆိုသော အရေအတွက် (ဥပမာ ၂၀ ခု) ပြည့်သည်အထိ စုဆောင်းပေးပါသည်။ ထို့နောက် Product Detail (0.1 cr · Cache = 0 cr) ဖြင့် ဒေတာအတည်ပြုပြီး SiamPick ၏ 7-Factor 100-Point Scoring စနစ်အတိုင်း (အမှတ်အပိုမပေါင်းဘဲ) Ranking ပြန်စီပေးပါသည်။ မရှိသော Product ကို အတုအယောင် ဖြည့်မပြပါ။',
+    myanmarFilterActiveBadge: 'မြန်မာ Video-First: ON (TH Shop)',
+    myanmarReviewScanLimitLabel: 'Review စစ်ဆေးမည့် Product အရေအတွက်',
+    myanmarReviewScanLimitHint:
+      'Cache မရှိသေးသော ထိုင်း Product များအတွက် Buyer Review API ခေါ်ဆိုမည့် အများဆုံးအရေအတွက် (Product ၁ ခုလျှင် 1.0 Credit · Cache ရှိပြီးသား 0 Credit)။ ဤကန့်သတ်ချက်ထက် ကျော်လွန်သော Product များကို မစစ်ဆေးကြောင်း ရိုးသားစွာ ဖော်ပြပါသည်။',
+    myanmarVideoScanPagesLabel: 'Video ရှာဖွေမည့် Page အရေအတွက် (၁ Page = Video ၁၀၀)',
+    myanmarVideoScanPagesHint:
+      'သင်တောင်းဆိုသော Product အရေအတွက် (ဥပမာ ၂၀ ခု) ပြည့်သည်အထိ Kalodata Video Rank မှ ရှာဖွေမည့် အများဆုံး Page အရေအတွက် (၁ Page = Video ၁၀၀ = 0.1 Credit)။ Product အရေအတွက် ပြည့်တာနဲ့ ချက်ချင်းရပ်ပြီး Credit ချွေတာပေးပါသည်။',
+    myanmarVideoDiscoveryBarTitle: 'မြန်မာ Video-First ရှာဖွေမှု အကျဉ်းချုပ် (Thailand TikTok Shop)',
+    myanmarVideoStatPagesScanned: 'စစ်ခဲ့သည့် Page',
+    myanmarVideoStatVideosScanned: 'စစ်ခဲ့သည့် TH Video',
+    myanmarVideoStatMatchedVideos: 'မြန်မာ Video တွေ့ရှိ',
+    myanmarVideoStatCollectedProducts: 'Affiliate Product ရရှိ',
+    myanmarVideoStatSkippedNonAff: 'ကျော်ခဲ့ (Non-Aff)',
+    myanmarVideoStopReasonLabels: {
+      'target-reached': 'အရေအတွက် ပြည့်မီပြီး',
+      'max-pages-reached': 'သတ်မှတ် Page ပြည့်ပြီး',
+      'source-exhausted': 'Kalodata Video ကုန်ပြီး',
+      'budget-capped': 'Budget ကန့်သတ်ချက် ပြည့်ပြီး',
+    },
+    myanmarVideoShortfallNotice:
+      'သတ်မှတ်ထားသော Scan Page / Budget အတွင်း တကယ့် မြန်မာ Video ပါ Affiliate Product အရေအတွက်သည် တောင်းဆိုထားသည်ထက် နည်းနေသောကြောင့် အတည်ပြုပြီး Product အစစ်များကိုသာ အတုအယောင်မဖြည့်ဘဲ ရိုးသားစွာ ပြသထားပါသည်။ ထပ်ရှာလိုပါက Video Scan Depth (Page) ကို တိုးမြှင့်နိုင်ပါသည်။',
+    myanmarVideoCardLabel: 'မြန်မာ Video Match',
+    myanmarVideosMatchedLabel: 'မြန်မာ Video',
+    myanmarVideoEvidenceHeading: 'အတည်ပြုထားသော မြန်မာ TikTok Video များ',
+    myanmarVideoOpenLinkLabel: 'Video ကြည့်မည်',
+    myanmarReviewStatusLabels: {
+      matched: 'မြန်မာ Review တွေ့ရှိသည်',
+      'checked-no-match': 'မြန်မာ Review မတွေ့',
+      'review-unavailable': 'Review မရရှိနိုင်ပါ (Review Unavailable)',
+    },
+    myanmarMixedThaiBurmeseTag: 'ထိုင်း+မြန်မာ ရောနှော',
+    myanmarReviewsMatchedLabel: 'မြန်မာ Review',
+    myanmarReviewsCheckedLabel: 'Review စစ်ဆေးပြီး',
+    myanmarSkippedShortLabel: 'စာတိုလွန်း၍ ကျော်',
+    myanmarDiscoveryBarTitle: 'မြန်မာ Review စစ်ဆေးမှု အကျဉ်းချုပ် (Thailand TikTok Shop)',
+    myanmarDiscoveryPartialNotice:
+      'အကုန်လုံးမစစ်ဆေးရသေးပါ — သတ်မှတ်ထားသော Review စစ်ဆေးမှုကန့်သတ်ချက်ကြောင့် တွေ့ရှိသည့် ထိုင်း Product အချို့ကိုသာ Review စစ်ဆေးထားပါသည်။',
+    myanmarStatCandidatesFound: 'တွေ့ရှိ ထိုင်း Product',
+    myanmarStatCheckedReviews: 'Review စစ်ဆေးပြီး',
+    myanmarStatReviewsAvailable: 'Review ရရှိ',
+    myanmarStatReviewUnavailable: 'Review မရရှိနိုင်',
+    myanmarStatNoMyanmarReview: 'မြန်မာ Review မပါ',
+    myanmarStatMatchedProducts: 'Match (≥၁ Review)',
+    myanmarStatReviewsInspected: 'စစ်ဆေးခဲ့သည့် Review',
+    myanmarSignalCardLabel: 'မြန်မာ Review Match',
+    myanmarSignalSectionHeading: 'မြန်မာဘာသာ အထောက်အထားနှင့် အခြေအနေ',
+    myanmarSignalSectionSubtitle:
+      'Kalodata မှ ရရှိသော Thailand TikTok Shop တကယ့် Video သို့မဟုတ် Buyer Review များကိုသာ စစ်ဆေးထားပါသည်။ API မှ မရရှိသော အချက်အလက်များကို Unavailable ဟု ရိုးသားစွာ ဖော်ပြထားပါသည်။',
+    myanmarConfidenceLabels: {
+      High: 'High (မြင့်)',
+      Medium: 'Medium (အလယ်)',
+      Low: 'Low (နည်း)',
+      None: 'မရှိ',
+    },
+    myanmarSourceLabels: {
+      title: 'Product ခေါင်းစဉ် (Title)',
+      description: 'Product အသေးစိတ် (Description)',
+      reviews: 'ဝယ်သူ Review အနှစ်ချုပ်',
+      comments: 'ဝယ်သူ Review မူရင်းများ',
+      videoContent: 'TikTok Video / Creator စာသား',
+    },
+    myanmarAvailabilityLabels: {
+      matched: 'တွေ့ရှိသည်',
+      'checked-no-match': 'မတွေ့ရှိ',
+      unavailable: 'Unavailable',
+    },
+    myanmarMatchTypeLabels: {
+      'myanmar-script': 'မြန်မာစာ (Unicode)',
+      'zawgyi-script': 'မြန်မာစာ (Zawgyi)',
+      'burmese-romanized-term': 'မြန်မာ Tag / အသုံးအနှုန်း',
+    },
+    myanmarEvidenceHeading: 'အတည်ပြုထားသော မြန်မာ Review များ',
+    myanmarNoEvidenceNote:
+      'ဤ Product ၏ ရရှိနိုင်သော ဒေတာများတွင် အတည်ပြုနိုင်သည့် မြန်မာဘာသာစကား အထောက်အထား မတွေ့ရှိပါ။',
+    myanmarSourcesHeading: 'Data Source ရရှိနိုင်မှု',
+    myanmarEmptyTitle: 'မြန်မာ Video ပါဝင်သော TH Affiliate Product မတွေ့ရှိပါ',
+    myanmarEmptyDesc:
+      'ရွေးချယ်ထားသော Thailand TikTok Shop Category များအတွင်း စစ်ဆေးခဲ့သည့် ဗီဒီယိုများတွင် မြန်မာဘာသာစကား ပါဝင်ပြီး Affiliate Commission (> 0%) ရှိသော Product မတွေ့ရှိပါ။ အတုအယောင်ရလဒ်များ မဖန်တီးထားပါ။',
+    myanmarEmptyScannedPrefix: 'စစ်ဆေးခဲ့သော ထိုင်း Video / Candidate:',
+    myanmarTurnOffFilterBtn: 'မြန်မာ Filter ပိတ်ပြီး ပြန်ချိန်ညှိမည်',
+    filterMyanmarSignalLabel: 'မြန်မာ Match',
+    filterMyanmarSignalOnlyOption: 'မြန်မာ Video / Review အတည်ပြုပြီး Product များသာ',
   },
 };

@@ -119,27 +119,27 @@ export function ProductComparisonModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-zinc-950/45 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-5"
+      className="fixed inset-0 z-50 bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="product-comparison-heading"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[1220px] max-h-[92vh] bg-white border border-zinc-200 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-[1220px] max-h-[92vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-zinc-200 flex flex-wrap items-start justify-between gap-4">
+        <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2
                 id="product-comparison-heading"
-                className="font-display text-lg sm:text-xl font-bold text-zinc-950"
+                className="font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-zinc-50"
               >
                 {t.compareModalTitle}
               </h2>
-              <span className="font-mono text-xs text-zinc-500 tabular-nums">
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                 ({items.length})
               </span>
               <InfoPopover
@@ -149,7 +149,7 @@ export function ProductComparisonModal({
                   <>
                     <p>{t.compareModalSubtitle}</p>
                     {matrix.hasDistinctProductIds && (
-                      <p className="text-[11px] text-zinc-500 pt-1 border-t border-zinc-100">
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
                         {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
                       </p>
                     )}
@@ -165,7 +165,7 @@ export function ProductComparisonModal({
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportCsvBtn}</span>
@@ -173,7 +173,7 @@ export function ProductComparisonModal({
                 <button
                   type="button"
                   onClick={handleExportJson}
-                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportJsonBtn}</span>
@@ -184,7 +184,7 @@ export function ProductComparisonModal({
               type="button"
               onClick={onClose}
               aria-label={t.reportClose}
-              className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -193,11 +193,11 @@ export function ProductComparisonModal({
 
         {/* Add Saved Product to Compare Toolbar (connects Saved Products with Live Results cleanly) */}
         {addableSavedRecords.length > 0 && (
-          <div className="shrink-0 px-5 sm:px-6 py-3 bg-zinc-50/80 border-b border-zinc-200/80 flex flex-wrap items-center justify-between gap-3">
+          <div className="shrink-0 px-5 sm:px-6 py-3 bg-zinc-50/80 dark:bg-zinc-800/50 border-b border-zinc-200/80 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
               <label
                 htmlFor="compare-add-saved"
-                className="text-xs font-medium text-zinc-700 whitespace-nowrap"
+                className="text-xs font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap"
               >
                 {t.compareAddSavedLabel}:
               </label>
@@ -205,7 +205,7 @@ export function ProductComparisonModal({
                 id="compare-add-saved"
                 value={selectedSavedId}
                 onChange={(e) => setSelectedSavedId(e.target.value)}
-                className="min-h-[36px] max-w-sm flex-1 px-2.5 py-1 text-xs bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+                className="min-h-[36px] max-w-sm flex-1 px-2.5 py-1 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="">{t.compareAddSavedPlaceholder}</option>
                 {addableSavedRecords.map((rec) => (
@@ -218,7 +218,7 @@ export function ProductComparisonModal({
                 type="button"
                 disabled={!selectedSavedId}
                 onClick={handleAddSaved}
-                className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.compareSelectBtn}</span>
@@ -229,7 +229,7 @@ export function ProductComparisonModal({
               <button
                 type="button"
                 onClick={onClearAll}
-                className="text-xs font-medium text-zinc-500 hover:text-red-700 transition-colors cursor-pointer whitespace-nowrap"
+                className="text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer whitespace-nowrap"
               >
                 {t.compareClearBtn}
               </button>
@@ -241,18 +241,18 @@ export function ProductComparisonModal({
         <div className="flex-1 overflow-auto">
           {items.length < 2 ? (
             <div className="p-12 text-center space-y-2">
-              <p className="text-sm font-medium text-zinc-900">{t.compareNeedTwoNote}</p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{t.compareNeedTwoNote}</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {items.length} / 2 {t.quantityProductsUnit}
               </p>
             </div>
           ) : (
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="border-b border-zinc-200 bg-zinc-50/70">
+                <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40">
                   <th
                     scope="col"
-                    className="sticky left-0 z-10 bg-zinc-50 px-3 sm:px-5 py-3.5 sm:py-4 w-32 min-w-[120px] sm:w-48 sm:min-w-[170px] text-xs font-semibold text-zinc-600 align-bottom border-r border-zinc-200/80"
+                    className="sticky left-0 z-10 bg-zinc-50 dark:bg-zinc-800/50 px-3 sm:px-5 py-3.5 sm:py-4 w-32 min-w-[120px] sm:w-48 sm:min-w-[170px] text-xs font-semibold text-zinc-600 dark:text-zinc-400 align-bottom border-r border-zinc-200/80 dark:border-zinc-800/80"
                   >
                     {isMy ? 'နှိုင်းယှဉ်ချက်များ' : 'Comparison Metrics'}
                   </th>
@@ -264,10 +264,10 @@ export function ProductComparisonModal({
                       <th
                         key={col.item.selectionKey}
                         scope="col"
-                        className="px-3.5 sm:px-4 py-3.5 sm:py-4 min-w-[200px] sm:min-w-[240px] max-w-[280px] sm:max-w-[300px] align-top border-r border-zinc-100 last:border-r-0"
+                        className="px-3.5 sm:px-4 py-3.5 sm:py-4 min-w-[200px] sm:min-w-[240px] max-w-[280px] sm:max-w-[300px] align-top border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0"
                       >
                         <div className="space-y-2.5">
-                          <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 font-normal">
+                          <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-normal">
                             <span className="truncate">
                               {isMy ? col.item.sourceLabelMy : col.item.sourceLabelEn}
                             </span>
@@ -275,13 +275,13 @@ export function ProductComparisonModal({
                               type="button"
                               onClick={() => onRemoveItem(col.item.selectionKey)}
                               aria-label={`${t.compareRemoveBtn}: ${displayName}`}
-                              className="inline-flex items-center gap-1 text-zinc-400 hover:text-red-700 transition-colors cursor-pointer shrink-0"
+                              className="inline-flex items-center gap-1 text-zinc-400 dark:text-zinc-500 hover:text-red-700 dark:hover:text-red-400 transition-colors cursor-pointer shrink-0"
                             >
                               <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                           </div>
 
-                          <div className="aspect-[4/3] w-full rounded-lg overflow-hidden bg-zinc-100">
+                          <div className="aspect-[4/3] w-full rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                             {hasVerifiedImg && p.imageUrl ? (
                               <ProductImage
                                 src={p.imageUrl}
@@ -292,8 +292,8 @@ export function ProductComparisonModal({
                               />
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center">
-                                <ImageOff className="w-5 h-5 text-zinc-400 mb-1" aria-hidden="true" />
-                                <span className="text-[11px] font-normal text-zinc-500">
+                                <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1" aria-hidden="true" />
+                                <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
                                   {t.cardImageUnverified}
                                 </span>
                               </div>
@@ -301,10 +301,10 @@ export function ProductComparisonModal({
                           </div>
 
                           <div className="space-y-1">
-                            <div className="font-display text-sm font-semibold text-zinc-950 line-clamp-2 leading-snug">
+                            <div className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 line-clamp-2 leading-snug">
                               {displayName}
                             </div>
-                            <div className="text-[11px] font-normal text-zinc-500 truncate">
+                            <div className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400 truncate">
                               {p.shopName}
                             </div>
                           </div>
@@ -312,7 +312,7 @@ export function ProductComparisonModal({
                           <button
                             type="button"
                             onClick={() => onOpenReport(col.item)}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
                           >
                             <span>{t.cardOpenReport}</span>
                             <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -323,16 +323,16 @@ export function ProductComparisonModal({
                   })}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 text-xs">
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-xs">
                 {matrix.rows.map((row) => (
-                  <tr key={row.key} className="hover:bg-zinc-50/50 transition-colors">
+                  <tr key={row.key} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors">
                     <th
                       scope="row"
-                      className="sticky left-0 z-10 bg-white px-3 sm:px-5 py-3 font-medium text-zinc-700 align-top border-r border-zinc-200/80"
+                      className="sticky left-0 z-10 bg-white dark:bg-zinc-900 px-3 sm:px-5 py-3 font-medium text-zinc-700 dark:text-zinc-300 align-top border-r border-zinc-200/80 dark:border-zinc-800/80"
                     >
                       <div>{isMy ? row.labelMy : row.labelEn}</div>
                       {row.isDifferent && (
-                        <div className="mt-0.5 text-[10px] font-medium text-amber-700">
+                        <div className="mt-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                           {t.compareDiffTag}
                         </div>
                       )}
@@ -342,12 +342,12 @@ export function ProductComparisonModal({
                       return (
                         <td
                           key={`${row.key}-${matrix.columns[idx].item.selectionKey}`}
-                          className={`px-3.5 sm:px-4 py-3 align-top leading-relaxed border-r border-zinc-100 last:border-r-0 ${
+                          className={`px-3.5 sm:px-4 py-3 align-top leading-relaxed border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${
                             isUnavailable
-                              ? 'text-zinc-400 italic'
+                              ? 'text-zinc-400 dark:text-zinc-500 italic'
                               : row.isNumeric
-                                ? 'font-mono tabular-nums text-zinc-950'
-                                : 'text-zinc-800'
+                                ? 'font-mono tabular-nums text-zinc-950 dark:text-zinc-50'
+                                : 'text-zinc-800 dark:text-zinc-200'
                           }`}
                         >
                           {val}

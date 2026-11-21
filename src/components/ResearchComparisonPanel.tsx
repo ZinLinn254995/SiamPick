@@ -28,8 +28,8 @@ function getModeLabel(mode: ResearchMode, language: Language): string {
 }
 
 function deltaToneClass(delta: number | null): string {
-  if (delta === null || delta === 0) return 'text-zinc-500';
-  return delta > 0 ? 'text-emerald-700' : 'text-red-700';
+  if (delta === null || delta === 0) return 'text-zinc-500 dark:text-zinc-400';
+  return delta > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400';
 }
 
 function DeltaIcon({ delta }: { delta: number | null }) {
@@ -65,7 +65,7 @@ function MetricDeltaCell({
   unchangedLabel: string;
 }) {
   if (!metric.available || metric.oldValue === null || metric.newValue === null || metric.delta === null) {
-    return <span className="text-xs font-medium text-zinc-400">{unavailableLabel}</span>;
+    return <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">{unavailableLabel}</span>;
   }
 
   const delta = metric.delta;
@@ -102,10 +102,10 @@ function MetricDeltaCell({
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1 font-mono text-[11px] text-zinc-500 tabular-nums whitespace-nowrap">
+      <div className="flex items-center gap-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums whitespace-nowrap">
         <span>{formatSingle(metric.oldValue)}</span>
-        <ArrowRight className="w-2.5 h-2.5 text-zinc-400 shrink-0" aria-hidden="true" />
-        <span className="text-zinc-900 font-medium">{formatSingle(metric.newValue)}</span>
+        <ArrowRight className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
+        <span className="text-zinc-900 dark:text-zinc-100 font-medium">{formatSingle(metric.newValue)}</span>
       </div>
       <div
         className={`inline-flex items-center gap-0.5 font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${deltaToneClass(
@@ -181,14 +181,14 @@ export function ResearchComparisonPanel({
 
   if (historyRecords.length < 2) {
     return (
-      <div className="bg-white border border-zinc-200/90 rounded-xl px-6 py-14 text-center">
-        <div className="w-11 h-11 rounded-xl bg-zinc-100 text-zinc-500 inline-flex items-center justify-center mb-4">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
+        <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
           <GitCompareArrows className="w-5 h-5" aria-hidden="true" />
         </div>
-        <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950">
+        <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
           {t.compareNeedTwoTitle}
         </h2>
-        <p className="mt-2 text-sm text-zinc-500 max-w-md mx-auto leading-relaxed">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
           {t.compareNeedTwoDesc}
         </p>
       </div>
@@ -203,24 +203,24 @@ export function ResearchComparisonPanel({
   return (
     <div className="space-y-5">
       {/* Selector Bar */}
-      <div className="bg-white border border-zinc-200/90 rounded-xl p-5 space-y-4">
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-5 space-y-4">
         <div>
-          <h2 className="font-display text-base font-semibold text-zinc-950">
+          <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
             {t.compareHeading}
           </h2>
-          <p className="mt-1 text-xs text-zinc-500 leading-relaxed">{t.compareSubtitle}</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.compareSubtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="compare-older-select" className="block text-xs font-medium text-zinc-700">
+            <label htmlFor="compare-older-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
               {t.compareOlderLabel}
             </label>
             <select
               id="compare-older-select"
               value={olderId}
               onChange={(e) => setOlderId(e.target.value)}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -231,14 +231,14 @@ export function ResearchComparisonPanel({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="compare-newer-select" className="block text-xs font-medium text-zinc-700">
+            <label htmlFor="compare-newer-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
               {t.compareNewerLabel}
             </label>
             <select
               id="compare-newer-select"
               value={newerId}
               onChange={(e) => setNewerId(e.target.value)}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -249,14 +249,14 @@ export function ResearchComparisonPanel({
           </div>
         </div>
 
-        <p className="text-xs text-zinc-500 pt-2 border-t border-zinc-100 leading-relaxed">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 leading-relaxed">
           {t.compareExactIdRule}
         </p>
       </div>
 
       {/* Same Session Warning */}
       {olderRecord && newerRecord && olderRecord.id === newerRecord.id && (
-        <div className="bg-white border border-amber-200 rounded-xl p-5 text-xs text-amber-800">
+        <div className="bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-800/60 rounded-xl p-5 text-xs text-amber-800 dark:text-amber-300">
           {t.compareSelectDifferentHint}
         </div>
       )}
@@ -265,27 +265,27 @@ export function ResearchComparisonPanel({
       {comparison && (
         <div className="space-y-4">
           {/* Summary Strip */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-600 px-1">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 px-1">
             <span>
-              <strong className="font-mono text-zinc-950 tabular-nums">
+              <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
                 {comparison.matchedProducts.length}
               </strong>{' '}
               {t.compareMatchedCount}
             </span>
-            <span aria-hidden="true" className="text-zinc-300">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
               ·
             </span>
             <span>
-              <strong className="font-mono text-zinc-900 tabular-nums">
+              <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
                 {comparison.onlyInOlderCount}
               </strong>{' '}
               {t.compareOnlyOlder}
             </span>
-            <span aria-hidden="true" className="text-zinc-300">
+            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
               ·
             </span>
             <span>
-              <strong className="font-mono text-zinc-900 tabular-nums">
+              <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
                 {comparison.onlyInNewerCount}
               </strong>{' '}
               {t.compareOnlyNewer}
@@ -293,22 +293,22 @@ export function ResearchComparisonPanel({
           </div>
 
           {comparison.matchedProducts.length === 0 ? (
-            <div className="bg-white border border-zinc-200/90 rounded-xl px-6 py-12 text-center">
-              <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
+              <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50">
                 {t.compareNoMatchesTitle}
               </h3>
-              <p className="mt-1.5 text-xs sm:text-sm text-zinc-500 max-w-lg mx-auto leading-relaxed">
+              <p className="mt-1.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
                 {t.compareNoMatchesDesc}
               </p>
             </div>
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden lg:block bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
+              <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-zinc-200 bg-zinc-50/70 text-[11px] font-semibold text-zinc-600">
+                      <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
                         <th className="py-3 px-4">{t.compareColProduct}</th>
                         <th className="py-3 px-4">{t.compareColSales}</th>
                         <th className="py-3 px-4">{t.compareColRevenue}</th>
@@ -317,9 +317,9 @@ export function ResearchComparisonPanel({
                         <th className="py-3 px-4">{t.compareColScore}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-100 text-xs">
+                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-xs">
                       {comparison.matchedProducts.map((row) => (
-                        <tr key={row.canonicalProductId} className="hover:bg-zinc-50/60 transition-colors">
+                        <tr key={row.canonicalProductId} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/60 transition-colors">
                           <td className="py-3.5 px-4 max-w-[280px]">
                             <button
                               type="button"
@@ -328,11 +328,11 @@ export function ResearchComparisonPanel({
                               }
                               className="text-left cursor-pointer group"
                             >
-                              <div className="font-medium text-zinc-950 group-hover:underline line-clamp-2">
+                              <div className="font-medium text-zinc-950 dark:text-zinc-50 group-hover:underline line-clamp-2">
                                 {isMy ? row.nameMy : row.name}
                               </div>
-                              <div className="mt-0.5 text-[11px] text-zinc-500 truncate">
-                                <span className="font-mono text-zinc-400">ID: {row.canonicalProductId}</span>
+                              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                                <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
                                 {' · '}
                                 {row.shopName}
                               </div>
@@ -377,7 +377,7 @@ export function ResearchComparisonPanel({
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
                             />
-                            <div className="mt-0.5 text-[10px] text-zinc-400">
+                            <div className="mt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">
                               {t.confidenceLabels[row.olderConfidence]} →{' '}
                               {t.confidenceLabels[row.newerConfidence]}
                             </div>
@@ -394,7 +394,7 @@ export function ResearchComparisonPanel({
                 {comparison.matchedProducts.map((row) => (
                   <article
                     key={row.canonicalProductId}
-                    className="bg-white border border-zinc-200/90 rounded-xl p-4 space-y-3"
+                    className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3"
                   >
                     <button
                       type="button"
@@ -403,19 +403,19 @@ export function ResearchComparisonPanel({
                       }
                       className="text-left w-full cursor-pointer"
                     >
-                      <h3 className="font-display text-sm font-semibold text-zinc-950 leading-snug">
+                      <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
                         {isMy ? row.nameMy : row.name}
                       </h3>
-                      <div className="mt-0.5 text-[11px] text-zinc-500">
-                        <span className="font-mono text-zinc-400">ID: {row.canonicalProductId}</span>
+                      <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
                         {' · '}
                         {row.shopName}
                       </div>
                     </button>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-100">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
                       <div>
-                        <div className="text-[11px] text-zinc-500 mb-0.5">{t.compareColSales}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColSales}</div>
                         <MetricDeltaCell
                           metric={row.sales}
                           kind="sales"
@@ -424,7 +424,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 mb-0.5">{t.compareColRevenue}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColRevenue}</div>
                         <MetricDeltaCell
                           metric={row.revenue}
                           kind="revenue"
@@ -433,7 +433,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 mb-0.5">{t.compareColGrowth}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColGrowth}</div>
                         <MetricDeltaCell
                           metric={row.growth}
                           kind="growth"
@@ -442,7 +442,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 mb-0.5">{t.compareColCommission}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColCommission}</div>
                         <MetricDeltaCell
                           metric={row.commission}
                           kind="commission"
@@ -451,7 +451,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 mb-0.5">{t.compareColScore}</div>
+                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColScore}</div>
                         <MetricDeltaCell
                           metric={row.score}
                           kind="score"

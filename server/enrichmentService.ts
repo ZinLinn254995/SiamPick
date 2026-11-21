@@ -47,6 +47,7 @@ interface CacheEntry<T> {
 const serverProductDetailCache = new Map<string, CacheEntry<KalodataProductDetailEnrichmentRecord>>();
 const serverShopDetailCache = new Map<string, CacheEntry<KalodataShopEnrichmentRecord>>();
 const serverReviewInsightCache = new Map<string, CacheEntry<KalodataReviewInsightData>>();
+const serverVideoProductsCache = new Map<string, CacheEntry<Record<string, unknown>[]>>();
 
 function getValidEntry<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
   const entry = map.get(key);
@@ -104,10 +105,25 @@ export function setServerCachedReviewInsight(record: KalodataReviewInsightData):
   setBoundedEntry(serverReviewInsightCache, record.productId.trim(), record);
 }
 
+export function getServerCachedVideoProducts(
+  cacheKey: string
+): Record<string, unknown>[] | null {
+  return getValidEntry(serverVideoProductsCache, cacheKey.trim());
+}
+
+export function setServerCachedVideoProducts(
+  cacheKey: string,
+  items: Record<string, unknown>[]
+): void {
+  if (!cacheKey.trim()) return;
+  setBoundedEntry(serverVideoProductsCache, cacheKey.trim(), items);
+}
+
 export function clearServerEnrichmentCache(): void {
   serverProductDetailCache.clear();
   serverShopDetailCache.clear();
   serverReviewInsightCache.clear();
+  serverVideoProductsCache.clear();
 }
 
 export function toProductDetailRecord(
@@ -118,6 +134,21 @@ export function toProductDetailRecord(
   return {
     productId: parsed.productId,
     productShopId: parsed.productShopId,
+    ...(parsed.productName ? { productName: parsed.productName } : {}),
+    ...(parsed.sellerName ? { sellerName: parsed.sellerName } : {}),
+    ...(parsed.masterImageUrl ? { masterImageUrl: parsed.masterImageUrl } : {}),
+    ...(parsed.priCategory ? { priCategory: parsed.priCategory } : {}),
+    ...(parsed.secCategory ? { secCategory: parsed.secCategory } : {}),
+    ...(parsed.terCategory ? { terCategory: parsed.terCategory } : {}),
+    ...(parsed.revenueGrowthRate !== undefined && parsed.revenueGrowthRate !== null
+      ? { revenueGrowthRate: parsed.revenueGrowthRate }
+      : {}),
+    ...(parsed.showcaseRevenueThb !== undefined && parsed.showcaseRevenueThb !== null
+      ? { showcaseRevenueThb: parsed.showcaseRevenueThb }
+      : {}),
+    ...(parsed.skuCount !== undefined && parsed.skuCount !== null
+      ? { skuCount: parsed.skuCount }
+      : {}),
     minPriceThb: parsed.minPriceThb,
     maxPriceThb: parsed.maxPriceThb,
     unitPriceThb: parsed.unitPriceThb,
@@ -132,6 +163,7 @@ export function toProductDetailRecord(
     liveNumber: parsed.liveNumber,
     deliveryType: parsed.deliveryType,
     productReviewCount: parsed.productReviewCount,
+    ...(parsed.productDescription ? { productDescription: parsed.productDescription } : {}),
     launchDate: parsed.launchDate,
     trendPointsCount: parsed.trendPointsCount,
     trendPeakThb: parsed.trendPeakThb,
@@ -178,6 +210,8 @@ export function toReviewInsightRecord(
     commentsAnalyzed: parsed.commentsAnalyzed,
     averageRating: parsed.averageRating,
     ratedCommentCount: parsed.ratedCommentCount,
+    ...(parsed.rawComments ? { rawComments: parsed.rawComments } : {}),
+    ...(parsed.pagesFetched ? { pagesFetched: parsed.pagesFetched } : {}),
     updatedAt,
   });
 }

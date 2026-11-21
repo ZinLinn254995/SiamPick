@@ -1,12 +1,22 @@
-import type { CategoryFilter, ProductCategory } from '../src/types/product.ts';
+import type {
+  CategoryFilter,
+  ProductCategory,
+  SyncedKalodataCategoryCache,
+} from '../src/types/product.ts';
 import {
+  buildResolvedCategoryIdMap,
   CATEGORY_BY_ID,
   isValidProductCategory,
   matchKalodataCategoryNameToSlug,
+  UNIVERSAL_CATEGORIES,
 } from '../src/utils/categoryRegistry.ts';
 
 const KALODATA_BALANCE_ENDPOINT = 'https://www.kalodata.com/openapi/v1/credit/balance';
 const KALODATA_AUTH_HEADER = 'secret-key';
+
+function isValidKalodataCategoryIdString(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{3,64}$/.test(value.trim());
+}
 
 /**
  * Static Thailand (TH) TikTok Shop Level-1 Category IDs verified via live Kalodata Category Rank API
@@ -22,38 +32,93 @@ export const KALODATA_TH_CATEGORY_IDS: Partial<Record<ProductCategory, string>> 
   'home-living': '600001',
 };
 
+export interface CategoryFilterResolveOptions {
+  unsupportedSlugs?: readonly ProductCategory[];
+  syncedCache?: SyncedKalodataCategoryCache | null;
+}
+
 export function getKalodataCategoryIdsForFilter(
   category: CategoryFilter,
-  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>,
+  options?: CategoryFilterResolveOptions
 ): string[] {
+  const unsupportedSet = new Set<ProductCategory>([
+    ...(options?.syncedCache?.unsupportedSlugs ?? []),
+    ...(options?.unsupportedSlugs ?? []),
+  ]);
+  const cacheIdMap = options?.syncedCache
+    ? buildResolvedCategoryIdMap(options.syncedCache)
+    : undefined;
+
+  const resolveForSlug = (slug: ProductCategory): string | null => {
+    const def = CATEGORY_BY_ID[slug];
+    if (!def) return null;
+    if (unsupportedSet.has(slug) && !def.defaultKalodataId) {
+      return null;
+    }
+
+    const candidates = [
+      resolvedCategoryIdMap?.[slug],
+      cacheIdMap?.[slug],
+      def.defaultKalodataId,
+      KALODATA_TH_CATEGORY_IDS[slug],
+    ];
+    for (const candidate of candidates) {
+      if (isValidKalodataCategoryIdString(candidate)) {
+        return candidate.trim();
+      }
+    }
+    return null;
+  };
+
   if (category !== 'all' && isValidProductCategory(category)) {
-    const id =
-      resolvedCategoryIdMap?.[category] ??
-      CATEGORY_BY_ID[category]?.defaultKalodataId ??
-      KALODATA_TH_CATEGORY_IDS[category];
+    const id = resolveForSlug(category);
     return id ? [id] : [];
   }
-  return [
-    KALODATA_TH_CATEGORY_IDS['womens-fashion']!,
-    KALODATA_TH_CATEGORY_IDS['cosmetics-beauty']!,
-  ];
+
+  // 'all' includes ALL verified static IDs (Fashion, Cosmetics, Home & Living)
+  // PLUS all valid dynamically synced IDs, and strictly excludes unsupported categories.
+  const ids: string[] = [];
+  for (const def of UNIVERSAL_CATEGORIES) {
+    const id = resolveForSlug(def.id);
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+  }
+  return ids;
 }
 
 export function getKalodataCategoryIdsForSelection(
   selectedCategories: ProductCategory[],
-  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>
+  resolvedCategoryIdMap?: Partial<Record<ProductCategory, string>>,
+  options?: CategoryFilterResolveOptions
 ): string[] {
+  const unsupportedSet = new Set<ProductCategory>([
+    ...(options?.syncedCache?.unsupportedSlugs ?? []),
+    ...(options?.unsupportedSlugs ?? []),
+  ]);
+  const cacheIdMap = options?.syncedCache
+    ? buildResolvedCategoryIdMap(options.syncedCache)
+    : undefined;
+
   const unique = Array.from(
     new Set(selectedCategories.filter((c): c is ProductCategory => isValidProductCategory(c)))
   );
   const ids: string[] = [];
   for (const cat of unique) {
-    const id =
-      resolvedCategoryIdMap?.[cat] ??
-      CATEGORY_BY_ID[cat]?.defaultKalodataId ??
-      KALODATA_TH_CATEGORY_IDS[cat];
-    if (id && !ids.includes(id)) {
-      ids.push(id);
+    const def = CATEGORY_BY_ID[cat];
+    if (unsupportedSet.has(cat) && !def?.defaultKalodataId) {
+      continue;
+    }
+    const candidates = [
+      resolvedCategoryIdMap?.[cat],
+      cacheIdMap?.[cat],
+      def?.defaultKalodataId,
+      KALODATA_TH_CATEGORY_IDS[cat],
+    ];
+    const validId = candidates.find(isValidKalodataCategoryIdString)?.trim() ?? null;
+    if (validId && !ids.includes(validId)) {
+      ids.push(validId);
     }
   }
   return ids;
@@ -444,6 +509,9 @@ export interface KalodataProductRankRequest {
     type: 'ASC' | 'DESC';
   };
   category_ids?: string[];
+  video_id?: string;
+  creator_id?: string;
+  shop_id?: string;
   commission_rate?: string;
   unit_price_range?: string;
   keyword?: string;
@@ -684,6 +752,7 @@ export interface KalodataCategoryRankRequest {
 export interface KalodataCategoryRankItem {
   category_id: string;
   category_name: string;
+  parent_category_id?: string | null;
   rank: number | null;
   revenue: number | null;
   sale: number | null;
@@ -713,10 +782,20 @@ export interface KalodataCategoryRankResult {
 }
 
 function normalizeCategoryRankItem(item: Record<string, unknown>): KalodataCategoryRankItem {
+  const rawParentId =
+    item.parent_category_id ?? item.parent_id ?? item.pri_category_id ?? null;
+  const parentCategoryId =
+    rawParentId !== undefined && rawParentId !== null && String(rawParentId).trim() !== ''
+      ? String(rawParentId).trim()
+      : null;
+
   return {
     category_id:
-      item.category_id !== undefined && item.category_id !== null ? String(item.category_id) : '',
-    category_name: typeof item.category_name === 'string' ? item.category_name : '',
+      item.category_id !== undefined && item.category_id !== null
+        ? String(item.category_id).trim()
+        : '',
+    category_name: typeof item.category_name === 'string' ? item.category_name.trim() : '',
+    ...(parentCategoryId ? { parent_category_id: parentCategoryId } : {}),
     rank: toFiniteNumber(item.rank),
     revenue: toFiniteNumber(item.revenue),
     sale: toFiniteNumber(item.sale),
@@ -1131,16 +1210,241 @@ export async function fetchKalodataShopDetail(
 export async function fetchKalodataProductCommentInsight(params: {
   product_id: string;
   country_code: string;
+  page_number?: number;
+  cursor?: string;
 }): Promise<KalodataDetailApiResult<Record<string, unknown>>> {
+  const payload: Record<string, unknown> = {
+    product_id: params.product_id,
+    country_code: params.country_code.toLowerCase(),
+  };
+  if (typeof params.page_number === 'number' && Number.isFinite(params.page_number) && params.page_number >= 1) {
+    payload.page_number = Math.floor(params.page_number);
+  }
+  if (typeof params.cursor === 'string' && params.cursor.trim().length > 0) {
+    payload.cursor = params.cursor.trim();
+  }
   return callKalodataPostDetailEndpoint(
     KALODATA_PRODUCT_COMMENT_INSIGHT_ENDPOINT,
-    {
-      product_id: params.product_id,
-      country_code: params.country_code.toLowerCase(),
-    },
+    payload,
     30_000
   );
 }
+
+const KALODATA_VIDEO_RANK_ENDPOINT = 'https://www.kalodata.com/openapi/v1/tiktok/video/rank';
+
+export interface KalodataVideoRankRequest {
+  region: string;
+  language: string;
+  currency: string;
+  date_range: string;
+  page_number?: number;
+  page_size?: number;
+  sort_field: {
+    field: string;
+    type: 'ASC' | 'DESC';
+  };
+  category_ids?: string[];
+  keyword?: string;
+  has_product?: 0 | 1;
+  need_extra?: boolean;
+}
+
+export interface KalodataVideoRankResult {
+  ok: boolean;
+  configured: boolean;
+  endpoint: string;
+  authHeader: string;
+  httpStatus: number | null;
+  checkedAt: string;
+  requestParams: KalodataVideoRankRequest;
+  itemCount: number;
+  items: Record<string, unknown>[];
+  allFieldKeys: string[];
+  cached: boolean | null;
+  upstreamCode?: string;
+  errorCategory?: string;
+  message?: string;
+  error?: string;
+  errorMy?: string;
+}
+
+/**
+ * Executes a single (non-retried) call to Kalodata Open Center's Video Rank API.
+ * Official endpoint: POST https://www.kalodata.com/openapi/v1/tiktok/video/rank
+ * Official header:   secret-key: <KALODATA_API_KEY>
+ * Estimated cost:    0.1 Credit per 100-row page.
+ */
+export async function fetchKalodataVideoRank(
+  params: KalodataVideoRankRequest
+): Promise<KalodataVideoRankResult> {
+  const checkedAt = new Date().toISOString();
+  const apiKey = getKalodataApiKey();
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      configured: false,
+      endpoint: KALODATA_VIDEO_RANK_ENDPOINT,
+      authHeader: KALODATA_AUTH_HEADER,
+      httpStatus: null,
+      checkedAt,
+      requestParams: params,
+      itemCount: 0,
+      items: [],
+      allFieldKeys: [],
+      cached: null,
+      upstreamCode: 'MISSING_API_KEY',
+      error:
+        'KALODATA_API_KEY is not configured in backend environment variables. Add it in Settings > Secrets.',
+      errorMy:
+        'Backend Environment Variable ထဲတွင် KALODATA_API_KEY မထည့်သွင်းရသေးပါ။',
+    };
+  }
+
+  try {
+    const response = await fetch(KALODATA_VIDEO_RANK_ENDPOINT, {
+      method: 'POST',
+      signal: AbortSignal.timeout(15_000),
+      headers: {
+        [KALODATA_AUTH_HEADER]: apiKey,
+        Accept: 'application/json',
+        'Content-Type': 'application/json;charset=UTF-8',
+      },
+      body: JSON.stringify(params),
+    });
+
+    const rawText = await response.text();
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      const json = JSON.parse(rawText) as unknown;
+      if (json && typeof json === 'object' && !Array.isArray(json)) {
+        parsed = json as Record<string, unknown>;
+      }
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed) {
+      const snippet = rawText.trim().slice(0, 240) || `HTTP ${response.status}`;
+      return {
+        ok: false,
+        configured: true,
+        endpoint: KALODATA_VIDEO_RANK_ENDPOINT,
+        authHeader: KALODATA_AUTH_HEADER,
+        httpStatus: response.status,
+        checkedAt,
+        requestParams: params,
+        itemCount: 0,
+        items: [],
+        allFieldKeys: [],
+        cached: null,
+        upstreamCode: `HTTP_${response.status}`,
+        error: `Unexpected non-JSON response from Kalodata Video Rank (HTTP ${response.status}): ${snippet}`,
+        errorMy: `Kalodata Video Rank မှ JSON မဟုတ်သော တုံ့ပြန်မှု ရရှိပါသည် (HTTP ${response.status})။`,
+      };
+    }
+
+    const upstreamCode =
+      parsed.code !== undefined && parsed.code !== null ? String(parsed.code) : undefined;
+    const errorCategory =
+      typeof parsed.errorCategory === 'string' && parsed.errorCategory.trim()
+        ? parsed.errorCategory.trim()
+        : undefined;
+    const upstreamMessage =
+      typeof parsed.message === 'string' && parsed.message.trim()
+        ? parsed.message.trim()
+        : typeof parsed.msg === 'string' && parsed.msg.trim()
+          ? parsed.msg.trim()
+          : '';
+    const cached = typeof parsed.cached === 'boolean' ? parsed.cached : null;
+
+    const isExplicitFailure =
+      !response.ok ||
+      parsed.success === false ||
+      (upstreamCode !== undefined &&
+        upstreamCode !== '0' &&
+        upstreamCode !== '200' &&
+        parsed.success !== true);
+
+    if (isExplicitFailure) {
+      const errMsg = upstreamMessage || `Kalodata Video Rank API returned HTTP ${response.status}`;
+      return {
+        ok: false,
+        configured: true,
+        endpoint: KALODATA_VIDEO_RANK_ENDPOINT,
+        authHeader: KALODATA_AUTH_HEADER,
+        httpStatus: response.status,
+        checkedAt,
+        requestParams: params,
+        itemCount: 0,
+        items: [],
+        allFieldKeys: [],
+        cached,
+        upstreamCode,
+        errorCategory,
+        message: upstreamMessage || undefined,
+        error: errMsg,
+        errorMy: buildBurmeseError(errMsg, upstreamCode),
+      };
+    }
+
+    const rawList = Array.isArray(parsed.data)
+      ? parsed.data
+      : parsed.data &&
+          typeof parsed.data === 'object' &&
+          Array.isArray((parsed.data as Record<string, unknown>).list)
+        ? ((parsed.data as Record<string, unknown>).list as unknown[])
+        : [];
+
+    const items = rawList.filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === 'object' && !Array.isArray(item)
+    );
+
+    const keySet = new Set<string>();
+    for (const item of items) {
+      for (const key of Object.keys(item)) {
+        keySet.add(key);
+      }
+    }
+
+    return {
+      ok: true,
+      configured: true,
+      endpoint: KALODATA_VIDEO_RANK_ENDPOINT,
+      authHeader: KALODATA_AUTH_HEADER,
+      httpStatus: response.status,
+      checkedAt,
+      requestParams: params,
+      itemCount: items.length,
+      items,
+      allFieldKeys: Array.from(keySet),
+      cached,
+      upstreamCode,
+      message: upstreamMessage || undefined,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : 'Network error connecting to Kalodata OpenAPI.';
+    return {
+      ok: false,
+      configured: true,
+      endpoint: KALODATA_VIDEO_RANK_ENDPOINT,
+      authHeader: KALODATA_AUTH_HEADER,
+      httpStatus: null,
+      checkedAt,
+      requestParams: params,
+      itemCount: 0,
+      items: [],
+      allFieldKeys: [],
+      cached: null,
+      upstreamCode: 'NETWORK_ERROR',
+      error: `Failed to reach Kalodata Video Rank API: ${message}`,
+      errorMy: `Kalodata Video Rank API သို့ ချိတ်ဆက်၍ မရပါ (${message})။`,
+    };
+  }
+}
+
 
 
 

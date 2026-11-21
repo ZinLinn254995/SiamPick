@@ -1,14 +1,19 @@
 import type {
   ComparisonMetricDelta,
+  GroundingSourceLink,
   LocalStorageUsageStats,
+  MyanmarReviewDiscoveryStats,
+  MyanmarVideoDiscoveryStats,
   ProductCategory,
   ProductComparisonRow,
   ProductScoreSnapshot,
   ResearchComparisonResult,
   ResearchConfig,
+  ResearchCostSummary,
   ResearchHistoryRecord,
   ResearchMode,
   ResearchProduct,
+  ResearchQuantity,
   ResearchSessionResponse,
   StorageWriteResult,
 } from '../types/product.ts';
@@ -26,7 +31,33 @@ import { isValidProductCategory } from './categoryRegistry.ts';
 
 export const RESEARCH_HISTORY_STORAGE_KEY = 'siampick_research_history_v1';
 export const RESEARCH_HISTORY_SCHEMA_VERSION = 1;
+export const LATEST_RESEARCH_SESSION_STORAGE_KEY = 'siampick_latest_research_session_v1';
+export const LATEST_RESEARCH_SESSION_SCHEMA_VERSION = 1;
 export const ESTIMATED_LOCAL_STORAGE_QUOTA_BYTES = 5 * 1024 * 1024; // ~5 MB standard browser localStorage budget
+
+export interface LatestResearchSessionMeta {
+  requestedQuantity: ResearchQuantity;
+  verifiedProductCount: number;
+  filteredOutCount: number;
+  myanmarFilterApplied?: boolean;
+  myanmarCandidatesScanned?: number;
+  myanmarReviewDiscovery?: MyanmarReviewDiscoveryStats;
+  myanmarVideoDiscovery?: MyanmarVideoDiscoveryStats;
+}
+
+export interface LatestResearchSessionSnapshot {
+  schemaVersion: number;
+  updatedAt: string;
+  products: ResearchProduct[];
+  sessionMeta: LatestResearchSessionMeta;
+  lastCostSummary: ResearchCostSummary | null;
+  researchSourceMode: 'kalodata-openapi' | null;
+  researchedAt: string | null;
+  groundingSources: GroundingSourceLink[];
+  searchQueries: string[];
+  activeHuntConfig: ResearchConfig | null;
+  rejectedIds: string[];
+}
 
 interface ResearchHistoryEnvelopeV1 {
   schemaVersion: number;
@@ -292,6 +323,174 @@ export function persistResearchHistory(records: ResearchHistoryRecord[]): Storag
         ? 'Browser localStorage နေရာပြည့်နေပါသည်။ အရင် History များကို အလိုအလျောက်မဖျက်ထားပါ — Research အသစ်သိမ်းရန် အဟောင်းဖြစ်သော History အချို့ကို ရွေးချယ်ဖျက်ပေးပါ။'
         : 'Research History ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
+  }
+}
+
+function buildSnapshotFromHistoryRecord(
+  record: ResearchHistoryRecord
+): LatestResearchSessionSnapshot {
+  const validProducts = record.products.filter(isValidProduct).map(normalizeArchivedProduct);
+  return {
+    schemaVersion: LATEST_RESEARCH_SESSION_SCHEMA_VERSION,
+    updatedAt: record.researchedAt,
+    products: validProducts,
+    sessionMeta: {
+      requestedQuantity: record.requestedQuantity,
+      verifiedProductCount: validProducts.length,
+      filteredOutCount: record.filteredOutCount,
+      myanmarFilterApplied: record.researchSettings.myanmarLanguageOnly === true,
+    },
+    lastCostSummary: record.costSummary ?? null,
+    researchSourceMode:
+      record.researchSourceMode === 'kalodata-openapi' ? 'kalodata-openapi' : null,
+    researchedAt: record.researchedAt,
+    groundingSources: Array.isArray(record.groundingSources) ? record.groundingSources : [],
+    searchQueries: Array.isArray(record.searchQueries) ? record.searchQueries : [],
+    activeHuntConfig: record.researchSettings ?? null,
+    rejectedIds: [],
+  };
+}
+
+/**
+ * Loads the latest Research Results session from localStorage so closing and reopening
+ * the app always preserves the most recent search results.
+ * Falls back to the newest Research History record if no dedicated session snapshot exists yet.
+ */
+export function loadLatestResearchSession(
+  fallbackHistory?: readonly ResearchHistoryRecord[]
+): LatestResearchSessionSnapshot | null {
+  const storage = getStorage();
+  if (storage) {
+    try {
+      const raw = storage.getItem(LATEST_RESEARCH_SESSION_STORAGE_KEY);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const obj = parsed as Partial<LatestResearchSessionSnapshot>;
+          if (Array.isArray(obj.products) && obj.sessionMeta && typeof obj.sessionMeta === 'object') {
+            const validProducts = obj.products.filter(isValidProduct).map(normalizeArchivedProduct);
+            const meta = obj.sessionMeta;
+            const requestedQuantity =
+              typeof meta.requestedQuantity === 'number' && Number.isFinite(meta.requestedQuantity)
+                ? meta.requestedQuantity
+                : validProducts.length;
+            const verifiedProductCount =
+              typeof meta.verifiedProductCount === 'number' &&
+              Number.isFinite(meta.verifiedProductCount)
+                ? meta.verifiedProductCount
+                : validProducts.length;
+            const filteredOutCount =
+              typeof meta.filteredOutCount === 'number' && Number.isFinite(meta.filteredOutCount)
+                ? meta.filteredOutCount
+                : 0;
+
+            return {
+              schemaVersion:
+                typeof obj.schemaVersion === 'number'
+                  ? obj.schemaVersion
+                  : LATEST_RESEARCH_SESSION_SCHEMA_VERSION,
+              updatedAt:
+                typeof obj.updatedAt === 'string' && obj.updatedAt
+                  ? obj.updatedAt
+                  : typeof obj.researchedAt === 'string' && obj.researchedAt
+                    ? obj.researchedAt
+                    : new Date().toISOString(),
+              products: validProducts,
+              sessionMeta: {
+                requestedQuantity,
+                verifiedProductCount,
+                filteredOutCount,
+                myanmarFilterApplied: meta.myanmarFilterApplied === true,
+                myanmarCandidatesScanned:
+                  typeof meta.myanmarCandidatesScanned === 'number'
+                    ? meta.myanmarCandidatesScanned
+                    : undefined,
+                myanmarReviewDiscovery: meta.myanmarReviewDiscovery,
+                myanmarVideoDiscovery: meta.myanmarVideoDiscovery,
+              },
+              lastCostSummary: obj.lastCostSummary ?? null,
+              researchSourceMode:
+                obj.researchSourceMode === 'kalodata-openapi' ? 'kalodata-openapi' : null,
+              researchedAt: typeof obj.researchedAt === 'string' ? obj.researchedAt : null,
+              groundingSources: Array.isArray(obj.groundingSources) ? obj.groundingSources : [],
+              searchQueries: Array.isArray(obj.searchQueries) ? obj.searchQueries : [],
+              activeHuntConfig:
+                obj.activeHuntConfig && typeof obj.activeHuntConfig === 'object'
+                  ? obj.activeHuntConfig
+                  : null,
+              rejectedIds: Array.isArray(obj.rejectedIds)
+                ? obj.rejectedIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+                : [],
+            };
+          }
+        }
+      }
+    } catch {
+      // Corrupted JSON falls through safely to history fallback or null
+    }
+  }
+
+  if (Array.isArray(fallbackHistory) && fallbackHistory.length > 0 && fallbackHistory[0]) {
+    return buildSnapshotFromHistoryRecord(fallbackHistory[0]);
+  }
+  return null;
+}
+
+/**
+ * Persists (replaces) the latest Research Results snapshot in localStorage.
+ * Strictly isolated from Saved Products and Research History; never deletes them on quota errors.
+ */
+export function persistLatestResearchSession(
+  snapshot: Omit<LatestResearchSessionSnapshot, 'schemaVersion' | 'updatedAt'>
+): StorageWriteResult {
+  const storage = getStorage();
+  if (!storage) {
+    return {
+      ok: false,
+      quotaExceeded: false,
+      bytesUsed: 0,
+      errorEn: 'Browser localStorage is unavailable in this environment.',
+      errorMy: 'ဤ Browser တွင် localStorage အသုံးပြု၍ မရပါ။',
+    };
+  }
+
+  const payload: LatestResearchSessionSnapshot = {
+    schemaVersion: LATEST_RESEARCH_SESSION_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    ...snapshot,
+  };
+
+  try {
+    const serialized = JSON.stringify(payload);
+    storage.setItem(LATEST_RESEARCH_SESSION_STORAGE_KEY, serialized);
+    return {
+      ok: true,
+      quotaExceeded: false,
+      bytesUsed: byteSizeOfString(serialized),
+    };
+  } catch (err) {
+    const quotaExceeded = isQuotaExceededError(err);
+    return {
+      ok: false,
+      quotaExceeded,
+      bytesUsed: 0,
+      errorEn: quotaExceeded
+        ? 'Browser localStorage quota is full — latest Research Results could not be cached.'
+        : 'Unable to persist latest Research Results to browser localStorage.',
+      errorMy: quotaExceeded
+        ? 'Browser localStorage နေရာပြည့်နေသောကြောင့် နောက်ဆုံး Research Result ကို သိမ်းဆည်း၍ မရပါ။'
+        : 'နောက်ဆုံး Research Result ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
+    };
+  }
+}
+
+export function clearLatestResearchSession(): void {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(LATEST_RESEARCH_SESSION_STORAGE_KEY);
+  } catch {
+    // Ignore storage removal errors
   }
 }
 

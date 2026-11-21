@@ -3,6 +3,7 @@ import type {
   CompetitionLevel,
   CosmeticsComplianceRisk,
   FashionReturnRisk,
+  KalodataCategoryRef,
   ProductCategory,
   ResearchMode,
   ResearchProduct,
@@ -35,6 +36,15 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 export interface ParsedProductDetail {
   productId: string;
   productShopId: string | null;
+  productName?: string | null;
+  sellerName?: string | null;
+  masterImageUrl?: string | null;
+  priCategory?: KalodataCategoryRef | null;
+  secCategory?: KalodataCategoryRef | null;
+  terCategory?: KalodataCategoryRef | null;
+  revenueGrowthRate?: number | null;
+  showcaseRevenueThb?: number | null;
+  skuCount?: number | null;
   minPriceThb: number | null;
   maxPriceThb: number | null;
   unitPriceThb: number | null;
@@ -49,10 +59,47 @@ export interface ParsedProductDetail {
   liveNumber: number | null;
   deliveryType: string | null;
   productReviewCount: number | null;
+  productDescription?: string | null;
   launchDate: string | null;
   trendPointsCount: number;
   trendPeakThb: number | null;
   trendAvgThb: number | null;
+}
+
+export interface ParsedVideoLinkedProduct {
+  productId: string;
+  productName: string | null;
+  unitPriceThb: number | null;
+  commissionRatePct: number | null;
+  rawCommissionRate: number | null;
+  masterImageUrl: string | null;
+  sellerId: string | null;
+  sellerName: string | null;
+  revenueThb: number | null;
+  salesVolume: number | null;
+  priCategory: KalodataCategoryRef | null;
+  secCategory: KalodataCategoryRef | null;
+  terCategory: KalodataCategoryRef | null;
+}
+
+export interface ParsedVideoRankItem {
+  videoId: string;
+  caption: string | null;
+  title: string | null;
+  hashtags: string[];
+  creatorName: string | null;
+  creatorHandle: string | null;
+  creatorId: string | null;
+  videoUrl: string | null;
+  coverUrl: string | null;
+  revenueThb: number | null;
+  salesVolume: number | null;
+  views: number | null;
+  publishDate: string | null;
+  priCategory: KalodataCategoryRef | null;
+  secCategory: KalodataCategoryRef | null;
+  linkedProducts: ParsedVideoLinkedProduct[];
+  pageNumber: number;
 }
 
 export interface ParsedShopDetail {
@@ -71,6 +118,12 @@ export interface ParsedShopDetail {
   liveNumber: number | null;
 }
 
+export interface ParsedRawReviewComment {
+  text: string;
+  rating?: number | null;
+  pageNumber?: number;
+}
+
 export interface ParsedCommentInsight {
   productId: string;
   summary: string | null;
@@ -80,6 +133,11 @@ export interface ParsedCommentInsight {
   commentsAnalyzed: number;
   averageRating: number | null;
   ratedCommentCount: number;
+  rawComments?: string[];
+  allRawComments?: ParsedRawReviewComment[];
+  hasMore?: boolean;
+  nextCursor?: string | null;
+  pagesFetched?: number;
 }
 
 function toFinite(val: unknown): number | null {
@@ -101,6 +159,37 @@ function normalizeCommissionPct(raw: number | null): number | null {
   if (raw === null || raw <= 0) return null;
   if (raw < 1) return Math.round(raw * 10000) / 100;
   return Math.round(raw * 100) / 100;
+}
+
+function parseCategoryRef(raw: unknown): KalodataCategoryRef | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const id = toCleanString(obj.category_id ?? obj.id) ?? '';
+  const name = toCleanString(obj.category_name ?? obj.name) ?? '';
+  if (!id && !name) return null;
+  return { category_id: id, category_name: name };
+}
+
+function extractFirstImageUrl(obj: Record<string, unknown>): string | null {
+  const keys = [
+    'master_image_url',
+    'image_url',
+    'product_image',
+    'product_image_url',
+    'cover_url',
+    'thumb_url',
+  ];
+  for (const k of keys) {
+    const val = toCleanString(obj[k]);
+    if (val) return val;
+  }
+  if (Array.isArray(obj.images)) {
+    for (const img of obj.images) {
+      const val = toCleanString(img);
+      if (val) return val;
+    }
+  }
+  return null;
 }
 
 export function parseKalodataProductDetail(
@@ -136,24 +225,268 @@ export function parseKalodataProductDetail(
       toCleanString(data.product_shop_id) ??
       toCleanString(data.shop_id) ??
       toCleanString(data.seller_id),
+    productName:
+      toCleanString(data.product_name ?? data.product_title ?? data.title ?? data.name) ?? null,
+    sellerName:
+      toCleanString(data.seller_name ?? data.shop_name ?? data.product_shop_name) ?? null,
+    masterImageUrl: extractFirstImageUrl(data),
+    priCategory: parseCategoryRef(data.pri_category),
+    secCategory: parseCategoryRef(data.sec_category),
+    terCategory: parseCategoryRef(data.ter_category),
+    revenueGrowthRate: toFinite(data.revenue_growth_rate),
+    showcaseRevenueThb: toFinite(data.showcase_revenue),
+    skuCount: toFinite(data.sku_count),
     minPriceThb: toFinite(data.min_price),
     maxPriceThb: toFinite(data.max_price),
     unitPriceThb: toFinite(data.unit_price),
     revenueThb: toFinite(data.revenue),
-    salesVolume: toFinite(data.sales_volumn ?? data.sales_volume),
+    salesVolume: toFinite(data.sales_volumn ?? data.sales_volume ?? data.sale),
     videoRevenueThb: toFinite(data.video_revenue),
     liveRevenueThb: toFinite(data.live_revenue),
-    shoppingMallRevenueThb: toFinite(data.shopping_mall_revenue),
+    shoppingMallRevenueThb: toFinite(data.shopping_mall_revenue ?? data.shoppingmall_revenue),
     commissionRatePct: normalizeCommissionPct(toFinite(data.commission_rate)),
     creatorNumber: toFinite(data.creator_number),
     videoNumber: toFinite(data.video_number),
     liveNumber: toFinite(data.live_number),
     deliveryType: toCleanString(data.delivery_type),
     productReviewCount: toFinite(data.product_review_count),
+    productDescription:
+      toCleanString(data.product_description ?? data.description ?? data.desc) ?? null,
     launchDate: toCleanString(data.launch_date),
     trendPointsCount: trendValues.length,
     trendPeakThb,
     trendAvgThb,
+  };
+}
+
+function parseEmbeddedLinkedProduct(
+  raw: unknown,
+  fallbackPri: KalodataCategoryRef | null,
+  fallbackSec: KalodataCategoryRef | null
+): ParsedVideoLinkedProduct | null {
+  if (typeof raw === 'string' || typeof raw === 'number') {
+    const pid = toCleanString(raw);
+    if (!pid) return null;
+    return {
+      productId: pid,
+      productName: null,
+      unitPriceThb: null,
+      commissionRatePct: null,
+      rawCommissionRate: null,
+      masterImageUrl: null,
+      sellerId: null,
+      sellerName: null,
+      revenueThb: null,
+      salesVolume: null,
+      priCategory: fallbackPri,
+      secCategory: fallbackSec,
+      terCategory: null,
+    };
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const obj = raw as Record<string, unknown>;
+  const productId =
+    toCleanString(
+      obj.product_id ?? obj.productId ?? obj.pid ?? obj.id ?? obj.item_id ?? obj.goods_id
+    ) ?? null;
+  if (!productId) return null;
+  const rawComm = toFinite(obj.commission_rate);
+  return {
+    productId,
+    productName:
+      toCleanString(obj.product_name ?? obj.product_title ?? obj.title ?? obj.name) ?? null,
+    unitPriceThb: toFinite(obj.unit_price ?? obj.price),
+    commissionRatePct: normalizeCommissionPct(rawComm),
+    rawCommissionRate: rawComm,
+    masterImageUrl: extractFirstImageUrl(obj),
+    sellerId: toCleanString(obj.seller_id ?? obj.shop_id ?? obj.product_shop_id) ?? null,
+    sellerName: toCleanString(obj.seller_name ?? obj.shop_name) ?? null,
+    revenueThb: toFinite(obj.revenue),
+    salesVolume: toFinite(obj.sales_volumn ?? obj.sales_volume ?? obj.sale),
+    priCategory: parseCategoryRef(obj.pri_category) ?? fallbackPri,
+    secCategory: parseCategoryRef(obj.sec_category) ?? fallbackSec,
+    terCategory: parseCategoryRef(obj.ter_category),
+  };
+}
+
+/**
+ * Defensively parses a Kalodata Video Rank API row across documented/common Kalodata field aliases.
+ * Never invents missing metrics or product links.
+ */
+export function parseKalodataVideoRankItem(
+  raw: Record<string, unknown> | null | undefined,
+  pageNumber = 1
+): ParsedVideoRankItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+
+  const videoId =
+    toCleanString(raw.video_id ?? raw.id ?? raw.item_id ?? raw.aweme_id) ?? null;
+  if (!videoId) return null;
+
+  const caption =
+    toCleanString(
+      raw.video_description ??
+        raw.description ??
+        raw.desc ??
+        raw.video_desc ??
+        raw.caption ??
+        raw.video_title ??
+        raw.title
+    ) ?? null;
+  const title = toCleanString(raw.video_title ?? raw.title) ?? null;
+
+  const creatorObj =
+    raw.creator && typeof raw.creator === 'object' && !Array.isArray(raw.creator)
+      ? (raw.creator as Record<string, unknown>)
+      : raw.author && typeof raw.author === 'object' && !Array.isArray(raw.author)
+        ? (raw.author as Record<string, unknown>)
+        : null;
+
+  const creatorName =
+    toCleanString(
+      raw.creator_name ??
+        raw.creator_nickname ??
+        raw.author_name ??
+        raw.nickname ??
+        creatorObj?.nickname ??
+        creatorObj?.name ??
+        creatorObj?.creator_name
+    ) ?? null;
+
+  const creatorHandle =
+    toCleanString(
+      raw.belonged_creator_handle ??
+        raw.creator_handle ??
+        raw.handle ??
+        raw.unique_id ??
+        raw.creator_username ??
+        raw.username ??
+        creatorObj?.handle ??
+        creatorObj?.unique_id ??
+        creatorObj?.username
+    ) ?? null;
+
+  const creatorId =
+    toCleanString(
+      raw.belonged_creator_id ??
+        raw.creator_id ??
+        raw.author_id ??
+        creatorObj?.id ??
+        creatorObj?.creator_id
+    ) ?? null;
+
+  const hashtags: string[] = [];
+  const rawTags = raw.hashtags ?? raw.tags ?? raw.video_tags;
+  if (Array.isArray(rawTags)) {
+    for (const tag of rawTags) {
+      if (typeof tag === 'string' && tag.trim()) {
+        hashtags.push(tag.trim());
+      } else if (tag && typeof tag === 'object') {
+        const tagText = toCleanString(
+          (tag as Record<string, unknown>).name ??
+            (tag as Record<string, unknown>).tag ??
+            (tag as Record<string, unknown>).hashtag
+        );
+        if (tagText) hashtags.push(tagText);
+      }
+    }
+  } else if (typeof rawTags === 'string' && rawTags.trim()) {
+    for (const part of rawTags.split(/[\s,]+/)) {
+      if (part.trim()) hashtags.push(part.trim());
+    }
+  }
+
+  const priCategory = parseCategoryRef(raw.pri_category);
+  const secCategory = parseCategoryRef(raw.sec_category);
+
+  const linkedProducts: ParsedVideoLinkedProduct[] = [];
+  const seenPid = new Set<string>();
+  const addLinked = (candidate: ParsedVideoLinkedProduct | null) => {
+    if (!candidate || seenPid.has(candidate.productId)) return;
+    seenPid.add(candidate.productId);
+    linkedProducts.push(candidate);
+  };
+
+  // 1. Array of linked product objects / IDs (when present in payload)
+  const productArrays = [
+    raw.products,
+    raw.product_list,
+    raw.productList,
+    raw.related_products,
+    raw.relate_products,
+    raw.product_info_list,
+    raw.product_infos,
+    raw.video_products,
+    raw.product_ids,
+    raw.productIds,
+  ];
+  for (const arr of productArrays) {
+    if (Array.isArray(arr)) {
+      for (const entry of arr) {
+        addLinked(parseEmbeddedLinkedProduct(entry, priCategory, secCategory));
+      }
+    } else if (typeof arr === 'string' && arr.trim()) {
+      for (const part of arr.split(/[\s,]+/)) {
+        if (part.trim()) {
+          addLinked(parseEmbeddedLinkedProduct(part.trim(), priCategory, secCategory));
+        }
+      }
+    }
+  }
+
+  // 2. Single nested product object
+  if (raw.product && typeof raw.product === 'object' && !Array.isArray(raw.product)) {
+    addLinked(parseEmbeddedLinkedProduct(raw.product, priCategory, secCategory));
+  }
+
+  // 3. Flat product_id / product_name on the video row itself
+  const flatProductId = toCleanString(raw.product_id ?? raw.productId);
+  if (flatProductId) {
+    const rawComm = toFinite(raw.commission_rate ?? raw.product_commission_rate);
+    addLinked({
+      productId: flatProductId,
+      productName: toCleanString(raw.product_name ?? raw.product_title) ?? null,
+      unitPriceThb: toFinite(raw.unit_price ?? raw.product_price),
+      commissionRatePct: normalizeCommissionPct(rawComm),
+      rawCommissionRate: rawComm,
+      masterImageUrl: toCleanString(raw.product_image ?? raw.product_image_url ?? raw.master_image_url) ?? null,
+      sellerId: toCleanString(raw.seller_id ?? raw.shop_id ?? raw.product_shop_id) ?? null,
+      sellerName: toCleanString(raw.seller_name ?? raw.shop_name) ?? null,
+      revenueThb: toFinite(raw.product_revenue),
+      salesVolume: toFinite(raw.product_sales_volumn ?? raw.product_sales_volume),
+      priCategory,
+      secCategory,
+      terCategory: parseCategoryRef(raw.ter_category),
+    });
+  }
+
+  const rawUrl = toCleanString(raw.video_url ?? raw.tiktok_url ?? raw.share_url ?? raw.url);
+  const cleanHandle = creatorHandle ? creatorHandle.replace(/^@+/, '').trim() : '';
+  const videoUrl =
+    rawUrl && /^https?:\/\//i.test(rawUrl)
+      ? rawUrl
+      : cleanHandle
+        ? `https://www.tiktok.com/@${encodeURIComponent(cleanHandle)}/video/${encodeURIComponent(videoId)}`
+        : `https://www.kalodata.com/video/detail?id=${encodeURIComponent(videoId)}&region=TH`;
+
+  return {
+    videoId,
+    caption,
+    title,
+    hashtags,
+    creatorName,
+    creatorHandle,
+    creatorId,
+    videoUrl,
+    coverUrl: toCleanString(raw.cover_url ?? raw.video_cover ?? raw.thumb_url) ?? null,
+    revenueThb: toFinite(raw.revenue ?? raw.video_revenue),
+    salesVolume: toFinite(raw.sales_volumn ?? raw.sales_volume ?? raw.sale),
+    views: toFinite(raw.views ?? raw.view_count ?? raw.play_count ?? raw.vv),
+    publishDate: toCleanString(raw.publish_date ?? raw.create_time ?? raw.post_time) ?? null,
+    priCategory,
+    secCategory,
+    linkedProducts,
+    pageNumber,
   };
 }
 
@@ -196,7 +529,8 @@ function parseInsightPoints(raw: unknown): { point: string; mentions: number }[]
 
 export function parseKalodataCommentInsight(
   productId: string,
-  data: Record<string, unknown> | null
+  data: Record<string, unknown> | null,
+  pageNumber = 1
 ): ParsedCommentInsight | null {
   if (!data) return null;
   const commentSummary =
@@ -204,9 +538,28 @@ export function parseKalodataCommentInsight(
       ? toCleanString((data.comment_summary as Record<string, unknown>).summary)
       : null;
 
-  const originalComments = Array.isArray(data.original_comments) ? data.original_comments : [];
+  const originalComments = Array.isArray(data.original_comments)
+    ? data.original_comments
+    : Array.isArray(data.comments)
+      ? data.comments
+      : Array.isArray(data.reviews)
+        ? data.reviews
+        : [];
   const ratings: number[] = [];
+  const rawComments: string[] = [];
+  const allRawComments: ParsedRawReviewComment[] = [];
+
   for (const c of originalComments) {
+    if (typeof c === 'string') {
+      const cleaned = c.trim();
+      if (cleaned) {
+        allRawComments.push({ text: cleaned, rating: null, pageNumber });
+        if (rawComments.length < 60) {
+          rawComments.push(cleaned.slice(0, 300));
+        }
+      }
+      continue;
+    }
     if (!c || typeof c !== 'object') continue;
     const obj = c as Record<string, unknown>;
     const nested =
@@ -214,8 +567,26 @@ export function parseKalodataCommentInsight(
         ? (obj.review as Record<string, unknown>)
         : {};
     const r = toFinite(nested.rating ?? obj.rating);
-    if (r !== null && r >= 1 && r <= 5) {
-      ratings.push(r);
+    const validRating = r !== null && r >= 1 && r <= 5 ? r : null;
+    if (validRating !== null) {
+      ratings.push(validRating);
+    }
+    const commentText =
+      toCleanString(nested.display_text) ??
+      toCleanString(nested.text) ??
+      toCleanString(nested.content) ??
+      toCleanString(nested.comment) ??
+      toCleanString(nested.review_text) ??
+      toCleanString(obj.display_text) ??
+      toCleanString(obj.comment) ??
+      toCleanString(obj.content) ??
+      toCleanString(obj.text) ??
+      toCleanString(obj.review_text);
+    if (commentText) {
+      allRawComments.push({ text: commentText, rating: validRating, pageNumber });
+      if (rawComments.length < 60) {
+        rawComments.push(commentText.slice(0, 300));
+      }
     }
   }
 
@@ -224,15 +595,32 @@ export function parseKalodataCommentInsight(
       ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
       : null;
 
+  const nextCursor =
+    toCleanString(data.next_cursor) ??
+    toCleanString(data.cursor) ??
+    toCleanString(data.next_page_token) ??
+    null;
+  const nextPageNum = toFinite(data.next_page);
+  const hasMore =
+    data.has_more === true ||
+    data.hasMore === true ||
+    Boolean(nextCursor) ||
+    (nextPageNum !== null && nextPageNum > pageNumber);
+
   return {
     productId,
     summary: commentSummary,
     positivePoints: parseInsightPoints(data.positive_points),
     painPoints: parseInsightPoints(data.pain_points),
     usageScenarios: parseInsightPoints(data.usage_scenarios),
-    commentsAnalyzed: originalComments.length,
+    commentsAnalyzed: Math.max(originalComments.length, allRawComments.length),
     averageRating,
     ratedCommentCount: ratings.length,
+    ...(rawComments.length > 0 ? { rawComments } : {}),
+    ...(allRawComments.length > 0 ? { allRawComments } : {}),
+    hasMore,
+    nextCursor,
+    pagesFetched: pageNumber,
   };
 }
 

@@ -50,6 +50,7 @@ import {
 } from './types/product';
 import {
   DEFAULT_DEEP_DIVE_COUNT,
+  DEFAULT_MYANMAR_VIDEO_SCAN_PAGES,
   DEFAULT_SPENDING_LIMIT_CREDITS,
   formatCredits,
   formatUsd,
@@ -94,8 +95,11 @@ import {
 } from './utils/savedProductsStorage';
 import {
   createResearchHistoryRecord,
+  loadLatestResearchSession,
   loadResearchHistory,
+  persistLatestResearchSession,
   persistResearchHistory,
+  type LatestResearchSessionMeta,
 } from './utils/researchHistoryStorage';
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
@@ -110,6 +114,24 @@ import { BestProductsStrip } from './components/BestProductsStrip';
 import { ProductFilterBar } from './components/ProductFilterBar';
 import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { InfoPopover } from './components/InfoPopover';
+import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
+import { useTheme } from './hooks/useTheme';
+import { useKalodataBalance } from './hooks/useKalodataBalance';
+import type {
+  DeepDiveAnalysisId,
+  DeepDiveOriginView,
+  DeepDiveSourceContext,
+  DeepDiveWorkspaceState,
+} from './types/deepDive';
+import {
+  buildDeepDiveTargetContext,
+  clearAllDeepDiveOptions,
+  createInitialDeepDiveWorkspaceState,
+  recordNotImplementedRunAttempt,
+  selectAllDeepDiveOptions,
+  toggleDeepDiveExpansion,
+  toggleDeepDiveSelection,
+} from './utils/deepDiveRegistry';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -125,11 +147,7 @@ interface ActiveReportState {
   sourceView: AppView;
 }
 
-interface SessionMeta {
-  requestedQuantity: ResearchQuantity;
-  verifiedProductCount: number;
-  filteredOutCount: number;
-}
+type SessionMeta = LatestResearchSessionMeta;
 
 interface HuntErrorState {
   messageEn: string;
@@ -170,6 +188,7 @@ function loadSavedSpendingLimit(): number {
 }
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [language, setLanguage] = useState<Language>(() => loadSavedLanguage());
   const [activeView, setActiveView] = useState<AppView>('hunting');
 
@@ -192,20 +211,56 @@ export default function App() {
   const [spendingLimitCredits, setSpendingLimitCredits] = useState<number>(() =>
     loadSavedSpendingLimit()
   );
+  const [myanmarLanguageOnly, setMyanmarLanguageOnly] = useState<boolean>(false);
+  const [myanmarVideoScanPages, setMyanmarVideoScanPages] = useState<number>(
+    DEFAULT_MYANMAR_VIDEO_SCAN_PAGES
+  );
 
-  // Live Research State
-  const [liveResults, setLiveResults] = useState<ResearchProduct[]>([]);
-  const [sessionMeta, setSessionMeta] = useState<SessionMeta | null>(null);
-  const [lastCostSummary, setLastCostSummary] = useState<ResearchCostSummary | null>(null);
+  // Hydrate initial History + Latest Research Results synchronously on first render
+  // so closing and reopening the app always preserves the most recent Research Results.
+  const initialBootstrapRef = useRef<{
+    history: ResearchHistoryRecord[];
+    latestSession: ReturnType<typeof loadLatestResearchSession>;
+  } | null>(null);
+  if (initialBootstrapRef.current === null) {
+    const initialHistory = loadResearchHistory();
+    initialBootstrapRef.current = {
+      history: initialHistory,
+      latestSession: loadLatestResearchSession(initialHistory),
+    };
+  }
+  const initialSession = initialBootstrapRef.current.latestSession;
+
+  // Live Research State (Restored automatically from latest persisted session)
+  const [liveResults, setLiveResults] = useState<ResearchProduct[]>(
+    () => initialSession?.products ?? []
+  );
+  const [sessionMeta, setSessionMeta] = useState<SessionMeta | null>(
+    () => initialSession?.sessionMeta ?? null
+  );
+  const [lastCostSummary, setLastCostSummary] = useState<ResearchCostSummary | null>(
+    () => initialSession?.lastCostSummary ?? null
+  );
   const [balanceRefreshSignal, setBalanceRefreshSignal] = useState<number>(0);
-  const [researchSourceMode, setResearchSourceMode] = useState<'kalodata-openapi' | null>(null);
-  const [researchedAt, setResearchedAt] = useState<string | null>(null);
-  const [groundingSources, setGroundingSources] = useState<GroundingSourceLink[]>([]);
-  const [searchQueries, setSearchQueries] = useState<string[]>([]);
+  const creditBalance = useKalodataBalance(balanceRefreshSignal);
+  const [researchSourceMode, setResearchSourceMode] = useState<'kalodata-openapi' | null>(
+    () => initialSession?.researchSourceMode ?? null
+  );
+  const [researchedAt, setResearchedAt] = useState<string | null>(
+    () => initialSession?.researchedAt ?? null
+  );
+  const [groundingSources, setGroundingSources] = useState<GroundingSourceLink[]>(
+    () => initialSession?.groundingSources ?? []
+  );
+  const [searchQueries, setSearchQueries] = useState<string[]>(
+    () => initialSession?.searchQueries ?? []
+  );
   const [groundingOpen, setGroundingOpen] = useState(false);
   const [isHunting, setIsHunting] = useState(false);
   const [huntError, setHuntError] = useState<HuntErrorState | null>(null);
-  const [activeHuntConfig, setActiveHuntConfig] = useState<ResearchConfig | null>(null);
+  const [activeHuntConfig, setActiveHuntConfig] = useState<ResearchConfig | null>(
+    () => initialSession?.activeHuntConfig ?? null
+  );
 
   // Quota Pause / Resume State (Hydrated from server on mount)
   const [quotaStatus, setQuotaStatus] = useState<ResearchQuotaStatus>({
@@ -220,13 +275,15 @@ export default function App() {
   );
 
   // Automatic Local Research History (strictly separate localStorage key from Saved Products)
-  const [researchHistory, setResearchHistory] = useState<ResearchHistoryRecord[]>(() =>
-    loadResearchHistory()
+  const [researchHistory, setResearchHistory] = useState<ResearchHistoryRecord[]>(
+    () => initialBootstrapRef.current?.history ?? []
   );
   const [storageAlert, setStorageAlert] = useState<StorageWriteResult | null>(null);
 
-  // Session Rejected IDs
-  const [rejectedIds, setRejectedIds] = useState<string[]>([]);
+  // Session Rejected IDs (preserved across refresh for the active latest result set)
+  const [rejectedIds, setRejectedIds] = useState<string[]>(
+    () => initialSession?.rejectedIds ?? []
+  );
 
   // Phase 5: Results Multi-Filter, 8-Field Sort & Multi-Product Comparison State
   const [filters, setFilters] = useState<ProductResultsFilterState>({
@@ -242,11 +299,18 @@ export default function App() {
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
   const [rubricOpen, setRubricOpen] = useState(false);
 
+  // Phase 9.1: Deep Dive Foundation (Per-product isolated state; zero mutation of original results)
+  const [deepDiveTarget, setDeepDiveTarget] = useState<DeepDiveSourceContext | null>(null);
+  const [deepDiveStatesByProduct, setDeepDiveStatesByProduct] = useState<
+    Record<string, DeepDiveWorkspaceState>
+  >({});
+
   const settingsSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const huntingInFlightRef = useRef(false);
   const hasMountedSavedRef = useRef(false);
+  const hasMountedLatestSessionRef = useRef(false);
 
   // Persist Saved Products to localStorage whenever updated (surfaces QuotaExceeded cleanly)
   useEffect(() => {
@@ -259,6 +323,43 @@ export default function App() {
       setStorageAlert(writeRes);
     }
   }, [savedRecords]);
+
+  // Persist the latest Research Results session to localStorage so closing & reopening the app
+  // always restores the most recent search results (and any subsequent AI analyses / enrichments / rejects).
+  useEffect(() => {
+    if (!hasMountedLatestSessionRef.current) {
+      hasMountedLatestSessionRef.current = true;
+      return;
+    }
+    if (!sessionMeta && liveResults.length === 0) {
+      return;
+    }
+    persistLatestResearchSession({
+      products: liveResults,
+      sessionMeta: sessionMeta ?? {
+        requestedQuantity: liveResults.length,
+        verifiedProductCount: liveResults.length,
+        filteredOutCount: 0,
+      },
+      lastCostSummary,
+      researchSourceMode,
+      researchedAt,
+      groundingSources,
+      searchQueries,
+      activeHuntConfig,
+      rejectedIds,
+    });
+  }, [
+    liveResults,
+    sessionMeta,
+    lastCostSummary,
+    researchSourceMode,
+    researchedAt,
+    groundingSources,
+    searchQueries,
+    activeHuntConfig,
+    rejectedIds,
+  ]);
 
   // Persist user language preference across refreshes
   useEffect(() => {
@@ -482,6 +583,23 @@ export default function App() {
     setSelectedSubcategoryIds([]);
   };
 
+  const handleSyncedCategoryCacheChange = (nextCache: SyncedKalodataCategoryCache) => {
+    setSyncedCategoryCache(nextCache);
+    const selectableSet = new Set(getSelectableCategories(nextCache));
+    setSelectedCategories((prev) => {
+      const pruned = prev.filter((cat) => selectableSet.has(cat));
+      const nextSelected = pruned.length > 0 ? pruned : [...DEFAULT_SELECTED_CATEGORIES];
+      const nextSelectedSet = new Set(nextSelected);
+      setSelectedSubcategoryIds((prevSubs) =>
+        prevSubs.filter((subId) => {
+          const sub = nextCache.subcategories.find((s) => s.id === subId);
+          return !sub?.parentCategory || nextSelectedSet.has(sub.parentCategory);
+        })
+      );
+      return nextSelected;
+    });
+  };
+
   const handleToggleSubcategory = (subId: string) => {
     setSelectedSubcategoryIds((prev) =>
       prev.includes(subId) ? prev.filter((id) => id !== subId) : [...prev, subId]
@@ -536,15 +654,19 @@ export default function App() {
       strategyPreset,
       salesWeightPct,
       quantity,
+      ...(myanmarLanguageOnly
+        ? {
+            myanmarLanguageOnly: true,
+            myanmarDiscoveryMode: 'video-first' as const,
+            myanmarVideoScanPages,
+          }
+        : {}),
       forceResume: shouldForceResume,
     };
 
     setActiveView('hunting');
-    setActiveHuntConfig(payload);
     setHuntError(null);
     setIsHunting(true);
-    setDecisionFilter('active');
-    setFilters({ ...DEFAULT_PRODUCT_FILTERS, category: payload.category });
 
     window.setTimeout(() => {
       resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -623,20 +745,49 @@ export default function App() {
           }).product
       );
 
-      setLiveResults(hydratedProducts);
-      setSessionMeta({
+      const nextSessionMeta: SessionMeta = {
         requestedQuantity: data.requestedQuantity ?? payload.quantity,
         verifiedProductCount: data.verifiedProductCount ?? hydratedProducts.length,
         filteredOutCount: data.filteredOutCount ?? 0,
-      });
-      setLastCostSummary(data.costSummary ?? null);
+        myanmarFilterApplied: data.myanmarFilterApplied === true,
+        myanmarCandidatesScanned: data.myanmarCandidatesScanned,
+        myanmarReviewDiscovery: data.myanmarReviewDiscovery,
+        myanmarVideoDiscovery: data.myanmarVideoDiscovery,
+      };
+      const nextCostSummary = data.costSummary ?? null;
+      const nextSourceMode = data.researchSourceMode ?? 'kalodata-openapi';
+      const nextResearchedAt = data.researchedAt ?? new Date().toISOString();
+      const nextGroundingSources = Array.isArray(data.groundingSources)
+        ? data.groundingSources
+        : [];
+      const nextSearchQueries = Array.isArray(data.searchQueries) ? data.searchQueries : [];
+
+      setActiveHuntConfig(payload);
+      setDecisionFilter('active');
+      setFilters({ ...DEFAULT_PRODUCT_FILTERS, category: payload.category });
+      setLiveResults(hydratedProducts);
+      setSessionMeta(nextSessionMeta);
+      setLastCostSummary(nextCostSummary);
       setBalanceRefreshSignal((prev) => prev + 1);
-      setResearchSourceMode(data.researchSourceMode ?? 'kalodata-openapi');
-      setResearchedAt(data.researchedAt ?? new Date().toISOString());
-      setGroundingSources(Array.isArray(data.groundingSources) ? data.groundingSources : []);
-      setSearchQueries(Array.isArray(data.searchQueries) ? data.searchQueries : []);
+      setResearchSourceMode(nextSourceMode);
+      setResearchedAt(nextResearchedAt);
+      setGroundingSources(nextGroundingSources);
+      setSearchQueries(nextSearchQueries);
       setRejectedIds([]);
       setGroundingOpen(false);
+
+      // Immediately replace the persisted latest Research Results snapshot in localStorage
+      persistLatestResearchSession({
+        products: hydratedProducts,
+        sessionMeta: nextSessionMeta,
+        lastCostSummary: nextCostSummary,
+        researchSourceMode: nextSourceMode,
+        researchedAt: nextResearchedAt,
+        groundingSources: nextGroundingSources,
+        searchQueries: nextSearchQueries,
+        activeHuntConfig: payload,
+        rejectedIds: [],
+      });
 
       // Phase 2: Automatically archive every completed Product Hunting run into Local Research History
       // Strictly separate from Saved Products; never silently deletes older History runs on QuotaExceededError
@@ -712,6 +863,65 @@ export default function App() {
       peerProducts,
       sourceView: 'history',
     });
+  };
+
+  const handleOpenDeepDive = (
+    product: ResearchProduct,
+    originView: DeepDiveOriginView,
+    researchDateOverride?: string | null
+  ) => {
+    const context = buildDeepDiveTargetContext(
+      product,
+      originView,
+      activeHuntConfig?.researchMode ?? researchMode,
+      researchDateOverride ?? product.researchedAt ?? researchedAt
+    );
+    setActiveReport(null);
+    setDeepDiveTarget(context);
+    setDeepDiveStatesByProduct((prev) =>
+      prev[context.canonicalProductId]
+        ? prev
+        : {
+            ...prev,
+            [context.canonicalProductId]: createInitialDeepDiveWorkspaceState(),
+          }
+    );
+    setActiveView('deep-dive');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const updateActiveDeepDiveState = (
+    updater: (current: DeepDiveWorkspaceState) => DeepDiveWorkspaceState
+  ) => {
+    if (!deepDiveTarget) return;
+    const key = deepDiveTarget.canonicalProductId;
+    setDeepDiveStatesByProduct((prev) => {
+      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+      return {
+        ...prev,
+        [key]: updater(current),
+      };
+    });
+  };
+
+  const handleDeepDiveToggleOption = (id: DeepDiveAnalysisId) => {
+    updateActiveDeepDiveState((current) => toggleDeepDiveSelection(current, id));
+  };
+
+  const handleDeepDiveSelectAll = () => {
+    updateActiveDeepDiveState((current) => selectAllDeepDiveOptions(current));
+  };
+
+  const handleDeepDiveClearAll = () => {
+    updateActiveDeepDiveState((current) => clearAllDeepDiveOptions(current));
+  };
+
+  const handleDeepDiveToggleExpand = (id: DeepDiveAnalysisId) => {
+    updateActiveDeepDiveState((current) => toggleDeepDiveExpansion(current, id));
+  };
+
+  const handleDeepDiveRunSelected = () => {
+    updateActiveDeepDiveState((current) => recordNotImplementedRunAttempt(current));
   };
 
   const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
@@ -1010,7 +1220,7 @@ export default function App() {
     : null;
 
   return (
-    <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] text-zinc-950">
+    <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50 transition-colors">
       <Header
         activeView={activeView}
         activeCategory={filters.category}
@@ -1029,12 +1239,15 @@ export default function App() {
         }}
         language={language}
         onChangeLanguage={setLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        creditBalance={creditBalance}
       />
 
       <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16 sm:pb-24">
         {/* Subtle Market Context Line */}
         <div className="mb-4">
-          <p className="text-xs font-medium text-zinc-500">
+          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             Thailand · TikTok Shop Affiliate · THB (฿)
           </p>
         </div>
@@ -1043,13 +1256,13 @@ export default function App() {
         {activeView !== 'history' && storageAlert && !storageAlert.ok && (
           <div
             role="alert"
-            className="mb-6 p-4 bg-red-50/90 border border-red-200 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-red-900"
+            className="mb-6 p-4 bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-red-900 dark:text-red-200"
           >
             <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
               <div>
                 <div className="font-semibold">{t.historyQuotaWarningTitle}</div>
-                <p className="mt-0.5 text-red-800 leading-relaxed">
+                <p className="mt-0.5 text-red-800 dark:text-red-300 leading-relaxed">
                   {language === 'my'
                     ? storageAlert.errorMy ?? storageAlert.errorEn
                     : storageAlert.errorEn}
@@ -1063,7 +1276,7 @@ export default function App() {
                   setActiveView('history');
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-800 rounded-lg cursor-pointer whitespace-nowrap"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg cursor-pointer whitespace-nowrap"
               >
                 {t.navHistory}
               </button>
@@ -1071,7 +1284,7 @@ export default function App() {
                 type="button"
                 onClick={() => setStorageAlert(null)}
                 aria-label={t.historyQuotaWarningDismiss}
-                className="text-red-700 hover:text-red-950 p-1 rounded cursor-pointer"
+                className="text-red-700 dark:text-red-400 hover:text-red-950 dark:hover:text-red-200 p-1 rounded cursor-pointer"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -1108,12 +1321,50 @@ export default function App() {
             onBackToHunting={handleGoHome}
             language={language}
           />
+        ) : activeView === 'deep-dive' && deepDiveTarget ? (
+          /* Phase 9.1: Dedicated Deep Dive Foundation Workspace (Zero API Calls, Non-Mutating) */
+          <DeepDiveWorkspaceView
+            context={deepDiveTarget}
+            workspaceState={
+              deepDiveStatesByProduct[deepDiveTarget.canonicalProductId] ??
+              createInitialDeepDiveWorkspaceState()
+            }
+            evaluation={
+              deepDiveTarget.originView === 'hunting'
+                ? (liveEvaluations.get(deepDiveTarget.originalProductId) ?? null)
+                : null
+            }
+            salesWeightPct={salesWeightPct}
+            onToggleOption={handleDeepDiveToggleOption}
+            onSelectAll={handleDeepDiveSelectAll}
+            onClearAll={handleDeepDiveClearAll}
+            onToggleExpand={handleDeepDiveToggleExpand}
+            onRunSelected={handleDeepDiveRunSelected}
+            onBack={() => {
+              setActiveView(deepDiveTarget.originView);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenProductDetail={() => {
+              setActiveReport({
+                product: deepDiveTarget.product,
+                researchDate: deepDiveTarget.researchDate,
+                evaluation:
+                  deepDiveTarget.originView === 'hunting'
+                    ? (liveEvaluations.get(deepDiveTarget.originalProductId) ?? null)
+                    : null,
+                peerProducts:
+                  deepDiveTarget.originView === 'hunting' ? liveResults : undefined,
+                sourceView: deepDiveTarget.originView,
+              });
+            }}
+            language={language}
+          />
         ) : (
           <>
             {/* Focused Editorial Header */}
             <section className="max-w-3xl">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 leading-[1.18] text-balance">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 leading-[1.18] text-balance">
                   {t.heroTitle}
                 </h1>
                 <InfoPopover
@@ -1133,7 +1384,7 @@ export default function App() {
                 onSelectAllVerifiedCategories={handleSelectAllVerifiedCategories}
                 onClearAllCategories={handleClearAllCategories}
                 syncedCategoryCache={syncedCategoryCache}
-                onSyncedCategoryCacheChange={setSyncedCategoryCache}
+                onSyncedCategoryCacheChange={handleSyncedCategoryCacheChange}
                 selectedSubcategoryIds={selectedSubcategoryIds}
                 onToggleSubcategory={handleToggleSubcategory}
                 onClearSubcategories={handleClearSubcategories}
@@ -1156,6 +1407,10 @@ export default function App() {
                 onQuantityChange={setQuantity}
                 spendingLimitCredits={spendingLimitCredits}
                 onSpendingLimitChange={setSpendingLimitCredits}
+                myanmarLanguageOnly={myanmarLanguageOnly}
+                onMyanmarLanguageOnlyChange={setMyanmarLanguageOnly}
+                myanmarVideoScanPages={myanmarVideoScanPages}
+                onMyanmarVideoScanPagesChange={setMyanmarVideoScanPages}
                 lastCostSummary={lastCostSummary}
                 isHunting={isHunting}
                 quotaStatus={quotaStatus}
@@ -1167,7 +1422,7 @@ export default function App() {
             </div>
 
             {/* Kalodata Open Center Free Credit Balance Check */}
-            <KalodataBalanceBar language={language} refreshSignal={balanceRefreshSignal} />
+            <KalodataBalanceBar language={language} balanceState={creditBalance} />
 
             {/* Research Results Interface */}
             <section
@@ -1177,21 +1432,21 @@ export default function App() {
               className="mt-12 scroll-mt-20"
             >
               {/* Section Title + Session Timestamp */}
-              <div className="flex flex-wrap items-baseline justify-between gap-4 pb-4 border-b border-zinc-200">
+              <div className="flex flex-wrap items-baseline justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
                 <div className="flex items-baseline gap-2.5">
                   <h2
                     id="results-section-heading"
-                    className="font-display text-xl font-bold tracking-tight text-zinc-950"
+                    className="font-display text-xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50"
                   >
                     {t.resultsSectionHeading}
                   </h2>
-                  <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                  <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                     ({visibleProducts.length})
                   </span>
                 </div>
 
                 {researchedAt && !isHunting && (
-                  <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                  <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                     {t.savedResearchDateLabel}: {formatResearchDate(researchedAt, language)}
                   </span>
                 )}
@@ -1207,10 +1462,10 @@ export default function App() {
 
               {/* Live Strategy Slider Bar (Recalculates Scores & Re-Sorts Results Instantly) */}
               {!isHunting && liveResults.length > 0 && (
-                <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 mr-1">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500" aria-hidden="true" />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                       <span>{t.strategyLabel}</span>
                     </span>
                     {(
@@ -1226,8 +1481,8 @@ export default function App() {
                         onClick={() => handleSelectStrategyPreset(preset.id)}
                         className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                           strategyPreset === preset.id
-                            ? 'bg-zinc-950 text-white border-zinc-950'
-                            : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                            ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
                         }`}
                       >
                         {preset.label}
@@ -1237,15 +1492,15 @@ export default function App() {
 
                   <div className="w-full lg:w-72 space-y-1 shrink-0">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-zinc-500">
+                      <span className="text-zinc-500 dark:text-zinc-400">
                         {t.commissionWeight}{' '}
-                        <strong className="font-mono text-emerald-700 tabular-nums">
+                        <strong className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
                           {100 - salesWeightPct}%
                         </strong>
                       </span>
-                      <span className="text-zinc-500">
+                      <span className="text-zinc-500 dark:text-zinc-400">
                         {t.salesWeight}{' '}
-                        <strong className="font-mono text-zinc-950 tabular-nums">
+                        <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
                           {salesWeightPct}%
                         </strong>
                       </span>
@@ -1258,7 +1513,7 @@ export default function App() {
                       value={salesWeightPct}
                       onChange={(e) => handleCustomWeightChange(Number(e.target.value))}
                       aria-label={t.strategyLabel}
-                      className="w-full h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-zinc-950"
+                      className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-950 dark:accent-zinc-100"
                     />
                   </div>
                 </div>
@@ -1268,18 +1523,18 @@ export default function App() {
               {!isHunting && quotaStatus.paused && (
                 <div
                   role="status"
-                  className="mt-4 p-5 bg-white border border-amber-300/90 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+                  className="mt-4 p-5 bg-white dark:bg-zinc-900 border border-amber-300/90 dark:border-amber-700/70 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-4"
                 >
                   <div className="flex items-start gap-3">
                     <PauseCircle
-                      className="w-5 h-5 text-amber-700 shrink-0 mt-0.5"
+                      className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5"
                       aria-hidden="true"
                     />
                     <div className="space-y-1.5 text-xs sm:text-sm">
-                      <h3 className="font-semibold text-zinc-950">
+                      <h3 className="font-semibold text-zinc-950 dark:text-zinc-50">
                         {t.manualPausedTitle}
                       </h3>
-                      <p className="text-zinc-600 leading-relaxed">
+                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                         {t.manualPausedDesc}
                       </p>
                     </div>
@@ -1292,7 +1547,7 @@ export default function App() {
                         handleResumeResearch();
                         handleFocusSettings();
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <PlayCircle className="w-4 h-4" aria-hidden="true" />
                       <span>{t.btnResumeAndRetry}</span>
@@ -1303,11 +1558,11 @@ export default function App() {
 
               {/* Kalodata OpenAPI Verified Sources Summary */}
               {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
-                <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
+                <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
                   <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
-                      <Globe className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
-                      <span className="font-semibold text-zinc-900 whitespace-nowrap">
+                      <Globe className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                         {t.kalodataSourceBarLabel}
                       </span>
                       <InfoPopover
@@ -1319,19 +1574,19 @@ export default function App() {
                             <p>{t.kalodataSourceNote}</p>
                             {sessionMeta &&
                               sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
-                                <p className="text-zinc-500">{t.qualityGateExcludedNote}</p>
+                                <p className="text-zinc-500 dark:text-zinc-400">{t.qualityGateExcludedNote}</p>
                               )}
                           </div>
                         }
                       />
-                      <span className="text-zinc-300" aria-hidden="true">·</span>
-                      <span className="font-mono text-zinc-600 tabular-nums">
+                      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">·</span>
+                      <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
                         {groundingSources.length} {t.groundingSourcesCount}
                       </span>
                       {sessionMeta && (
                         <>
-                          <span className="text-zinc-300" aria-hidden="true">·</span>
-                          <span className="font-mono text-zinc-700 tabular-nums">
+                          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">·</span>
+                          <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
                             {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
                             {t.qualityGateVerifiedLabel}
                           </span>
@@ -1342,7 +1597,7 @@ export default function App() {
                       type="button"
                       onClick={() => setGroundingOpen((prev) => !prev)}
                       aria-expanded={groundingOpen}
-                      className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
                     >
                       <span>{groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}</span>
                       {groundingOpen ? (
@@ -1355,8 +1610,8 @@ export default function App() {
 
                   {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
                     lastCostSummary && (
-                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700">
-                        <span className="font-sans font-semibold text-zinc-900">
+                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
                           {lastCostSummary.researchMode === 'deep'
                             ? t.modeDeepTitle
                             : lastCostSummary.researchMode === 'balanced'
@@ -1364,19 +1619,28 @@ export default function App() {
                               : t.modeFastTitle}
                         </span>
                         <span>
-                          {t.breakdownRankLabel}: {lastCostSummary.rankApiCalls}
-                          {lastCostSummary.productDetailApiCalls > 0
-                            ? ` · ${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
-                            : ''}
-                          {lastCostSummary.shopDetailApiCalls > 0
-                            ? ` · ${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
-                            : ''}
-                          {lastCostSummary.commentInsightApiCalls > 0
-                            ? ` · ${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
-                            : ''}
+                          {[
+                            lastCostSummary.rankApiCalls > 0
+                              ? `${t.breakdownRankLabel}: ${lastCostSummary.rankApiCalls}`
+                              : null,
+                            (lastCostSummary.videoRankApiCalls ?? 0) > 0
+                              ? `${t.breakdownVideoRankLabel}: ${lastCostSummary.videoRankApiCalls}`
+                              : null,
+                            lastCostSummary.productDetailApiCalls > 0
+                              ? `${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
+                              : null,
+                            lastCostSummary.shopDetailApiCalls > 0
+                              ? `${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
+                              : null,
+                            lastCostSummary.commentInsightApiCalls > 0
+                              ? `${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                         {lastCostSummary.geminiAnalysisApplied && (
-                          <span className="font-sans text-emerald-700 font-medium">
+                          <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
                             {t.geminiAnalysisActiveLabel}
                           </span>
                         )}
@@ -1384,7 +1648,7 @@ export default function App() {
                           {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
                           {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
                         </span>
-                        <span className="text-emerald-700 font-semibold">
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
                           {t.actualCostLabel}:{' '}
                           {lastCostSummary.actualCredits !== null
                             ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
@@ -1394,10 +1658,10 @@ export default function App() {
                     )}
 
                   {groundingOpen && (
-                    <div className="border-t border-zinc-100 px-4 sm:px-5 pb-4 pt-3 space-y-3">
+                    <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
                       {searchQueries.length > 0 && (
-                        <div className="text-xs text-zinc-500">
-                          <span className="font-medium text-zinc-700 mr-1.5">
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
                             {t.groundingQueriesLabel}:
                           </span>
                           <span>{searchQueries.join(' · ')}</span>
@@ -1407,24 +1671,24 @@ export default function App() {
                         {groundingSources.map((src, idx) => (
                           <li
                             key={`${idx}-${src.url}`}
-                            className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 text-xs"
+                            className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
                           >
-                            <span className="text-zinc-700 truncate">
+                            <span className="text-zinc-700 dark:text-zinc-300 truncate">
                               {src.title}{' '}
-                              <span className="text-zinc-400">({src.domain})</span>
+                              <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
                             </span>
                             {isSafeHttpUrl(src.url) ? (
                               <a
                                 href={src.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-medium text-zinc-900 hover:underline whitespace-nowrap shrink-0"
+                                className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
                               >
                                 <span>{t.sourceOpenLink}</span>
                                 <ExternalLink className="w-3 h-3" aria-hidden="true" />
                               </a>
                             ) : (
-                              <span className="text-zinc-400 whitespace-nowrap shrink-0">
+                              <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
                                 {t.sourcePendingLink}
                               </span>
                             )}
@@ -1471,15 +1735,15 @@ export default function App() {
               {displayErrorText && !isHunting && (
                 <div
                   role="alert"
-                  className="mt-6 bg-white border border-red-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  className="mt-6 bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-800/60 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
                     <div>
-                      <h3 className="text-sm font-semibold text-zinc-950">
+                      <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                         {t.huntingErrorTitle}
                       </h3>
-                      <p className="mt-1 text-xs sm:text-sm text-zinc-600 leading-relaxed">
+                      <p className="mt-1 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
                         {displayErrorText}
                       </p>
                     </div>
@@ -1487,7 +1751,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleFocusSettings}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
                   >
                     <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{t.huntingRetryBtn}</span>
@@ -1495,28 +1759,180 @@ export default function App() {
                 </div>
               )}
 
+              {/* Phase 9 Method 1: Honest Myanmar Video-First Discovery Scope Strip */}
+              {!isHunting &&
+                sessionMeta?.myanmarFilterApplied &&
+                sessionMeta.myanmarVideoDiscovery && (() => {
+                  const vStats = sessionMeta.myanmarVideoDiscovery!;
+                  const hasShortfall =
+                    vStats.affiliateProductsVerified < vStats.requestedQuantity;
+                  return (
+                    <div className="mt-5 p-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl space-y-2.5 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                          {t.myanmarVideoDiscoveryBarTitle}
+                        </span>
+                        <span
+                          className={`font-mono text-[11px] font-semibold ${
+                            vStats.stopReason === 'target-reached'
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-amber-700 dark:text-amber-400'
+                          }`}
+                        >
+                          {t.myanmarVideoStopReasonLabels[vStats.stopReason]}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 font-mono tabular-nums">
+                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {t.myanmarVideoStatPagesScanned}
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                            {vStats.videoPagesScanned}/{vStats.maxVideoScanPages}
+                          </div>
+                        </div>
+                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {t.myanmarVideoStatVideosScanned}
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                            {vStats.totalVideosScanned.toLocaleString('en-US')}
+                          </div>
+                        </div>
+                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {t.myanmarVideoStatMatchedVideos}
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                            {vStats.matchedMyanmarVideos}
+                          </div>
+                        </div>
+                        <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
+                          <div className="font-sans text-[10px] text-emerald-800 dark:text-emerald-300 truncate">
+                            {t.myanmarVideoStatCollectedProducts}
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                            {vStats.affiliateProductsVerified}/{vStats.requestedQuantity}
+                          </div>
+                        </div>
+                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {t.myanmarVideoStatSkippedNonAff}
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                            {vStats.nonAffiliateOrUnavailableSkipped}
+                          </div>
+                        </div>
+                      </div>
+
+                      {hasShortfall && (
+                        <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                          {t.myanmarVideoShortfallNotice}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+              {/* Phase 9 Legacy: Honest Myanmar Review Discovery Scope Strip (when review-first ran) */}
+              {!isHunting && sessionMeta?.myanmarFilterApplied && sessionMeta.myanmarReviewDiscovery && (() => {
+                const stats = sessionMeta.myanmarReviewDiscovery!;
+                const isPartial = stats.candidatesCheckedForReviews < stats.totalCandidatesFound;
+                return (
+                  <div className="mt-5 p-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl space-y-2.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                        {t.myanmarDiscoveryBarTitle}
+                      </span>
+                      <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                        {t.myanmarStatReviewsInspected}:{' '}
+                        <strong className="text-zinc-900 dark:text-zinc-100">{stats.totalReviewsInspected}</strong>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 font-mono tabular-nums">
+                      <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {t.myanmarStatCandidatesFound}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                          {stats.totalCandidatesFound}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {t.myanmarStatCheckedReviews}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                          {stats.candidatesCheckedForReviews}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {t.myanmarStatReviewsAvailable}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                          {stats.productsWithReviewsAvailable}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/50">
+                        <div className="font-sans text-[10px] text-amber-800 dark:text-amber-300 truncate">
+                          {t.myanmarStatReviewUnavailable}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+                          {stats.productsReviewUnavailable}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
+                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          {t.myanmarStatNoMyanmarReview}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                          {stats.productsNoMyanmarReview}
+                        </div>
+                      </div>
+                      <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
+                        <div className="font-sans text-[10px] text-emerald-800 dark:text-emerald-300 truncate">
+                          {t.myanmarStatMatchedProducts}
+                        </div>
+                        <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                          {stats.matchedMyanmarReviewProducts}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isPartial && (
+                      <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                        {t.myanmarDiscoveryPartialNotice}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Results Body: Loading vs Empty Ready State vs Filtered Empty vs Live Card Grid */}
               <div className="mt-6">
                 {isHunting ? (
-                  <div className="bg-white border border-zinc-200/90 rounded-xl px-6 py-16 text-center">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 text-zinc-900 inline-flex items-center justify-center mb-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
+                    <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 inline-flex items-center justify-center mb-4">
                       <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
                     </div>
-                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950">
+                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.huntingLoadingTitle}
                     </h3>
-                    <p className="mt-2 text-sm text-zinc-500 max-w-lg mx-auto leading-relaxed">
+                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
                       {t.huntingLoadingDesc}
                     </p>
                     {activeHuntConfig && (
-                      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 py-2 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700">
-                        <span className="font-medium text-zinc-950">
+                      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300">
+                        <span className="font-medium text-zinc-950 dark:text-zinc-50">
                           {activeHuntConfig.market}
                         </span>
                         <span aria-hidden="true">·</span>
                         <span>{activeCategoryLabel}</span>
                         <span aria-hidden="true">·</span>
-                        <span className="font-mono tabular-nums font-medium text-zinc-950">
+                        <span className="font-mono tabular-nums font-medium text-zinc-950 dark:text-zinc-50">
                           {activeHuntConfig.quantity} {t.quantityProductsUnit}
                         </span>
                       </div>
@@ -1525,36 +1941,65 @@ export default function App() {
                       <button
                         type="button"
                         onClick={handleCancelHunting}
-                        className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:text-zinc-950 hover:border-zinc-400 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer"
                       >
                         {t.huntingCancelBtn}
                       </button>
                     </div>
                   </div>
                 ) : liveResults.length === 0 ? (
-                  <div className="bg-white border border-zinc-200/90 rounded-xl px-6 py-14 sm:py-16 text-center">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 text-zinc-600 inline-flex items-center justify-center mb-4">
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 sm:py-16 text-center">
+                    <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
                       <SearchCheck className="w-5 h-5" aria-hidden="true" />
                     </div>
 
-                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950">
-                      {t.emptyLiveTitle}
+                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                      {sessionMeta?.myanmarFilterApplied
+                        ? t.myanmarEmptyTitle
+                        : t.emptyLiveTitle}
                     </h3>
-                    <p className="mt-2 text-sm text-zinc-500 max-w-lg mx-auto leading-relaxed">
-                      {t.emptyLiveDesc}
+                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
+                      {sessionMeta?.myanmarFilterApplied
+                        ? t.myanmarEmptyDesc
+                        : t.emptyLiveDesc}
                     </p>
+                    {sessionMeta?.myanmarFilterApplied &&
+                      !sessionMeta.myanmarReviewDiscovery &&
+                      !sessionMeta.myanmarVideoDiscovery &&
+                      typeof sessionMeta.myanmarCandidatesScanned === 'number' && (
+                        <p className="mt-3 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+                          {t.myanmarEmptyScannedPrefix}{' '}
+                          <strong className="text-zinc-950 dark:text-zinc-50">
+                            {sessionMeta.myanmarCandidatesScanned}
+                          </strong>
+                        </p>
+                      )}
 
                     <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleFocusSettings}
-                        className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
-                      >
-                        <span>
-                          {quotaStatus.paused ? t.btnResumeAndRetry : t.emptyStartBtn}
-                        </span>
-                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                      </button>
+                      {sessionMeta?.myanmarFilterApplied ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMyanmarLanguageOnly(false);
+                            handleFocusSettings();
+                          }}
+                          className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                        >
+                          <RotateCcw className="w-4 h-4" aria-hidden="true" />
+                          <span>{t.myanmarTurnOffFilterBtn}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleFocusSettings}
+                          className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                        >
+                          <span>
+                            {quotaStatus.paused ? t.btnResumeAndRetry : t.emptyStartBtn}
+                          </span>
+                          <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                      )}
 
                       {researchHistory.length > 0 && (
                         <button
@@ -1563,9 +2008,9 @@ export default function App() {
                             setActiveView('history');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
                         >
-                          <History className="w-4 h-4 text-zinc-600" aria-hidden="true" />
+                          <History className="w-4 h-4 text-zinc-600 dark:text-zinc-400" aria-hidden="true" />
                           <span>
                             {t.historyViewTitle} ({researchHistory.length})
                           </span>
@@ -1579,7 +2024,7 @@ export default function App() {
                             setActiveView('saved');
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 bg-white border border-zinc-300 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
                         >
                           <span>
                             {t.savedViewTitle} ({savedRecords.length})
@@ -1589,11 +2034,11 @@ export default function App() {
                     </div>
                   </div>
                 ) : visibleProducts.length === 0 ? (
-                  <div className="bg-white border border-zinc-200/90 rounded-xl px-6 py-14 text-center">
-                    <h3 className="font-display text-base font-semibold text-zinc-950">
+                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
+                    <h3 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.emptyFilteredTitle}
                     </h3>
-                    <p className="mt-2 text-sm text-zinc-500 max-w-md mx-auto leading-relaxed">
+                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
                       {t.emptyFilteredDesc}
                     </p>
                     <button
@@ -1602,7 +2047,7 @@ export default function App() {
                         setFilters({ ...DEFAULT_PRODUCT_FILTERS });
                         setDecisionFilter('active');
                       }}
-                      className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+                      className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
                     >
                       <RotateCcw className="w-4 h-4" aria-hidden="true" />
                       <span>{t.resetViewBtn}</span>
@@ -1622,6 +2067,13 @@ export default function App() {
                         onSave={handleToggleSave}
                         onReject={handleToggleReject}
                         onOpenReport={handleOpenResultReport}
+                        onOpenDeepDive={(targetProduct) =>
+                          handleOpenDeepDive(
+                            targetProduct,
+                            'hunting',
+                            targetProduct.researchedAt ?? researchedAt
+                          )
+                        }
                         isCompared={comparedLiveProductIds.has(product.id)}
                         onToggleCompare={handleToggleCompareLiveProduct}
                         language={language}
@@ -1638,7 +2090,7 @@ export default function App() {
       {/* Compact Cross-View Comparison Tray Bar (appears only when user selects products to compare) */}
       {compareItems.length > 0 && !comparisonModalOpen && (
         <div className="sticky bottom-3 z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none">
-          <div className="pointer-events-auto bg-zinc-950 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="pointer-events-auto bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 min-w-0">
               <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
               <span className="font-medium truncate">
@@ -1670,8 +2122,8 @@ export default function App() {
       )}
 
       {/* Quiet Minimal Footer */}
-      <footer className="border-t border-zinc-200/80 bg-white">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500">
+      <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
           <span>{t.footerNote}</span>
           <span>{t.marketScope}</span>
         </div>
@@ -1733,6 +2185,17 @@ export default function App() {
         decision={activeReport ? getDecision(activeReport.product.id) : 'pending'}
         onSave={handleToggleSave}
         onReject={handleToggleReject}
+        onOpenDeepDive={(targetProduct) =>
+          handleOpenDeepDive(
+            targetProduct,
+            activeReport?.sourceView === 'saved'
+              ? 'saved'
+              : activeReport?.sourceView === 'history'
+                ? 'history'
+                : 'hunting',
+            activeReport?.researchDate ?? targetProduct.researchedAt ?? researchedAt
+          )
+        }
         onClose={() => setActiveReport(null)}
         onAiAnalysisSaved={handleAiAnalysisSaved}
         onProductEnriched={handleProductEnriched}

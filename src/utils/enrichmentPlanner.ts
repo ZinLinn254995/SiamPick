@@ -20,6 +20,7 @@ import {
   KALODATA_USD_PER_CREDIT,
 } from './kalodataPricing.ts';
 import { evaluateProductOpportunity, getCanonicalProductId } from './scoring.ts';
+import { detectMyanmarLanguageForProduct } from './myanmarLanguageDetector.ts';
 
 function roundCredits(value: number): number {
   return Math.round(value * 1000) / 1000;
@@ -127,6 +128,8 @@ export function buildStructuredReviewInsight(params: {
   commentsAnalyzed: number;
   averageRating: number | null;
   ratedCommentCount: number;
+  rawComments?: string[];
+  pagesFetched?: number;
   updatedAt?: string;
 }): KalodataReviewInsightData {
   const positivePoints = dedupeReviewPoints(params.positivePoints);
@@ -171,6 +174,17 @@ export function buildStructuredReviewInsight(params: {
         ? Math.round(params.averageRating * 10) / 10
         : null,
     ratedCommentCount: Math.max(0, Math.round(params.ratedCommentCount || 0)),
+    ...(Array.isArray(params.rawComments) && params.rawComments.length > 0
+      ? {
+          rawComments: params.rawComments
+            .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+            .map((c) => c.trim().slice(0, 300))
+            .slice(0, 60),
+        }
+      : {}),
+    ...(typeof params.pagesFetched === 'number' && params.pagesFetched >= 1
+      ? { pagesFetched: Math.floor(params.pagesFetched) }
+      : {}),
     updatedAt: params.updatedAt ?? new Date().toISOString(),
   };
 }
@@ -612,6 +626,9 @@ export function mergeEnrichmentIntoProduct(
     if (pd.productReviewCount !== null && pd.productReviewCount > 0) {
       nextMetrics.productReviewCount = Math.round(pd.productReviewCount);
     }
+    if (typeof pd.productDescription === 'string' && pd.productDescription.trim().length > 0) {
+      nextMetrics.productDescription = pd.productDescription.trim();
+    }
     if (pd.launchDate) nextMetrics.launchDate = pd.launchDate;
     if (pd.trendPointsCount > 0) {
       nextMetrics.trendPointsCount = pd.trendPointsCount;
@@ -896,6 +913,8 @@ export function mergeEnrichmentIntoProduct(
     sources: updatedSources,
   };
 
+  const myanmarLanguage = detectMyanmarLanguageForProduct(mergedProduct);
+
   // Phase 2 Scoring Engine connection: recalculate immediately using real Kalodata data
   const evaluation = evaluateProductOpportunity(mergedProduct, {
     salesWeightPct: scoringOptions?.salesWeightPct ?? 50,
@@ -905,6 +924,7 @@ export function mergeEnrichmentIntoProduct(
   return {
     product: {
       ...mergedProduct,
+      myanmarLanguage,
       opportunityScore: evaluation.totalScore,
       confidenceLevel: evaluation.confidenceLevel,
     },
