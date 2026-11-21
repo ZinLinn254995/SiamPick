@@ -4,6 +4,7 @@ import {
   Bookmark,
   Check,
   Copy,
+  Download,
   ExternalLink,
   ImageOff,
   RotateCcw,
@@ -13,31 +14,59 @@ import {
   X,
 } from 'lucide-react';
 import {
+  AiProductAnalysis,
   DataStatus,
+  KalodataShopEnrichmentRecord,
   Language,
   OpportunityEvaluation,
   ProductDecision,
+  ProductDecisionVerdict,
+  ProductEnrichmentExecutionSummary,
   ResearchProduct,
   RiskSeverity,
   ScoreTier,
   VerificationState,
 } from '../types/product';
 import { formatThb } from '../utils/format';
-import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
-import { formatResearchDate } from '../utils/savedProductsStorage';
+import { DEFAULT_SPENDING_LIMIT_CREDITS } from '../utils/kalodataPricing';
+import {
+  evaluateProductOpportunity,
+  getCanonicalProductId,
+  normalizeDataStatus,
+} from '../utils/scoring';
+import {
+  deriveProductDecisionSummary,
+  resolveEffectiveAiAnalysis,
+} from '../utils/productAnalytics';
+import {
+  buildCompleteTextReport,
+  buildProductsExportCsv,
+  buildProductsExportJson,
+  triggerFileDownload,
+} from '../utils/exportReports';
+import { formatResearchDate, formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
+import { AiProductAnalysisSection } from './AiProductAnalysisSection';
+import { DataEnrichmentSection } from './DataEnrichmentSection';
 
 interface ResearchReportDrawerProps {
   product: ResearchProduct | null;
   evaluation?: OpportunityEvaluation | null;
   salesWeightPct?: number;
   peerProducts?: readonly ResearchProduct[];
+  spendingLimitCredits?: number;
   researchDate?: string | null;
   decision: ProductDecision;
   onSave: (id: string) => void;
   onReject: (id: string) => void;
   onClose: () => void;
+  onAiAnalysisSaved?: (productId: string, analysis: AiProductAnalysis) => void;
+  onProductEnriched?: (
+    updatedProduct: ResearchProduct,
+    shopDetail: KalodataShopEnrichmentRecord | null,
+    summary: ProductEnrichmentExecutionSummary | null
+  ) => void;
   language: Language;
 }
 
@@ -66,23 +95,35 @@ function dataStatusColorClass(status: DataStatus): string {
   return 'text-zinc-400';
 }
 
+function decisionVerdictColor(verdict: ProductDecisionVerdict): string {
+  if (verdict === 'recommended') return 'text-emerald-700';
+  if (verdict === 'worth-testing') return 'text-zinc-900';
+  if (verdict === 'need-more-data') return 'text-amber-700';
+  return 'text-red-700';
+}
+
 export function ResearchReportDrawer({
   product,
   evaluation: providedEvaluation,
   salesWeightPct = 50,
   peerProducts,
+  spendingLimitCredits = DEFAULT_SPENDING_LIMIT_CREDITS,
   researchDate,
   decision,
   onSave,
   onReject,
   onClose,
+  onAiAnalysisSaved,
+  onProductEnriched,
   language,
 }: ResearchReportDrawerProps) {
   const [copied, setCopied] = useState(false);
+  const [activeAiAnalysis, setActiveAiAnalysis] = useState<AiProductAnalysis | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCopied(false);
+    setActiveAiAnalysis(null);
     scrollContainerRef.current?.scrollTo({ top: 0 });
   }, [product?.id]);
 
@@ -288,69 +329,70 @@ export function ResearchReportDrawer({
   const formattedResearchDate = effectiveDateIso
     ? formatResearchDate(effectiveDateIso, language)
     : null;
+  const effectiveAiAnalysis = resolveEffectiveAiAnalysis(product, activeAiAnalysis);
+  const decisionSummary = deriveProductDecisionSummary(
+    product,
+    evaluation,
+    effectiveAiAnalysis
+  );
+  const km = product.kalodataMetrics;
+  const lastUpdatedIso = km?.lastEnrichedAt ?? effectiveDateIso;
+  const formattedLastUpdated = lastUpdatedIso
+    ? formatResearchDateTime(lastUpdatedIso, language)
+    : t.dataStatusLabels.unavailable;
 
   const handleCopyReport = async () => {
-    const priceDisplay =
-      product.priceThb !== null && product.priceThb > 0
-        ? `${formatThb(product.priceThb)} (${t.dataStatusLabels[effectivePriceStatus]})`
-        : t.dataStatusLabels[effectivePriceStatus];
-
-    const lines = [
-      `${displayName} (${categoryLabel} · ${subCategory})`,
-      `Brand / Seller: ${product.brand ? `${product.brand} · ` : ''}${product.shopName} (${product.dispatchHub})`,
-      `Market: Thailand TikTok Shop | Price: ${priceDisplay}${formattedResearchDate ? ` | ${t.savedResearchDateLabel}: ${formattedResearchDate}` : ''}`,
-      `Opportunity Score: ${evaluation.totalScore}/100 (${t.scoringTierLabels[evaluation.tier]}) | Strategy: ${strategyFocusLabel} | Data Confidence: ${t.confidenceLabels[evaluation.confidenceLevel]} (${evaluation.confidencePct}%) | Verified: ${evaluation.verifiedCount}/${evaluation.totalCriteria}`,
-      `Note: ${t.scoringDisclaimer}`,
-      ``,
-      `${t.scoringBreakdownHeading}:`,
-      ...evaluation.criteria.map((c) => {
-        const scorePart =
-          c.wasRedistributed || c.earnedPoints === null
-            ? `[${t.scoringRedistributedLabel}] (Base ${c.baseWeight} pts)`
-            : `${c.earnedPoints.toFixed(1)}/${c.effectiveWeight.toFixed(1)} pts (Base ${c.baseWeight} pts) [${t.criterionVerificationLabels[c.verification]}]`;
-        return `  - ${t.factorLabels[c.key]}: ${scorePart} — ${isMy ? c.evidenceMy : c.evidenceEn}`;
-      }),
-      ``,
-      `${t.scoringStrengthsHeading}: ${(isMy ? evaluation.strengthsMy : evaluation.strengthsEn).join(' / ')}`,
-      `${t.scoringWeaknessesHeading}: ${(isMy ? evaluation.weaknessesMy : evaluation.weaknessesEn).join(' / ')}`,
-      `${t.scoringRisksHeading}: ${(isMy ? evaluation.risksMy : evaluation.risksEn).join(' / ')}`,
-      `${t.scoringConfidenceHeading}: ${isMy ? evaluation.confidenceExplanationMy : evaluation.confidenceExplanationEn}`,
-      ``,
-      `${t.sec01WhyChoose}: ${whyChoose}`,
-      `${t.sec02MarketDemand}: ${demandEvidence.join(' / ')}`,
-      `${t.sec03SalesPotential}: ${salesPotential}`,
-      `${t.sec04CommissionIncome}: ${
-        hasVerifiedCommission && product.commissionRate !== null
-          ? `${product.commissionRate}%${earningPerOrderThb !== null ? ` (${formatThb(earningPerOrderThb)} ${t.perOrder})` : ''}`
-          : t.dataStatusLabels[effectiveCommissionStatus]
-      } — ${commissionNote}`,
-      `${t.sec05ReviewStrengths}: ${reviewStrengths.join(' / ')}`,
-      `${t.sec06CustomerComplaints}: ${customerComplaints.join(' / ')}`,
-      `${t.sec07CompetitorLandscape}: ${competitionDetail}`,
-      `${t.sec08SellerReliability}: ${sellerReliability}`,
-      `${t.sec09ProductRisks}: ${generalRisks.join(' / ')}`,
-      `${t.sec10AiVideoPotential}: ${aiVideoDetail}`,
-      `${t.sec11VideoContentIdeas}:`,
-      ...product.videoIdeas.map(
-        (idea, idx) =>
-          `  ${idx + 1}. ${isMy ? idea.titleMy : idea.titleEn} — ${isMy ? idea.outlineMy : idea.outlineEn}`
-      ),
-      `${t.sec12ResearchSources}:`,
-      ...product.sources.map(
-        (src) => `  - ${isMy ? src.labelMy : src.labelEn}${src.url ? ` (${src.url})` : ''}`
-      ),
-      `${t.sec13ConfidenceLevel}: ${t.confidenceLabels[evaluation.confidenceLevel]} — ${confidenceDetail}`,
-      `${t.sec14MissingData}: ${missingData.join(' / ')}`,
-    ].join('\n');
+    const fullText = buildCompleteTextReport({
+      product,
+      evaluation,
+      decision: decisionSummary,
+      aiAnalysis: effectiveAiAnalysis,
+      language,
+      researchDate: effectiveDateIso,
+    });
 
     try {
-      await navigator.clipboard.writeText(lines);
+      await navigator.clipboard.writeText(fullText);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     }
+  };
+
+  const handleExportSingleCsv = () => {
+    const evalMap = new Map([[product.id, evaluation]]);
+    const csv = buildProductsExportCsv([product], {
+      salesWeightPct,
+      evaluations: evalMap,
+      researchDate: effectiveDateIso,
+      exportTitle: `SiamPick Report - ${product.name}`,
+      language,
+    });
+    const safeId = getCanonicalProductId(product).replace(/[^a-zA-Z0-9_-]/g, '');
+    triggerFileDownload(
+      csv,
+      `siampick-report-${safeId || 'product'}.csv`,
+      'text/csv;charset=utf-8;'
+    );
+  };
+
+  const handleExportSingleJson = () => {
+    const evalMap = new Map([[product.id, evaluation]]);
+    const json = buildProductsExportJson([product], {
+      salesWeightPct,
+      evaluations: evalMap,
+      researchDate: effectiveDateIso,
+      exportTitle: `SiamPick Report - ${product.name}`,
+      language,
+    });
+    const safeId = getCanonicalProductId(product).replace(/[^a-zA-Z0-9_-]/g, '');
+    triggerFileDownload(
+      json,
+      `siampick-report-${safeId || 'product'}.json`,
+      'application/json;charset=utf-8;'
+    );
   };
 
   return (
@@ -384,16 +426,20 @@ export function ResearchReportDrawer({
             </button>
           </div>
 
-          {/* Quick Jump Bar */}
+          {/* Quick Jump Bar — All 10 Structured Report Sections */}
           <nav
             aria-label="Report sections"
-            className="px-5 sm:px-7 pb-2.5 flex items-center gap-5 overflow-x-auto text-xs font-medium text-zinc-500"
+            className="px-5 sm:px-7 pb-2.5 flex items-center gap-4 overflow-x-auto text-xs font-medium text-zinc-500"
           >
             {[
               { id: 'rep-overview', label: t.reportJumpSummary },
+              { id: 'rep-decision', label: t.reportTabDecision },
+              { id: 'rep-market-data', label: t.reportTabMarketData },
+              { id: 'rep-enrichment', label: t.enrichJumpLabel },
               { id: 'rep-score', label: t.scoringJumpLabel },
+              { id: 'rep-ai-analysis', label: t.aiJumpLabel },
               { id: 'rep-reviews', label: t.reportJumpReviews },
-              { id: 'rep-risks', label: t.reportJumpRisks },
+              { id: 'rep-risks', label: t.reportTabStrengths },
               { id: 'rep-video', label: t.reportJumpVideo },
               { id: 'rep-sources', label: t.reportJumpSources },
             ].map((item) => (
@@ -517,6 +563,134 @@ export function ResearchReportDrawer({
             </div>
           </div>
 
+          {/* Phase 5: Multi-Signal Final Decision Summary */}
+          <section
+            id="rep-decision"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-3"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-display text-sm font-semibold text-zinc-950">
+                {t.decisionSummaryHeading}
+              </h3>
+              <span
+                className={`text-xs font-semibold ${decisionVerdictColor(decisionSummary.verdict)}`}
+              >
+                {t.decisionVerdictLabels[decisionSummary.verdict]}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-3 text-xs">
+              <p className="text-zinc-800 leading-relaxed font-medium">
+                {isMy ? decisionSummary.reasonMy : decisionSummary.reasonEn}
+              </p>
+
+              {(isMy ? decisionSummary.cautionsMy : decisionSummary.cautionsEn).length > 0 && (
+                <div className="pt-2.5 border-t border-zinc-200/70 space-y-1">
+                  <div className="text-[11px] font-semibold text-zinc-600">
+                    {t.decisionCautionsLabel}
+                  </div>
+                  <ul className="space-y-1 text-zinc-600 leading-relaxed list-disc pl-4 marker:text-amber-600">
+                    {(isMy ? decisionSummary.cautionsMy : decisionSummary.cautionsEn).map(
+                      (caution, idx) => (
+                        <li key={`${idx}-${caution}`}>{caution}</li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Dedicated Verified Kalodata Market Data Block (Clearly Separate from AI Assessment) */}
+          <section
+            id="rep-market-data"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-3"
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <h3 className="font-display text-sm font-semibold text-zinc-950">
+                  {t.reportTabMarketData}
+                </h3>
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  {t.reportKalodataTag} · Product ID:{' '}
+                  <span className="font-mono tabular-nums text-zinc-700">
+                    {getCanonicalProductId(product)}
+                  </span>
+                </p>
+              </div>
+              <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
+                {km?.dateRange ?? t.dataStatusLabels.unavailable}
+              </span>
+            </div>
+
+            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-4 rounded-xl bg-white border border-zinc-200/80 text-xs">
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'ရောင်းအား' : 'Sales Volume'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.salesVolume === 'number'
+                    ? km.salesVolume.toLocaleString('en-US')
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'ဝင်ငွေ (GMV)' : 'Revenue (THB)'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.revenueThb === 'number'
+                    ? formatThb(km.revenueThb)
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'ဝင်ငွေတိုးတက်နှုန်း' : 'Revenue Growth'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.revenueGrowthRate === 'number'
+                    ? `${km.revenueGrowthRate >= 0 ? '+' : ''}${km.revenueGrowthRate.toFixed(1)}%`
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'Creator အရေအတွက်' : 'Creator Count'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.creatorNumber === 'number'
+                    ? km.creatorNumber.toLocaleString('en-US')
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{t.cardCommission}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-emerald-700 tabular-nums">
+                  {hasVerifiedCommission && product.commissionRate !== null
+                    ? `${product.commissionRate}%`
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'Video ဝင်ငွေ' : 'Video Revenue'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.videoRevenueThb === 'number'
+                    ? formatThb(km.videoRevenueThb)
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'Live ဝင်ငွေ' : 'Live Revenue'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.liveRevenueThb === 'number'
+                    ? formatThb(km.liveRevenueThb)
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-zinc-500">{isMy ? 'ဆိုင် GMV' : 'Shop GMV'}</dt>
+                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
+                  {typeof km?.shopRevenueThb === 'number'
+                    ? formatThb(km.shopRevenueThb)
+                    : t.dataStatusLabels.unavailable}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
           {/* 14-Field Data Provenance Matrix (Verified / Estimated / Unverified / Unavailable) */}
           <section className="pt-6 border-t border-zinc-200 space-y-3">
             <div>
@@ -544,6 +718,16 @@ export function ResearchReportDrawer({
               ))}
             </div>
           </section>
+
+          {/* Phase 4: Kalodata Data Enrichment (Product Detail, Shop Info, Review Insights, Cost Control) */}
+          <DataEnrichmentSection
+            product={product}
+            salesWeightPct={salesWeightPct}
+            peerProducts={peerProducts}
+            spendingLimitCredits={spendingLimitCredits}
+            language={language}
+            onProductEnriched={onProductEnriched}
+          />
 
           {/* Phase 2: 7-Factor 100-Point Product Scoring Engine Breakdown & Explanations */}
           <section id="rep-score" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4">
@@ -701,6 +885,24 @@ export function ResearchReportDrawer({
               </div>
             </div>
           </section>
+
+          {/* Phase 3: Gemini AI Product Analysis (Explicitly Separated from Verified Kalodata Market Data) */}
+          <div className="space-y-1">
+            <div className="text-[11px] font-medium text-zinc-500">{t.reportAiTag}</div>
+            <AiProductAnalysisSection
+              product={product}
+              evaluation={evaluation}
+              salesWeightPct={salesWeightPct}
+              peerProducts={peerProducts}
+              language={language}
+              onAnalysisReady={(nextAnalysis) => {
+                setActiveAiAnalysis(nextAnalysis);
+                if (nextAnalysis && nextAnalysis.source === 'gemini' && !nextAnalysis.geminiFailed) {
+                  onAiAnalysisSaved?.(product.id, nextAnalysis);
+                }
+              }}
+            />
+          </div>
 
           {/* 01. Why Choose This Product */}
           <section className="pt-6 border-t border-zinc-200 space-y-2.5">
@@ -1005,8 +1207,25 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 12. Research Sources & Links, 13. Confidence Level, 14. Unavailable Data */}
+          {/* 12. Research Sources & Links, Last Updated, 13. Confidence Level, 14. Unavailable Data */}
           <section id="rep-sources" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-zinc-100 text-xs text-zinc-500">
+              <span>
+                {t.reportLastUpdatedLabel}:{' '}
+                <strong className="font-mono text-zinc-900 tabular-nums">
+                  {formattedLastUpdated}
+                </strong>
+              </span>
+              {formattedResearchDate && (
+                <span>
+                  {t.savedResearchDateLabel}:{' '}
+                  <strong className="font-mono text-zinc-700 tabular-nums">
+                    {formattedResearchDate}
+                  </strong>
+                </span>
+              )}
+            </div>
+
             <div className="space-y-2.5">
               <h3 className="font-display text-sm font-semibold text-zinc-950">
                 {t.sec12ResearchSources}
@@ -1071,12 +1290,12 @@ export function ResearchReportDrawer({
           </section>
         </div>
 
-        {/* Sticky Decision Footer */}
-        <div className="shrink-0 bg-white border-t border-zinc-200 px-5 sm:px-7 py-4 flex flex-wrap items-center gap-2.5">
+        {/* Sticky Decision & Export Footer */}
+        <div className="shrink-0 bg-white border-t border-zinc-200 px-5 sm:px-7 py-3.5 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleCopyReport}
-            className="inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
           >
             {copied ? (
               <>
@@ -1089,6 +1308,26 @@ export function ResearchReportDrawer({
                 <span>{t.reportCopy}</span>
               </>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportSingleCsv}
+            aria-label={t.exportCsvBtn}
+            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{t.reportExportCsv}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportSingleJson}
+            aria-label={t.exportJsonBtn}
+            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <Download className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{t.reportExportJson}</span>
           </button>
 
           <button

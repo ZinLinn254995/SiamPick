@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  GitCompareArrows,
   Globe,
   History,
   Loader2,
@@ -17,16 +18,22 @@ import {
   X,
 } from 'lucide-react';
 import {
+  AiProductAnalysis,
   AppView,
   BothCategoryMode,
   CategoryFilter,
-  ConfidenceLevel,
+  ComparisonSelectionItem,
   DecisionFilter,
   GroundingSourceLink,
+  KalodataShopEnrichmentRecord,
   Language,
   OpportunityEvaluation,
   ProductCategory,
   ProductDecision,
+  ProductDecisionSummary,
+  ProductEnrichmentExecutionSummary,
+  ProductResultsFilterState,
+  ProductSortField,
   ResearchConfig,
   ResearchCostSummary,
   ResearchHistoryRecord,
@@ -35,8 +42,8 @@ import {
   ResearchQuantity,
   ResearchQuotaStatus,
   ResearchSessionResponse,
-  ResultSortKey,
   SavedProductRecord,
+  SortDirection,
   StorageWriteResult,
   StrategyPreset,
 } from './types/product';
@@ -48,7 +55,27 @@ import {
   MAX_SPENDING_LIMIT_CREDITS,
   MIN_SPENDING_LIMIT_CREDITS,
 } from './utils/kalodataPricing';
-import { evaluateProductBatch } from './utils/scoring';
+import { evaluateProductBatch, getCanonicalProductId } from './utils/scoring';
+import {
+  computeBestProductSelections,
+  DEFAULT_PRODUCT_FILTERS,
+  deriveProductDecisionSummary,
+  filterProducts,
+  sortProductsByField,
+} from './utils/productAnalytics';
+import {
+  buildProductsExportCsv,
+  buildProductsExportJson,
+  triggerFileDownload,
+} from './utils/exportReports';
+import {
+  absorbProductsIntoEnrichmentCache,
+  hydrateProductFromEnrichmentCache,
+} from './utils/enrichmentCache';
+import {
+  getCanonicalShopId,
+  mergeEnrichmentIntoProduct,
+} from './utils/enrichmentPlanner';
 import {
   createSavedRecord,
   formatResearchDate,
@@ -69,17 +96,14 @@ import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
 import { ResearchHistoryView } from './components/ResearchHistoryView';
 import { KalodataBalanceBar } from './components/KalodataBalanceBar';
+import { BestProductsStrip } from './components/BestProductsStrip';
+import { ProductFilterBar } from './components/ProductFilterBar';
+import { ProductComparisonModal } from './components/ProductComparisonModal';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
   'sales-first': 70,
   'commission-first': 30,
-};
-
-const CONFIDENCE_RANK: Record<ConfidenceLevel, number> = {
-  High: 3,
-  Medium: 2,
-  Low: 1,
 };
 
 interface ActiveReportState {
@@ -180,10 +204,15 @@ export default function App() {
   // Session Rejected IDs
   const [rejectedIds, setRejectedIds] = useState<string[]>([]);
 
-  // Results Interface Filter & Sort State
-  const [resultsCategory, setResultsCategory] = useState<CategoryFilter>('all');
+  // Phase 5: Results Multi-Filter, 8-Field Sort & Multi-Product Comparison State
+  const [filters, setFilters] = useState<ProductResultsFilterState>({
+    ...DEFAULT_PRODUCT_FILTERS,
+  });
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>('active');
-  const [sortKey, setSortKey] = useState<ResultSortKey>('score-desc');
+  const [sortField, setSortField] = useState<ProductSortField>('overallScore');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [compareItems, setCompareItems] = useState<ComparisonSelectionItem[]>([]);
+  const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
 
   // Report Drawer & Scoring Guide
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
@@ -353,7 +382,7 @@ export default function App() {
 
   const handleHeaderCategorySelect = (cat: CategoryFilter) => {
     setActiveView('hunting');
-    setResultsCategory(cat);
+    setFilters((prev) => ({ ...prev, category: cat }));
     window.setTimeout(() => {
       resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
@@ -434,7 +463,7 @@ export default function App() {
     setHuntError(null);
     setIsHunting(true);
     setDecisionFilter('active');
-    setResultsCategory(payload.category);
+    setFilters({ ...DEFAULT_PRODUCT_FILTERS, category: payload.category });
 
     window.setTimeout(() => {
       resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -504,10 +533,22 @@ export default function App() {
 
       // Live verified research succeeded — clear any paused state
       setQuotaStatus({ paused: false, reason: null, pausedAt: null });
-      setLiveResults(data.products);
+
+      // Phase 4: Absorb newly enriched Product/Shop/Review data into localStorage cache,
+      // and hydrate any un-enriched Fast/Balanced items with already-cached Shop/Detail data at 0 credits
+      absorbProductsIntoEnrichmentCache(data.products);
+      const hydratedProducts = data.products.map(
+        (item) =>
+          hydrateProductFromEnrichmentCache(item, {
+            salesWeightPct: payload.salesWeightPct,
+            peerProducts: data.products,
+          }).product
+      );
+
+      setLiveResults(hydratedProducts);
       setSessionMeta({
         requestedQuantity: data.requestedQuantity ?? payload.quantity,
-        verifiedProductCount: data.verifiedProductCount ?? data.products.length,
+        verifiedProductCount: data.verifiedProductCount ?? hydratedProducts.length,
         filteredOutCount: data.filteredOutCount ?? 0,
       });
       setLastCostSummary(data.costSummary ?? null);
@@ -521,7 +562,10 @@ export default function App() {
 
       // Phase 2: Automatically archive every completed Product Hunting run into Local Research History
       // Strictly separate from Saved Products; never silently deletes older History runs on QuotaExceededError
-      const newHistoryRecord = createResearchHistoryRecord(data, payload);
+      const newHistoryRecord = createResearchHistoryRecord(
+        { ...data, products: hydratedProducts },
+        payload
+      );
       setResearchHistory((prev) => {
         const nextHistory = [newHistoryRecord, ...prev];
         const writeRes = persistResearchHistory(nextHistory);
@@ -583,6 +627,151 @@ export default function App() {
     });
   };
 
+  const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
+    setLiveResults((prev) =>
+      prev.map((item) => (item.id === productId ? { ...item, aiAnalysis: analysis } : item))
+    );
+    setSavedRecords((prev) =>
+      prev.map((rec) =>
+        rec.id === productId
+          ? { ...rec, product: { ...rec.product, aiAnalysis: analysis } }
+          : rec
+      )
+    );
+    setActiveReport((prev) =>
+      prev && prev.product.id === productId
+        ? { ...prev, product: { ...prev.product, aiAnalysis: analysis } }
+        : prev
+    );
+  };
+
+  /**
+   * Phase 4: Propagates newly enriched Product/Shop/Review data across live results,
+   * saved products, and active drawer — automatically reusing fetched Shop Detail across
+   * ALL other products sharing the exact same Shop ID at 0 extra credits!
+   */
+  const handleProductEnriched = (
+    updatedProduct: ResearchProduct,
+    shopDetail: KalodataShopEnrichmentRecord | null,
+    summary: ProductEnrichmentExecutionSummary | null
+  ) => {
+    const sharedShopId = shopDetail?.shopId ?? null;
+
+    const applyUpdate = (
+      item: ResearchProduct,
+      peers: readonly ResearchProduct[]
+    ): ResearchProduct => {
+      if (item.id === updatedProduct.id) {
+        return updatedProduct;
+      }
+      if (
+        sharedShopId &&
+        shopDetail &&
+        !item.kalodataMetrics?.shopEnriched &&
+        getCanonicalShopId(item) === sharedShopId
+      ) {
+        return mergeEnrichmentIntoProduct(
+          item,
+          { shopDetail },
+          { salesWeightPct, peerProducts: peers }
+        ).product;
+      }
+      return item;
+    };
+
+    setLiveResults((prev) => prev.map((item) => applyUpdate(item, prev)));
+    setSavedRecords((prev) => {
+      const savedProducts = prev.map((r) => r.product);
+      return prev.map((rec) => {
+        const nextProd = applyUpdate(rec.product, savedProducts);
+        return nextProd !== rec.product ? { ...rec, product: nextProd } : rec;
+      });
+    });
+    setCompareItems((prev) =>
+      prev.map((item) =>
+        item.product.id === updatedProduct.id
+          ? { ...item, product: updatedProduct }
+          : item
+      )
+    );
+    setActiveReport((prev) =>
+      prev && prev.product.id === updatedProduct.id
+        ? { ...prev, product: updatedProduct, evaluation: null }
+        : prev
+    );
+
+    if (summary && summary.actualApiCalls > 0) {
+      setBalanceRefreshSignal((prev) => prev + 1);
+    }
+  };
+
+  // Phase 5: Cross-view Multi-Product Comparison handlers (Results, Saved, History)
+  const comparedKeySet = useMemo(
+    () => new Set(compareItems.map((c) => c.selectionKey)),
+    [compareItems]
+  );
+
+  const comparedLiveProductIds = useMemo(
+    () =>
+      new Set(
+        compareItems
+          .filter((c) => c.source === 'results')
+          .map((c) => c.product.id)
+      ),
+    [compareItems]
+  );
+
+  const toggleCompareItem = (item: ComparisonSelectionItem) => {
+    setCompareItems((prev) => {
+      if (prev.some((existing) => existing.selectionKey === item.selectionKey)) {
+        return prev.filter((existing) => existing.selectionKey !== item.selectionKey);
+      }
+      // Cap simultaneous comparison at 6 products for clean readability
+      const next = [...prev, item];
+      return next.length > 6 ? next.slice(next.length - 6) : next;
+    });
+  };
+
+  const handleToggleCompareLiveProduct = (product: ResearchProduct) => {
+    toggleCompareItem({
+      selectionKey: `results:${product.id}`,
+      canonicalProductId: getCanonicalProductId(product),
+      product,
+      source: 'results',
+      sourceLabelEn: TRANSLATIONS.en.compareSourceResults,
+      sourceLabelMy: TRANSLATIONS.my.compareSourceResults,
+      researchDate: product.researchedAt ?? researchedAt,
+    });
+  };
+
+  const handleToggleCompareSavedRecord = (record: SavedProductRecord) => {
+    toggleCompareItem({
+      selectionKey: `saved:${record.id}`,
+      canonicalProductId: getCanonicalProductId(record.product),
+      product: record.product,
+      source: 'saved',
+      sourceLabelEn: TRANSLATIONS.en.compareSourceSaved,
+      sourceLabelMy: TRANSLATIONS.my.compareSourceSaved,
+      researchDate: record.researchDate,
+    });
+  };
+
+  const handleToggleCompareHistoryProduct = (
+    product: ResearchProduct,
+    recordId: string,
+    archiveDate: string
+  ) => {
+    toggleCompareItem({
+      selectionKey: `history:${recordId}:${product.id}`,
+      canonicalProductId: getCanonicalProductId(product),
+      product,
+      source: 'history',
+      sourceLabelEn: `${TRANSLATIONS.en.compareSourceHistory} (${archiveDate.slice(0, 10)})`,
+      sourceLabelMy: `${TRANSLATIONS.my.compareSourceHistory} (${archiveDate.slice(0, 10)})`,
+      researchDate: archiveDate,
+    });
+  };
+
   // Counts for decision tabs inside Hunting Results
   const queueCounts = useMemo(() => {
     let active = 0;
@@ -609,50 +798,88 @@ export default function App() {
     [liveResults, salesWeightPct, strategyPreset]
   );
 
-  // Filtered and Score-sorted results
-  const visibleProducts = useMemo<ResearchProduct[]>(() => {
-    const filtered = liveResults.filter((product) => {
-      if (resultsCategory !== 'all' && product.category !== resultsCategory) {
-        return false;
+  // Phase 5: Multi-signal Product Decision Summaries (Score + Sales + Commission + Competition + Confidence + AI)
+  const liveDecisions = useMemo(() => {
+    const map = new Map<string, ProductDecisionSummary>();
+    for (const product of liveResults) {
+      const ev = liveEvaluations.get(product.id);
+      if (ev) {
+        map.set(product.id, deriveProductDecisionSummary(product, ev));
       }
+    }
+    return map;
+  }, [liveResults, liveEvaluations]);
+
+  // Phase 5: Multi-filtered & 8-factor sorted results (reacts instantly to Strategy Slider)
+  const visibleProducts = useMemo<ResearchProduct[]>(() => {
+    const queueFiltered = liveResults.filter((product) => {
       if (decisionFilter === 'active') return !rejectedIdSet.has(product.id);
       if (decisionFilter === 'saved') return savedIdSet.has(product.id);
       if (decisionFilter === 'rejected') return rejectedIdSet.has(product.id);
       return true;
     });
 
-    return [...filtered].sort((a, b) => {
-      const evalA = liveEvaluations.get(a.id);
-      const evalB = liveEvaluations.get(b.id);
-      const scoreA = evalA?.totalScore ?? a.opportunityScore;
-      const scoreB = evalB?.totalScore ?? b.opportunityScore;
-      const confRankA = CONFIDENCE_RANK[evalA?.confidenceLevel ?? a.confidenceLevel];
-      const confRankB = CONFIDENCE_RANK[evalB?.confidenceLevel ?? b.confidenceLevel];
-      const confPctA = evalA?.confidencePct ?? 0;
-      const confPctB = evalB?.confidencePct ?? 0;
+    const multiFiltered = filterProducts(
+      queueFiltered,
+      liveEvaluations,
+      filters,
+      liveDecisions
+    );
 
-      switch (sortKey) {
-        case 'score-desc':
-          return scoreB - scoreA || confPctB - confPctA;
-        case 'score-asc':
-          return scoreA - scoreB || confPctA - confPctB;
-        case 'confidence-desc':
-          return confRankB - confRankA || confPctB - confPctA || scoreB - scoreA;
-        case 'price-asc': {
-          const pA = a.priceThb ?? Number.POSITIVE_INFINITY;
-          const pB = b.priceThb ?? Number.POSITIVE_INFINITY;
-          return pA - pB;
-        }
-        case 'price-desc': {
-          const pA = a.priceThb ?? -1;
-          const pB = b.priceThb ?? -1;
-          return pB - pA;
-        }
-        default:
-          return 0;
-      }
+    return sortProductsByField(
+      multiFiltered,
+      liveEvaluations,
+      sortField,
+      sortDirection
+    );
+  }, [
+    liveResults,
+    liveEvaluations,
+    liveDecisions,
+    decisionFilter,
+    savedIdSet,
+    rejectedIdSet,
+    filters,
+    sortField,
+    sortDirection,
+  ]);
+
+  // Phase 5: 6-Category Best Product Selection computed from current visible results
+  const bestSelections = useMemo(
+    () =>
+      visibleProducts.length > 0
+        ? computeBestProductSelections(visibleProducts, liveEvaluations)
+        : [],
+    [visibleProducts, liveEvaluations]
+  );
+
+  const handleExportVisibleCsv = () => {
+    if (visibleProducts.length === 0) return;
+    const csv = buildProductsExportCsv(visibleProducts, {
+      salesWeightPct,
+      evaluations: liveEvaluations,
+      researchDate: researchedAt,
+      exportTitle: 'SiamPick Product Research Results',
+      language,
     });
-  }, [liveResults, liveEvaluations, resultsCategory, decisionFilter, savedIdSet, rejectedIdSet, sortKey]);
+    triggerFileDownload(csv, 'siampick-research-results.csv', 'text/csv;charset=utf-8;');
+  };
+
+  const handleExportVisibleJson = () => {
+    if (visibleProducts.length === 0) return;
+    const json = buildProductsExportJson(visibleProducts, {
+      salesWeightPct,
+      evaluations: liveEvaluations,
+      researchDate: researchedAt,
+      exportTitle: 'SiamPick Product Research Results',
+      language,
+    });
+    triggerFileDownload(
+      json,
+      'siampick-research-results.json',
+      'application/json;charset=utf-8;'
+    );
+  };
 
   const activeCategoryLabel = activeHuntConfig
     ? activeHuntConfig.category === 'all'
@@ -672,7 +899,7 @@ export default function App() {
     <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] text-zinc-950">
       <Header
         activeView={activeView}
-        activeCategory={resultsCategory}
+        activeCategory={filters.category}
         onGoHome={handleGoHome}
         onSelectCategory={handleHeaderCategorySelect}
         onFocusStrategy={handleFocusSettings}
@@ -687,43 +914,15 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         language={language}
+        onChangeLanguage={setLanguage}
       />
 
-      <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-16 sm:pb-24">
-        {/* Top Utility Strip: Market Context + Quiet Language Switch */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16 sm:pb-24">
+        {/* Subtle Market Context Line */}
+        <div className="mb-4">
           <p className="text-xs font-medium text-zinc-500">
             Thailand · TikTok Shop Affiliate · THB (฿)
           </p>
-
-          <div
-            className="inline-flex items-center p-0.5 bg-zinc-200/70 rounded-lg"
-            role="group"
-            aria-label="Language"
-          >
-            <button
-              type="button"
-              onClick={() => setLanguage('en')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                language === 'en'
-                  ? 'bg-white text-zinc-950 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-950'
-              }`}
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage('my')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                language === 'my'
-                  ? 'bg-white text-zinc-950 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-950'
-              }`}
-            >
-              မြန်မာ
-            </button>
-          </div>
         </div>
 
         {/* Global Local Storage Quota Alert Banner (shown on Hunting/Saved views too) */}
@@ -771,6 +970,8 @@ export default function App() {
           <SavedProductsView
             records={savedRecords}
             salesWeightPct={salesWeightPct}
+            comparedKeys={comparedKeySet}
+            onToggleCompareRecord={handleToggleCompareSavedRecord}
             onDelete={handleDeleteSaved}
             onOpenReport={handleOpenSavedReport}
             onBackToHunting={handleGoHome}
@@ -786,6 +987,8 @@ export default function App() {
             onDismissStorageAlert={() => setStorageAlert(null)}
             getDecision={getDecision}
             onSaveProduct={handleSaveProductFromArchive}
+            comparedKeys={comparedKeySet}
+            onToggleCompareHistoryProduct={handleToggleCompareHistoryProduct}
             onOpenReport={handleOpenHistoryReport}
             onDeleteRecords={handleDeleteHistoryRecords}
             onBackToHunting={handleGoHome}
@@ -1121,85 +1324,35 @@ export default function App() {
                 </div>
               )}
 
-              {/* Results Controls Bar: Category Filter + Decision Tabs + Score Sort */}
-              <div className="mt-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div
-                    className="inline-flex items-center p-1 bg-zinc-200/70 rounded-lg overflow-x-auto"
-                    role="group"
-                    aria-label={t.settingCategoryLabel}
-                  >
-                    {(
-                      [
-                        { id: 'all', label: t.categoryAll },
-                        { id: 'womens-fashion', label: t.categoryFashion },
-                        { id: 'cosmetics-beauty', label: t.categoryBeauty },
-                      ] as const
-                    ).map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setResultsCategory(tab.id)}
-                        className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                          resultsCategory === tab.id
-                            ? 'bg-white text-zinc-950 shadow-xs'
-                            : 'text-zinc-600 hover:text-zinc-950'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
+              {/* Phase 5: Best Product Selection Highlights (6 Categories with Sufficiency Guards) */}
+              {!isHunting && bestSelections.length > 0 && (
+                <BestProductsStrip
+                  selections={bestSelections}
+                  comparedIds={comparedLiveProductIds}
+                  onOpenReport={handleOpenResultReport}
+                  onToggleCompare={handleToggleCompareLiveProduct}
+                  language={language}
+                />
+              )}
 
-                  {/* Active / Saved / Rejected Queue Switch */}
-                  <div
-                    className="inline-flex items-center gap-4 text-xs font-medium pl-1"
-                    role="group"
-                    aria-label="Review queue"
-                  >
-                    {(
-                      [
-                        { id: 'active', label: t.queueActive, count: queueCounts.active },
-                        { id: 'saved', label: t.queueSaved, count: queueCounts.saved },
-                        { id: 'rejected', label: t.queueRejected, count: queueCounts.rejected },
-                      ] as const
-                    ).map((q) => (
-                      <button
-                        key={q.id}
-                        type="button"
-                        onClick={() => setDecisionFilter(q.id)}
-                        className={`py-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
-                          decisionFilter === q.id
-                            ? 'text-zinc-950 border-zinc-950'
-                            : 'text-zinc-500 border-transparent hover:text-zinc-900'
-                        }`}
-                      >
-                        {q.label}{' '}
-                        <span className="font-mono tabular-nums text-zinc-400">({q.count})</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Score & Metric Sort Select */}
-                <div className="flex items-center gap-2.5 self-start lg:self-auto">
-                  <label htmlFor="results-sort" className="text-xs font-medium text-zinc-500">
-                    {t.sortLabel}
-                  </label>
-                  <select
-                    id="results-sort"
-                    value={sortKey}
-                    onChange={(e) => setSortKey(e.target.value as ResultSortKey)}
-                    className="min-h-[38px] px-3 py-1.5 text-xs sm:text-sm font-medium bg-white border border-zinc-200 rounded-lg text-zinc-900 focus:outline-none focus:border-zinc-900 cursor-pointer"
-                  >
-                    <option value="score-desc">{t.sortScoreDesc}</option>
-                    <option value="score-asc">{t.sortScoreAsc}</option>
-                    <option value="confidence-desc">{t.sortConfidenceDesc}</option>
-                    <option value="price-asc">{t.sortPriceAsc}</option>
-                    <option value="price-desc">{t.sortPriceDesc}</option>
-                  </select>
-                </div>
-              </div>
+              {/* Phase 5: 8-Field Sort + Highest/Lowest + 9-Criteria Multi-Filter + Export CSV/JSON */}
+              <ProductFilterBar
+                filters={filters}
+                onChangeFilters={setFilters}
+                decisionFilter={decisionFilter}
+                onChangeDecisionFilter={setDecisionFilter}
+                queueCounts={queueCounts}
+                sortField={sortField}
+                onChangeSortField={setSortField}
+                sortDirection={sortDirection}
+                onToggleSortDirection={() =>
+                  setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+                }
+                exportDisabled={isHunting || visibleProducts.length === 0}
+                onExportCsv={handleExportVisibleCsv}
+                onExportJson={handleExportVisibleJson}
+                language={language}
+              />
 
               {/* Error State (Propagated honestly from server — never replaced with fake results) */}
               {displayErrorText && !isHunting && (
@@ -1333,7 +1486,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        setResultsCategory('all');
+                        setFilters({ ...DEFAULT_PRODUCT_FILTERS });
                         setDecisionFilter('active');
                       }}
                       className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
@@ -1349,12 +1502,15 @@ export default function App() {
                         key={product.id}
                         product={product}
                         evaluation={liveEvaluations.get(product.id)}
+                        decisionSummary={liveDecisions.get(product.id)}
                         salesWeightPct={salesWeightPct}
                         peerProducts={liveResults}
                         decision={getDecision(product.id)}
                         onSave={handleToggleSave}
                         onReject={handleToggleReject}
                         onOpenReport={handleOpenResultReport}
+                        isCompared={comparedLiveProductIds.has(product.id)}
+                        onToggleCompare={handleToggleCompareLiveProduct}
                         language={language}
                       />
                     ))}
@@ -1366,6 +1522,40 @@ export default function App() {
         )}
       </main>
 
+      {/* Compact Cross-View Comparison Tray Bar (appears only when user selects products to compare) */}
+      {compareItems.length > 0 && !comparisonModalOpen && (
+        <div className="sticky bottom-3 z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none">
+          <div className="pointer-events-auto bg-zinc-950 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+              <span className="font-medium truncate">
+                {t.compareBarTitle}:{' '}
+                <strong className="font-mono tabular-nums">{compareItems.length}</strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCompareItems([])}
+                className="px-2.5 py-1.5 text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              >
+                {t.compareClearBtn}
+              </button>
+              <button
+                type="button"
+                onClick={() => setComparisonModalOpen(true)}
+                className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span>
+                  {t.compareOpenBtn} ({compareItems.length})
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quiet Minimal Footer */}
       <footer className="border-t border-zinc-200/80 bg-white">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500">
@@ -1373,6 +1563,28 @@ export default function App() {
           <span>{t.marketScope}</span>
         </div>
       </footer>
+
+      {/* Phase 5: Multi-Product Side-by-Side Comparison Modal (Results + Saved + History) */}
+      <ProductComparisonModal
+        isOpen={comparisonModalOpen}
+        items={compareItems}
+        savedRecords={savedRecords}
+        salesWeightPct={salesWeightPct}
+        onRemoveItem={(key) =>
+          setCompareItems((prev) => prev.filter((item) => item.selectionKey !== key))
+        }
+        onAddSavedRecord={handleToggleCompareSavedRecord}
+        onClearAll={() => {
+          setCompareItems([]);
+          setComparisonModalOpen(false);
+        }}
+        onOpenReport={(prod) => {
+          setComparisonModalOpen(false);
+          handleOpenResultReport(prod);
+        }}
+        onClose={() => setComparisonModalOpen(false)}
+        language={language}
+      />
 
       {/* Detailed Research Report Drawer (Works from Hunting Results, History Archives, and Saved Products) */}
       <ResearchReportDrawer
@@ -1386,11 +1598,14 @@ export default function App() {
         }
         salesWeightPct={salesWeightPct}
         peerProducts={activeReport?.peerProducts}
+        spendingLimitCredits={spendingLimitCredits}
         researchDate={activeReport?.researchDate ?? null}
         decision={activeReport ? getDecision(activeReport.product.id) : 'pending'}
         onSave={handleToggleSave}
         onReject={handleToggleReject}
         onClose={() => setActiveReport(null)}
+        onAiAnalysisSaved={handleAiAnalysisSaved}
+        onProductEnriched={handleProductEnriched}
         language={language}
       />
     </div>

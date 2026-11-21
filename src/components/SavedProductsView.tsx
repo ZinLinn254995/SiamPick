@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  GitCompareArrows,
   ImageOff,
   Trash2,
 } from 'lucide-react';
@@ -20,6 +21,11 @@ import {
 } from '../types/product';
 import { formatThb } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
+import {
+  buildProductsExportCsv,
+  buildProductsExportJson,
+  triggerFileDownload,
+} from '../utils/exportReports';
 import { formatResearchDate } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
@@ -27,6 +33,8 @@ import { ProductImage } from './ProductImage';
 interface SavedProductsViewProps {
   records: SavedProductRecord[];
   salesWeightPct: number;
+  comparedKeys?: Set<string>;
+  onToggleCompareRecord?: (record: SavedProductRecord) => void;
   onDelete: (id: string) => void;
   onOpenReport: (record: SavedProductRecord) => void;
   onBackToHunting: () => void;
@@ -50,6 +58,8 @@ function dataStatusColorClass(status: DataStatus): string {
 export function SavedProductsView({
   records,
   salesWeightPct,
+  comparedKeys,
+  onToggleCompareRecord,
   onDelete,
   onOpenReport,
   onBackToHunting,
@@ -109,53 +119,35 @@ export function SavedProductsView({
       : 0;
 
   const handleExportCsv = () => {
-    const header = [
-      'Product Name',
-      'Brand',
-      'Category',
-      'Price (THB)',
-      'Price Status',
-      'Commission Rate',
-      'Opportunity Score (Internal / 100)',
-      'Recommendation Tier',
-      'Confidence Level',
-      'Research Date',
-      'Sources',
-    ];
-    const rows = evaluatedRecords.map(({ record, evaluation }) => {
-      const p = record.product;
-      const pStatus: DataStatus = normalizeDataStatus(
-        p.priceThb === null || p.priceThb <= 0 ? 'unavailable' : (p.priceStatus ?? 'estimated')
-      );
-      const sourceText = record.sources
-        .map((s) => (s.url ? `${s.labelEn} (${s.url})` : s.labelEn))
-        .join(' | ');
-      return [
-        `"${p.name.replace(/"/g, '""')}"`,
-        `"${(p.brand ?? p.shopName).replace(/"/g, '""')}"`,
-        p.category === 'womens-fashion' ? "Women's Fashion" : 'Cosmetics & Beauty',
-        p.priceThb !== null && p.priceThb > 0 ? p.priceThb : 'Unavailable',
-        pStatus,
-        p.commissionVerified && p.commissionRate !== null
-          ? `${p.commissionRate}%`
-          : normalizeDataStatus(p.commissionStatus ?? 'unavailable'),
-        evaluation.totalScore,
-        `"${t.scoringTierLabels[evaluation.tier]}"`,
-        evaluation.confidenceLevel,
-        record.researchDate.slice(0, 10),
-        `"${sourceText.replace(/"/g, '""')}"`,
-      ];
+    const products = evaluatedRecords.map((item) => item.record.product);
+    const evalMap = new Map(
+      evaluatedRecords.map((item) => [item.record.product.id, item.evaluation])
+    );
+    const csv = buildProductsExportCsv(products, {
+      salesWeightPct,
+      evaluations: evalMap,
+      exportTitle: 'SiamPick Saved Products Export',
+      language,
     });
-    const csv = [header.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'siampick-saved-products.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    triggerFileDownload(csv, 'siampick-saved-products.csv', 'text/csv;charset=utf-8;');
+  };
+
+  const handleExportJson = () => {
+    const products = evaluatedRecords.map((item) => item.record.product);
+    const evalMap = new Map(
+      evaluatedRecords.map((item) => [item.record.product.id, item.evaluation])
+    );
+    const json = buildProductsExportJson(products, {
+      salesWeightPct,
+      evaluations: evalMap,
+      exportTitle: 'SiamPick Saved Products Export',
+      language,
+    });
+    triggerFileDownload(
+      json,
+      'siampick-saved-products.json',
+      'application/json;charset=utf-8;'
+    );
   };
 
   const handleCopySummary = async () => {
@@ -225,7 +217,7 @@ export function SavedProductsView({
           </div>
 
           {records.length > 0 && (
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCopySummary}
@@ -247,10 +239,19 @@ export function SavedProductsView({
               <button
                 type="button"
                 onClick={handleExportCsv}
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{t.exportCsvBtn}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportJson}
                 className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.shortlistExportCsv}</span>
+                <span>{t.exportJsonBtn}</span>
               </button>
             </div>
           )}
@@ -519,16 +520,38 @@ export function SavedProductsView({
                           </div>
                         </div>
 
-                        {/* Actions: Open Research Report + Delete Saved Product */}
+                        {/* Actions: Open Research Report + Compare + Delete Saved Product */}
                         <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                          <button
-                            type="button"
-                            onClick={() => onOpenReport(record)}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
-                          >
-                            <span>{t.cardOpenReport}</span>
-                            <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onOpenReport(record)}
+                              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white bg-zinc-950 rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
+                            >
+                              <span>{t.cardOpenReport}</span>
+                              <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
+                            </button>
+
+                            {onToggleCompareRecord && (
+                              <button
+                                type="button"
+                                onClick={() => onToggleCompareRecord(record)}
+                                aria-pressed={comparedKeys?.has(`saved:${record.id}`) ?? false}
+                                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                                  comparedKeys?.has(`saved:${record.id}`)
+                                    ? 'bg-emerald-700 text-white border-emerald-700 hover:bg-emerald-800'
+                                    : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
+                                }`}
+                              >
+                                <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>
+                                  {comparedKeys?.has(`saved:${record.id}`)
+                                    ? t.compareSelectedBtn
+                                    : t.compareSelectBtn}
+                                </span>
+                              </button>
+                            )}
+                          </div>
 
                           <button
                             type="button"

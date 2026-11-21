@@ -61,6 +61,18 @@ import {
   type RankCandidateRow,
 } from './kalodataAnalysis.ts';
 import {
+  getServerCachedProductDetail,
+  getServerCachedReviewInsight,
+  getServerCachedShopDetail,
+  setServerCachedProductDetail,
+  setServerCachedReviewInsight,
+  setServerCachedShopDetail,
+  toProductDetailRecord,
+  toReviewInsightRecord,
+  toShopEnrichmentRecord,
+} from './enrichmentService.ts';
+import { buildStructuredReviewInsight } from '../src/utils/enrichmentPlanner.ts';
+import {
   fetchLiveThaiStorefrontProducts,
   type LiveStorefrontProduct,
 } from './liveStorefrontRetriever.ts';
@@ -2316,6 +2328,11 @@ function buildKalodataProductSummary(
       detailEnriched: Boolean(productDetail),
       shopEnriched: Boolean(shopDetail),
       reviewInsightEnriched: Boolean(commentInsight),
+      lastEnrichedAt:
+        productDetail || shopDetail || commentInsight ? researchedAt : null,
+      productDetailUpdatedAt: productDetail ? researchedAt : null,
+      shopDetailUpdatedAt: shopDetail ? researchedAt : null,
+      reviewInsightUpdatedAt: commentInsight ? researchedAt : null,
       unitPriceThb: priceThb,
       minPriceThb,
       maxPriceThb,
@@ -2333,14 +2350,36 @@ function buildKalodataProductSummary(
       deliveryType,
       productReviewCount: reviewCount,
       launchDate,
+      trendPointsCount: productDetail?.trendPointsCount ?? null,
+      trendPeakThb: productDetail?.trendPeakThb ?? null,
+      trendAvgThb: productDetail?.trendAvgThb ?? null,
       sellerId,
       sellerName,
       skuCount,
       shopSellerType: shopDetail?.sellerType ?? null,
       shopRevenueThb: shopDetail?.revenueThb ?? null,
       shopAffiliateRevenueThb: shopDetail?.affiliateRevenueThb ?? null,
+      shopSelfAccountRevenueThb: shopDetail?.selfAccountRevenueThb ?? null,
+      shopShoppingMallRevenueThb: shopDetail?.shoppingMallRevenueThb ?? null,
+      shopSalesVolume: shopDetail?.salesVolume ?? null,
+      shopUnitPriceThb: shopDetail?.unitPriceThb ?? null,
       shopCreatorNumber: shopDetail?.creatorNumber ?? null,
       shopProductNumber: shopDetail?.productNumber ?? null,
+      shopVideoNumber: shopDetail?.videoNumber ?? null,
+      shopLiveNumber: shopDetail?.liveNumber ?? null,
+      reviewInsight: commentInsight
+        ? buildStructuredReviewInsight({
+            productId,
+            summary: commentInsight.summary,
+            positivePoints: commentInsight.positivePoints,
+            painPoints: commentInsight.painPoints,
+            usageScenarios: commentInsight.usageScenarios,
+            commentsAnalyzed: commentInsight.commentsAnalyzed,
+            averageRating: commentInsight.averageRating,
+            ratedCommentCount: commentInsight.ratedCommentCount,
+            updatedAt: researchedAt,
+          })
+        : null,
       priCategory,
       secCategory,
       terCategory,
@@ -2725,6 +2764,31 @@ export async function runThailandProductResearch(
     const detailResults = await runWithConcurrency(detailTargets, 4, async (row) => {
       const pid = String(row.item.product_id ?? '').trim();
       if (!pid) return null;
+      const cachedPd = getServerCachedProductDetail(pid);
+      if (cachedPd) {
+        return {
+          productId: cachedPd.productId,
+          productShopId: cachedPd.productShopId,
+          minPriceThb: cachedPd.minPriceThb,
+          maxPriceThb: cachedPd.maxPriceThb,
+          unitPriceThb: cachedPd.unitPriceThb,
+          revenueThb: cachedPd.revenueThb,
+          salesVolume: cachedPd.salesVolume,
+          videoRevenueThb: cachedPd.videoRevenueThb,
+          liveRevenueThb: cachedPd.liveRevenueThb,
+          shoppingMallRevenueThb: cachedPd.shoppingMallRevenueThb,
+          commissionRatePct: cachedPd.commissionRatePct,
+          creatorNumber: cachedPd.creatorNumber,
+          videoNumber: cachedPd.videoNumber,
+          liveNumber: cachedPd.liveNumber,
+          deliveryType: cachedPd.deliveryType,
+          productReviewCount: cachedPd.productReviewCount,
+          launchDate: cachedPd.launchDate,
+          trendPointsCount: cachedPd.trendPointsCount,
+          trendPeakThb: cachedPd.trendPeakThb,
+          trendAvgThb: cachedPd.trendAvgThb,
+        } satisfies ParsedProductDetail;
+      }
       productDetailApiCalls += 1;
       const res = await fetchKalodataProductDetail({
         region: 'TH',
@@ -2735,7 +2799,11 @@ export async function runThailandProductResearch(
         need_extra: true,
       });
       if (!res.ok || !res.data) return null;
-      return parseKalodataProductDetail(pid, res.data);
+      const parsed = parseKalodataProductDetail(pid, res.data);
+      if (parsed) {
+        setServerCachedProductDetail(toProductDetailRecord(parsed, 'last30Day', researchedAt));
+      }
+      return parsed;
     });
 
     for (const parsed of detailResults) {
@@ -2764,6 +2832,24 @@ export async function runThailandProductResearch(
       ).slice(0, plan.shopDetailApiCalls);
 
       const shopResults = await runWithConcurrency(uniqueShopIds, 4, async (shopId) => {
+        const cachedShop = getServerCachedShopDetail(shopId);
+        if (cachedShop) {
+          return {
+            shopId: cachedShop.shopId,
+            shopName: cachedShop.shopName,
+            sellerType: cachedShop.sellerType,
+            revenueThb: cachedShop.revenueThb,
+            affiliateRevenueThb: cachedShop.affiliateRevenueThb,
+            selfAccountRevenueThb: cachedShop.selfAccountRevenueThb,
+            shoppingMallRevenueThb: cachedShop.shoppingMallRevenueThb,
+            salesVolume: cachedShop.salesVolume,
+            unitPriceThb: cachedShop.unitPriceThb,
+            creatorNumber: cachedShop.creatorNumber,
+            productNumber: cachedShop.productNumber,
+            videoNumber: cachedShop.videoNumber,
+            liveNumber: cachedShop.liveNumber,
+          } satisfies ParsedShopDetail;
+        }
         shopDetailApiCalls += 1;
         const res = await fetchKalodataShopDetail({
           region: 'TH',
@@ -2774,7 +2860,11 @@ export async function runThailandProductResearch(
           need_extra: true,
         });
         if (!res.ok || !res.data) return null;
-        return parseKalodataShopDetail(shopId, res.data);
+        const parsedShop = parseKalodataShopDetail(shopId, res.data);
+        if (parsedShop) {
+          setServerCachedShopDetail(toShopEnrichmentRecord(parsedShop, 'last30Day', researchedAt));
+        }
+        return parsedShop;
       });
 
       for (const parsedShop of shopResults) {
@@ -2793,13 +2883,30 @@ export async function runThailandProductResearch(
       const commentResults = await runWithConcurrency(commentTargets, 2, async (row) => {
         const pid = String(row.item.product_id ?? '').trim();
         if (!pid) return null;
+        const cachedCmt = getServerCachedReviewInsight(pid);
+        if (cachedCmt) {
+          return {
+            productId: cachedCmt.productId,
+            summary: cachedCmt.summary,
+            positivePoints: cachedCmt.positivePoints,
+            painPoints: cachedCmt.painPoints,
+            usageScenarios: cachedCmt.usageScenarios,
+            commentsAnalyzed: cachedCmt.commentsAnalyzed,
+            averageRating: cachedCmt.averageRating,
+            ratedCommentCount: cachedCmt.ratedCommentCount,
+          } satisfies ParsedCommentInsight;
+        }
         commentInsightApiCalls += 1;
         const res = await fetchKalodataProductCommentInsight({
           product_id: pid,
           country_code: 'th',
         });
         if (!res.ok || !res.data) return null;
-        return parseKalodataCommentInsight(pid, res.data);
+        const parsedCmt = parseKalodataCommentInsight(pid, res.data);
+        if (parsedCmt) {
+          setServerCachedReviewInsight(toReviewInsightRecord(parsedCmt, researchedAt));
+        }
+        return parsedCmt;
       });
 
       for (const parsedCmt of commentResults) {

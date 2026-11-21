@@ -84,6 +84,85 @@ export type ResultSortKey =
   | 'price-asc'
   | 'price-desc';
 
+export type ProductSortField =
+  | 'overallScore'
+  | 'salesPerformance'
+  | 'revenuePerformance'
+  | 'revenueGrowth'
+  | 'commissionPotential'
+  | 'competition'
+  | 'aiContentSuitability'
+  | 'dataConfidence';
+
+export type SortDirection = 'desc' | 'asc';
+
+export type ProductDecisionVerdict =
+  | 'recommended'
+  | 'worth-testing'
+  | 'need-more-data'
+  | 'not-recommended';
+
+export interface ProductDecisionSummary {
+  verdict: ProductDecisionVerdict;
+  reasonEn: string;
+  reasonMy: string;
+  cautionsEn: string[];
+  cautionsMy: string[];
+  signalsUsed: {
+    totalScore: number;
+    confidenceLevel: ConfidenceLevel;
+    confidencePct: number;
+    salesScore: number | null;
+    revenueScore: number | null;
+    commissionScore: number | null;
+    competitionScore: number | null;
+    aiVerdict: AiRecommendationVerdict | null;
+  };
+}
+
+export type BestSelectionCategory =
+  | 'bestOverall'
+  | 'bestSalesPotential'
+  | 'bestCommissionPotential'
+  | 'lowestCompetition'
+  | 'bestAiContentPotential'
+  | 'highestDataConfidence';
+
+export interface BestProductSelectionItem {
+  category: BestSelectionCategory;
+  product: ResearchProduct | null;
+  canonicalProductId: string | null;
+  metricSummaryEn: string;
+  metricSummaryMy: string;
+  reasonEn: string;
+  reasonMy: string;
+  insufficientData: boolean;
+  insufficientReasonEn?: string;
+  insufficientReasonMy?: string;
+}
+
+export interface ProductResultsFilterState {
+  scoreRange: 'all' | '80+' | '65-79' | 'under-65';
+  recommendationTier: 'all' | ProductDecisionVerdict;
+  confidenceLevel: 'all' | ConfidenceLevel;
+  competitionLevel: 'all' | CompetitionLevel | 'unavailable';
+  salesPerformance: 'all' | 'strong' | 'moderate' | 'low' | 'unavailable';
+  commissionPotential: 'all' | 'high' | 'medium' | 'low' | 'unavailable';
+  category: CategoryFilter;
+  researchMode: 'all' | ResearchMode;
+  aiContentSuitability: 'all' | AiVideoSuitability;
+}
+
+export interface ComparisonSelectionItem {
+  selectionKey: string;
+  canonicalProductId: string;
+  product: ResearchProduct;
+  source: 'results' | 'saved' | 'history';
+  sourceLabelEn: string;
+  sourceLabelMy: string;
+  researchDate?: string | null;
+}
+
 export type AppView = 'hunting' | 'history' | 'saved';
 
 export interface ResearchConfig {
@@ -384,6 +463,120 @@ export interface KalodataCategoryRef {
   category_name: string;
 }
 
+export interface KalodataReviewPoint {
+  point: string;
+  mentions: number;
+}
+
+export interface KalodataReviewInsightData {
+  productId: string;
+  summary: string | null;
+  positivePoints: KalodataReviewPoint[];
+  painPoints: KalodataReviewPoint[];
+  frequentComplaints: KalodataReviewPoint[];
+  qualityCautions: KalodataReviewPoint[];
+  buyerNeeds: KalodataReviewPoint[];
+  usageScenarios: KalodataReviewPoint[];
+  commentsAnalyzed: number;
+  averageRating: number | null;
+  ratedCommentCount: number;
+  updatedAt: string;
+}
+
+export interface KalodataShopEnrichmentRecord {
+  shopId: string;
+  shopName: string | null;
+  sellerType: string | null;
+  revenueThb: number | null;
+  affiliateRevenueThb: number | null;
+  selfAccountRevenueThb: number | null;
+  shoppingMallRevenueThb: number | null;
+  salesVolume: number | null;
+  unitPriceThb: number | null;
+  creatorNumber: number | null;
+  productNumber: number | null;
+  videoNumber: number | null;
+  liveNumber: number | null;
+  dateRange: string;
+  updatedAt: string;
+}
+
+export interface KalodataProductDetailEnrichmentRecord {
+  productId: string;
+  productShopId: string | null;
+  minPriceThb: number | null;
+  maxPriceThb: number | null;
+  unitPriceThb: number | null;
+  revenueThb: number | null;
+  salesVolume: number | null;
+  videoRevenueThb: number | null;
+  liveRevenueThb: number | null;
+  shoppingMallRevenueThb: number | null;
+  commissionRatePct: number | null;
+  creatorNumber: number | null;
+  videoNumber: number | null;
+  liveNumber: number | null;
+  deliveryType: string | null;
+  productReviewCount: number | null;
+  launchDate: string | null;
+  trendPointsCount: number;
+  trendPeakThb: number | null;
+  trendAvgThb: number | null;
+  dateRange: string;
+  updatedAt: string;
+}
+
+export type EnrichmentLayerKey = 'productDetail' | 'shopDetail' | 'reviewInsights';
+
+export interface EnrichmentLayerPlanItem {
+  layer: EnrichmentLayerKey;
+  requested: boolean;
+  action: 'fetch' | 'reuse-cache' | 'already-present' | 'skip-missing-id' | 'not-requested';
+  estimatedCredits: number;
+  estimatedUsd: number;
+  apiCalls: number;
+  reasonEn: string;
+  reasonMy: string;
+}
+
+export interface ProductEnrichmentPlan {
+  canonicalProductId: string;
+  shopId: string | null;
+  layers: Record<EnrichmentLayerKey, EnrichmentLayerPlanItem>;
+  plannedApiCalls: number;
+  estimatedCredits: number;
+  estimatedUsd: number;
+  reusedFromCacheCount: number;
+  alreadyPresentCount: number;
+  spendingLimitCredits: number;
+  exceedsSpendingLimit: boolean;
+  requiresConfirmation: boolean;
+}
+
+export type EnrichmentLayerResultStatus =
+  | 'fetched'
+  | 'reused-cache'
+  | 'already-present'
+  | 'skipped'
+  | 'failed';
+
+export interface ProductEnrichmentExecutionSummary {
+  canonicalProductId: string;
+  shopId: string | null;
+  enrichedAt: string;
+  plannedApiCalls: number;
+  actualApiCalls: number;
+  deduplicatedCallsSaved: number;
+  estimatedCredits: number;
+  estimatedUsd: number;
+  actualCredits: number | null;
+  actualUsd: number | null;
+  balanceBefore: number | null;
+  balanceAfter: number | null;
+  layerResults: Record<EnrichmentLayerKey, EnrichmentLayerResultStatus>;
+  layerErrors?: Partial<Record<EnrichmentLayerKey, { en: string; my: string }>>;
+}
+
 export interface KalodataProductMetrics {
   productId: string;
   dateRange: string;
@@ -391,6 +584,10 @@ export interface KalodataProductMetrics {
   detailEnriched?: boolean;
   shopEnriched?: boolean;
   reviewInsightEnriched?: boolean;
+  lastEnrichedAt?: string | null;
+  productDetailUpdatedAt?: string | null;
+  shopDetailUpdatedAt?: string | null;
+  reviewInsightUpdatedAt?: string | null;
   unitPriceThb: number | null;
   minPriceThb?: number | null;
   maxPriceThb?: number | null;
@@ -407,6 +604,9 @@ export interface KalodataProductMetrics {
   liveNumber?: number | null;
   deliveryType?: string | null;
   productReviewCount?: number | null;
+  trendPointsCount?: number | null;
+  trendPeakThb?: number | null;
+  trendAvgThb?: number | null;
   launchDate: string | null;
   sellerId: string | null;
   sellerName: string | null;
@@ -414,8 +614,15 @@ export interface KalodataProductMetrics {
   shopSellerType?: string | null;
   shopRevenueThb?: number | null;
   shopAffiliateRevenueThb?: number | null;
+  shopSelfAccountRevenueThb?: number | null;
+  shopShoppingMallRevenueThb?: number | null;
+  shopSalesVolume?: number | null;
+  shopUnitPriceThb?: number | null;
   shopCreatorNumber?: number | null;
   shopProductNumber?: number | null;
+  shopVideoNumber?: number | null;
+  shopLiveNumber?: number | null;
+  reviewInsight?: KalodataReviewInsightData | null;
   priCategory: KalodataCategoryRef | null;
   secCategory: KalodataCategoryRef | null;
   terCategory: KalodataCategoryRef | null;
@@ -512,4 +719,128 @@ export interface ResearchProduct {
   confidenceDetailMy: string;
   missingDataEn: string[];
   missingDataMy: string[];
+
+  // Phase 3: Optional attached Gemini AI / Kalodata Fallback Product Analysis
+  aiAnalysis?: AiProductAnalysis;
 }
+
+export type AiAnalysisSource = 'gemini' | 'kalodata-fallback';
+
+export type AiAnalysisErrorCode =
+  | 'MISSING_API_KEY'
+  | 'TIMEOUT'
+  | 'RATE_LIMITED'
+  | 'AUTH_ERROR'
+  | 'INVALID_RESPONSE'
+  | 'UPSTREAM_ERROR'
+  | 'NETWORK_ERROR';
+
+export type AiRecommendationVerdict =
+  | 'priority-test'
+  | 'test-with-caution'
+  | 'monitor'
+  | 'skip';
+
+export type AiAdCreativeFormat =
+  | 'ai-virtual-female-model'
+  | 'product-only-3d-commercial';
+
+export interface AiAnalysisDataFact {
+  key: string;
+  labelEn: string;
+  labelMy: string;
+  valueEn: string;
+  valueMy: string;
+  status: DataStatus;
+}
+
+export interface AiContentSuitabilityEvaluation {
+  adFormat: AiAdCreativeFormat;
+  suitabilityRating: AiVideoSuitability;
+  status: DataStatus;
+  summaryEn: string;
+  summaryMy: string;
+  creativeAnglesEn: string[];
+  creativeAnglesMy: string[];
+  cautionsEn: string[];
+  cautionsMy: string[];
+}
+
+export interface AiFinalRecommendation {
+  verdict: AiRecommendationVerdict;
+  headlineEn: string;
+  headlineMy: string;
+  actionPlanEn: string;
+  actionPlanMy: string;
+}
+
+export interface AiProductAnalysis {
+  schemaVersion: number;
+  canonicalProductId: string;
+  dataFingerprint: string;
+  source: AiAnalysisSource;
+  modelUsed: string | null;
+  analyzedAt: string;
+  geminiFailed: boolean;
+  fallbackReasonCode?: AiAnalysisErrorCode;
+  fallbackNoticeEn?: string;
+  fallbackNoticeMy?: string;
+  overallDataConfidence: ConfidenceLevel;
+  confidenceNoteEn: string;
+  confidenceNoteMy: string;
+  dataBasis: AiAnalysisDataFact[];
+
+  // 1. Product Strengths & Weaknesses
+  strengthsEn: string[];
+  strengthsMy: string[];
+  weaknessesEn: string[];
+  weaknessesMy: string[];
+
+  // 2. Current Sales & Revenue Performance
+  salesAndRevenueEn: string;
+  salesAndRevenueMy: string;
+  salesAndRevenueStatus: DataStatus;
+
+  // 3. Sales / Revenue Growth Potential
+  growthPotentialEn: string;
+  growthPotentialMy: string;
+  growthPotentialStatus: DataStatus;
+
+  // 4. Affiliate Commission Potential
+  commissionPotentialEn: string;
+  commissionPotentialMy: string;
+  commissionPotentialStatus: DataStatus;
+
+  // 5. Competition Situation
+  competitionAnalysisEn: string;
+  competitionAnalysisMy: string;
+  competitionStatus: DataStatus;
+
+  // 6. Target Customer Profile (AI Market Inference unless backed by verified buyer scenarios)
+  targetCustomerEn: string;
+  targetCustomerMy: string;
+  targetCustomerStatus: DataStatus;
+
+  // 7. Why Choose This Product
+  whyChooseEn: string;
+  whyChooseMy: string;
+
+  // 8. Potential Risks & Drawbacks
+  risksAndDrawbacksEn: string[];
+  risksAndDrawbacksMy: string[];
+
+  // 9. AI Advertising Content Suitability (Fashion: Virtual Female Model | Beauty: Product-only 3D)
+  aiContentSuitability: AiContentSuitabilityEvaluation;
+
+  // 10. Final Recommendation
+  finalRecommendation: AiFinalRecommendation;
+}
+
+export interface CachedAiAnalysisEntry {
+  canonicalProductId: string;
+  dataFingerprint: string;
+  cachedAt: string;
+  analysis: AiProductAnalysis;
+  previousAnalyses?: AiProductAnalysis[];
+}
+

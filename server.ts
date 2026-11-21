@@ -6,12 +6,19 @@ import { fileURLToPath } from 'url';
 import type {
   BothCategoryMode,
   CategoryFilter,
+  KalodataProductDetailEnrichmentRecord,
+  KalodataReviewInsightData,
+  KalodataShopEnrichmentRecord,
   ProductCategory,
   ResearchConfig,
   ResearchMode,
+  ResearchProduct,
   ResearchQuantity,
   StrategyPreset,
 } from './src/types/product.ts';
+import { evaluateProductOpportunity } from './src/utils/scoring.ts';
+import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
+import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
 import {
   clampDeepDiveCount,
   DEFAULT_SPENDING_LIMIT_CREDITS,
@@ -460,6 +467,200 @@ async function startServer() {
       res.status(500).json({
         error: message,
         code: 'INTERNAL_ERROR',
+      });
+    }
+  });
+
+  /**
+   * Phase 3: Single-Product Gemini AI Analysis Endpoint
+   * - Strictly analyzes already-fetched Kalodata data (0 Kalodata API credits).
+   * - API key stays strictly server-side in process.env.GEMINI_API_KEY.
+   * - Always returns a structured AiProductAnalysis (falls back cleanly to Kalodata-based
+   *   Fallback Analysis with geminiFailed: true if Gemini errors/times out).
+   */
+  app.post('/api/analyze-product', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : null;
+      const rawProduct =
+        body?.product && typeof body.product === 'object'
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        (rawProduct.category !== 'womens-fashion' && rawProduct.category !== 'cosmetics-beauty')
+      ) {
+        res.status(400).json({
+          ok: false,
+          error: 'Valid product object (id, name, category) is required for AI analysis.',
+          errorMy: 'AI ခွဲခြမ်းစိတ်ဖြာရန် မှန်ကန်သော Product အချက်အလက် (id, name, category) လိုအပ်ပါသည်။',
+          code: 'INVALID_PAYLOAD',
+        });
+        return;
+      }
+
+      const product = rawProduct as unknown as ResearchProduct;
+      const rawWeight =
+        typeof body?.salesWeightPct === 'number' && Number.isFinite(body.salesWeightPct)
+          ? Math.max(10, Math.min(90, Math.round(body.salesWeightPct)))
+          : 50;
+
+      const peerProducts = Array.isArray(body?.peerProducts)
+        ? (body.peerProducts
+            .filter(
+              (item): item is ResearchProduct =>
+                Boolean(item) &&
+                typeof item === 'object' &&
+                typeof (item as Record<string, unknown>).id === 'string' &&
+                typeof (item as Record<string, unknown>).name === 'string'
+            )
+            .slice(0, 50))
+        : undefined;
+
+      const evaluation = evaluateProductOpportunity(product, {
+        salesWeightPct: rawWeight,
+        peerProducts,
+      });
+
+      const analysis = await analyzeSingleProductWithGemini(product, evaluation);
+      res.status(200).json({ ok: true, analysis });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unexpected error during product analysis.';
+      res.status(500).json({
+        ok: false,
+        error: message,
+        code: 'ANALYSIS_INTERNAL_ERROR',
+      });
+    }
+  });
+
+  /**
+   * Phase 4: Selective Single-Product / Shop / Review Data Enrichment Endpoint
+   * - Inspects already-present fields + client/server caches BEFORE calling Kalodata API.
+   * - Deduplicates strictly by Product ID & Shop ID (0 duplicate calls).
+   * - Enforces server-side Spending Limit & Free Credit Balance Check before paid calls.
+   */
+  app.post('/api/enrich-product', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : null;
+      const rawProduct =
+        body?.product && typeof body.product === 'object'
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        (rawProduct.category !== 'womens-fashion' && rawProduct.category !== 'cosmetics-beauty')
+      ) {
+        res.status(400).json({
+          ok: false,
+          error: 'Valid product object (id, name, category) is required for data enrichment.',
+          errorMy: 'ဒေတာဖြည့်စွက်ရန် မှန်ကန်သော Product အချက်အလက် (id, name, category) လိုအပ်ပါသည်။',
+          code: 'INVALID_PAYLOAD',
+        });
+        return;
+      }
+
+      const rawLayers =
+        body?.requestedLayers && typeof body.requestedLayers === 'object'
+          ? (body.requestedLayers as Record<string, unknown>)
+          : {};
+
+      const requestedLayers = {
+        productDetail: rawLayers.productDetail === true,
+        shopDetail: rawLayers.shopDetail === true,
+        reviewInsights: rawLayers.reviewInsights === true,
+      };
+
+      const rawLimit =
+        typeof body?.spendingLimitCredits === 'number' &&
+        Number.isFinite(body.spendingLimitCredits)
+          ? body.spendingLimitCredits
+          : DEFAULT_SPENDING_LIMIT_CREDITS;
+      const spendingLimitCredits = Math.round(
+        Math.max(MIN_SPENDING_LIMIT_CREDITS, Math.min(MAX_SPENDING_LIMIT_CREDITS, rawLimit)) * 1000
+      ) / 1000;
+
+      const rawWeight =
+        typeof body?.salesWeightPct === 'number' && Number.isFinite(body.salesWeightPct)
+          ? Math.max(10, Math.min(90, Math.round(body.salesWeightPct)))
+          : 50;
+
+      const peerProducts = Array.isArray(body?.peerProducts)
+        ? body.peerProducts
+            .filter(
+              (item): item is ResearchProduct =>
+                Boolean(item) &&
+                typeof item === 'object' &&
+                typeof (item as Record<string, unknown>).id === 'string' &&
+                typeof (item as Record<string, unknown>).name === 'string'
+            )
+            .slice(0, 50)
+        : undefined;
+
+      const clientCachedProductDetail =
+        body?.clientCachedProductDetail &&
+        typeof body.clientCachedProductDetail === 'object' &&
+        typeof (body.clientCachedProductDetail as Record<string, unknown>).productId === 'string'
+          ? (body.clientCachedProductDetail as KalodataProductDetailEnrichmentRecord)
+          : null;
+
+      const clientCachedShopDetail =
+        body?.clientCachedShopDetail &&
+        typeof body.clientCachedShopDetail === 'object' &&
+        typeof (body.clientCachedShopDetail as Record<string, unknown>).shopId === 'string'
+          ? (body.clientCachedShopDetail as KalodataShopEnrichmentRecord)
+          : null;
+
+      const clientCachedReviewInsight =
+        body?.clientCachedReviewInsight &&
+        typeof body.clientCachedReviewInsight === 'object' &&
+        typeof (body.clientCachedReviewInsight as Record<string, unknown>).productId === 'string'
+          ? (body.clientCachedReviewInsight as KalodataReviewInsightData)
+          : null;
+
+      const result = await enrichSingleProduct({
+        product: rawProduct as unknown as ResearchProduct,
+        requestedLayers,
+        spendingLimitCredits,
+        forceRefresh: body?.forceRefresh === true,
+        clientCachedProductDetail,
+        clientCachedShopDetail,
+        clientCachedReviewInsight,
+        salesWeightPct: rawWeight,
+        peerProducts,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof EnrichmentApiError) {
+        res.status(error.status).json({
+          ok: false,
+          error: error.message,
+          errorMy: error.errorMy,
+          code: error.code,
+        });
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : 'Unexpected server error during data enrichment.';
+      res.status(500).json({
+        ok: false,
+        error: message,
+        code: 'ENRICHMENT_INTERNAL_ERROR',
       });
     }
   });

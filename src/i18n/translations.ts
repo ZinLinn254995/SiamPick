@@ -1,11 +1,15 @@
 import {
+  AiRecommendationVerdict,
   AiVideoSuitability,
+  BestSelectionCategory,
   CompetitionLevel,
   ConfidenceLevel,
   CriterionKey,
   DataStatus,
   DemandLevel,
   Language,
+  ProductDecisionVerdict,
+  ProductSortField,
   RiskSeverity,
   ScoreFactorKey,
   ScoreTier,
@@ -307,6 +311,153 @@ export const TRANSLATIONS: Record<
     compareColScore: string;
     compareUnchanged: string;
     compareSelectDifferentHint: string;
+    // Phase 3: AI Product Analysis
+    aiJumpLabel: string;
+    aiSectionHeading: string;
+    aiSectionSubtitle: string;
+    aiBadgeGeminiLive: string;
+    aiBadgeGeminiCached: string;
+    aiBadgeFallback: string;
+    aiBadgeReady: string;
+    aiDataSeparationNote: string;
+    aiDataBasisHeading: string;
+    aiInterpretationHeading: string;
+    aiInterpretationNote: string;
+    aiInferenceBadge: string;
+    aiAssessmentBadge: string;
+    aiFallbackBannerTitle: string;
+    aiStaleDataBannerTitle: string;
+    aiStaleDataBannerDesc: string;
+    aiEmptyTitle: string;
+    aiEmptyDesc: string;
+    aiRunAnalysisBtn: string;
+    aiReanalyzeBtn: string;
+    aiRetryGeminiBtn: string;
+    aiPreviewFallbackBtn: string;
+    aiAnalyzingLabel: string;
+    aiConfirmTitle: string;
+    aiConfirmDesc: string;
+    aiConfirmCallDetail: string;
+    aiConfirmKalodataCost: string;
+    aiConfirmTokenNote: string;
+    aiConfirmCacheNote: string;
+    aiConfirmProceedBtn: string;
+    aiConfirmCancelBtn: string;
+    aiSecStrengths: string;
+    aiSecWeaknesses: string;
+    aiSecSalesRevenue: string;
+    aiSecGrowthPotential: string;
+    aiSecCommissionPotential: string;
+    aiSecCompetition: string;
+    aiSecTargetCustomer: string;
+    aiSecWhyChoose: string;
+    aiSecRisksDrawbacks: string;
+    aiSecAdSuitability: string;
+    aiAdFormatFashion: string;
+    aiAdFormatBeauty: string;
+    aiAdAnglesHeading: string;
+    aiAdCautionsHeading: string;
+    aiSecFinalRecommendation: string;
+    aiNextActionLabel: string;
+    aiAnalyzedAtLabel: string;
+    aiModelLabel: string;
+    aiCachedLocallyLabel: string;
+    aiVerdictLabels: Record<AiRecommendationVerdict, string>;
+    // Phase 4: Data Enrichment (Product Detail, Shop Detail, Buyer Review Insights)
+    enrichJumpLabel: string;
+    enrichSectionHeading: string;
+    enrichSectionSubtitle: string;
+    enrichLastUpdatedLabel: string;
+    enrichNotEnrichedYet: string;
+    enrichVerificationLabel: string;
+    enrichMarketProductHeading: string;
+    enrichShopInfoHeading: string;
+    enrichReviewInsightsHeading: string;
+    enrichControlsHeading: string;
+    enrichLayerProductDetail: string;
+    enrichLayerShopDetail: string;
+    enrichLayerReviewInsights: string;
+    enrichStatusPresent: string;
+    enrichStatusCached: string;
+    enrichStatusMissing: string;
+    enrichShopCacheSavedNote: string;
+    enrichReviewOptInWarning: string;
+    enrichApplyCacheBtn: string;
+    enrichStartBtn: string;
+    enrichConfirmTitle: string;
+    enrichConfirmDesc: string;
+    enrichConfirmProceedBtn: string;
+    enrichConfirmCancelBtn: string;
+    enrichRunningLabel: string;
+    enrichSpendingLimitBlocked: string;
+    enrichAllDoneNotice: string;
+    enrichNoKalodataIdNotice: string;
+    enrichReviewLikes: string;
+    enrichReviewDislikes: string;
+    enrichReviewComplaints: string;
+    enrichReviewQualityCautions: string;
+    enrichReviewBuyerNeeds: string;
+    enrichReviewUnavailableNote: string;
+    enrichShopUnavailableNote: string;
+    enrichDedupSavedLabel: string;
+    // Phase 5: Product Results, Ranking, Filtering, Comparison, Decisions & Export
+    sortFieldLabels: Record<ProductSortField, string>;
+    sortDirHighest: string;
+    sortDirLowest: string;
+    decisionVerdictLabels: Record<ProductDecisionVerdict, string>;
+    decisionSummaryHeading: string;
+    decisionCautionsLabel: string;
+    bestSelectionHeading: string;
+    bestSelectionSubtitle: string;
+    bestSelectionShow: string;
+    bestSelectionHide: string;
+    bestSelectionCategories: Record<BestSelectionCategory, string>;
+    bestInsufficientBadge: string;
+    filtersToggleBtn: string;
+    filtersClearAllBtn: string;
+    filtersAllOption: string;
+    filterScoreRangeLabel: string;
+    filterScore80Plus: string;
+    filterScore65To79: string;
+    filterScoreUnder65: string;
+    filterDecisionLabel: string;
+    filterConfidenceLabel: string;
+    filterCompetitionLabel: string;
+    filterSalesLabel: string;
+    filterCommissionLabel: string;
+    filterCategoryLabel: string;
+    filterModeLabel: string;
+    filterAiSuitabilityLabel: string;
+    filterPerfStrong: string;
+    filterPerfModerate: string;
+    filterPerfLow: string;
+    filterPerfUnavailable: string;
+    exportCsvBtn: string;
+    exportJsonBtn: string;
+    compareSelectBtn: string;
+    compareSelectedBtn: string;
+    compareBarTitle: string;
+    compareOpenBtn: string;
+    compareClearBtn: string;
+    compareModalTitle: string;
+    compareModalSubtitle: string;
+    compareDistinctIdsNote: string;
+    compareDiffTag: string;
+    compareAddSavedLabel: string;
+    compareAddSavedPlaceholder: string;
+    compareRemoveBtn: string;
+    compareNeedTwoNote: string;
+    compareSourceResults: string;
+    compareSourceSaved: string;
+    compareSourceHistory: string;
+    reportTabMarketData: string;
+    reportTabDecision: string;
+    reportTabStrengths: string;
+    reportKalodataTag: string;
+    reportAiTag: string;
+    reportLastUpdatedLabel: string;
+    reportExportCsv: string;
+    reportExportJson: string;
   }
 > = {
   en: {
@@ -686,6 +837,194 @@ export const TRANSLATIONS: Record<
     compareColScore: 'Score Change',
     compareUnchanged: 'No change',
     compareSelectDifferentHint: 'Select two different research sessions to compare.',
+    aiJumpLabel: 'AI Analysis',
+    aiSectionHeading: 'AI Product Analysis',
+    aiSectionSubtitle:
+      'Detailed 10-point Gemini AI product evaluation grounded strictly in fetched Kalodata metrics — zero fabricated data.',
+    aiBadgeGeminiLive: 'Gemini AI Analysis',
+    aiBadgeGeminiCached: 'Gemini AI · Saved Cache',
+    aiBadgeFallback: 'Kalodata Fallback Analysis',
+    aiBadgeReady: '0 Kalodata Credits',
+    aiDataSeparationNote:
+      'Real Kalodata market facts (Verified / Estimated / Unverified / Unavailable) are separated from AI strategic interpretation below.',
+    aiDataBasisHeading: 'Kalodata Market Data Basis (Factual Metrics)',
+    aiInterpretationHeading: 'AI Strategic Interpretation (Based Strictly on Kalodata Data Above)',
+    aiInterpretationNote:
+      'Commentary below interprets only the verified Kalodata metrics above and does not create new market data.',
+    aiInferenceBadge: 'AI Market Inference',
+    aiAssessmentBadge: 'AI Creative Assessment',
+    aiFallbackBannerTitle: 'Gemini AI Analysis Failed — Showing Kalodata Fallback Analysis',
+    aiStaleDataBannerTitle: 'Updated Kalodata data detected for this product',
+    aiStaleDataBannerDesc:
+      'Showing your saved Gemini AI analysis below to avoid unnecessary API calls. Confirm below only if you want to re-analyze using the newer Kalodata metrics.',
+    aiEmptyTitle: 'No saved Gemini AI analysis for this product yet',
+    aiEmptyDesc:
+      'Run a 10-point Gemini AI analysis strictly over this product’s existing Kalodata metrics (strengths, weaknesses, sales, growth, commission, competition, target customer, risks, AI ad suitability, and final recommendation). Results are cached locally for reuse.',
+    aiRunAnalysisBtn: 'Analyze with Gemini AI',
+    aiReanalyzeBtn: 'Re-analyze with New Data',
+    aiRetryGeminiBtn: 'Retry Gemini AI Analysis',
+    aiPreviewFallbackBtn: 'Preview Kalodata Summary (0 AI Calls)',
+    aiAnalyzingLabel: 'Analyzing Kalodata metrics with Gemini AI...',
+    aiConfirmTitle: 'Confirm Gemini AI Analysis Call',
+    aiConfirmDesc:
+      'No API call has been made yet. Review the call scope below before running Gemini AI analysis on this product.',
+    aiConfirmCallDetail: 'API Call: 1 server-side Gemini call (gemini-4-hydrogen)',
+    aiConfirmKalodataCost: 'Kalodata Cost: 0 Credits ($0.00) — uses existing fetched data only',
+    aiConfirmTokenNote:
+      'Estimated AI usage: ~1,800–2,800 tokens (uses server GEMINI_API_KEY quota; typically <$0.001 or free tier)',
+    aiConfirmCacheNote:
+      'Cached automatically in browser localStorage so reopening this product requires 0 future Gemini calls.',
+    aiConfirmProceedBtn: 'Confirm & Run Gemini AI',
+    aiConfirmCancelBtn: 'Cancel',
+    aiSecStrengths: '01. Product Strengths',
+    aiSecWeaknesses: '01b. Product Weaknesses',
+    aiSecSalesRevenue: '02. Current Sales & Revenue',
+    aiSecGrowthPotential: '03. Sales & Revenue Growth Potential',
+    aiSecCommissionPotential: '04. Affiliate Commission Potential',
+    aiSecCompetition: '05. Competition Situation',
+    aiSecTargetCustomer: '06. Target Customer Profile',
+    aiSecWhyChoose: '07. Why Choose This Product',
+    aiSecRisksDrawbacks: '08. Potential Risks & Drawbacks',
+    aiSecAdSuitability: '09. AI Advertising Content Suitability',
+    aiAdFormatFashion: 'AI Virtual Female Model Ad Suitability',
+    aiAdFormatBeauty: 'Product-Only 3D Commercial Suitability',
+    aiAdAnglesHeading: 'Recommended Creative Angles',
+    aiAdCautionsHeading: 'Accuracy & Compliance Cautions',
+    aiSecFinalRecommendation: '10. Final Recommendation',
+    aiNextActionLabel: 'Suggested Next Step',
+    aiAnalyzedAtLabel: 'Analyzed',
+    aiModelLabel: 'Model',
+    aiCachedLocallyLabel: 'Saved locally for reuse',
+    aiVerdictLabels: {
+      'priority-test': 'Priority Test',
+      'test-with-caution': 'Test With Caution',
+      monitor: 'Monitor First',
+      skip: 'Skip / Low Priority',
+    },
+    enrichJumpLabel: 'Enriched Data',
+    enrichSectionHeading: 'Kalodata Data Enrichment',
+    enrichSectionSubtitle:
+      'Fill missing Product Detail, Shop Detail (deduplicated by Shop ID), and opt-in Buyer Review Insights without re-fetching existing data.',
+    enrichLastUpdatedLabel: 'Last Updated',
+    enrichNotEnrichedYet: 'Rank scan only',
+    enrichVerificationLabel: 'Data Verification',
+    enrichMarketProductHeading: 'Kalodata Market Data & Product Detail',
+    enrichShopInfoHeading: 'Shop Information',
+    enrichReviewInsightsHeading: 'Customer & Review Insights',
+    enrichControlsHeading: 'Enrich Missing Kalodata Data',
+    enrichLayerProductDetail: 'Product Detail',
+    enrichLayerShopDetail: 'Shop Detail',
+    enrichLayerReviewInsights: 'Review Insights (Opt-in)',
+    enrichStatusPresent: 'Loaded',
+    enrichStatusCached: 'Cached · 0 cr',
+    enrichStatusMissing: 'Missing',
+    enrichShopCacheSavedNote: 'Shared by Shop ID — fetched once and reused across all products from this shop.',
+    enrichReviewOptInWarning: 'Review Insight API costs 1.0 credit per product — requires explicit selection & confirmation.',
+    enrichApplyCacheBtn: 'Apply Cached Data (0 Credits)',
+    enrichStartBtn: 'Enrich Selected Data',
+    enrichConfirmTitle: 'Confirm Kalodata Data Enrichment',
+    enrichConfirmDesc:
+      'No paid API call has been made yet. Confirm the exact missing layers and credit cost below before calling Kalodata.',
+    enrichConfirmProceedBtn: 'Confirm & Enrich',
+    enrichConfirmCancelBtn: 'Cancel',
+    enrichRunningLabel: 'Fetching missing Kalodata fields...',
+    enrichSpendingLimitBlocked:
+      'Estimated enrichment cost exceeds your Spending Limit. Deselect higher-cost layers or raise your Spending Limit first.',
+    enrichAllDoneNotice:
+      'All Kalodata enrichment layers (Product Detail, Shop Detail, and Review Insights) are already loaded for this product — 0 further API calls needed.',
+    enrichNoKalodataIdNotice:
+      'This product record does not have a Kalodata Product ID, so Kalodata API enrichment is unavailable.',
+    enrichReviewLikes: 'Customer Likes',
+    enrichReviewDislikes: 'Dislikes & Pain Points',
+    enrichReviewComplaints: 'Frequent Complaints',
+    enrichReviewQualityCautions: 'Product Quality Cautions',
+    enrichReviewBuyerNeeds: 'Buyer Needs & Usage Scenarios',
+    enrichReviewUnavailableNote:
+      'Unavailable — verified buyer review insights have not been fetched yet. Select "Review Insights (1.0 cr)" above and confirm if you want real Kalodata review themes (never fabricated).',
+    enrichShopUnavailableNote:
+      'Unavailable — Shop GMV, Brand/Retailer type, and Shop Creator Count have not been fetched yet. Select "Shop Detail (0.1 cr)" above to enrich once per Shop ID.',
+    enrichDedupSavedLabel: 'duplicate call(s) saved via cache',
+    // Phase 5: Product Results, Ranking, Filtering, Comparison, Decisions & Export
+    sortFieldLabels: {
+      overallScore: 'Overall Score',
+      salesPerformance: 'Sales Performance',
+      revenuePerformance: 'Revenue Performance',
+      revenueGrowth: 'Revenue Growth',
+      commissionPotential: 'Commission Potential',
+      competition: 'Competition',
+      aiContentSuitability: 'AI Content Suitability',
+      dataConfidence: 'Data Confidence',
+    },
+    sortDirHighest: 'Highest',
+    sortDirLowest: 'Lowest',
+    decisionVerdictLabels: {
+      recommended: 'Recommended',
+      'worth-testing': 'Worth Testing',
+      'need-more-data': 'Need More Data',
+      'not-recommended': 'Not Recommended',
+    },
+    decisionSummaryHeading: 'Final Decision Summary',
+    decisionCautionsLabel: 'Watchpoints',
+    bestSelectionHeading: 'Best Product Selection',
+    bestSelectionSubtitle:
+      'Auto-selected from verified metrics in the current result list. Categories with insufficient verified data are never forced.',
+    bestSelectionShow: 'Show highlights',
+    bestSelectionHide: 'Hide highlights',
+    bestSelectionCategories: {
+      bestOverall: 'Best Overall',
+      bestSalesPotential: 'Best Sales Potential',
+      bestCommissionPotential: 'Best Commission Potential',
+      lowestCompetition: 'Lowest Competition',
+      bestAiContentPotential: 'Best AI Content Potential',
+      highestDataConfidence: 'Highest Data Confidence',
+    },
+    bestInsufficientBadge: 'Insufficient data',
+    filtersToggleBtn: 'Filters',
+    filtersClearAllBtn: 'Clear filters',
+    filtersAllOption: 'All',
+    filterScoreRangeLabel: 'Score Range',
+    filterScore80Plus: '80+ (High)',
+    filterScore65To79: '65–79 (Mid)',
+    filterScoreUnder65: 'Under 65',
+    filterDecisionLabel: 'Recommendation Tier',
+    filterConfidenceLabel: 'Data Confidence',
+    filterCompetitionLabel: 'Competition Level',
+    filterSalesLabel: 'Sales Performance',
+    filterCommissionLabel: 'Commission Potential',
+    filterCategoryLabel: 'Product Category',
+    filterModeLabel: 'Research Mode',
+    filterAiSuitabilityLabel: 'AI Content Suitability',
+    filterPerfStrong: 'Strong (70+)',
+    filterPerfModerate: 'Moderate (45–69)',
+    filterPerfLow: 'Low (<45)',
+    filterPerfUnavailable: 'Unavailable',
+    exportCsvBtn: 'Export CSV',
+    exportJsonBtn: 'Export JSON',
+    compareSelectBtn: 'Compare',
+    compareSelectedBtn: 'Comparing',
+    compareBarTitle: 'Selected for comparison',
+    compareOpenBtn: 'Compare Products',
+    compareClearBtn: 'Clear',
+    compareModalTitle: 'Product Comparison',
+    compareModalSubtitle:
+      'Side-by-side comparison using verified Kalodata metrics and Phase 2–4 analysis. Missing fields remain Unavailable (never 0).',
+    compareDistinctIdsNote: 'Different Product IDs are kept strictly separate — differing rows are marked.',
+    compareDiffTag: 'Differs',
+    compareAddSavedLabel: 'Add Saved Product to Compare',
+    compareAddSavedPlaceholder: 'Select a saved product...',
+    compareRemoveBtn: 'Remove',
+    compareNeedTwoNote: 'Select at least 2 products from Results, Saved Products, or History to compare side by side.',
+    compareSourceResults: 'Current Results',
+    compareSourceSaved: 'Saved Product',
+    compareSourceHistory: 'History Archive',
+    reportTabMarketData: 'Kalodata Market Data',
+    reportTabDecision: 'Decision',
+    reportTabStrengths: 'Strengths & Risks',
+    reportKalodataTag: 'Verified Kalodata Data',
+    reportAiTag: 'AI Assessment (Separate from Kalodata Data)',
+    reportLastUpdatedLabel: 'Last Updated',
+    reportExportCsv: 'CSV',
+    reportExportJson: 'JSON',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1064,5 +1403,193 @@ export const TRANSLATIONS: Record<
     compareColScore: 'Score ပြောင်းလဲမှု',
     compareUnchanged: 'မပြောင်းလဲပါ',
     compareSelectDifferentHint: 'နှိုင်းယှဉ်ရန် မတူညီသော Research မှတ်တမ်း ၂ ခုကို ရွေးချယ်ပါ။',
+    aiJumpLabel: 'AI သုံးသပ်ချက်',
+    aiSectionHeading: 'AI ကုန်ပစ္စည်း ခွဲခြမ်းစိတ်ဖြာချက်',
+    aiSectionSubtitle:
+      'Kalodata မှ ရရှိထားသော ဒေတာအစစ်များကိုသာ အခြေခံ၍ Gemini AI ဖြင့် အချက် ၁၀ ချက် အသေးစိတ်သုံးသပ်ချက် — မရှိသောဒေတာများကို မဖန်တီးပါ။',
+    aiBadgeGeminiLive: 'Gemini AI သုံးသပ်ချက်',
+    aiBadgeGeminiCached: 'Gemini AI · သိမ်းဆည်းပြီး',
+    aiBadgeFallback: 'Kalodata Fallback သုံးသပ်ချက်',
+    aiBadgeReady: 'Kalodata 0 Credits',
+    aiDataSeparationNote:
+      'အောက်တွင် တကယ့် Kalodata ဈေးကွက်ဒေတာ (Verified / Estimated / Unverified / Unavailable) နှင့် AI သုံးသပ်ခန့်မှန်းချက်ကို ရှင်းရှင်းလင်းလင်း ခွဲပြထားပါသည်။',
+    aiDataBasisHeading: 'Kalodata တကယ့်ဈေးကွက်ဒေတာ အခြေခံအချက်အလက်များ',
+    aiInterpretationHeading: 'AI ဗျူဟာမြောက် သုံးသပ်ချက် (အထက်ပါ Kalodata ဒေတာအပေါ်သာ အခြေခံ)',
+    aiInterpretationNote:
+      'အောက်ပါ AI သုံးသပ်ချက်သည် အထက်ပါ Kalodata ဒေတာများကို အဓိပ္ပာယ်ဖွင့်ဆိုခြင်းသာဖြစ်ပြီး တကယ့် Market Data အသစ်ဖန်တီးခြင်းမဟုတ်ပါ။',
+    aiInferenceBadge: 'AI ဈေးကွက်ခန့်မှန်းချက်',
+    aiAssessmentBadge: 'AI ကြော်ငြာသင့်တော်မှုသုံးသပ်ချက်',
+    aiFallbackBannerTitle: 'Gemini AI ခွဲခြမ်းစိတ်ဖြာမှု မအောင်မြင်ပါ — Kalodata Fallback Analysis ကို ဖော်ပြထားပါသည်',
+    aiStaleDataBannerTitle: 'ဤ Product အတွက် Kalodata ဒေတာအသစ် တွေ့ရှိပါသည်',
+    aiStaleDataBannerDesc:
+      'မလိုအပ်ဘဲ Gemini API ထပ်မခေါ်စေရန် အရင်သိမ်းထားပြီးသား AI သုံးသပ်ချက်ကို ပြပေးထားပါသည်။ ဒေတာအသစ်ဖြင့် ပြန်သုံးသပ်လိုမှသာ အောက်တွင် အတည်ပြုပါ။',
+    aiEmptyTitle: 'ဤ Product အတွက် သိမ်းထားပြီးသား Gemini AI သုံးသပ်ချက် မရှိသေးပါ',
+    aiEmptyDesc:
+      'လက်ရှိရရှိပြီးသား Kalodata ဒေတာများကိုသာ အခြေခံ၍ Gemini AI ဖြင့် အချက် ၁၀ ချက် (အားသာ/အားနည်းချက်၊ ရောင်းအား၊ တိုးတက်မှု၊ Commission၊ ပြိုင်ဆိုင်မှု၊ ပစ်မှတ်ဝယ်သူ၊ အန္တရာယ်၊ AI ကြော်ငြာသင့်တော်မှုနှင့် နောက်ဆုံးအကြံပြုချက်) ကို သုံးသပ်နိုင်ပါသည်။ ရလဒ်ကို Local တွင် သိမ်းထားပေးမည်ဖြစ်၍ ထပ်ခါထပ်ခါ API မခေါ်ပါ။',
+    aiRunAnalysisBtn: 'Gemini AI ဖြင့် ခွဲခြမ်းစိတ်ဖြာမည်',
+    aiReanalyzeBtn: 'ဒေတာအသစ်ဖြင့် ပြန်သုံးသပ်မည်',
+    aiRetryGeminiBtn: 'Gemini AI ပြန်စမ်းကြည့်မည်',
+    aiPreviewFallbackBtn: 'Kalodata အကျဉ်းချုပ်ကြည့်မည် (AI 0 Call)',
+    aiAnalyzingLabel: 'Kalodata ဒေတာများကို Gemini AI ဖြင့် ခွဲခြမ်းစိတ်ဖြာနေပါသည်...',
+    aiConfirmTitle: 'Gemini AI API ခေါ်ဆိုမှုကို အတည်ပြုပါ',
+    aiConfirmDesc:
+      'API မခေါ်ဆိုရသေးပါ။ ဤ Product ကို Gemini AI ဖြင့် ခွဲခြမ်းစိတ်ဖြာရန် အောက်ပါကုန်ကျစရိတ်အချက်အလက်ကို စစ်ဆေးပြီး အတည်ပြုပါ။',
+    aiConfirmCallDetail: 'API ခေါ်ဆိုမှု: Server-side Gemini 1 ကြိမ် (gemini-4-hydrogen)',
+    aiConfirmKalodataCost: 'Kalodata ကုန်ကျစရိတ်: 0 Credits ($0.00) — ရှိပြီးသားဒေတာကိုသာ သုံးမည်',
+    aiConfirmTokenNote:
+      'ခန့်မှန်း AI Token: ~1,800–2,800 tokens (Server GEMINI_API_KEY Quota ကိုသုံးမည် — ပုံမှန် <$0.001 သို့မဟုတ် Free Tier)',
+    aiConfirmCacheNote:
+      'ရလဒ်ကို Browser localStorage တွင် သိမ်းထားပေးမည်ဖြစ်၍ နောက်တစ်ကြိမ်ပြန်ဖွင့်လျှင် Gemini API ထပ်မခေါ်ပါ။',
+    aiConfirmProceedBtn: 'အတည်ပြုပြီး Gemini AI စတင်မည်',
+    aiConfirmCancelBtn: 'မလုပ်တော့ပါ',
+    aiSecStrengths: '၀၁. Product ၏ အားသာချက်များ',
+    aiSecWeaknesses: '၀၁(ခ). Product ၏ အားနည်းချက်များ',
+    aiSecSalesRevenue: '၀၂. လက်ရှိရောင်းအားနှင့် ဝင်ငွေအခြေအနေ',
+    aiSecGrowthPotential: '၀၃. ရောင်းအားတိုးတက်မှု အလားအလာ',
+    aiSecCommissionPotential: '၀၄. Affiliate Commission အလားအလာ',
+    aiSecCompetition: '၀၅. ပြိုင်ဆိုင်မှုအခြေအနေ',
+    aiSecTargetCustomer: '၀၆. ဘယ်လို Customer မျိုးကို ရောင်းသင့်လဲ',
+    aiSecWhyChoose: '၀၇. ဘာကြောင့် ဒီ Product ကို ရွေးသင့်လဲ',
+    aiSecRisksDrawbacks: '၀၈. ဖြစ်နိုင်တဲ့ အန္တရာယ်နှင့် အားနည်းချက်များ',
+    aiSecAdSuitability: '၀၉. AI ဖြင့် ကြော်ငြာ Content ဖန်တီးရန် သင့်တော်မှု',
+    aiAdFormatFashion: 'AI Virtual Female Model ကြော်ငြာ သင့်တော်မှု',
+    aiAdFormatBeauty: 'Product-Only 3D Commercial ကြော်ငြာ သင့်တော်မှု',
+    aiAdAnglesHeading: 'အကြံပြု ကြော်ငြာ Idea များ',
+    aiAdCautionsHeading: 'သတိပြုရမည့် အချက်များ',
+    aiSecFinalRecommendation: '၁၀. နောက်ဆုံး Recommendation',
+    aiNextActionLabel: 'လုပ်ဆောင်သင့်သော နောက်တစ်ဆင့်',
+    aiAnalyzedAtLabel: 'သုံးသပ်ချိန်',
+    aiModelLabel: 'Model',
+    aiCachedLocallyLabel: 'ပြန်သုံးရန် Local တွင် သိမ်းထားပြီး',
+    aiVerdictLabels: {
+      'priority-test': 'ဦးစားပေး စမ်းသပ်သင့်သည်',
+      'test-with-caution': 'သတိထား စမ်းသပ်သင့်သည်',
+      monitor: 'စောင့်ကြည့်အဆင့်',
+      skip: 'လောလောဆယ် ကျော်သွားသင့်သည်',
+    },
+    enrichJumpLabel: 'ဒေတာဖြည့်စွက်ရန်',
+    enrichSectionHeading: 'Kalodata ဒေတာဖြည့်စွက်မှု (Data Enrichment)',
+    enrichSectionSubtitle:
+      'ရှိပြီးသားဒေတာကို ထပ်မခေါ်ဘဲ မရှိသေးသော Product Detail၊ Shop Detail (Shop ID တူလျှင် ၁ ကြိမ်သာခေါ်) နှင့် ဝယ်သူ Review Insights များကိုသာ ရွေးချယ်ဖြည့်စွက်နိုင်ပါသည်။',
+    enrichLastUpdatedLabel: 'နောက်ဆုံးအပ်ဒိတ်',
+    enrichNotEnrichedYet: 'Rank ဒေတာသာ',
+    enrichVerificationLabel: 'ဒေတာအတည်ပြုမှုအဆင့်',
+    enrichMarketProductHeading: 'Kalodata ဈေးကွက်ဒေတာနှင့် Product အသေးစိတ်',
+    enrichShopInfoHeading: 'ဆိုင်အချက်အလက် (Shop Information)',
+    enrichReviewInsightsHeading: 'ဝယ်သူ Review နှင့် လိုအပ်ချက် သုံးသပ်ချက်',
+    enrichControlsHeading: 'မရှိသေးသော Kalodata ဒေတာများ ဖြည့်စွက်ရန်',
+    enrichLayerProductDetail: 'Product Detail',
+    enrichLayerShopDetail: 'Shop Detail',
+    enrichLayerReviewInsights: 'Review Insights (ရွေးချယ်မှသာ)',
+    enrichStatusPresent: 'ရှိပြီးသား',
+    enrichStatusCached: 'Cache ရှိ · 0 cr',
+    enrichStatusMissing: 'မရှိသေးပါ',
+    enrichShopCacheSavedNote: 'Shop ID တူသော Product များအားလုံးအတွက် ၁ ကြိမ်သာခေါ်ပြီး အလိုအလျောက် ပြန်သုံးပေးပါမည်။',
+    enrichReviewOptInWarning: 'Review Insight API သည် Product ၁ ခုလျှင် 1.0 credit ကုန်ကျသဖြင့် ကိုယ်တိုင်ရွေးချယ်အတည်ပြုမှသာ ခေါ်ဆိုပါမည်။',
+    enrichApplyCacheBtn: 'သိမ်းထားပြီးသား Cache ဒေတာဖြည့်မည် (0 Credits)',
+    enrichStartBtn: 'ရွေးချယ်ထားသော ဒေတာဖြည့်မည်',
+    enrichConfirmTitle: 'Kalodata ဒေတာဖြည့်စွက်မှုကို အတည်ပြုပါ',
+    enrichConfirmDesc:
+      'API မခေါ်ဆိုရသေးပါ။ Kalodata API မခေါ်မီ အောက်ပါ API အကြိမ်ရေနှင့် ခန့်မှန်း Credit ကုန်ကျစရိတ်ကို စစ်ဆေးအတည်ပြုပါ။',
+    enrichConfirmProceedBtn: 'အတည်ပြုပြီး ဒေတာဖြည့်မည်',
+    enrichConfirmCancelBtn: 'မလုပ်တော့ပါ',
+    enrichRunningLabel: 'မရှိသေးသော Kalodata ဒေတာများကို ရယူနေပါသည်...',
+    enrichSpendingLimitBlocked:
+      'ခန့်မှန်းကုန်ကျစရိတ်သည် Spending Limit ထက် ကျော်လွန်နေပါသည်။ ကုန်ကျစရိတ်မြင့်သောအပိုင်းကို ဖြုတ်ပါ သို့မဟုတ် Spending Limit တိုးမြှင့်ပါ။',
+    enrichAllDoneNotice:
+      'ဤ Product အတွက် Kalodata ဒေတာအားလုံး (Product Detail၊ Shop Detail နှင့် Review Insights) ပြည့်စုံစွာ ရှိပြီးဖြစ်၍ API ထပ်ခေါ်ရန် မလိုပါ။',
+    enrichNoKalodataIdNotice:
+      'ဤ Product မှတ်တမ်းတွင် Kalodata Product ID မပါဝင်သဖြင့် Kalodata API ဖြင့် ဖြည့်စွက်၍ မရနိုင်ပါ။',
+    enrichReviewLikes: 'ဝယ်သူများ နှစ်သက်သည့်အချက်များ',
+    enrichReviewDislikes: 'မကြိုက်သည့်အချက်များ',
+    enrichReviewComplaints: 'အဖြစ်များသော စောဒကများ (Frequent Complaints)',
+    enrichReviewQualityCautions: 'Product အရည်အသွေး သတိပြုရန်အချက်များ',
+    enrichReviewBuyerNeeds: 'ဝယ်သူလိုအပ်ချက်နှင့် အသုံးပြုပုံများ',
+    enrichReviewUnavailableNote:
+      'Unavailable — ဝယ်သူ Review Insights မရယူရသေးပါ။ တကယ့် Kalodata Review အချက်အလက်များ ကြည့်လိုပါက အထက်တွင် "Review Insights (1.0 cr)" ကို ရွေးချယ်အတည်ပြုပါ (မရှိသော Review ကို မဖန်တီးပါ)။',
+    enrichShopUnavailableNote:
+      'Unavailable — ဆိုင် GMV၊ Brand/Retailer အမျိုးအစားနှင့် Shop Creator အရေအတွက် မရယူရသေးပါ။ Shop ID ၁ ခုလျှင် ၁ ကြိမ်သာခေါ်ရန် "Shop Detail (0.1 cr)" ကို ရွေးချယ်ပါ။',
+    enrichDedupSavedLabel: 'ကြိမ် ထပ်မခေါ်ဘဲ Cache မှ သက်သာခဲ့သည်',
+    // Phase 5: Product Results, Ranking, Filtering, Comparison, Decisions & Export
+    sortFieldLabels: {
+      overallScore: 'Overall Score (စုစုပေါင်းအမှတ်)',
+      salesPerformance: 'Sales Performance (ရောင်းအား)',
+      revenuePerformance: 'Revenue Performance (ဝင်ငွေ)',
+      revenueGrowth: 'Revenue Growth (တိုးတက်နှုန်း)',
+      commissionPotential: 'Commission Potential (ကော်မရှင်)',
+      competition: 'Competition (ပြိုင်ဆိုင်မှု)',
+      aiContentSuitability: 'AI Content Suitability',
+      dataConfidence: 'Data Confidence (ဒေတာယုံကြည်မှု)',
+    },
+    sortDirHighest: 'အမြင့်ဆုံးမှ',
+    sortDirLowest: 'အနိမ့်ဆုံးမှ',
+    decisionVerdictLabels: {
+      recommended: 'Recommended (ရွေးချယ်သင့်)',
+      'worth-testing': 'Worth Testing (စမ်းသပ်သင့်)',
+      'need-more-data': 'Need More Data (ဒေတာထပ်လို)',
+      'not-recommended': 'Not Recommended (မရွေးသင့်)',
+    },
+    decisionSummaryHeading: 'နောက်ဆုံးဆုံးဖြတ်ချက် (Decision Summary)',
+    decisionCautionsLabel: 'သတိပြုရန်အချက်များ',
+    bestSelectionHeading: 'အကောင်းဆုံး Product ရွေးချယ်မှု (Best Product Selection)',
+    bestSelectionSubtitle:
+      'လက်ရှိရလဒ်များထဲမှ အတည်ပြုဒေတာများအပေါ် အခြေခံရွေးချယ်ထားသည်။ ဒေတာမလုံလောက်ပါက Best ဟု အတင်းမသတ်မှတ်ပါ။',
+    bestSelectionShow: 'အကောင်းဆုံးရွေးချယ်မှု ပြရန်',
+    bestSelectionHide: 'ဝှက်ထားရန်',
+    bestSelectionCategories: {
+      bestOverall: 'Best Overall (အကောင်းဆုံး)',
+      bestSalesPotential: 'Best Sales Potential (ရောင်းအားအကောင်းဆုံး)',
+      bestCommissionPotential: 'Best Commission Potential (ကော်မရှင်အကောင်းဆုံး)',
+      lowestCompetition: 'Lowest Competition (ပြိုင်ဆိုင်မှုအနည်းဆုံး)',
+      bestAiContentPotential: 'Best AI Content Potential',
+      highestDataConfidence: 'Highest Data Confidence (ဒေတာအပြည့်စုံဆုံး)',
+    },
+    bestInsufficientBadge: 'အချက်အလက် မပြည့်စုံပါ',
+    filtersToggleBtn: 'စစ်ထုတ်ရန် (Filters)',
+    filtersClearAllBtn: 'Filter အားလုံးဖျက်မည်',
+    filtersAllOption: 'အားလုံး',
+    filterScoreRangeLabel: 'အမှတ်အပိုင်းအခြား (Score)',
+    filterScore80Plus: '80+ (အမြင့်)',
+    filterScore65To79: '65–79 (အလယ်အလတ်)',
+    filterScoreUnder65: '65 အောက်',
+    filterDecisionLabel: 'Recommendation အဆင့်',
+    filterConfidenceLabel: 'Data Confidence',
+    filterCompetitionLabel: 'ပြိုင်ဆိုင်မှုအဆင့်',
+    filterSalesLabel: 'ရောင်းအားအခြေအနေ',
+    filterCommissionLabel: 'Commission အလားအလာ',
+    filterCategoryLabel: 'Product အမျိုးအစား',
+    filterModeLabel: 'Research Mode',
+    filterAiSuitabilityLabel: 'AI Content သင့်တော်မှု',
+    filterPerfStrong: 'အားကောင်း (70+)',
+    filterPerfModerate: 'အသင့်အတင့် (45–69)',
+    filterPerfLow: 'အားနည်း (<45)',
+    filterPerfUnavailable: 'Unavailable',
+    exportCsvBtn: 'CSV ထုတ်မည်',
+    exportJsonBtn: 'JSON ထုတ်မည်',
+    compareSelectBtn: 'နှိုင်းယှဉ်မည်',
+    compareSelectedBtn: 'ရွေးထားပြီး',
+    compareBarTitle: 'နှိုင်းယှဉ်ရန် ရွေးထားသော Product များ',
+    compareOpenBtn: 'နှိုင်းယှဉ်ကြည့်မည်',
+    compareClearBtn: 'ရှင်းလင်းမည်',
+    compareModalTitle: 'Product များ နှိုင်းယှဉ်ချက် (Product Comparison)',
+    compareModalSubtitle:
+      'Kalodata တကယ့်ဒေတာများနှင့် Phase 2–4 သုံးသပ်ချက်များကို ယှဉ်ကြည့်နိုင်ပါသည်။ မရှိသောဒေတာကို 0 ဟု မပြဘဲ Unavailable ဟုသာ ပြထားပါသည်။',
+    compareDistinctIdsNote: 'Product ID မတူညီသော ပစ္စည်းများကို သီးခြားခွဲပြထားပြီး ကွဲပြားသောအချက်များကို အမှတ်အသားပြထားပါသည်။',
+    compareDiffTag: 'ကွဲပြားသည်',
+    compareAddSavedLabel: 'Saved Product ထပ်ပေါင်းနှိုင်းယှဉ်ရန်',
+    compareAddSavedPlaceholder: 'သိမ်းထားသော Product ရွေးပါ...',
+    compareRemoveBtn: 'ဖယ်ရှားမည်',
+    compareNeedTwoNote: 'နှိုင်းယှဉ်ကြည့်ရန် Results၊ Saved Products သို့မဟုတ် History မှ Product အနည်းဆုံး ၂ ခု ရွေးချယ်ပါ။',
+    compareSourceResults: 'လက်ရှိရလဒ်',
+    compareSourceSaved: 'Saved Product',
+    compareSourceHistory: 'History မှတ်တမ်း',
+    reportTabMarketData: 'Kalodata ဒေတာ',
+    reportTabDecision: 'ဆုံးဖြတ်ချက်',
+    reportTabStrengths: 'အားသာချက်/အန္တရာယ်',
+    reportKalodataTag: 'Kalodata တကယ့်ဒေတာ',
+    reportAiTag: 'AI သုံးသပ်ချက် (Kalodata ဒေတာနှင့် သီးခြားခွဲပြထားသည်)',
+    reportLastUpdatedLabel: 'နောက်ဆုံးအပ်ဒိတ်',
+    reportExportCsv: 'CSV',
+    reportExportJson: 'JSON',
   },
 };

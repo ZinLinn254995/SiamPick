@@ -13,6 +13,7 @@ interface HeaderProps {
   shortlistCount: number;
   onToggleSavedView: () => void;
   language: Language;
+  onChangeLanguage: (language: Language) => void;
 }
 
 export function Header({
@@ -26,12 +27,13 @@ export function Header({
   shortlistCount,
   onToggleSavedView,
   language,
+  onChangeLanguage,
 }: HeaderProps) {
   const t = TRANSLATIONS[language];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 backdrop-blur-sm border-b border-zinc-200/80">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4 sm:gap-8">
+    <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 backdrop-blur-sm border-b border-zinc-200/80 overflow-x-clip">
+      <div className="max-w-[1280px] mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4 lg:gap-5">
         {/* Zone 1: Single-element Brand Wordmark */}
         <a
           href="#top"
@@ -39,15 +41,15 @@ export function Header({
             e.preventDefault();
             onGoHome();
           }}
-          className="font-display text-lg font-bold tracking-tight text-zinc-950 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded-sm"
+          className="font-display text-base sm:text-lg font-bold tracking-tight text-zinc-950 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded-sm"
         >
           SiamPick
         </a>
 
-        {/* Zone 2: Concise Single-Line Navigation Links (Desktop) */}
+        {/* Zone 2: Concise Single-Line Navigation Links (Desktop lg+ only so tablet never overflows) */}
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-medium text-zinc-600"
+          className="hidden lg:flex items-center gap-4 xl:gap-6 text-[13px] xl:text-sm font-medium text-zinc-600 min-w-0"
         >
           <button
             type="button"
@@ -93,7 +95,7 @@ export function Header({
             type="button"
             onClick={onToggleHistoryView}
             aria-current={activeView === 'history' ? 'page' : undefined}
-            className={`py-1 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
+            className={`py-1 inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
               activeView === 'history'
                 ? 'text-zinc-950 border-zinc-950'
                 : 'border-transparent hover:text-zinc-950 hover:border-zinc-300'
@@ -104,38 +106,74 @@ export function Header({
           </button>
         </nav>
 
-        {/* Zone 3: Mobile History Toggle + Primary Saved Action */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Zone 3: Language Switcher + Tablet/Mobile History Toggle + Primary Saved Action */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Language Switcher (EN / မြန်မာ) */}
+          <div
+            className="inline-flex items-center p-0.5 bg-zinc-200/75 rounded-lg shrink-0"
+            role="group"
+            aria-label="Language"
+          >
+            <button
+              type="button"
+              onClick={() => onChangeLanguage('en')}
+              aria-pressed={language === 'en'}
+              className={`min-h-[30px] sm:min-h-[32px] px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                language === 'en'
+                  ? 'bg-white text-zinc-950 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
+              }`}
+            >
+              EN
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeLanguage('my')}
+              aria-pressed={language === 'my'}
+              className={`min-h-[30px] sm:min-h-[32px] px-2 sm:px-2.5 py-1 text-[11px] sm:text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                language === 'my'
+                  ? 'bg-white text-zinc-950 shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-950'
+              }`}
+            >
+              မြန်မာ
+            </button>
+          </div>
+
+          {/* Mobile & Tablet History Button (Desktop lg+ has History in center nav) */}
           <button
             type="button"
             onClick={onToggleHistoryView}
             aria-pressed={activeView === 'history'}
-            className={`md:hidden inline-flex items-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+            aria-label={`${t.navHistory} (${historyCount})`}
+            className={`lg:hidden inline-flex items-center gap-1 sm:gap-1.5 min-h-[36px] sm:min-h-[38px] px-2 sm:px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               activeView === 'history'
                 ? 'bg-zinc-900 text-white border-zinc-900'
                 : 'bg-white text-zinc-700 border-zinc-200 hover:border-zinc-400 hover:text-zinc-950'
             }`}
           >
-            <History className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{t.navHistory}</span>
+            <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span className="hidden sm:inline">{t.navHistory}</span>
             <span className="font-mono tabular-nums opacity-75">({historyCount})</span>
           </button>
 
+          {/* Primary Saved Products Button */}
           <button
             type="button"
             onClick={onToggleSavedView}
             aria-pressed={activeView === 'saved'}
-            className={`inline-flex items-center gap-1.5 sm:gap-2 min-h-[38px] sm:min-h-[40px] px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg active:scale-[0.99] transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 ${
+            aria-label={`${t.shortlistBtn} (${shortlistCount})`}
+            className={`inline-flex items-center gap-1.5 min-h-[36px] sm:min-h-[38px] px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-medium rounded-lg active:scale-[0.99] transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 ${
               activeView === 'saved'
                 ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                 : 'bg-zinc-950 text-white hover:bg-zinc-800'
             }`}
           >
             <Bookmark
-              className={`w-3.5 h-3.5 ${activeView === 'saved' ? 'fill-current' : ''}`}
+              className={`w-3.5 h-3.5 shrink-0 ${activeView === 'saved' ? 'fill-current' : ''}`}
               aria-hidden="true"
             />
-            <span>{t.shortlistBtn}</span>
+            <span className="hidden min-[420px]:inline">{t.shortlistBtn}</span>
             <span className="font-mono tabular-nums opacity-80">({shortlistCount})</span>
           </button>
         </div>
@@ -143,4 +181,5 @@ export function Header({
     </header>
   );
 }
+
 

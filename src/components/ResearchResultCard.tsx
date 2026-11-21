@@ -1,34 +1,48 @@
-import { ArrowUpRight, Bookmark, ImageOff, RotateCcw, Star, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Bookmark,
+  GitCompareArrows,
+  ImageOff,
+  RotateCcw,
+  Star,
+  X,
+} from 'lucide-react';
 import {
   DataStatus,
   Language,
   OpportunityEvaluation,
   ProductDecision,
+  ProductDecisionSummary,
+  ProductDecisionVerdict,
   ResearchProduct,
-  ScoreTier,
 } from '../types/product';
 import { formatThb } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
+import { deriveProductDecisionSummary } from '../utils/productAnalytics';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 
 interface ResearchResultCardProps {
   product: ResearchProduct;
   evaluation?: OpportunityEvaluation;
+  decisionSummary?: ProductDecisionSummary;
   salesWeightPct?: number;
   peerProducts?: readonly ResearchProduct[];
   decision: ProductDecision;
   onSave: (id: string) => void;
   onReject: (id: string) => void;
   onOpenReport: (product: ResearchProduct) => void;
+  isCompared?: boolean;
+  onToggleCompare?: (product: ResearchProduct) => void;
   language: Language;
   hideRejectAction?: boolean;
 }
 
-function tierColorClass(tier: ScoreTier): string {
-  if (tier === 'priority-test') return 'text-emerald-700';
-  if (tier === 'investigate-further') return 'text-amber-700';
-  return 'text-zinc-500';
+function decisionColorClass(verdict: ProductDecisionVerdict): string {
+  if (verdict === 'recommended') return 'text-emerald-700';
+  if (verdict === 'worth-testing') return 'text-zinc-900';
+  if (verdict === 'need-more-data') return 'text-amber-700';
+  return 'text-red-700';
 }
 
 function dataStatusColorClass(status: DataStatus): string {
@@ -40,12 +54,15 @@ function dataStatusColorClass(status: DataStatus): string {
 export function ResearchResultCard({
   product,
   evaluation: providedEvaluation,
+  decisionSummary: providedDecisionSummary,
   salesWeightPct = 50,
   peerProducts,
   decision,
   onSave,
   onReject,
   onOpenReport,
+  isCompared = false,
+  onToggleCompare,
   language,
   hideRejectAction = false,
 }: ResearchResultCardProps) {
@@ -57,6 +74,8 @@ export function ResearchResultCard({
       salesWeightPct,
       peerProducts,
     });
+  const decisionSummary =
+    providedDecisionSummary ?? deriveProductDecisionSummary(product, evaluation);
 
   const displayName = isMy ? product.nameMy : product.name;
   const subCategory = isMy ? product.subCategoryMy : product.subCategory;
@@ -203,10 +222,10 @@ export function ResearchResultCard({
           </div>
         </div>
 
-        {/* Score Recommendation Tier + Evidence Verification Coverage */}
+        {/* Product Decision Summary (Multi-Signal Verdict) + Evidence Coverage */}
         <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
-          <span className={`font-medium truncate ${tierColorClass(evaluation.tier)}`}>
-            {t.scoringTierLabels[evaluation.tier]}
+          <span className={`font-semibold truncate ${decisionColorClass(decisionSummary.verdict)}`}>
+            {t.decisionVerdictLabels[decisionSummary.verdict]}
           </span>
           <span className="font-mono text-[11px] text-zinc-500 tabular-nums shrink-0">
             {product.researchDepthTag === 'deep-audited' && (
@@ -299,12 +318,26 @@ export function ResearchResultCard({
           )}
         </div>
 
-        {/* Structured Signals Grid: Demand, Competition, AI Video Fit, Data Confidence */}
+        {/* Structured Signals Grid: Sales, Competition, AI Video Fit, Data Confidence */}
         <dl className="mt-3 pt-3 border-t border-zinc-100 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
           <div>
-            <dt className="text-[11px] text-zinc-500">{t.cardDemand}</dt>
-            <dd className="mt-0.5 font-medium text-zinc-900">
-              {t.demandLabels[product.demandLevel]}
+            <dt className="text-[11px] text-zinc-500">
+              {isMy ? 'ရောင်းအား (Sales)' : 'Sales Volume'}
+            </dt>
+            <dd className="mt-0.5 font-mono font-medium text-zinc-900 tabular-nums truncate">
+              {typeof product.kalodataMetrics?.salesVolume === 'number' &&
+              Number.isFinite(product.kalodataMetrics.salesVolume) ? (
+                <>
+                  {product.kalodataMetrics.salesVolume.toLocaleString('en-US')}{' '}
+                  <span className="font-sans text-[11px] text-zinc-500">
+                    {isMy ? 'ခု' : 'units'}
+                  </span>
+                </>
+              ) : (
+                <span className="font-sans text-zinc-400">
+                  {t.dataStatusLabels.unavailable}
+                </span>
+              )}
             </dd>
           </div>
 
@@ -331,22 +364,37 @@ export function ResearchResultCard({
           </div>
         </dl>
 
-        {/* Quiet Link to Full Research Report */}
+        {/* Quiet Link to Full Research Report + Compare Toggle */}
         <div className="mt-auto pt-4">
-          <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
+          <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => onOpenReport(product)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 transition-colors cursor-pointer py-1"
+              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 transition-colors cursor-pointer py-1 whitespace-nowrap"
             >
               <span>{t.cardOpenReport}</span>
               <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
-            {evaluation.redistributedWeightPct > 0 && (
+
+            {onToggleCompare ? (
+              <button
+                type="button"
+                onClick={() => onToggleCompare(product)}
+                aria-pressed={isCompared}
+                className={`inline-flex items-center gap-1 text-xs font-medium py-1 transition-colors cursor-pointer whitespace-nowrap ${
+                  isCompared
+                    ? 'text-emerald-700'
+                    : 'text-zinc-500 hover:text-zinc-950'
+                }`}
+              >
+                <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{isCompared ? t.compareSelectedBtn : t.compareSelectBtn}</span>
+              </button>
+            ) : evaluation.redistributedWeightPct > 0 ? (
               <span className="font-mono text-[10px] text-amber-700 tabular-nums">
                 {evaluation.unavailableCount} {t.dataStatusLabels.unavailable.toLowerCase()}
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Save Product & Reject Product Action Row */}

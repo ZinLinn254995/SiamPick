@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
+  Download,
   Eye,
   GitCompareArrows,
   HardDrive,
@@ -32,6 +33,11 @@ import {
   getLocalStorageUsageStats,
 } from '../utils/researchHistoryStorage';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
+import {
+  buildProductsExportCsv,
+  buildProductsExportJson,
+  triggerFileDownload,
+} from '../utils/exportReports';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ResearchComparisonPanel } from './ResearchComparisonPanel';
@@ -44,6 +50,12 @@ interface ResearchHistoryViewProps {
   onDismissStorageAlert: () => void;
   getDecision: (id: string) => ProductDecision;
   onSaveProduct: (product: ResearchProduct, researchDate: string) => void;
+  comparedKeys?: Set<string>;
+  onToggleCompareHistoryProduct?: (
+    product: ResearchProduct,
+    recordId: string,
+    researchDate: string
+  ) => void;
   onOpenReport: (
     product: ResearchProduct,
     researchDate: string,
@@ -84,6 +96,8 @@ export function ResearchHistoryView({
   onDismissStorageAlert,
   getDecision,
   onSaveProduct,
+  comparedKeys,
+  onToggleCompareHistoryProduct,
   onOpenReport,
   onDeleteRecords,
   onBackToHunting,
@@ -283,16 +297,68 @@ export function ResearchHistoryView({
             <span>{t.historyBackToListBtn}</span>
           </button>
 
-          {records.length >= 2 && (
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => handleOpenCompareWith(selectedRecord)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer"
+              onClick={() => {
+                const csv = buildProductsExportCsv(sortedProducts, {
+                  salesWeightPct:
+                    archiveScoreMode === 'live'
+                      ? currentSalesWeightPct
+                      : selectedRecord.researchSettings.salesWeightPct ?? 50,
+                  evaluations: selectedArchiveEvaluations,
+                  researchDate: selectedRecord.researchedAt,
+                  exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
+                  language,
+                });
+                triggerFileDownload(
+                  csv,
+                  `siampick-history-${selectedRecord.id}.csv`,
+                  'text/csv;charset=utf-8;'
+                );
+              }}
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.historyCompareBtn}</span>
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.exportCsvBtn}</span>
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => {
+                const json = buildProductsExportJson(sortedProducts, {
+                  salesWeightPct:
+                    archiveScoreMode === 'live'
+                      ? currentSalesWeightPct
+                      : selectedRecord.researchSettings.salesWeightPct ?? 50,
+                  evaluations: selectedArchiveEvaluations,
+                  researchDate: selectedRecord.researchedAt,
+                  exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
+                  language,
+                });
+                triggerFileDownload(
+                  json,
+                  `siampick-history-${selectedRecord.id}.json`,
+                  'application/json;charset=utf-8;'
+                );
+              }}
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.exportJsonBtn}</span>
+            </button>
+
+            {records.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => handleOpenCompareWith(selectedRecord)}
+                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 bg-white border border-zinc-200 rounded-lg hover:border-zinc-400 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{t.historyCompareBtn}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Immutable Archived Snapshot Banner */}
@@ -390,6 +456,7 @@ export function ResearchHistoryView({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedProducts.map((product) => {
             const evalResult = selectedArchiveEvaluations.get(product.id);
+            const compareKey = `history:${selectedRecord.id}:${product.id}`;
             return (
               <ResearchResultCard
                 key={`${selectedRecord.id}-${product.id}`}
@@ -399,6 +466,17 @@ export function ResearchHistoryView({
                 onSave={() => onSaveProduct(product, selectedRecord.researchedAt)}
                 onReject={() => {}}
                 hideRejectAction
+                isCompared={comparedKeys?.has(compareKey) ?? false}
+                onToggleCompare={
+                  onToggleCompareHistoryProduct
+                    ? (prod) =>
+                        onToggleCompareHistoryProduct(
+                          prod,
+                          selectedRecord.id,
+                          selectedRecord.researchedAt
+                        )
+                    : undefined
+                }
                 onOpenReport={(prod) =>
                   onOpenReport(
                     prod,
