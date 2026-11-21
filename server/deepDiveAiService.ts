@@ -8,6 +8,7 @@ import type {
 import type {
   DeepDiveAnalysisId,
   DeepDiveCompletedModuleDigest,
+  DeepDiveGeminiTokenUsage,
 } from '../src/types/deepDive.ts';
 import { evaluateProductOpportunity, getCanonicalProductId } from '../src/utils/scoring.ts';
 import { getCategoryDefinition } from '../src/utils/categoryRegistry.ts';
@@ -153,6 +154,7 @@ export interface DeepDiveAiStrategyPayload {
   modelUsed: string;
   modulesSynthesized: DeepDiveAnalysisId[];
   generatedAt: string;
+  tokenUsage?: DeepDiveGeminiTokenUsage | null;
 }
 
 export type DeepDiveAiStrategyResponse =
@@ -467,6 +469,43 @@ export async function generateDeepDiveAiStrategy(params: {
 
         const validated = validateDeepDiveStrategyJson(rawText, modelName, modulesSynthesized);
         if (validated) {
+          const usage = response.usageMetadata as
+            | {
+                promptTokenCount?: number;
+                candidatesTokenCount?: number;
+                totalTokenCount?: number;
+              }
+            | undefined;
+          const promptTokens =
+            typeof usage?.promptTokenCount === 'number' && Number.isFinite(usage.promptTokenCount)
+              ? usage.promptTokenCount
+              : null;
+          const outputTokens =
+            typeof usage?.candidatesTokenCount === 'number' &&
+            Number.isFinite(usage.candidatesTokenCount)
+              ? usage.candidatesTokenCount
+              : null;
+          const totalTokens =
+            typeof usage?.totalTokenCount === 'number' && Number.isFinite(usage.totalTokenCount)
+              ? usage.totalTokenCount
+              : promptTokens !== null && outputTokens !== null
+                ? promptTokens + outputTokens
+                : null;
+
+          validated.tokenUsage = {
+            promptTokens,
+            outputTokens,
+            totalTokens,
+            pricingStatus: 'unavailable',
+            costNoteEn:
+              totalTokens !== null
+                ? `Gemini API cost: Estimated / Unavailable (${totalTokens.toLocaleString('en-US')} tokens used; billed separately by Google Gemini API — NOT free).`
+                : 'Gemini API cost: Estimated / Unavailable (billed separately by Google Gemini API — NOT free).',
+            costNoteMy:
+              totalTokens !== null
+                ? `Gemini API ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး (Token ${totalTokens.toLocaleString('en-US')} သုံးစွဲထားသည် · Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။`
+                : 'Gemini API ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး (Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။',
+          };
           return { ok: true, strategy: validated };
         }
 

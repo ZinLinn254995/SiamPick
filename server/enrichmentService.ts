@@ -73,6 +73,44 @@ const inFlightReviewInsight = new Map<
   }>
 >();
 
+// Phase 9.3: Synchronous per-run budget reservation ledger preventing concurrent
+// requests from collectively exceeding the user's Spending Limit.
+const RUN_BUDGET_TTL_MS = 10 * 60 * 1000;
+const RUN_BUDGET_MAX_ENTRIES = 500;
+const runBudgetLedger = new Map<
+  string,
+  { reservedCredits: number; updatedAtMs: number }
+>();
+
+function roundCredits3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+function getRunReservedCredits(runId: string): number {
+  const entry = runBudgetLedger.get(runId);
+  if (!entry) return 0;
+  if (Date.now() - entry.updatedAtMs > RUN_BUDGET_TTL_MS) {
+    runBudgetLedger.delete(runId);
+    return 0;
+  }
+  return entry.reservedCredits;
+}
+
+function adjustRunReservedCredits(runId: string, deltaCredits: number): void {
+  if (!runId || !Number.isFinite(deltaCredits) || Math.abs(deltaCredits) < 1e-9) return;
+  const current = getRunReservedCredits(runId);
+  const next = Math.max(0, roundCredits3(current + deltaCredits));
+  if (next <= 0) {
+    runBudgetLedger.delete(runId);
+    return;
+  }
+  if (runBudgetLedger.size >= RUN_BUDGET_MAX_ENTRIES && !runBudgetLedger.has(runId)) {
+    const oldest = runBudgetLedger.keys().next().value;
+    if (oldest !== undefined) runBudgetLedger.delete(oldest);
+  }
+  runBudgetLedger.set(runId, { reservedCredits: next, updatedAtMs: Date.now() });
+}
+
 function getValidEntry<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
   const entry = map.get(key);
   if (!entry) return null;
@@ -151,6 +189,7 @@ export function clearServerEnrichmentCache(): void {
   inFlightProductDetail.clear();
   inFlightShopDetail.clear();
   inFlightReviewInsight.clear();
+  runBudgetLedger.clear();
 }
 
 export function toProductDetailRecord(
@@ -261,6 +300,10 @@ export interface EnrichProductParams {
   product: ResearchProduct;
   requestedLayers: EnrichmentSelection;
   spendingLimitCredits?: number;
+  sessionCreditsAlreadySpent?: number;
+  runId?: string;
+  requireExplicitConfirmation?: boolean;
+  userConfirmedPaidExecution?: boolean;
   forceRefresh?: boolean;
   clientCachedProductDetail?: KalodataProductDetailEnrichmentRecord | null;
   clientCachedShopDetail?: KalodataShopEnrichmentRecord | null;
@@ -351,14 +394,133 @@ export async function enrichSingleProduct(
     cachedReviewInsight: effectiveCachedRi,
   });
 
-  // Hard Server-Side Spending Limit Gate (0 Kalodata calls if exceeded)
-  if (plan.exceedsSpendingLimit) {
+  // Account for already-in-flight deduplicated layers synchronously before any await
+  // so duplicate concurrent calls for the same ID cost 0 extra credits, while distinct
+  // concurrent paid calls under the same runId cannot collectively breach spendingLimitCredits.
+  const pdAlreadyInFlight =
+    !forceRefresh &&
+    plan.layers.productDetail.action === 'fetch' &&
+    inFlightProductDetail.has(rawKalodataProductId);
+  const sdAlreadyInFlight =
+    !forceRefresh &&
+    plan.layers.shopDetail.action === 'fetch' &&
+    Boolean(candidateShopId) &&
+    inFlightShopDetail.has(candidateShopId!);
+  const riAlreadyInFlight =
+    !forceRefresh &&
+    plan.layers.reviewInsights.action === 'fetch' &&
+    inFlightReviewInsight.has(rawKalodataProductId);
+
+  const effectiveNewCredits = roundCredits3(
+    (plan.layers.productDetail.action === 'fetch' && !pdAlreadyInFlight
+      ? plan.layers.productDetail.estimatedCredits
+      : 0) +
+      (plan.layers.shopDetail.action === 'fetch' && !sdAlreadyInFlight
+        ? plan.layers.shopDetail.estimatedCredits
+        : 0) +
+      (plan.layers.reviewInsights.action === 'fetch' && !riAlreadyInFlight
+        ? plan.layers.reviewInsights.estimatedCredits
+        : 0)
+  );
+  const effectiveNewApiCalls =
+    (plan.layers.productDetail.action === 'fetch' && !pdAlreadyInFlight ? 1 : 0) +
+    (plan.layers.shopDetail.action === 'fetch' && !sdAlreadyInFlight ? 1 : 0) +
+    (plan.layers.reviewInsights.action === 'fetch' && !riAlreadyInFlight ? 1 : 0);
+
+  // Hard Server-Side Explicit Confirmation Gate (Phase 9.3: 0 paid Kalodata calls without confirmation)
+  if (
+    params.requireExplicitConfirmation === true &&
+    effectiveNewApiCalls > 0 &&
+    params.userConfirmedPaidExecution !== true
+  ) {
+    throw new EnrichmentApiError(
+      400,
+      'CONFIRMATION_REQUIRED',
+      `Explicit user confirmation is required before running paid Kalodata API calls (${formatCredits(effectiveNewCredits)} credits estimated). No API call was made.`,
+      `ကုန်ကျစရိတ်ရှိသော Kalodata API (${formatCredits(effectiveNewCredits)} Credits) မခေါ်ဆိုမီ အသုံးပြုသူ၏ အတည်ပြုချက် လိုအပ်ပါသည်။ API မခေါ်ဆိုထားပါ။`
+    );
+  }
+
+  const sanitizedRunId =
+    typeof params.runId === 'string' && params.runId.trim().length > 0
+      ? params.runId.trim().slice(0, 80)
+      : null;
+  const sessionCreditsAlreadySpent =
+    typeof params.sessionCreditsAlreadySpent === 'number' &&
+    Number.isFinite(params.sessionCreditsAlreadySpent) &&
+    params.sessionCreditsAlreadySpent > 0
+      ? roundCredits3(params.sessionCreditsAlreadySpent)
+      : 0;
+  const reservedInRun = sanitizedRunId ? getRunReservedCredits(sanitizedRunId) : 0;
+  const projectedTotalSpent = roundCredits3(
+    sessionCreditsAlreadySpent + reservedInRun + effectiveNewCredits
+  );
+
+  // Hard Server-Side Spending Limit Gate (single-request + concurrent batch + cumulative session)
+  if (
+    effectiveNewApiCalls > 0 &&
+    (plan.exceedsSpendingLimit || projectedTotalSpent > spendingLimitCredits + 1e-6)
+  ) {
+    const remainingBudget = Math.max(
+      0,
+      roundCredits3(spendingLimitCredits - sessionCreditsAlreadySpent - reservedInRun)
+    );
     throw new EnrichmentApiError(
       400,
       'SPENDING_LIMIT_EXCEEDED',
-      `Estimated enrichment cost (${formatCredits(plan.estimatedCredits)} credits across ${plan.plannedApiCalls} call(s)) exceeds your Spending Limit (${formatCredits(spendingLimitCredits)} credits). No Kalodata API call was made.`,
-      `ခန့်မှန်းဒေတာဖြည့်စွက်စရိတ် (${formatCredits(plan.estimatedCredits)} Credits · API ${plan.plannedApiCalls} ကြိမ်) သည် Spending Limit (${formatCredits(spendingLimitCredits)} Credits) ထက် ကျော်လွန်နေသဖြင့် Kalodata API မခေါ်ဆိုဘဲ ရပ်တန့်ထားပါသည်။`
+      `Estimated cost (${formatCredits(effectiveNewCredits)} credits across ${effectiveNewApiCalls} new call(s)) exceeds remaining Spending Limit (${formatCredits(remainingBudget)} of ${formatCredits(spendingLimitCredits)} credits). No Kalodata API call was made.`,
+      `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(effectiveNewCredits)} Credits · API ${effectiveNewApiCalls} ကြိမ်) သည် ကျန်ရှိသော Spending Limit (${formatCredits(remainingBudget)} / ${formatCredits(spendingLimitCredits)} Credits) ထက် ကျော်လွန်နေသဖြင့် Kalodata API မခေါ်ဆိုဘဲ ရပ်တန့်ထားပါသည်။`
     );
+  }
+
+  // Synchronously reserve planned credits for this runId BEFORE the first await
+  let reservedByThisCall = 0;
+  if (sanitizedRunId && effectiveNewCredits > 0) {
+    adjustRunReservedCredits(sanitizedRunId, effectiveNewCredits);
+    reservedByThisCall = effectiveNewCredits;
+  }
+
+  // Synchronously register owned in-flight slots BEFORE the first await so a concurrent
+  // duplicate request for the exact same productId/shopId sees it immediately, costs 0 extra
+  // credits against Spending Limit, and shares the exact same upstream Kalodata call.
+  type DeferredLayerSlot<T> = {
+    key: string;
+    promise: Promise<{ record: T | null; error?: { en: string; my: string } }>;
+    resolve: (val: { record: T | null; error?: { en: string; my: string } }) => void;
+    settled: boolean;
+  };
+  const createDeferredSlot = <T,>(key: string): DeferredLayerSlot<T> => {
+    let resolveFn!: (val: { record: T | null; error?: { en: string; my: string } }) => void;
+    const promise = new Promise<{ record: T | null; error?: { en: string; my: string } }>(
+      (resolve) => {
+        resolveFn = resolve;
+      }
+    );
+    return { key, promise, resolve: resolveFn, settled: false };
+  };
+
+  let ownedPdSlot: DeferredLayerSlot<KalodataProductDetailEnrichmentRecord> | null = null;
+  if (!forceRefresh && plan.layers.productDetail.action === 'fetch' && !pdAlreadyInFlight) {
+    ownedPdSlot = createDeferredSlot<KalodataProductDetailEnrichmentRecord>(rawKalodataProductId);
+    inFlightProductDetail.set(rawKalodataProductId, ownedPdSlot.promise);
+  }
+
+  let ownedSdSlot: DeferredLayerSlot<KalodataShopEnrichmentRecord> | null = null;
+  if (
+    !forceRefresh &&
+    plan.layers.shopDetail.action === 'fetch' &&
+    candidateShopId &&
+    isValidKalodataId(candidateShopId) &&
+    !sdAlreadyInFlight
+  ) {
+    ownedSdSlot = createDeferredSlot<KalodataShopEnrichmentRecord>(candidateShopId);
+    inFlightShopDetail.set(candidateShopId, ownedSdSlot.promise);
+  }
+
+  let ownedRiSlot: DeferredLayerSlot<KalodataReviewInsightData> | null = null;
+  if (!forceRefresh && plan.layers.reviewInsights.action === 'fetch' && !riAlreadyInFlight) {
+    ownedRiSlot = createDeferredSlot<KalodataReviewInsightData>(rawKalodataProductId);
+    inFlightReviewInsight.set(rawKalodataProductId, ownedRiSlot.promise);
   }
 
   const layerResults: ProductEnrichmentExecutionSummary['layerResults'] = {
@@ -370,28 +532,29 @@ export async function enrichSingleProduct(
 
   let balanceBefore: number | null = null;
   let balanceAfter: number | null = null;
+  let actualApiCalls = 0;
 
-  // Free Credit Balance check BEFORE any paid call (0 credits)
-  if (plan.plannedApiCalls > 0) {
-    const balanceBeforeRes = await fetchKalodataCreditBalance();
-    balanceBefore =
-      balanceBeforeRes.ok && balanceBeforeRes.balance !== null
-        ? balanceBeforeRes.balance
-        : null;
+  try {
+    // Free Credit Balance check BEFORE any paid call (0 credits)
+    if (effectiveNewApiCalls > 0) {
+      const balanceBeforeRes = await fetchKalodataCreditBalance();
+      balanceBefore =
+        balanceBeforeRes.ok && balanceBeforeRes.balance !== null
+          ? balanceBeforeRes.balance
+          : null;
 
-    if (balanceBefore !== null && balanceBefore + 1e-6 < plan.estimatedCredits) {
-      throw new EnrichmentApiError(
-        402,
-        'INSUFFICIENT_CREDITS',
-        `Insufficient Kalodata credit balance (${formatCredits(balanceBefore)} credits remaining, ${formatCredits(plan.estimatedCredits)} credits estimated). No paid API call was made.`,
-        `Kalodata လက်ကျန် Balance (${formatCredits(balanceBefore)} Credits) သည် ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(plan.estimatedCredits)} Credits) ထက် နည်းနေသဖြင့် API မခေါ်ဆိုပါ။`
-      );
+      if (balanceBefore !== null && balanceBefore + 1e-6 < effectiveNewCredits) {
+        throw new EnrichmentApiError(
+          402,
+          'INSUFFICIENT_CREDITS',
+          `Insufficient Kalodata credit balance (${formatCredits(balanceBefore)} credits remaining, ${formatCredits(effectiveNewCredits)} credits estimated). No paid API call was made.`,
+          `Kalodata လက်ကျန် Balance (${formatCredits(balanceBefore)} Credits) သည် ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(effectiveNewCredits)} Credits) ထက် နည်းနေသဖြင့် API မခေါ်ဆိုပါ။`
+        );
+      }
     }
-  }
 
   const enrichedAt = new Date().toISOString();
   const dateRange = 'last30Day';
-  let actualApiCalls = 0;
   let deduplicatedCallsSaved = 0;
 
   let resolvedProductDetail: KalodataProductDetailEnrichmentRecord | null = null;
@@ -408,7 +571,8 @@ export async function enrichSingleProduct(
     layerResults.productDetail = 'reused-cache';
     deduplicatedCallsSaved += 1;
   } else if (pdAction === 'fetch') {
-    const existingInFlight = !forceRefresh ? inFlightProductDetail.get(rawKalodataProductId) : null;
+    const existingInFlight =
+      !forceRefresh && !ownedPdSlot ? inFlightProductDetail.get(rawKalodataProductId) : null;
     if (existingInFlight) {
       const shared = await existingInFlight;
       if (shared.record) {
@@ -424,7 +588,10 @@ export async function enrichSingleProduct(
       }
     } else {
       actualApiCalls += 1;
-      const fetchPromise = (async () => {
+      const runFetch = async (): Promise<{
+        record: KalodataProductDetailEnrichmentRecord | null;
+        error?: { en: string; my: string };
+      }> => {
         const res = await fetchKalodataProductDetail({
           region: 'TH',
           language: 'en-US',
@@ -455,11 +622,18 @@ export async function enrichSingleProduct(
             my: res.errorMy ?? 'Kalodata Product Detail ရယူမှု မအောင်မြင်ပါ။',
           },
         };
-      })();
+      };
 
-      inFlightProductDetail.set(rawKalodataProductId, fetchPromise);
+      const fetchPromise = runFetch();
+      if (!ownedPdSlot) {
+        inFlightProductDetail.set(rawKalodataProductId, fetchPromise);
+      }
       try {
         const outcome = await fetchPromise;
+        if (ownedPdSlot) {
+          ownedPdSlot.settled = true;
+          ownedPdSlot.resolve(outcome);
+        }
         if (outcome.record) {
           resolvedProductDetail = outcome.record;
           layerResults.productDetail = 'fetched';
@@ -468,7 +642,11 @@ export async function enrichSingleProduct(
           layerErrors.productDetail = outcome.error;
         }
       } finally {
-        if (inFlightProductDetail.get(rawKalodataProductId) === fetchPromise) {
+        if (ownedPdSlot) {
+          if (inFlightProductDetail.get(ownedPdSlot.key) === ownedPdSlot.promise) {
+            inFlightProductDetail.delete(ownedPdSlot.key);
+          }
+        } else if (inFlightProductDetail.get(rawKalodataProductId) === fetchPromise) {
           inFlightProductDetail.delete(rawKalodataProductId);
         }
       }
@@ -509,8 +687,17 @@ export async function enrichSingleProduct(
         resolvedShopDetail = lateCachedShop;
         layerResults.shopDetail = 'reused-cache';
         deduplicatedCallsSaved += 1;
+        if (ownedSdSlot && ownedSdSlot.key === finalShopId && !ownedSdSlot.settled) {
+          ownedSdSlot.settled = true;
+          ownedSdSlot.resolve({ record: lateCachedShop });
+          if (inFlightShopDetail.get(ownedSdSlot.key) === ownedSdSlot.promise) {
+            inFlightShopDetail.delete(ownedSdSlot.key);
+          }
+        }
       } else {
-        const existingShopInFlight = !forceRefresh ? inFlightShopDetail.get(finalShopId) : null;
+        const ownsFinalShop = ownedSdSlot !== null && ownedSdSlot.key === finalShopId;
+        const existingShopInFlight =
+          !forceRefresh && !ownsFinalShop ? inFlightShopDetail.get(finalShopId) : null;
         if (existingShopInFlight) {
           const shared = await existingShopInFlight;
           if (shared.record) {
@@ -559,9 +746,15 @@ export async function enrichSingleProduct(
             };
           })();
 
-          inFlightShopDetail.set(finalShopId, shopPromise);
+          if (!ownsFinalShop) {
+            inFlightShopDetail.set(finalShopId, shopPromise);
+          }
           try {
             const outcome = await shopPromise;
+            if (ownsFinalShop && ownedSdSlot) {
+              ownedSdSlot.settled = true;
+              ownedSdSlot.resolve(outcome);
+            }
             if (outcome.record) {
               resolvedShopDetail = outcome.record;
               layerResults.shopDetail = 'fetched';
@@ -570,7 +763,11 @@ export async function enrichSingleProduct(
               layerErrors.shopDetail = outcome.error;
             }
           } finally {
-            if (inFlightShopDetail.get(finalShopId) === shopPromise) {
+            if (ownsFinalShop && ownedSdSlot) {
+              if (inFlightShopDetail.get(ownedSdSlot.key) === ownedSdSlot.promise) {
+                inFlightShopDetail.delete(ownedSdSlot.key);
+              }
+            } else if (inFlightShopDetail.get(finalShopId) === shopPromise) {
               inFlightShopDetail.delete(finalShopId);
             }
           }
@@ -589,7 +786,8 @@ export async function enrichSingleProduct(
     layerResults.reviewInsights = 'reused-cache';
     deduplicatedCallsSaved += 1;
   } else if (riAction === 'fetch') {
-    const existingRiInFlight = !forceRefresh ? inFlightReviewInsight.get(rawKalodataProductId) : null;
+    const existingRiInFlight =
+      !forceRefresh && !ownedRiSlot ? inFlightReviewInsight.get(rawKalodataProductId) : null;
     if (existingRiInFlight) {
       const shared = await existingRiInFlight;
       if (shared.record) {
@@ -634,9 +832,15 @@ export async function enrichSingleProduct(
         };
       })();
 
-      inFlightReviewInsight.set(rawKalodataProductId, riPromise);
+      if (!ownedRiSlot) {
+        inFlightReviewInsight.set(rawKalodataProductId, riPromise);
+      }
       try {
         const outcome = await riPromise;
+        if (ownedRiSlot) {
+          ownedRiSlot.settled = true;
+          ownedRiSlot.resolve(outcome);
+        }
         if (outcome.record) {
           resolvedReviewInsight = outcome.record;
           layerResults.reviewInsights = 'fetched';
@@ -645,7 +849,11 @@ export async function enrichSingleProduct(
           layerErrors.reviewInsights = outcome.error;
         }
       } finally {
-        if (inFlightReviewInsight.get(rawKalodataProductId) === riPromise) {
+        if (ownedRiSlot) {
+          if (inFlightReviewInsight.get(ownedRiSlot.key) === ownedRiSlot.promise) {
+            inFlightReviewInsight.delete(ownedRiSlot.key);
+          }
+        } else if (inFlightReviewInsight.get(rawKalodataProductId) === riPromise) {
           inFlightReviewInsight.delete(rawKalodataProductId);
         }
       }
@@ -719,4 +927,36 @@ export async function enrichSingleProduct(
     reviewInsight: resolvedReviewInsight,
     summary,
   };
+  } finally {
+    const cancelError = {
+      en: 'Upstream Kalodata request did not complete.',
+      my: 'Kalodata API တောင်းဆိုမှု မပြီးမြောက်ပါ။',
+    };
+    if (ownedPdSlot && !ownedPdSlot.settled) {
+      ownedPdSlot.settled = true;
+      ownedPdSlot.resolve({ record: null, error: cancelError });
+      if (inFlightProductDetail.get(ownedPdSlot.key) === ownedPdSlot.promise) {
+        inFlightProductDetail.delete(ownedPdSlot.key);
+      }
+    }
+    if (ownedSdSlot && !ownedSdSlot.settled) {
+      ownedSdSlot.settled = true;
+      ownedSdSlot.resolve({ record: null, error: cancelError });
+      if (inFlightShopDetail.get(ownedSdSlot.key) === ownedSdSlot.promise) {
+        inFlightShopDetail.delete(ownedSdSlot.key);
+      }
+    }
+    if (ownedRiSlot && !ownedRiSlot.settled) {
+      ownedRiSlot.settled = true;
+      ownedRiSlot.resolve({ record: null, error: cancelError });
+      if (inFlightReviewInsight.get(ownedRiSlot.key) === ownedRiSlot.promise) {
+        inFlightReviewInsight.delete(ownedRiSlot.key);
+      }
+    }
+    // If no paid API call actually fired (e.g., blocked on INSUFFICIENT_CREDITS or shared in-flight),
+    // release our synchronous reservation so it never blocks subsequent calls in the same run.
+    if (sanitizedRunId && reservedByThisCall > 0 && actualApiCalls === 0) {
+      adjustRunReservedCredits(sanitizedRunId, -reservedByThisCall);
+    }
+  }
 }

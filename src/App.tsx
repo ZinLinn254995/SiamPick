@@ -941,7 +941,8 @@ export default function App() {
   const executeDeepDiveForTarget = async (
     target: DeepDiveSourceContext,
     analysisIds: DeepDiveAnalysisId[],
-    forceRefresh = false
+    forceRefresh = false,
+    userConfirmedPaidExecution = false
   ) => {
     if (analysisIds.length === 0) return;
     const key = target.canonicalProductId;
@@ -950,24 +951,16 @@ export default function App() {
     const peers = resolveDeepDivePeerProducts(target);
     const runTimestamp = new Date().toISOString();
 
-    setDeepDiveStatesByProduct((prev) => {
-      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
-      return {
-        ...prev,
-        [key]: {
-          ...current,
-          lastAttemptedRunIds: [...analysisIds],
-          lastAttemptedRunAt: runTimestamp,
-        },
-      };
-    });
-
     const outcome = await runDeepDiveModules({
       product: target.product,
       analysisIds,
       peerProducts: peers,
       existingSlots: currentSnapshot.slots,
       spendingLimitCredits,
+      sessionCreditsAlreadySpent: currentSnapshot.totalCreditsUsedInSession ?? 0,
+      liveBalanceCredits: creditBalance.status?.balance ?? null,
+      requireExplicitConfirmation: true,
+      userConfirmedPaidExecution,
       salesWeightPct,
       forceRefresh,
       onSlotUpdate: (analysisId, nextSlot) => {
@@ -977,6 +970,8 @@ export default function App() {
             ...prev,
             [key]: {
               ...current,
+              lastAttemptedRunIds: [...analysisIds],
+              lastAttemptedRunAt: runTimestamp,
               slots: {
                 ...current.slots,
                 [analysisId]: nextSlot,
@@ -987,35 +982,52 @@ export default function App() {
       },
     });
 
+    if (outcome.blockedReason) {
+      return;
+    }
+
+    setDeepDiveStatesByProduct((prev) => {
+      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          lastAttemptedRunIds: [...analysisIds],
+          lastAttemptedRunAt: runTimestamp,
+          totalCreditsUsedInSession:
+            Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
+            1000,
+          lastRunSummary: outcome.runSummary ?? current.lastRunSummary ?? null,
+        },
+      };
+    });
+
     if (outcome.totalCreditsUsed > 0) {
-      setDeepDiveStatesByProduct((prev) => {
-        const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
-        return {
-          ...prev,
-          [key]: {
-            ...current,
-            totalCreditsUsedInSession:
-              Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
-              1000,
-          },
-        };
-      });
       setBalanceRefreshSignal((n) => n + 1);
     }
   };
 
-  const handleDeepDiveRunSelected = () => {
+  const handleDeepDiveRunSelected = (userConfirmedPaidExecution = false) => {
     if (!deepDiveTarget) return;
     const current =
       deepDiveStatesByProduct[deepDiveTarget.canonicalProductId] ??
       createInitialDeepDiveWorkspaceState();
     if (current.selectedIds.length === 0) return;
-    void executeDeepDiveForTarget(deepDiveTarget, [...current.selectedIds], false);
+    void executeDeepDiveForTarget(
+      deepDiveTarget,
+      [...current.selectedIds],
+      false,
+      userConfirmedPaidExecution
+    );
   };
 
-  const handleDeepDiveRunSingle = (id: DeepDiveAnalysisId, forceRefresh = false) => {
+  const handleDeepDiveRunSingle = (
+    id: DeepDiveAnalysisId,
+    forceRefresh = false,
+    userConfirmedPaidExecution = false
+  ) => {
     if (!deepDiveTarget) return;
-    void executeDeepDiveForTarget(deepDiveTarget, [id], forceRefresh);
+    void executeDeepDiveForTarget(deepDiveTarget, [id], forceRefresh, userConfirmedPaidExecution);
   };
 
   const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
@@ -1429,6 +1441,9 @@ export default function App() {
                 : null
             }
             salesWeightPct={salesWeightPct}
+            spendingLimitCredits={spendingLimitCredits}
+            onSpendingLimitChange={setSpendingLimitCredits}
+            liveBalanceCredits={creditBalance.status?.balance ?? null}
             onToggleOption={handleDeepDiveToggleOption}
             onSelectAll={handleDeepDiveSelectAll}
             onClearAll={handleDeepDiveClearAll}

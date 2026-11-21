@@ -849,10 +849,27 @@ async function startServer() {
           ? (body.clientCachedReviewInsight as KalodataReviewInsightData)
           : null;
 
+      const sessionCreditsAlreadySpent =
+        typeof body?.sessionCreditsAlreadySpent === 'number' &&
+        Number.isFinite(body.sessionCreditsAlreadySpent) &&
+        body.sessionCreditsAlreadySpent >= 0
+          ? Math.round(body.sessionCreditsAlreadySpent * 1000) / 1000
+          : 0;
+      const runId =
+        typeof body?.runId === 'string' && body.runId.trim().length > 0
+          ? body.runId.trim().slice(0, 80)
+          : undefined;
+      const requireExplicitConfirmation = body?.requireExplicitConfirmation === true;
+      const userConfirmedPaidExecution = body?.userConfirmedPaidExecution === true;
+
       const result = await enrichSingleProduct({
         product: rawProduct as unknown as ResearchProduct,
         requestedLayers,
         spendingLimitCredits,
+        sessionCreditsAlreadySpent,
+        runId,
+        requireExplicitConfirmation,
+        userConfirmedPaidExecution,
         forceRefresh: body?.forceRefresh === true,
         clientCachedProductDetail,
         clientCachedShopDetail,
@@ -903,6 +920,21 @@ async function startServer() {
           code: 'INVALID_PAYLOAD',
           error: 'Valid product object (id, name, category) is required for AI Strategic Recommendation.',
           errorMy: 'AI Strategic Recommendation အတွက် မှန်ကန်သော Product အချက်အလက် လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      if (
+        body?.requireExplicitConfirmation === true &&
+        body?.userConfirmedPaidExecution !== true
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'CONFIRMATION_REQUIRED',
+          error:
+            'Explicit user confirmation is required before calling the Gemini AI API (separate Google Gemini API billing applies). No AI API call was made.',
+          errorMy:
+            'Gemini AI API မခေါ်ဆိုမီ အသုံးပြုသူ၏ အတည်ပြုချက် လိုအပ်ပါသည် (Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိပါသည်)။ AI API မခေါ်ဆိုထားပါ။',
         });
         return;
       }

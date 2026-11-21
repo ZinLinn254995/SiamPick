@@ -114,11 +114,21 @@ export interface DeepDiveModuleError {
   messageMy: string;
 }
 
+export interface DeepDiveGeminiTokenUsage {
+  promptTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  pricingStatus: 'unavailable';
+  costNoteEn: string;
+  costNoteMy: string;
+}
+
 export interface DeepDiveAiMeta {
   modelUsed: string | null;
   source: 'gemini';
   verdict: AiRecommendationVerdict;
   modulesSynthesized: DeepDiveAnalysisId[];
+  tokenUsage?: DeepDiveGeminiTokenUsage | null;
 }
 
 /**
@@ -165,6 +175,28 @@ export interface DeepDiveAnalysisSlotState {
   statusNoteMy: string;
 }
 
+export interface DeepDiveRunCostSummary {
+  runId: string;
+  completedAt: string;
+  analysisIds: DeepDiveAnalysisId[];
+  estimatedKalodataCredits: number;
+  actualKalodataCredits: number;
+  estimatedKalodataUsd: number;
+  actualKalodataUsd: number;
+  plannedKalodataApiCalls: number;
+  actualKalodataApiCalls: number;
+  cacheOrLocalReuseCount: number;
+  deduplicatedSharedCallsCount: number;
+  plannedGeminiCalls: number;
+  actualGeminiCalls: number;
+  geminiBillingStatus: 'none' | 'estimated-unavailable';
+  geminiTokenUsage: DeepDiveGeminiTokenUsage | null;
+  spendingLimitCredits: number;
+  sessionCreditsUsedAfterRun: number;
+  remainingBudgetCredits: number;
+  liveBalanceAfter: number | null;
+}
+
 export interface DeepDiveWorkspaceState {
   selectedIds: DeepDiveAnalysisId[];
   expandedIds: DeepDiveAnalysisId[];
@@ -172,6 +204,7 @@ export interface DeepDiveWorkspaceState {
   lastAttemptedRunIds: DeepDiveAnalysisId[];
   lastAttemptedRunAt: string | null;
   totalCreditsUsedInSession?: number;
+  lastRunSummary?: DeepDiveRunCostSummary | null;
 }
 
 /**
@@ -188,9 +221,9 @@ export interface DeepDiveSourceContext {
 }
 
 /**
- * Pre-call cost estimation hooks prepared for Phase 9.3 Cost Management integration.
+ * Pre-call cost estimation hooks (Phase 9.2 / 9.3 Cost Management).
  * Accurately accounts for cache reuse, already-present fields, shared layer deduplication,
- * and unverified/unavailable APIs.
+ * separate Gemini AI billing, and unverified/unavailable APIs.
  */
 export type DeepDiveModuleCostKind =
   | 'zero-local'
@@ -203,12 +236,17 @@ export interface DeepDiveModuleCostEstimate {
   analysisId: DeepDiveAnalysisId;
   costKind: DeepDiveModuleCostKind;
   requiredApiLayer: 'productDetail' | 'shopDetail' | 'reviewInsights' | 'gemini-ai' | 'none';
+  apiLabelEn: string;
+  apiLabelMy: string;
+  dataUsedEn: string;
+  dataUsedMy: string;
   plannedKalodataApiCalls: number;
   estimatedCredits: number;
   /** Estimated Kalodata USD only — excludes separate Google Gemini API billing when separateAiBilling is true */
   estimatedUsd: number;
   separateAiBilling?: boolean;
   reusesExistingOrCache: boolean;
+  isSharedDeduplicated?: boolean;
   noteEn: string;
   noteMy: string;
 }
@@ -220,11 +258,29 @@ export interface DeepDiveExecutionCostEstimate {
   plannedKalodataApiCalls: number;
   plannedGeminiCalls: number;
   hasSeparateAiBilling: boolean;
+  geminiBillingStatus: 'none' | 'estimated-unavailable';
   estimatedCredits: number;
   /** Estimated Kalodata USD only — excludes separate Google Gemini API token billing */
   estimatedUsd: number;
   includesOptInReviewApi: boolean;
+  hasHighCostReviewInsight: boolean;
+  cachedOrLocalModuleCount: number;
+  sharedDeduplicatedModuleCount: number;
+  requiresExplicitConfirmation: boolean;
   modules: DeepDiveModuleCostEstimate[];
+}
+
+export interface DeepDiveBudgetGuardResult {
+  spendingLimitCredits: number;
+  sessionCreditsAlreadySpent: number;
+  remainingBudgetBeforeRun: number;
+  remainingBudgetAfterRun: number;
+  exceedsSpendingLimit: boolean;
+  exceedsLiveBalance: boolean;
+  liveBalanceCredits: number | null;
+  canProceedWithoutLimitChange: boolean;
+  recommendedMinimumLimit: number;
+  requiresExplicitConfirmation: boolean;
 }
 
 /**

@@ -11,14 +11,17 @@ import type {
 import type {
   DeepDiveAnalysisId,
   DeepDiveAnalysisSlotState,
+  DeepDiveBudgetGuardResult,
   DeepDiveCompetitorComparisonRow,
   DeepDiveCompletedModuleDigest,
   DeepDiveExecutionCostEstimate,
+  DeepDiveGeminiTokenUsage,
   DeepDiveMetricRow,
   DeepDiveModuleCostEstimate,
   DeepDiveModuleError,
   DeepDiveModuleResult,
   DeepDiveResultSection,
+  DeepDiveRunCostSummary,
   DeepDiveVideoItem,
 } from '../types/deepDive.ts';
 import {
@@ -26,6 +29,8 @@ import {
   KALODATA_COMMENT_INSIGHT_CREDIT,
   KALODATA_PRODUCT_DETAIL_CREDIT,
   KALODATA_USD_PER_CREDIT,
+  MAX_SPENDING_LIMIT_CREDITS,
+  MIN_SPENDING_LIMIT_CREDITS,
 } from './kalodataPricing.ts';
 import {
   getProductEnrichmentCoverage,
@@ -78,6 +83,10 @@ export interface DeepDiveEnrichRequestPayload {
   product: ResearchProduct;
   requestedLayers: EnrichmentSelection;
   spendingLimitCredits?: number;
+  sessionCreditsAlreadySpent?: number;
+  runId?: string;
+  requireExplicitConfirmation?: boolean;
+  userConfirmedPaidExecution?: boolean;
   forceRefresh?: boolean;
   clientCachedProductDetail?: KalodataProductDetailEnrichmentRecord | null;
   clientCachedShopDetail?: KalodataShopEnrichmentRecord | null;
@@ -122,6 +131,7 @@ export interface DeepDiveAiApiStrategyData {
   modelUsed: string;
   modulesSynthesized: DeepDiveAnalysisId[];
   generatedAt: string;
+  tokenUsage?: DeepDiveGeminiTokenUsage | null;
 }
 
 export interface DeepDiveAiApiResponse {
@@ -146,6 +156,8 @@ export interface DeepDiveExecutionDependencies {
     product: ResearchProduct;
     completedModules: DeepDiveCompletedModuleDigest[];
     salesWeightPct: number;
+    requireExplicitConfirmation?: boolean;
+    userConfirmedPaidExecution?: boolean;
   }) => Promise<DeepDiveAiApiResponse>;
   getCacheFn?: (product: ResearchProduct) => DeepDiveCacheSnapshot;
   saveCacheFn?: (params: {
@@ -182,6 +194,8 @@ async function defaultRunAiStrategyFn(payload: {
   product: ResearchProduct;
   completedModules: DeepDiveCompletedModuleDigest[];
   salesWeightPct: number;
+  requireExplicitConfirmation?: boolean;
+  userConfirmedPaidExecution?: boolean;
 }): Promise<DeepDiveAiApiResponse> {
   const response = await fetch('/api/deep-dive/ai-strategy', {
     method: 'POST',
@@ -234,12 +248,60 @@ function moduleNeedsProductDetail(
   }
 }
 
+function getModuleDataUsageLabels(
+  id: DeepDiveAnalysisId
+): { en: string; my: string } {
+  switch (id) {
+    case 'product-intelligence':
+      return {
+        en: 'Product title, category, price range, SKU count, review count',
+        my: 'Product အမည်၊ Category၊ ဈေးနှုန်းအပိုင်းအခြား၊ SKU နှင့် Review အရေအတွက်',
+      };
+    case 'sales-market-intelligence':
+      return {
+        en: 'Sales volume, GMV, growth rate, Video/Live/Mall channel split',
+        my: 'ရောင်းအား၊ GMV၊ တိုးတက်မှုနှုန်းနှင့် Video/Live/Mall ခွဲခြမ်းစိတ်ဖြာမှု',
+      };
+    case 'affiliate-profit-analysis':
+      return {
+        en: 'Verified price & commission rate (local profit projections)',
+        my: 'အတည်ပြုပြီး ဈေးနှုန်းနှင့် ကော်မရှင်နှုန်း (Local အမြတ်တွက်ချက်မှု)',
+      };
+    case 'creator-competition-analysis':
+      return {
+        en: 'Active affiliate creator count & competition saturation',
+        my: 'လက်ရှိ Affiliate Creator အရေအတွက်နှင့် ပြိုင်ဆိုင်မှုအခြေအနေ',
+      };
+    case 'video-intelligence':
+      return {
+        en: 'Product video count, Video GMV & matched Myanmar videos',
+        my: 'Product Video အရေအတွက်၊ Video GMV နှင့် ချိတ်ဆက် မြန်မာ Video များ',
+      };
+    case 'customer-review-intelligence':
+      return {
+        en: 'Customer reviews, likes/dislikes, complaints & Myanmar comments',
+        my: 'ဝယ်သူ Review များ၊ အကောင်း/အဆိုး မှတ်ချက်နှင့် မြန်မာ Review စစ်ဆေးမှု',
+      };
+    case 'market-competitor-comparison':
+      return {
+        en: 'Same-category peer products in current session',
+        my: 'လက်ရှိ Session ထဲရှိ Category တူ Product များနှင့် နှိုင်းယှဉ်ချက်',
+      };
+    case 'ai-strategic-recommendation':
+      return {
+        en: 'Verified product data + completed Deep Dive module results',
+        my: 'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive ရလဒ်များ',
+      };
+  }
+}
+
 /**
- * Pre-call Cost Estimator prepared cleanly for Phase 9.3 Cost Management hook-in.
- * - Reuses `src/utils/kalodataPricing.ts` constants.
- * - Accounts for existing product fields + client enrichment cache.
- * - Deduplicates shared `product/detail` calls across multiple selected modules.
+ * Pre-call Cost Estimator (Phase 9.2 / 9.3 Cost Management).
+ * - Reuses `src/utils/kalodataPricing.ts` constants strictly.
+ * - Accounts for existing product fields + client enrichment cache (0 cr).
+ * - Deduplicates shared `product/detail` calls across multiple selected modules (0 extra cr).
  * - Marks Review Insight strictly opt-in (`1.0 cr` ONLY when selected and uncached).
+ * - Strictly separates Kalodata Credits from separate Google Gemini AI API billing (NEVER free).
  */
 export function estimateDeepDiveExecutionCost(
   product: ResearchProduct,
@@ -260,11 +322,17 @@ export function estimateDeepDiveExecutionCost(
   let plannedGeminiCalls = 0;
 
   for (const id of uniqueIds) {
+    const dataUsed = getModuleDataUsageLabels(id);
+
     if (id === 'affiliate-profit-analysis' || id === 'market-competitor-comparison') {
       modules.push({
         analysisId: id,
         costKind: 'zero-local',
         requiredApiLayer: 'none',
+        apiLabelEn: 'Local Calculation (No API)',
+        apiLabelMy: 'Local တွက်ချက်မှု (API မခေါ်ပါ)',
+        dataUsedEn: dataUsed.en,
+        dataUsedMy: dataUsed.my,
         plannedKalodataApiCalls: 0,
         estimatedCredits: 0,
         estimatedUsd: 0,
@@ -281,15 +349,19 @@ export function estimateDeepDiveExecutionCost(
         analysisId: id,
         costKind: 'ai-no-kalodata-credits',
         requiredApiLayer: 'gemini-ai',
+        apiLabelEn: 'Server-Side Gemini AI API (Separate Billing)',
+        apiLabelMy: 'Server-Side Gemini AI API (AI စရိတ် သီးခြားရှိ)',
+        dataUsedEn: dataUsed.en,
+        dataUsedMy: dataUsed.my,
         plannedKalodataApiCalls: 0,
         estimatedCredits: 0,
         estimatedUsd: 0,
         separateAiBilling: true,
         reusesExistingOrCache: true,
         noteEn:
-          '0 Kalodata credits — uses 1 server-side Gemini AI API call (billed separately by Google Gemini API; NOT free).',
+          '0 Kalodata credits — uses 1 server-side Gemini AI API call (Cost: Estimated / Unavailable; billed separately by Google Gemini API — NOT free).',
         noteMy:
-          'Kalodata Credit 0 cr — Server-side Gemini AI API Call ၁ ကြိမ်အတွက် Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိသည် (အခမဲ့ မဟုတ်ပါ)။',
+          'Kalodata Credit 0 cr — Server-side Gemini AI API Call ၁ ကြိမ် (ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး · Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။',
       });
       continue;
     }
@@ -300,6 +372,10 @@ export function estimateDeepDiveExecutionCost(
           analysisId: id,
           costKind: 'unavailable-api',
           requiredApiLayer: 'none',
+          apiLabelEn: 'Unavailable (No Kalodata Product ID)',
+          apiLabelMy: 'မရရှိနိုင်ပါ (Kalodata Product ID မရှိ)',
+          dataUsedEn: dataUsed.en,
+          dataUsedMy: dataUsed.my,
           plannedKalodataApiCalls: 0,
           estimatedCredits: 0,
           estimatedUsd: 0,
@@ -312,6 +388,10 @@ export function estimateDeepDiveExecutionCost(
           analysisId: id,
           costKind: 'cached-reuse',
           requiredApiLayer: 'reviewInsights',
+          apiLabelEn: 'Cached Review Insights (0 cr · No API)',
+          apiLabelMy: 'Cache ရှိပြီးသား Review Insights (0 cr · API မခေါ်)',
+          dataUsedEn: dataUsed.en,
+          dataUsedMy: dataUsed.my,
           plannedKalodataApiCalls: 0,
           estimatedCredits: 0,
           estimatedUsd: 0,
@@ -327,6 +407,10 @@ export function estimateDeepDiveExecutionCost(
           analysisId: id,
           costKind: 'verified-api',
           requiredApiLayer: 'reviewInsights',
+          apiLabelEn: 'Kalodata Comment Insight API (Opt-in · 1.0 cr)',
+          apiLabelMy: 'Kalodata Comment Insight API (Opt-in · 1.0 cr)',
+          dataUsedEn: dataUsed.en,
+          dataUsedMy: dataUsed.my,
           plannedKalodataApiCalls: alreadyCounted ? 0 : 1,
           estimatedCredits: credits,
           estimatedUsd: roundUsd(credits * KALODATA_USD_PER_CREDIT),
@@ -349,6 +433,10 @@ export function estimateDeepDiveExecutionCost(
         analysisId: id,
         costKind: 'zero-local',
         requiredApiLayer: 'none',
+        apiLabelEn: 'Existing Product Data (0 cr · No API)',
+        apiLabelMy: 'ရှိပြီးသား Product Data (0 cr · API မခေါ်)',
+        dataUsedEn: dataUsed.en,
+        dataUsedMy: dataUsed.my,
         plannedKalodataApiCalls: 0,
         estimatedCredits: 0,
         estimatedUsd: 0,
@@ -361,6 +449,10 @@ export function estimateDeepDiveExecutionCost(
         analysisId: id,
         costKind: 'cached-reuse',
         requiredApiLayer: 'productDetail',
+        apiLabelEn: 'Cached Product Detail (0 cr · No API)',
+        apiLabelMy: 'Cache ရှိပြီးသား Product Detail (0 cr · API မခေါ်)',
+        dataUsedEn: dataUsed.en,
+        dataUsedMy: dataUsed.my,
         plannedKalodataApiCalls: 0,
         estimatedCredits: 0,
         estimatedUsd: 0,
@@ -376,10 +468,19 @@ export function estimateDeepDiveExecutionCost(
         analysisId: id,
         costKind: 'verified-api',
         requiredApiLayer: 'productDetail',
+        apiLabelEn: alreadyCounted
+          ? 'Shared Kalodata Product Detail (0 extra cr)'
+          : `Kalodata Product Detail API (${KALODATA_PRODUCT_DETAIL_CREDIT} cr)`,
+        apiLabelMy: alreadyCounted
+          ? 'မျှဝေသုံးမည့် Product Detail API (0 extra cr)'
+          : `Kalodata Product Detail API (${KALODATA_PRODUCT_DETAIL_CREDIT} cr)`,
+        dataUsedEn: dataUsed.en,
+        dataUsedMy: dataUsed.my,
         plannedKalodataApiCalls: alreadyCounted ? 0 : 1,
         estimatedCredits: credits,
         estimatedUsd: roundUsd(credits * KALODATA_USD_PER_CREDIT),
         reusesExistingOrCache: alreadyCounted,
+        isSharedDeduplicated: alreadyCounted,
         noteEn: alreadyCounted
           ? 'Shares deduplicated Product Detail call with another selected module (0 extra cr).'
           : `Uses 1 verified Product Detail API call (${KALODATA_PRODUCT_DETAIL_CREDIT} cr, shared across modules).`,
@@ -397,6 +498,20 @@ export function estimateDeepDiveExecutionCost(
   const estimatedCredits = roundCredits(
     modules.reduce((sum, item) => sum + item.estimatedCredits, 0)
   );
+  const cachedOrLocalModuleCount = modules.filter(
+    (m) =>
+      (m.costKind === 'zero-local' || m.costKind === 'cached-reuse') &&
+      m.plannedKalodataApiCalls === 0
+  ).length;
+  const sharedDeduplicatedModuleCount = modules.filter(
+    (m) => m.isSharedDeduplicated === true
+  ).length;
+  const hasHighCostReviewInsight = modules.some(
+    (m) =>
+      m.analysisId === 'customer-review-intelligence' &&
+      m.plannedKalodataApiCalls > 0 &&
+      m.estimatedCredits >= KALODATA_COMMENT_INSIGHT_CREDIT
+  );
 
   return {
     canonicalProductId,
@@ -405,10 +520,85 @@ export function estimateDeepDiveExecutionCost(
     plannedKalodataApiCalls,
     plannedGeminiCalls,
     hasSeparateAiBilling: plannedGeminiCalls > 0,
+    geminiBillingStatus: plannedGeminiCalls > 0 ? 'estimated-unavailable' : 'none',
     estimatedCredits,
     estimatedUsd: roundUsd(estimatedCredits * KALODATA_USD_PER_CREDIT),
     includesOptInReviewApi: uniqueIds.includes('customer-review-intelligence'),
+    hasHighCostReviewInsight,
+    cachedOrLocalModuleCount,
+    sharedDeduplicatedModuleCount,
+    requiresExplicitConfirmation: plannedKalodataApiCalls > 0 || plannedGeminiCalls > 0,
     modules,
+  };
+}
+
+/**
+ * Pure Spending Limit & Live Balance Guard for Phase 9.3.
+ * Shared across UI preview, pre-run confirmation, and engine pre-flight gate.
+ */
+export function evaluateDeepDiveBudgetGuard(
+  estimate: DeepDiveExecutionCostEstimate,
+  options?: {
+    spendingLimitCredits?: number;
+    sessionCreditsAlreadySpent?: number;
+    liveBalanceCredits?: number | null;
+  }
+): DeepDiveBudgetGuardResult {
+  const rawLimit =
+    typeof options?.spendingLimitCredits === 'number' &&
+    Number.isFinite(options.spendingLimitCredits)
+      ? options.spendingLimitCredits
+      : DEFAULT_SPENDING_LIMIT_CREDITS;
+  const spendingLimitCredits = roundCredits(
+    Math.max(MIN_SPENDING_LIMIT_CREDITS, Math.min(MAX_SPENDING_LIMIT_CREDITS, rawLimit))
+  );
+  const sessionCreditsAlreadySpent =
+    typeof options?.sessionCreditsAlreadySpent === 'number' &&
+    Number.isFinite(options.sessionCreditsAlreadySpent) &&
+    options.sessionCreditsAlreadySpent > 0
+      ? roundCredits(options.sessionCreditsAlreadySpent)
+      : 0;
+  const liveBalanceCredits =
+    typeof options?.liveBalanceCredits === 'number' &&
+    Number.isFinite(options.liveBalanceCredits)
+      ? roundCredits(options.liveBalanceCredits)
+      : null;
+
+  const remainingBudgetBeforeRun = Math.max(
+    0,
+    roundCredits(spendingLimitCredits - sessionCreditsAlreadySpent)
+  );
+  const remainingBudgetAfterRun = roundCredits(
+    remainingBudgetBeforeRun - estimate.estimatedCredits
+  );
+  const exceedsSpendingLimit =
+    estimate.plannedKalodataApiCalls > 0 &&
+    estimate.estimatedCredits > remainingBudgetBeforeRun + 1e-6;
+  const exceedsLiveBalance =
+    estimate.plannedKalodataApiCalls > 0 &&
+    liveBalanceCredits !== null &&
+    estimate.estimatedCredits > liveBalanceCredits + 1e-6;
+  const recommendedMinimumLimit = roundCredits(
+    Math.min(
+      MAX_SPENDING_LIMIT_CREDITS,
+      Math.max(
+        MIN_SPENDING_LIMIT_CREDITS,
+        sessionCreditsAlreadySpent + estimate.estimatedCredits
+      )
+    )
+  );
+
+  return {
+    spendingLimitCredits,
+    sessionCreditsAlreadySpent,
+    remainingBudgetBeforeRun,
+    remainingBudgetAfterRun,
+    exceedsSpendingLimit,
+    exceedsLiveBalance,
+    liveBalanceCredits,
+    canProceedWithoutLimitChange: !exceedsSpendingLimit && !exceedsLiveBalance,
+    recommendedMinimumLimit,
+    requiresExplicitConfirmation: estimate.requiresExplicitConfirmation,
   };
 }
 
@@ -460,18 +650,27 @@ class ModuleExecutionError extends Error {
  * while strictly keeping the caller's original `ResearchProduct` unmutated.
  */
 interface DeepDiveBatchSession {
+  runId: string;
   canonicalProductId: string;
   workingProduct: ResearchProduct;
   inFlightLayers: Map<string, Promise<LayerFetchOutcome>>;
   spendingLimitCredits: number;
+  sessionCreditsAlreadySpent: number;
+  requireExplicitConfirmation: boolean;
+  userConfirmedPaidExecution: boolean;
   salesWeightPct: number;
+  latestBalanceAfter: number | null;
   deps: Required<DeepDiveExecutionDependencies>;
 }
 
 function createBatchSession(
   originalProduct: ResearchProduct,
   options: {
+    runId: string;
     spendingLimitCredits?: number;
+    sessionCreditsAlreadySpent?: number;
+    requireExplicitConfirmation?: boolean;
+    userConfirmedPaidExecution?: boolean;
     salesWeightPct?: number;
     deps?: DeepDiveExecutionDependencies;
   }
@@ -493,11 +692,16 @@ function createBatchSession(
   };
 
   return {
+    runId: options.runId,
     canonicalProductId: getCanonicalProductId(originalProduct),
     workingProduct,
     inFlightLayers: new Map(),
     spendingLimitCredits: options.spendingLimitCredits ?? DEFAULT_SPENDING_LIMIT_CREDITS,
+    sessionCreditsAlreadySpent: Math.max(0, options.sessionCreditsAlreadySpent ?? 0),
+    requireExplicitConfirmation: options.requireExplicitConfirmation === true,
+    userConfirmedPaidExecution: options.userConfirmedPaidExecution === true,
     salesWeightPct: options.salesWeightPct ?? 50,
+    latestBalanceAfter: null,
     deps,
   };
 }
@@ -579,6 +783,10 @@ async function ensureLayerOnSession(
           reviewInsights: false,
         },
         spendingLimitCredits: session.spendingLimitCredits,
+        sessionCreditsAlreadySpent: session.sessionCreditsAlreadySpent,
+        runId: session.runId,
+        requireExplicitConfirmation: session.requireExplicitConfirmation,
+        userConfirmedPaidExecution: session.userConfirmedPaidExecution,
         forceRefresh,
         clientCachedProductDetail: forceRefresh ? null : cached.productDetail,
         salesWeightPct: session.salesWeightPct,
@@ -612,6 +820,13 @@ async function ensureLayerOnSession(
           err?.en ?? 'Kalodata Product Detail API returned an error.',
           err?.my ?? 'Kalodata Product Detail API ခေါ်ဆိုမှု မအောင်မြင်ပါ။'
         );
+      }
+
+      if (
+        typeof res.summary?.balanceAfter === 'number' &&
+        Number.isFinite(res.summary.balanceAfter)
+      ) {
+        session.latestBalanceAfter = res.summary.balanceAfter;
       }
 
       const apiCalls = res.summary?.actualApiCalls ?? (layerStatus === 'fetched' ? 1 : 0);
@@ -680,6 +895,10 @@ async function ensureLayerOnSession(
         reviewInsights: true,
       },
       spendingLimitCredits: session.spendingLimitCredits,
+      sessionCreditsAlreadySpent: session.sessionCreditsAlreadySpent,
+      runId: session.runId,
+      requireExplicitConfirmation: session.requireExplicitConfirmation,
+      userConfirmedPaidExecution: session.userConfirmedPaidExecution,
       forceRefresh,
       clientCachedReviewInsight: forceRefresh ? null : cached.reviewInsight,
       salesWeightPct: session.salesWeightPct,
@@ -713,6 +932,13 @@ async function ensureLayerOnSession(
         err?.en ?? 'Kalodata Comment Insight API returned an error.',
         err?.my ?? 'Kalodata Comment Insight API ခေါ်ဆိုမှု မအောင်မြင်ပါ။'
       );
+    }
+
+    if (
+      typeof res.summary?.balanceAfter === 'number' &&
+      Number.isFinite(res.summary.balanceAfter)
+    ) {
+      session.latestBalanceAfter = res.summary.balanceAfter;
     }
 
     const apiCalls = res.summary?.actualApiCalls ?? (layerStatus === 'fetched' ? 1 : 0);
@@ -1995,6 +2221,8 @@ async function executeAiStrategicRecommendation(
     product: session.workingProduct,
     completedModules,
     salesWeightPct: session.salesWeightPct,
+    requireExplicitConfirmation: session.requireExplicitConfirmation,
+    userConfirmedPaidExecution: session.userConfirmedPaidExecution,
   });
 
   if (!res.ok || !res.strategy) {
@@ -2119,6 +2347,7 @@ async function executeAiStrategicRecommendation(
       source: 'gemini',
       verdict: s.verdict,
       modulesSynthesized: s.modulesSynthesized,
+      tokenUsage: s.tokenUsage ?? null,
     },
   };
 }
@@ -2128,7 +2357,12 @@ export interface RunDeepDiveModulesParams {
   analysisIds: readonly DeepDiveAnalysisId[];
   peerProducts?: readonly ResearchProduct[];
   existingSlots?: Partial<Record<DeepDiveAnalysisId, DeepDiveAnalysisSlotState>>;
+  runId?: string;
   spendingLimitCredits?: number;
+  sessionCreditsAlreadySpent?: number;
+  liveBalanceCredits?: number | null;
+  requireExplicitConfirmation?: boolean;
+  userConfirmedPaidExecution?: boolean;
   salesWeightPct?: number;
   forceRefresh?: boolean;
   onSlotUpdate?: (analysisId: DeepDiveAnalysisId, nextSlot: DeepDiveAnalysisSlotState) => void;
@@ -2142,6 +2376,8 @@ export interface RunDeepDiveModulesOutcome {
   completedIds: DeepDiveAnalysisId[];
   unavailableIds: DeepDiveAnalysisId[];
   failedIds: DeepDiveAnalysisId[];
+  blockedReason?: 'CONFIRMATION_REQUIRED' | 'SPENDING_LIMIT_EXCEEDED' | null;
+  runSummary?: DeepDiveRunCostSummary | null;
 }
 
 function toSlotStateFromResult(result: DeepDiveModuleResult): DeepDiveAnalysisSlotState {
@@ -2222,23 +2458,83 @@ export async function runDeepDiveModules(
       completedIds: [],
       unavailableIds: [],
       failedIds: [],
+      blockedReason: null,
+      runSummary: null,
     };
   }
 
+  const runId =
+    params.runId?.trim() ||
+    `dd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
   const session = createBatchSession(params.product, {
+    runId,
     spendingLimitCredits: params.spendingLimitCredits,
+    sessionCreditsAlreadySpent: params.sessionCreditsAlreadySpent,
+    requireExplicitConfirmation: params.requireExplicitConfirmation,
+    userConfirmedPaidExecution: params.userConfirmedPaidExecution,
     salesWeightPct: params.salesWeightPct,
     deps: params.deps,
   });
 
   const peerProducts = params.peerProducts ?? [];
   const forceRefresh = params.forceRefresh === true;
+
+  // Phase 9.3: Compute pre-run estimate using the exact cache snapshot & deduplication rules
+  const preEstimate = estimateDeepDiveExecutionCost(params.product, uniqueIds, {
+    cacheSnapshot: session.deps.getCacheFn(params.product),
+    forceRefresh,
+  });
+  const budgetGuard = evaluateDeepDiveBudgetGuard(preEstimate, {
+    spendingLimitCredits: session.spendingLimitCredits,
+    sessionCreditsAlreadySpent: session.sessionCreditsAlreadySpent,
+    liveBalanceCredits: params.liveBalanceCredits ?? null,
+  });
+
+  // Hard Pre-Run Explicit Confirmation Gate (0 API calls without user confirmation when required)
+  if (
+    session.requireExplicitConfirmation &&
+    preEstimate.requiresExplicitConfirmation &&
+    !session.userConfirmedPaidExecution
+  ) {
+    return {
+      slots: {},
+      totalKalodataApiCalls: 0,
+      totalCreditsUsed: 0,
+      completedIds: [],
+      unavailableIds: [],
+      failedIds: [],
+      blockedReason: 'CONFIRMATION_REQUIRED',
+      runSummary: null,
+    };
+  }
+
+  // Hard Pre-Run Spending Limit Gate when caller explicitly supplies a limit or confirmation flow
+  const enforceClientLimit =
+    params.spendingLimitCredits !== undefined || params.requireExplicitConfirmation === true;
+  if (enforceClientLimit && budgetGuard.exceedsSpendingLimit) {
+    return {
+      slots: {},
+      totalKalodataApiCalls: 0,
+      totalCreditsUsed: 0,
+      completedIds: [],
+      unavailableIds: [],
+      failedIds: [],
+      blockedReason: 'SPENDING_LIMIT_EXCEEDED',
+      runSummary: null,
+    };
+  }
+
   const outputSlots: Partial<Record<DeepDiveAnalysisId, DeepDiveAnalysisSlotState>> = {};
   const completedIds: DeepDiveAnalysisId[] = [];
   const unavailableIds: DeepDiveAnalysisId[] = [];
   const failedIds: DeepDiveAnalysisId[] = [];
   let totalKalodataApiCalls = 0;
   let totalCreditsUsed = 0;
+  let actualGeminiCalls = 0;
+  let geminiTokenUsage: DeepDiveGeminiTokenUsage | null = null;
+  let cacheOrLocalReuseCount = 0;
+  let deduplicatedSharedCallsCount = 0;
 
   // Emit 'running' state for all targeted modules immediately
   for (const id of uniqueIds) {
@@ -2290,6 +2586,16 @@ export async function runDeepDiveModules(
 
       totalKalodataApiCalls += result.apiCallsMade;
       totalCreditsUsed = roundCredits(totalCreditsUsed + result.creditsUsed);
+      if (result.apiCallsMade === 0 && result.reusedFromCache) {
+        const isSharedDedupe = result.dataSourcesEn.some((s) =>
+          s.toLowerCase().includes('deduplicated')
+        );
+        if (isSharedDedupe) {
+          deduplicatedSharedCallsCount += 1;
+        } else {
+          cacheOrLocalReuseCount += 1;
+        }
+      }
       const slot = toSlotStateFromResult(result);
       outputSlots[id] = slot;
       if (slot.status === 'unavailable') {
@@ -2333,6 +2639,8 @@ export async function runDeepDiveModules(
 
     try {
       const aiResult = await executeAiStrategicRecommendation(session, completedDigests);
+      actualGeminiCalls += aiResult.aiApiCallsMade ?? 1;
+      geminiTokenUsage = aiResult.aiMeta?.tokenUsage ?? null;
       const slot = toSlotStateFromResult(aiResult);
       outputSlots['ai-strategic-recommendation'] = slot;
       completedIds.push('ai-strategic-recommendation');
@@ -2349,6 +2657,38 @@ export async function runDeepDiveModules(
     }
   }
 
+  const sessionCreditsUsedAfterRun = roundCredits(
+    session.sessionCreditsAlreadySpent + totalCreditsUsed
+  );
+  const remainingBudgetCredits = Math.max(
+    0,
+    roundCredits(budgetGuard.spendingLimitCredits - sessionCreditsUsedAfterRun)
+  );
+  const runSummary: DeepDiveRunCostSummary = {
+    runId,
+    completedAt: session.deps.nowIsoFn(),
+    analysisIds: uniqueIds,
+    estimatedKalodataCredits: preEstimate.estimatedCredits,
+    actualKalodataCredits: totalCreditsUsed,
+    estimatedKalodataUsd: preEstimate.estimatedUsd,
+    actualKalodataUsd: roundUsd(totalCreditsUsed * KALODATA_USD_PER_CREDIT),
+    plannedKalodataApiCalls: preEstimate.plannedKalodataApiCalls,
+    actualKalodataApiCalls: totalKalodataApiCalls,
+    cacheOrLocalReuseCount,
+    deduplicatedSharedCallsCount,
+    plannedGeminiCalls: preEstimate.plannedGeminiCalls,
+    actualGeminiCalls,
+    geminiBillingStatus:
+      actualGeminiCalls > 0 || preEstimate.plannedGeminiCalls > 0
+        ? 'estimated-unavailable'
+        : 'none',
+    geminiTokenUsage,
+    spendingLimitCredits: budgetGuard.spendingLimitCredits,
+    sessionCreditsUsedAfterRun,
+    remainingBudgetCredits,
+    liveBalanceAfter: session.latestBalanceAfter,
+  };
+
   return {
     slots: outputSlots,
     totalKalodataApiCalls,
@@ -2356,5 +2696,7 @@ export async function runDeepDiveModules(
     completedIds,
     unavailableIds,
     failedIds,
+    blockedReason: null,
+    runSummary,
   };
 }
