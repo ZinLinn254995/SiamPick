@@ -154,6 +154,7 @@ interface ActiveReportState {
   evaluation?: OpportunityEvaluation | null;
   peerProducts?: readonly ResearchProduct[];
   sourceView: AppView;
+  researchMode?: ResearchMode;
 }
 
 type SessionMeta = LatestResearchSessionMeta;
@@ -336,6 +337,7 @@ export default function App() {
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const huntingInFlightRef = useRef(false);
+  const deepDiveInFlightKeysRef = useRef<Set<string>>(new Set());
   const hasMountedSavedRef = useRef(false);
   const hasMountedLatestSessionRef = useRef(false);
 
@@ -986,7 +988,8 @@ export default function App() {
     product: ResearchProduct,
     archiveDate: string,
     evaluation?: OpportunityEvaluation,
-    peerProducts?: readonly ResearchProduct[]
+    peerProducts?: readonly ResearchProduct[],
+    historyResearchMode?: ResearchMode
   ) => {
     setActiveReport({
       product,
@@ -994,18 +997,20 @@ export default function App() {
       evaluation: evaluation ?? null,
       peerProducts,
       sourceView: 'history',
+      researchMode: historyResearchMode,
     });
   };
 
   const handleOpenDeepDive = (
     product: ResearchProduct,
     originView: DeepDiveOriginView,
-    researchDateOverride?: string | null
+    researchDateOverride?: string | null,
+    researchModeOverride?: ResearchMode
   ) => {
     const context = buildDeepDiveTargetContext(
       product,
       originView,
-      activeHuntConfig?.researchMode ?? researchMode,
+      researchModeOverride ?? activeHuntConfig?.researchMode ?? researchMode,
       researchDateOverride ?? product.researchedAt ?? researchedAt
     );
     setActiveReport(null);
@@ -1082,101 +1087,117 @@ export default function App() {
   ) => {
     if (analysisIds.length === 0) return;
     const key = target.canonicalProductId;
-    const currentSnapshot =
-      deepDiveStatesByProduct[key] ?? createInitialDeepDiveWorkspaceState();
-    const peers = resolveDeepDivePeerProducts(target);
-    const runTimestamp = new Date().toISOString();
+    const runnableIds = Array.from(new Set(analysisIds)).filter(
+      (id) => !deepDiveInFlightKeysRef.current.has(`${key}:${id}`)
+    );
+    if (runnableIds.length === 0) return;
 
-    const authoritativeSpentBeforeRun =
-      serverBudgetStatus.snapshot?.totalCommittedCredits ??
-      currentSnapshot.totalCreditsUsedInSession ??
-      0;
+    const lockKeys = runnableIds.map((id) => `${key}:${id}`);
+    for (const lk of lockKeys) {
+      deepDiveInFlightKeysRef.current.add(lk);
+    }
 
-    const outcome = await runDeepDiveModules({
-      product: target.product,
-      analysisIds,
-      peerProducts: peers,
-      existingSlots: currentSnapshot.slots,
-      spendingLimitCredits,
-      sessionCreditsAlreadySpent: authoritativeSpentBeforeRun,
-      liveBalanceCredits: creditBalance.status?.balance ?? null,
-      requireExplicitConfirmation: true,
-      userConfirmedPaidExecution,
-      salesWeightPct,
-      forceRefresh,
-      onSlotUpdate: (analysisId, nextSlot) => {
-        setDeepDiveStatesByProduct((prev) => {
-          const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
-          return {
-            ...prev,
-            [key]: {
-              ...current,
-              lastAttemptedRunIds: [...analysisIds],
-              lastAttemptedRunAt: runTimestamp,
-              slots: {
-                ...current.slots,
-                [analysisId]: nextSlot,
+    try {
+      const currentSnapshot =
+        deepDiveStatesByProduct[key] ?? createInitialDeepDiveWorkspaceState();
+      const peers = resolveDeepDivePeerProducts(target);
+      const runTimestamp = new Date().toISOString();
+
+      const authoritativeSpentBeforeRun =
+        serverBudgetStatus.snapshot?.totalCommittedCredits ??
+        currentSnapshot.totalCreditsUsedInSession ??
+        0;
+
+      const outcome = await runDeepDiveModules({
+        product: target.product,
+        analysisIds: runnableIds,
+        peerProducts: peers,
+        existingSlots: currentSnapshot.slots,
+        spendingLimitCredits,
+        sessionCreditsAlreadySpent: authoritativeSpentBeforeRun,
+        liveBalanceCredits: creditBalance.status?.balance ?? null,
+        requireExplicitConfirmation: true,
+        userConfirmedPaidExecution,
+        salesWeightPct,
+        forceRefresh,
+        onSlotUpdate: (analysisId, nextSlot) => {
+          setDeepDiveStatesByProduct((prev) => {
+            const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+            return {
+              ...prev,
+              [key]: {
+                ...current,
+                lastAttemptedRunIds: [...runnableIds],
+                lastAttemptedRunAt: runTimestamp,
+                slots: {
+                  ...current.slots,
+                  [analysisId]: nextSlot,
+                },
               },
-            },
-          };
-        });
-      },
-    });
-
-    if (outcome.blockedReason) {
-      return;
-    }
-
-    if (outcome.budgetSnapshot) {
-      setServerBudgetStatus({
-        loaded: true,
-        storageAvailable: outcome.budgetSnapshot.storageAvailable,
-        snapshot: outcome.budgetSnapshot,
-        errorEn: null,
-        errorMy: null,
-      });
-    } else if (outcome.totalKalodataApiCalls > 0 || outcome.failedIds.length > 0) {
-      void refreshServerBudgetStatus();
-    }
-
-    setDeepDiveStatesByProduct((prev) => {
-      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
-      return {
-        ...prev,
-        [key]: {
-          ...current,
-          lastAttemptedRunIds: [...analysisIds],
-          lastAttemptedRunAt: runTimestamp,
-          totalCreditsUsedInSession:
-            outcome.budgetSnapshot?.totalCommittedCredits ??
-            Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
-              1000,
-          lastRunSummary: outcome.runSummary ?? current.lastRunSummary ?? null,
+            };
+          });
         },
-      };
-    });
+      });
 
-    // Phase 9.4: Persist real execution record into Browser Local Storage Deep Dive History
-    const hadPriorResult = analysisIds.some((id) => Boolean(currentSnapshot.slots[id]?.result));
-    const runType = forceRefresh ? 'refresh' : hadPriorResult ? 'rerun' : 'initial';
-    const historyRecord = createDeepDiveHistoryRecord({
-      canonicalProductId: key,
-      productName: target.product.name,
-      productNameMy: target.product.nameMy,
-      analysisIds,
-      slots: outcome.slots,
-      runSummary: outcome.runSummary ?? null,
-      runType,
-      analyzedAt: outcome.runSummary?.completedAt ?? runTimestamp,
-    });
-    const { records: updatedHistory } = appendDeepDiveHistoryRecord(historyRecord);
-    setDeepDiveHistoryByProduct((prev) => ({
-      ...prev,
-      [key]: updatedHistory,
-    }));
+      if (outcome.blockedReason) {
+        return;
+      }
 
-    if (outcome.totalCreditsUsed > 0) {
-      setBalanceRefreshSignal((n) => n + 1);
+      if (outcome.budgetSnapshot) {
+        setServerBudgetStatus({
+          loaded: true,
+          storageAvailable: outcome.budgetSnapshot.storageAvailable,
+          snapshot: outcome.budgetSnapshot,
+          errorEn: null,
+          errorMy: null,
+        });
+      } else if (outcome.totalKalodataApiCalls > 0 || outcome.failedIds.length > 0) {
+        void refreshServerBudgetStatus();
+      }
+
+      setDeepDiveStatesByProduct((prev) => {
+        const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+        return {
+          ...prev,
+          [key]: {
+            ...current,
+            lastAttemptedRunIds: [...runnableIds],
+            lastAttemptedRunAt: runTimestamp,
+            totalCreditsUsedInSession:
+              outcome.budgetSnapshot?.totalCommittedCredits ??
+              Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
+                1000,
+            lastRunSummary: outcome.runSummary ?? current.lastRunSummary ?? null,
+          },
+        };
+      });
+
+      // Phase 9.4: Persist real execution record into Browser Local Storage Deep Dive History
+      const hadPriorResult = runnableIds.some((id) => Boolean(currentSnapshot.slots[id]?.result));
+      const runType = forceRefresh ? 'refresh' : hadPriorResult ? 'rerun' : 'initial';
+      const historyRecord = createDeepDiveHistoryRecord({
+        canonicalProductId: key,
+        productName: target.product.name,
+        productNameMy: target.product.nameMy,
+        analysisIds: runnableIds,
+        slots: outcome.slots,
+        runSummary: outcome.runSummary ?? null,
+        runType,
+        analyzedAt: outcome.runSummary?.completedAt ?? runTimestamp,
+      });
+      const { records: updatedHistory } = appendDeepDiveHistoryRecord(historyRecord);
+      setDeepDiveHistoryByProduct((prev) => ({
+        ...prev,
+        [key]: updatedHistory,
+      }));
+
+      if (outcome.totalCreditsUsed > 0) {
+        setBalanceRefreshSignal((n) => n + 1);
+      }
+    } finally {
+      for (const lk of lockKeys) {
+        deepDiveInFlightKeysRef.current.delete(lk);
+      }
     }
   };
 
@@ -2494,7 +2515,8 @@ export default function App() {
               : activeReport?.sourceView === 'history'
                 ? 'history'
                 : 'hunting',
-            activeReport?.researchDate ?? targetProduct.researchedAt ?? researchedAt
+            activeReport?.researchDate ?? targetProduct.researchedAt ?? researchedAt,
+            activeReport?.researchMode
           )
         }
         onClose={() => setActiveReport(null)}

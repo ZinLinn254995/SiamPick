@@ -171,27 +171,135 @@ export interface DeepDiveExecutionDependencies {
   nowIsoFn?: () => string;
 }
 
+const DEEP_DIVE_ENRICH_TIMEOUT_MS = 45_000;
+const DEEP_DIVE_AI_TIMEOUT_MS = 65_000;
+
+function isAbortOrTimeoutError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { name?: string; message?: string };
+  return (
+    e.name === 'AbortError' ||
+    e.name === 'TimeoutError' ||
+    (typeof e.message === 'string' && /timeout|timed out|aborted/i.test(e.message))
+  );
+}
+
+function isNetworkFailureError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { name?: string; message?: string };
+  return (
+    e.name === 'TypeError' ||
+    (typeof e.message === 'string' &&
+      /failed to fetch|networkerror|network request failed|econnrefused|enotfound|offline|fetch failed/i.test(
+        e.message
+      ))
+  );
+}
+
+function buildFriendlyHttpError(
+  status: number,
+  serviceLabelEn: string,
+  serviceLabelMy: string,
+  hasValidJson: boolean
+): { code: string; error: string; errorMy: string } {
+  if (status === 429) {
+    return {
+      code: 'RATE_LIMITED',
+      error: `${serviceLabelEn} rate limit reached (HTTP 429). Please wait a moment and retry.`,
+      errorMy: `${serviceLabelMy} အသုံးပြုမှု ကန့်သတ်ချက် ပြည့်နေပါသည် (HTTP 429)။ ခေတ္တစောင့်ပြီး ပြန်လည်စမ်းသပ်ပါ။`,
+    };
+  }
+  if (status === 504) {
+    return {
+      code: 'TIMEOUT',
+      error: `${serviceLabelEn} timed out on the server (HTTP 504). Please retry — cached data will be reused automatically.`,
+      errorMy: `${serviceLabelMy} တုံ့ပြန်မှု အချိန်ကျော်လွန်သွားပါသည် (HTTP 504)။ ပြန်လည်စမ်းသပ်ပါ — Cache ရှိပြီးသား Data များကို ထပ်မကုန်ဘဲ ပြန်သုံးပါမည်။`,
+    };
+  }
+  if (!hasValidJson) {
+    return {
+      code: status >= 200 && status < 300 ? 'INVALID_RESPONSE' : `HTTP_${status}`,
+      error: `${serviceLabelEn} returned an invalid or unreadable response (HTTP ${status}). Other modules are unaffected.`,
+      errorMy: `${serviceLabelMy} မှ ဖတ်မရသော တုံ့ပြန်မှု ရရှိပါသည် (HTTP ${status})။ အခြား Module များကို ထိခိုက်မှုမရှိပါ။`,
+    };
+  }
+  return {
+    code: `HTTP_${status}`,
+    error: `${serviceLabelEn} request failed (HTTP ${status}).`,
+    errorMy: `${serviceLabelMy} ခေါ်ဆိုမှု မအောင်မြင်ပါ (HTTP ${status})။`,
+  };
+}
+
 async function defaultEnrichProductFn(
   payload: DeepDiveEnrichRequestPayload
 ): Promise<DeepDiveEnrichResponsePayload> {
-  const response = await fetch('/api/enrich-product', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const json = (await response.json().catch(() => null)) as DeepDiveEnrichResponsePayload | null;
-  if (!response.ok || !json || !json.ok) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timedOut = false;
+  const timer =
+    controller !== null
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, DEEP_DIVE_ENRICH_TIMEOUT_MS)
+      : null;
+
+  try {
+    const response = await fetch('/api/enrich-product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    const json = (await response.json().catch(() => null)) as DeepDiveEnrichResponsePayload | null;
+    if (!response.ok || !json || !json.ok) {
+      const fallback = buildFriendlyHttpError(
+        response.status,
+        'Kalodata data enrichment',
+        'Kalodata ဒေတာရယူမှု',
+        Boolean(json)
+      );
+      return {
+        ok: false,
+        code: json?.code ?? fallback.code,
+        error: json?.error ?? fallback.error,
+        errorMy: json?.errorMy ?? fallback.errorMy,
+        budgetSnapshot: json?.budgetSnapshot ?? null,
+      };
+    }
+    return json;
+  } catch (err) {
+    if (timedOut || isAbortOrTimeoutError(err)) {
+      return {
+        ok: false,
+        code: 'TIMEOUT',
+        error:
+          'Kalodata enrichment request timed out. Please retry — already-cached layers will not be charged again.',
+        errorMy:
+          'Kalodata ဒေတာရယူမှု အချိန်ကျော်လွန်သွားပါသည်။ ပြန်လည်စမ်းသပ်ပါ — Cache ရှိပြီးသား Data များအတွက် ထပ်မကုန်ပါ။',
+      };
+    }
+    if (isNetworkFailureError(err)) {
+      return {
+        ok: false,
+        code: 'NETWORK_ERROR',
+        error:
+          'Network connection failed while reaching SiamPick server. Check your internet connection and retry.',
+        errorMy:
+          'SiamPick Server နှင့် အင်တာနက်ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။ အင်တာနက်ကို စစ်ဆေးပြီး ပြန်လည်စမ်းသပ်ပါ။',
+      };
+    }
     return {
       ok: false,
-      code: json?.code ?? `HTTP_${response.status}`,
-      error: json?.error ?? `Enrichment request failed (HTTP ${response.status}).`,
-      errorMy:
-        json?.errorMy ??
-        `Kalodata ဒေတာရယူမှု မအောင်မြင်ပါ (HTTP ${response.status})။`,
-      budgetSnapshot: json?.budgetSnapshot ?? null,
+      code: 'ENRICHMENT_ERROR',
+      error:
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unexpected error while loading Kalodata data.',
+      errorMy: 'Kalodata ဒေတာရယူရာတွင် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
     };
+  } finally {
+    if (timer !== null) clearTimeout(timer);
   }
-  return json;
 }
 
 async function defaultRunAiStrategyFn(payload: {
@@ -201,23 +309,72 @@ async function defaultRunAiStrategyFn(payload: {
   requireExplicitConfirmation?: boolean;
   userConfirmedPaidExecution?: boolean;
 }): Promise<DeepDiveAiApiResponse> {
-  const response = await fetch('/api/deep-dive/ai-strategy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const json = (await response.json().catch(() => null)) as DeepDiveAiApiResponse | null;
-  if (!response.ok || !json || !json.ok) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timedOut = false;
+  const timer =
+    controller !== null
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, DEEP_DIVE_AI_TIMEOUT_MS)
+      : null;
+
+  try {
+    const response = await fetch('/api/deep-dive/ai-strategy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    const json = (await response.json().catch(() => null)) as DeepDiveAiApiResponse | null;
+    if (!response.ok || !json || !json.ok) {
+      const fallback = buildFriendlyHttpError(
+        response.status,
+        'AI Strategic Recommendation',
+        'AI Strategic Recommendation',
+        Boolean(json)
+      );
+      return {
+        ok: false,
+        code: json?.code ?? fallback.code,
+        error: json?.error ?? fallback.error,
+        errorMy: json?.errorMy ?? fallback.errorMy,
+      };
+    }
+    return json;
+  } catch (err) {
+    if (timedOut || isAbortOrTimeoutError(err)) {
+      return {
+        ok: false,
+        code: 'TIMEOUT',
+        error:
+          'Gemini AI Strategic Recommendation timed out. Other Deep Dive modules remain intact — retry when ready.',
+        errorMy:
+          'Gemini AI ဗျူဟာအကြံပြုချက် အချိန်ကျော်လွန်သွားပါသည်။ အခြား Deep Dive Module များ မပျက်စီးပါ — ပြန်လည်စမ်းသပ်နိုင်ပါသည်။',
+      };
+    }
+    if (isNetworkFailureError(err)) {
+      return {
+        ok: false,
+        code: 'NETWORK_ERROR',
+        error:
+          'Network connection failed while calling AI Strategic Recommendation. Check your connection and retry.',
+        errorMy:
+          'AI Strategic Recommendation ခေါ်ဆိုစဉ် အင်တာနက်ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။ ပြန်လည်စမ်းသပ်ပါ။',
+      };
+    }
     return {
       ok: false,
-      code: json?.code ?? `HTTP_${response.status}`,
-      error: json?.error ?? `AI Strategic Recommendation failed (HTTP ${response.status}).`,
-      errorMy:
-        json?.errorMy ??
-        `AI Strategic Recommendation ခေါ်ဆိုမှု မအောင်မြင်ပါ (HTTP ${response.status})။`,
+      code: 'AI_STRATEGY_ERROR',
+      error:
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unexpected error while running AI Strategic Recommendation.',
+      errorMy: 'AI Strategic Recommendation လုပ်ဆောင်ရာတွင် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
     };
+  } finally {
+    if (timer !== null) clearTimeout(timer);
   }
-  return json;
 }
 
 /**
@@ -2431,28 +2588,61 @@ function toSlotStateFromError(
   timestampIso: string,
   previousResult: DeepDiveModuleResult | null = null
 ): DeepDiveAnalysisSlotState {
-  const errorObj: DeepDiveModuleError =
-    err instanceof ModuleExecutionError
-      ? {
-          code: err.code,
-          messageEn: err.message,
-          messageMy: err.messageMy,
-        }
-      : {
-          code: 'EXECUTION_ERROR',
-          messageEn:
-            err instanceof Error
-              ? err.message
-              : 'Unexpected error while running this analysis module.',
-          messageMy:
-            'ဤ Analysis Module ကို လုပ်ဆောင်ရာတွင် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
-        };
+  let errorObj: DeepDiveModuleError;
+
+  if (err instanceof ModuleExecutionError) {
+    errorObj = {
+      code: err.code,
+      messageEn: err.message,
+      messageMy: err.messageMy,
+    };
+  } else if (isAbortOrTimeoutError(err)) {
+    errorObj = {
+      code: 'TIMEOUT',
+      messageEn: 'Request timed out while running this analysis. Retry safely — cached data will be reused.',
+      messageMy: 'ဤ Analysis လုပ်ဆောင်မှု အချိန်ကျော်လွန်သွားပါသည်။ ပြန်လည်စမ်းသပ်ပါ — Cache ရှိပြီးသား Data များကို ပြန်သုံးပါမည်။',
+    };
+  } else if (isNetworkFailureError(err)) {
+    errorObj = {
+      code: 'NETWORK_ERROR',
+      messageEn: 'Network connection failed. Check your internet connection and retry this module.',
+      messageMy: 'အင်တာနက်ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။ ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ဤ Module ကို ပြန်လည်စမ်းသပ်ပါ။',
+    };
+  } else if (
+    err instanceof Error &&
+    /429|rate.?limit|quota/i.test(err.message)
+  ) {
+    errorObj = {
+      code: 'RATE_LIMITED',
+      messageEn: 'Upstream API rate limit reached. Wait briefly and retry this module.',
+      messageMy: 'API အသုံးပြုမှု ကန့်သတ်ချက် ပြည့်နေပါသည်။ ခေတ္တစောင့်ပြီး ပြန်လည်စမ်းသပ်ပါ။',
+    };
+  } else if (
+    err instanceof Error &&
+    /unexpected token|invalid json|bad gateway|502|invalid response/i.test(err.message)
+  ) {
+    errorObj = {
+      code: 'INVALID_RESPONSE',
+      messageEn: 'Received an invalid upstream response. Other modules are unaffected — please retry.',
+      messageMy: 'Upstream မှ မမှန်ကန်သော တုံ့ပြန်မှု ရရှိပါသည်။ အခြား Module များကို မထိခိုက်ပါ — ပြန်လည်စမ်းသပ်ပါ။',
+    };
+  } else {
+    errorObj = {
+      code: 'EXECUTION_ERROR',
+      messageEn:
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unexpected error while running this analysis module.',
+      messageMy:
+        'ဤ Analysis Module ကို လုပ်ဆောင်ရာတွင် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+    };
+  }
 
   return {
     analysisId,
     status: 'error',
     updatedAt: timestampIso,
-    // Phase 9.4: Never erase a previously completed result when a rerun fails
+    // Phase 9.4 / 9.5: Never erase a previously completed result when a rerun fails
     result: previousResult,
     error: errorObj,
     statusNoteEn: errorObj.messageEn,

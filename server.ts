@@ -435,96 +435,18 @@ async function startServer() {
     }
   });
 
-  app.post('/api/kalodata/product-rank', async (req, res) => {
+  // Phase 9.5 Budget Security: Disable unguarded direct paid Kalodata product-rank proxy so callers
+  // cannot bypass Spending Limit, Confirmation, and Persistent Budget Ledger via raw proxy endpoints.
+  app.post('/api/kalodata/product-rank', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    try {
-      const body =
-        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-      const sortInput =
-        body.sort_field && typeof body.sort_field === 'object'
-          ? (body.sort_field as Record<string, unknown>)
-          : {};
-
-      const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
-      const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
-      const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
-      const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
-      const rawSortField = typeof sortInput.field === 'string' ? sortInput.field.trim() : '';
-
-      const params: KalodataProductRankRequest = {
-        region: ALLOWED_KALODATA_REGIONS.has(rawRegion) ? rawRegion : 'TH',
-        language: ALLOWED_KALODATA_LANGUAGES.has(rawLanguage) ? rawLanguage : 'en-US',
-        currency: ALLOWED_KALODATA_CURRENCIES.has(rawCurrency) ? rawCurrency : 'THB',
-        date_range: ALLOWED_KALODATA_DATE_RANGES.has(rawDateRange as KalodataCategoryRankDateRange)
-          ? rawDateRange
-          : 'last7Day',
-        page_number:
-          typeof body.page_number === 'number' &&
-          Number.isInteger(body.page_number) &&
-          body.page_number >= 1 &&
-          body.page_number <= 50
-            ? body.page_number
-            : 1,
-        page_size:
-          typeof body.page_size === 'number' &&
-          Number.isInteger(body.page_size) &&
-          body.page_size >= 1 &&
-          body.page_size <= 100
-            ? body.page_size
-            : 10,
-        sort_field: {
-          field: ALLOWED_PRODUCT_RANK_SORT_FIELDS.has(rawSortField) ? rawSortField : 'revenue',
-          type: sortInput.type === 'ASC' ? 'ASC' : 'DESC',
-        },
-      };
-
-      if (body.is_affiliate === 0 || body.is_affiliate === 1) {
-        params.is_affiliate = body.is_affiliate;
-      }
-      if (body.need_image === 0 || body.need_image === 1 || body.need_image === 2) {
-        params.need_image = body.need_image;
-      }
-      if (typeof body.need_extra === 'boolean') {
-        params.need_extra = body.need_extra;
-      }
-      if (Array.isArray(body.category_ids)) {
-        const ids = body.category_ids
-          .filter(
-            (id): id is string =>
-              typeof id === 'string' && isValidKalodataId(id.trim())
-          )
-          .map((id) => id.trim())
-          .slice(0, 50);
-        if (ids.length > 0) params.category_ids = ids;
-      }
-      if (typeof body.commission_rate === 'string') {
-        const trimmed = body.commission_rate.trim();
-        if (trimmed.length > 0 && trimmed.length <= 32) {
-          params.commission_rate = trimmed;
-        }
-      }
-      if (typeof body.unit_price_range === 'string') {
-        const trimmed = body.unit_price_range.trim();
-        if (trimmed.length > 0 && trimmed.length <= 64) {
-          params.unit_price_range = trimmed;
-        }
-      }
-      if (typeof body.keyword === 'string') {
-        const trimmed = body.keyword.trim();
-        if (trimmed.length > 0 && trimmed.length <= 120) {
-          params.keyword = trimmed;
-        }
-      }
-
-      const result = await fetchKalodataProductRank(params);
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(500).json({
-        ok: false,
-        error: sanitizeServerError(error, 'Unexpected server error during product rank query.'),
-        code: 'PRODUCT_RANK_INTERNAL_ERROR',
-      });
-    }
+    res.status(403).json({
+      ok: false,
+      code: 'DIRECT_PAID_PROXY_DISABLED',
+      error:
+        'Direct paid Kalodata proxy access is disabled for budget security. Use /api/research with spending limit protection.',
+      errorMy:
+        'Budget လုံခြုံရေးအတွက် တိုက်ရိုက် Paid Kalodata Proxy ကို ပိတ်ထားပါသည်။ Spending Limit ကာကွယ်မှုပါဝင်သော /api/research ကိုသာ အသုံးပြုပါ။',
+    });
   });
 
   app.post('/api/kalodata/category-rank', async (req, res) => {
@@ -617,84 +539,18 @@ async function startServer() {
     }
   });
 
-  app.post('/api/kalodata/product-detail', async (req, res) => {
+  // Phase 9.5 Budget Security: Disable unguarded direct paid Kalodata detail/comments proxy so
+  // callers cannot bypass Confirmation & Persistent Budget Ledger via raw proxy endpoints.
+  app.post('/api/kalodata/product-detail', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    try {
-      const body =
-        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
-      const kind =
-        body.kind === 'shop' || body.kind === 'comments' ? body.kind : 'product';
-      const rawRegion = typeof body.region === 'string' ? body.region.trim() : '';
-      const rawLanguage = typeof body.language === 'string' ? body.language.trim() : '';
-      const rawCurrency = typeof body.currency === 'string' ? body.currency.trim() : '';
-      const rawDateRange = typeof body.date_range === 'string' ? body.date_range.trim() : '';
-
-      const region = ALLOWED_KALODATA_REGIONS.has(rawRegion) ? rawRegion : 'TH';
-      const language = ALLOWED_KALODATA_LANGUAGES.has(rawLanguage) ? rawLanguage : 'en-US';
-      const currency = ALLOWED_KALODATA_CURRENCIES.has(rawCurrency) ? rawCurrency : 'THB';
-      const dateRange = ALLOWED_KALODATA_DATE_RANGES.has(
-        rawDateRange as KalodataCategoryRankDateRange
-      )
-        ? rawDateRange
-        : 'last30Day';
-
-      if (kind === 'shop') {
-        const shopId = typeof body.shop_id === 'string' ? body.shop_id.trim() : '';
-        if (!shopId || !isValidKalodataId(shopId)) {
-          res.status(400).json({
-            ok: false,
-            error: 'A valid shop_id is required.',
-            code: 'INVALID_SHOP_ID',
-          });
-          return;
-        }
-        const result = await fetchKalodataShopDetail({
-          region,
-          language,
-          currency,
-          date_range: dateRange,
-          shop_id: shopId,
-          need_extra: true,
-        });
-        res.status(200).json(result);
-        return;
-      }
-
-      const productId = typeof body.product_id === 'string' ? body.product_id.trim() : '';
-      if (!productId || !isValidKalodataId(productId)) {
-        res.status(400).json({
-          ok: false,
-          error: 'A valid product_id is required.',
-          code: 'INVALID_PRODUCT_ID',
-        });
-        return;
-      }
-
-      if (kind === 'comments') {
-        const result = await fetchKalodataProductCommentInsight({
-          product_id: productId,
-          country_code: region.toLowerCase(),
-        });
-        res.status(200).json(result);
-        return;
-      }
-
-      const result = await fetchKalodataProductDetail({
-        region,
-        language,
-        currency,
-        date_range: dateRange,
-        product_id: productId,
-        need_extra: true,
-      });
-      res.status(200).json(result);
-    } catch (error) {
-      res.status(500).json({
-        ok: false,
-        error: sanitizeServerError(error, 'Unexpected server error during detail lookup.'),
-        code: 'PRODUCT_DETAIL_INTERNAL_ERROR',
-      });
-    }
+    res.status(403).json({
+      ok: false,
+      code: 'DIRECT_PAID_PROXY_DISABLED',
+      error:
+        'Direct paid Kalodata detail proxy is disabled for budget security. Use /api/enrich-product with confirmation and persistent budget enforcement.',
+      errorMy:
+        'Budget လုံခြုံရေးအတွက် တိုက်ရိုက် Paid Kalodata Detail Proxy ကို ပိတ်ထားပါသည်။ Confirmation နှင့် Persistent Budget ကာကွယ်မှုပါဝင်သော /api/enrich-product ကိုသာ အသုံးပြုပါ။',
+    });
   });
 
   /**
@@ -953,7 +809,9 @@ async function startServer() {
         /^[A-Za-z0-9:_-]{4,140}$/.test(body.idempotencyKey.trim())
           ? body.idempotencyKey.trim()
           : undefined;
-      const requireExplicitConfirmation = body?.requireExplicitConfirmation === true;
+      // Phase 9.5 Security Hardening: Server unconditionally enforces explicit confirmation
+      // before any paid Kalodata API call (clients cannot disable requireExplicitConfirmation).
+      const requireExplicitConfirmation = true;
       const userConfirmedPaidExecution = body?.userConfirmedPaidExecution === true;
 
       const result = await enrichSingleProduct({
@@ -1019,10 +877,9 @@ async function startServer() {
         return;
       }
 
-      if (
-        body?.requireExplicitConfirmation === true &&
-        body?.userConfirmedPaidExecution !== true
-      ) {
+      // Phase 9.5 Security Hardening: Server unconditionally enforces explicit confirmation
+      // before invoking Gemini AI API (clients cannot bypass by omitting requireExplicitConfirmation).
+      if (body?.userConfirmedPaidExecution !== true) {
         res.status(400).json({
           ok: false,
           code: 'CONFIRMATION_REQUIRED',

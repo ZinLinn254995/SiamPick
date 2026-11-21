@@ -62,7 +62,8 @@ interface ResearchHistoryViewProps {
     product: ResearchProduct,
     researchDate: string,
     evaluation?: OpportunityEvaluation,
-    peerProducts?: readonly ResearchProduct[]
+    peerProducts?: readonly ResearchProduct[],
+    researchMode?: ResearchMode
   ) => void;
   onDeleteRecords: (ids: string[]) => void;
   onBackToHunting: () => void;
@@ -495,7 +496,8 @@ export function ResearchHistoryView({
                     prod,
                     selectedRecord.researchedAt,
                     evalResult,
-                    selectedRecord.products
+                    selectedRecord.products,
+                    selectedRecord.researchMode
                   )
                 }
                 language={language}

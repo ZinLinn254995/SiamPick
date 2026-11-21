@@ -247,6 +247,8 @@ export function DataEnrichmentSection({
           product,
           requestedLayers: selection,
           spendingLimitCredits,
+          requireExplicitConfirmation: true,
+          userConfirmedPaidExecution: true,
           salesWeightPct,
           peerProducts: peerProducts?.slice(0, 40),
           clientCachedProductDetail: cached.productDetail,

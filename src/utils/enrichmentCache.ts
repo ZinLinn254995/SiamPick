@@ -296,16 +296,22 @@ export function saveEnrichmentToCache(params: {
   const cache = loadEnrichmentCache();
   let modified = false;
 
+  const normalizeProductKey = (rawId: string): string =>
+    rawId.trim().replace(/^(?:kalodata-th-|kd[_-])/i, '').trim() || rawId.trim();
+
   if (params.productDetail && params.productDetail.productId) {
-    cache.products[params.productDetail.productId] = params.productDetail;
+    const key = normalizeProductKey(params.productDetail.productId);
+    cache.products[key] = { ...params.productDetail, productId: key };
     modified = true;
   }
   if (params.shopDetail && params.shopDetail.shopId) {
-    cache.shops[params.shopDetail.shopId] = params.shopDetail;
+    const shopKey = params.shopDetail.shopId.trim();
+    cache.shops[shopKey] = { ...params.shopDetail, shopId: shopKey };
     modified = true;
   }
   if (params.reviewInsight && params.reviewInsight.productId) {
-    cache.reviews[params.reviewInsight.productId] = params.reviewInsight;
+    const key = normalizeProductKey(params.reviewInsight.productId);
+    cache.reviews[key] = { ...params.reviewInsight, productId: key };
     modified = true;
   }
 
@@ -335,9 +341,12 @@ export function absorbProductsIntoEnrichmentCache(
     if (!m) continue;
     const timestamp = m.lastEnrichedAt ?? product.researchedAt ?? new Date().toISOString();
 
-    if (m.detailEnriched && m.productId) {
-      cache.products[m.productId] = {
-        productId: m.productId,
+    const canonicalProdKey = getCanonicalProductId(product);
+
+    if (m.detailEnriched && (m.productId || canonicalProdKey)) {
+      const key = canonicalProdKey || m.productId!.trim();
+      cache.products[key] = {
+        productId: key,
         productShopId: m.sellerId ?? null,
         ...(m.sellerName ? { sellerName: m.sellerName } : {}),
         ...(m.priCategory ? { priCategory: m.priCategory } : {}),
@@ -376,8 +385,9 @@ export function absorbProductsIntoEnrichmentCache(
     }
 
     if (m.shopEnriched && m.sellerId) {
-      cache.shops[m.sellerId] = {
-        shopId: m.sellerId,
+      const shopKey = m.sellerId.trim();
+      cache.shops[shopKey] = {
+        shopId: shopKey,
         shopName: m.sellerName ?? (product.shopName !== 'Unavailable' ? product.shopName : null),
         sellerType: m.shopSellerType ?? null,
         revenueThb: m.shopRevenueThb ?? null,
@@ -396,8 +406,9 @@ export function absorbProductsIntoEnrichmentCache(
       modified = true;
     }
 
-    if (m.reviewInsightEnriched && m.reviewInsight && m.productId) {
-      cache.reviews[m.productId] = m.reviewInsight;
+    if (m.reviewInsightEnriched && m.reviewInsight && (m.productId || canonicalProdKey)) {
+      const key = canonicalProdKey || m.productId!.trim();
+      cache.reviews[key] = { ...m.reviewInsight, productId: key };
       modified = true;
     }
   }
