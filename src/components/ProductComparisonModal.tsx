@@ -20,6 +20,7 @@ import {
 } from '../utils/exportReports';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
+import { InfoPopover } from './InfoPopover';
 
 interface ProductComparisonModalProps {
   isOpen: boolean;
@@ -131,7 +132,7 @@ export function ProductComparisonModal({
         {/* Header */}
         <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-zinc-200 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex items-baseline gap-2.5">
+            <div className="flex items-center gap-2">
               <h2
                 id="product-comparison-heading"
                 className="font-display text-lg sm:text-xl font-bold text-zinc-950"
@@ -141,15 +142,21 @@ export function ProductComparisonModal({
               <span className="font-mono text-xs text-zinc-500 tabular-nums">
                 ({items.length})
               </span>
+              <InfoPopover
+                label={t.compareModalTitle}
+                title={t.compareModalTitle}
+                content={
+                  <>
+                    <p>{t.compareModalSubtitle}</p>
+                    {matrix.hasDistinctProductIds && (
+                      <p className="text-[11px] text-zinc-500 pt-1 border-t border-zinc-100">
+                        {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
+                      </p>
+                    )}
+                  </>
+                }
+              />
             </div>
-            <p className="mt-1 text-xs text-zinc-500 leading-relaxed max-w-3xl">
-              {t.compareModalSubtitle}
-            </p>
-            {matrix.hasDistinctProductIds && (
-              <p className="mt-1 text-[11px] text-zinc-500">
-                {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
-              </p>
-            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -278,6 +285,7 @@ export function ProductComparisonModal({
                             {hasVerifiedImg && p.imageUrl ? (
                               <ProductImage
                                 src={p.imageUrl}
+                                fallbackSrc={p.imageOriginUrl}
                                 alt={p.name}
                                 title={displayName}
                                 unavailableLabel={t.cardImageUnverified}

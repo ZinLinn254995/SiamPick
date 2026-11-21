@@ -109,6 +109,7 @@ import { KalodataBalanceBar } from './components/KalodataBalanceBar';
 import { BestProductsStrip } from './components/BestProductsStrip';
 import { ProductFilterBar } from './components/ProductFilterBar';
 import { ProductComparisonModal } from './components/ProductComparisonModal';
+import { InfoPopover } from './components/InfoPopover';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -1111,12 +1112,17 @@ export default function App() {
           <>
             {/* Focused Editorial Header */}
             <section className="max-w-3xl">
-              <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-zinc-950 leading-[1.15] text-balance">
-                {t.heroTitle}
-              </h1>
-              <p className="mt-3 text-sm sm:text-base text-zinc-600 leading-relaxed max-w-2xl">
-                {t.heroSubtitle}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 leading-[1.18] text-balance">
+                  {t.heroTitle}
+                </h1>
+                <InfoPopover
+                  variant="info"
+                  label={t.heroTitle}
+                  title={t.heroTitle}
+                  content={t.heroSubtitle}
+                />
+              </div>
             </section>
 
             {/* Product Research Settings Panel */}
@@ -1295,31 +1301,36 @@ export default function App() {
                 </div>
               )}
 
-              {/* Kalodata OpenAPI Verified Sources Summary & Quality-Over-Quantity Readout */}
+              {/* Kalodata OpenAPI Verified Sources Summary */}
               {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
                 <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setGroundingOpen((prev) => !prev)}
-                    aria-expanded={groundingOpen}
-                    className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-4 text-left hover:bg-zinc-50/80 transition-colors cursor-pointer"
-                  >
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs min-w-0">
+                  <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
                       <Globe className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
                       <span className="font-semibold text-zinc-900 whitespace-nowrap">
                         {t.kalodataSourceBarLabel}
                       </span>
-                      <span className="text-zinc-400" aria-hidden="true">
-                        ·
-                      </span>
+                      <InfoPopover
+                        variant="info"
+                        label={t.kalodataSourceBarLabel}
+                        title={t.kalodataSourceBarLabel}
+                        content={
+                          <div className="space-y-1.5">
+                            <p>{t.kalodataSourceNote}</p>
+                            {sessionMeta &&
+                              sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
+                                <p className="text-zinc-500">{t.qualityGateExcludedNote}</p>
+                              )}
+                          </div>
+                        }
+                      />
+                      <span className="text-zinc-300" aria-hidden="true">·</span>
                       <span className="font-mono text-zinc-600 tabular-nums">
                         {groundingSources.length} {t.groundingSourcesCount}
                       </span>
                       {sessionMeta && (
                         <>
-                          <span className="text-zinc-400" aria-hidden="true">
-                            ·
-                          </span>
+                          <span className="text-zinc-300" aria-hidden="true">·</span>
                           <span className="font-mono text-zinc-700 tabular-nums">
                             {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
                             {t.qualityGateVerifiedLabel}
@@ -1327,69 +1338,63 @@ export default function App() {
                         </>
                       )}
                     </div>
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 shrink-0 whitespace-nowrap">
+                    <button
+                      type="button"
+                      onClick={() => setGroundingOpen((prev) => !prev)}
+                      aria-expanded={groundingOpen}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
+                    >
                       <span>{groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}</span>
                       {groundingOpen ? (
                         <ChevronUp className="w-4 h-4" aria-hidden="true" />
                       ) : (
                         <ChevronDown className="w-4 h-4" aria-hidden="true" />
                       )}
-                    </span>
-                  </button>
+                    </button>
+                  </div>
 
-                  {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) && (
-                    <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600 space-y-1.5">
-                      <p>{t.kalodataSourceNote}</p>
-                      {lastCostSummary && (
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700 pt-1">
-                          <span className="font-sans font-semibold text-zinc-900">
-                            {lastCostSummary.researchMode === 'deep'
-                              ? t.modeDeepTitle
-                              : lastCostSummary.researchMode === 'balanced'
-                                ? t.modeBalancedTitle
-                                : t.modeFastTitle}
+                  {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
+                    lastCostSummary && (
+                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700">
+                        <span className="font-sans font-semibold text-zinc-900">
+                          {lastCostSummary.researchMode === 'deep'
+                            ? t.modeDeepTitle
+                            : lastCostSummary.researchMode === 'balanced'
+                              ? t.modeBalancedTitle
+                              : t.modeFastTitle}
+                        </span>
+                        <span>
+                          {t.breakdownRankLabel}: {lastCostSummary.rankApiCalls}
+                          {lastCostSummary.productDetailApiCalls > 0
+                            ? ` · ${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
+                            : ''}
+                          {lastCostSummary.shopDetailApiCalls > 0
+                            ? ` · ${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
+                            : ''}
+                          {lastCostSummary.commentInsightApiCalls > 0
+                            ? ` · ${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
+                            : ''}
+                        </span>
+                        {lastCostSummary.geminiAnalysisApplied && (
+                          <span className="font-sans text-emerald-700 font-medium">
+                            {t.geminiAnalysisActiveLabel}
                           </span>
-                          <span>
-                            {t.breakdownRankLabel}: {lastCostSummary.rankApiCalls}
-                            {lastCostSummary.productDetailApiCalls > 0
-                              ? ` · ${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
-                              : ''}
-                            {lastCostSummary.shopDetailApiCalls > 0
-                              ? ` · ${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
-                              : ''}
-                            {lastCostSummary.commentInsightApiCalls > 0
-                              ? ` · ${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
-                              : ''}
-                          </span>
-                          {lastCostSummary.geminiAnalysisApplied && (
-                            <span className="font-sans text-emerald-700 font-medium">
-                              {t.geminiAnalysisActiveLabel}
-                            </span>
-                          )}
-                          <span>
-                            {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
-                            {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
-                          </span>
-                          <span className="text-emerald-700 font-semibold">
-                            {t.actualCostLabel}:{' '}
-                            {lastCostSummary.actualCredits !== null
-                              ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                              : t.actualCostUnavailable}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {sessionMeta &&
-                    sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
-                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600">
-                        {t.qualityGateExcludedNote}
+                        )}
+                        <span>
+                          {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
+                          {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
+                        </span>
+                        <span className="text-emerald-700 font-semibold">
+                          {t.actualCostLabel}:{' '}
+                          {lastCostSummary.actualCredits !== null
+                            ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                            : t.actualCostUnavailable}
+                        </span>
                       </div>
                     )}
 
                   {groundingOpen && (
-                    <div className="px-4 sm:px-5 pb-4 pt-3 border-t border-zinc-100 space-y-3">
+                    <div className="border-t border-zinc-100 px-4 sm:px-5 pb-4 pt-3 space-y-3">
                       {searchQueries.length > 0 && (
                         <div className="text-xs text-zinc-500">
                           <span className="font-medium text-zinc-700 mr-1.5">

@@ -32,6 +32,7 @@ import {
 } from '../utils/enrichmentCache';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
+import { InfoPopover } from './InfoPopover';
 
 interface DataEnrichmentSectionProps {
   product: ResearchProduct;
@@ -471,14 +472,17 @@ export function DataEnrichmentSection({
     >
       {/* Header with Verification Status & Last Updated */}
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-zinc-900 shrink-0" aria-hidden="true" />
-            <h3 className="font-display text-sm font-semibold text-zinc-950">
-              {t.enrichSectionHeading}
-            </h3>
-          </div>
-          <p className="mt-0.5 text-xs text-zinc-500">{t.enrichSectionSubtitle}</p>
+        <div className="flex items-center gap-1.5">
+          <Layers className="w-4 h-4 text-zinc-900 shrink-0" aria-hidden="true" />
+          <h3 className="font-display text-sm font-semibold text-zinc-950">
+            {t.enrichSectionHeading}
+          </h3>
+          <InfoPopover
+            variant="info"
+            label={t.enrichSectionHeading}
+            title={t.enrichSectionHeading}
+            content={t.enrichSectionSubtitle}
+          />
         </div>
 
         <div className="text-[11px] font-mono text-zinc-500 tabular-nums shrink-0 text-left sm:text-right">
@@ -498,7 +502,22 @@ export function DataEnrichmentSection({
       {/* Selective Enrichment Control Panel (Zero Duplicate Calls + Cost Preview + Confirmation Gate) */}
       <div className="p-4 rounded-xl bg-zinc-50/90 border border-zinc-200/90 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-zinc-900">{t.enrichControlsHeading}</span>
+          <div className="inline-flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-zinc-900">{t.enrichControlsHeading}</span>
+            <InfoPopover
+              variant="help"
+              label={t.enrichControlsHeading}
+              title={t.enrichControlsHeading}
+              content={
+                <div className="space-y-1.5">
+                  <p>{t.enrichShopCacheSavedNote}</p>
+                  {!coverage.hasReviewInsights && (
+                    <p className="text-amber-800">{t.enrichReviewOptInWarning}</p>
+                  )}
+                </div>
+              }
+            />
+          </div>
           <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
             {t.spendingLimitLabel}: {formatCredits(spendingLimitCredits)} {t.creditsUnit}
           </span>
@@ -588,12 +607,6 @@ export function DataEnrichmentSection({
                   </label>
                 );
               })}
-            </div>
-
-            {/* Shop ID Deduplication & Review Cost Notes */}
-            <div className="text-[11px] text-zinc-500 space-y-0.5">
-              <p>{t.enrichShopCacheSavedNote}</p>
-              {!coverage.hasReviewInsights && <p className="text-amber-800">{t.enrichReviewOptInWarning}</p>}
             </div>
 
             {/* Live Cost & Deduplication Summary Row */}
@@ -790,6 +803,14 @@ export function DataEnrichmentSection({
             <h4 className="font-display text-xs font-semibold text-zinc-950">
               {t.enrichShopInfoHeading}
             </h4>
+            {!coverage.hasShopDetail && (
+              <InfoPopover
+                variant="info"
+                label={t.enrichShopInfoHeading}
+                title={t.enrichShopInfoHeading}
+                content={t.enrichShopUnavailableNote}
+              />
+            )}
           </div>
           <span
             className={`text-[11px] font-medium ${coverage.hasShopDetail ? 'text-emerald-700' : 'text-zinc-400'}`}
@@ -817,10 +838,6 @@ export function DataEnrichmentSection({
             </div>
           ))}
         </div>
-
-        {!coverage.hasShopDetail && (
-          <p className="text-xs text-zinc-500 leading-relaxed">{t.enrichShopUnavailableNote}</p>
-        )}
       </div>
 
       {/* Block 3: Customer & Review Insights (5 Structured Dimensions — Never Fabricated) */}
@@ -831,6 +848,14 @@ export function DataEnrichmentSection({
             <h4 className="font-display text-xs font-semibold text-zinc-950">
               {t.enrichReviewInsightsHeading}
             </h4>
+            {!coverage.hasReviewInsights && (
+              <InfoPopover
+                variant="info"
+                label={t.enrichReviewInsightsHeading}
+                title={t.enrichReviewInsightsHeading}
+                content={t.enrichReviewUnavailableNote}
+              />
+            )}
           </div>
           <div className="flex items-center gap-2 text-[11px]">
             {ri && ri.commentsAnalyzed > 0 && (
@@ -847,7 +872,7 @@ export function DataEnrichmentSection({
           </div>
         </div>
 
-        {coverage.hasReviewInsights && ri ? (
+        {coverage.hasReviewInsights && ri && (
           <div className="space-y-3">
             {ri.summary && (
               <p className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed">
@@ -886,10 +911,6 @@ export function DataEnrichmentSection({
               </div>
             </div>
           </div>
-        ) : (
-          <p className="p-3.5 rounded-xl bg-zinc-50/80 border border-zinc-200/80 text-xs text-zinc-500 leading-relaxed">
-            {t.enrichReviewUnavailableNote}
-          </p>
         )}
       </div>
     </section>

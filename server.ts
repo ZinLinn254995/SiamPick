@@ -35,7 +35,12 @@ import {
   resumeResearch,
   runThailandProductResearch,
 } from './server/researchService.ts';
-import { isAllowlistedImageUrl, isSafeExternalUrl } from './server/imageRetriever.ts';
+import {
+  isProxyableImageUrl,
+  isSafeExternalUrl,
+  registerVerifiedImage,
+  resolveValidImageMime,
+} from './server/imageRetriever.ts';
 import {
   fetchKalodataCategoryRank,
   fetchKalodataCreditBalance,
@@ -555,12 +560,12 @@ async function startServer() {
 
   /**
    * Verified Product Image Proxy:
-   * Streams ONLY server-verified, allowlisted https:// image/* URLs so browser hotlink/Referer
-   * policies never break legitimate official brand/listing product photos.
+   * Streams ONLY server-verified or trusted Kalodata/TikTok CDN https:// raster image URLs
+   * so browser hotlink/Referer policies and server restarts never break legitimate product photos.
    */
   app.get('/api/image-proxy', async (req, res) => {
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
-    if (!rawUrl || !isSafeExternalUrl(rawUrl) || !isAllowlistedImageUrl(rawUrl)) {
+    if (!rawUrl || !isProxyableImageUrl(rawUrl)) {
       res.status(403).end();
       return;
     }
@@ -568,11 +573,11 @@ async function startServer() {
     try {
       const upstream = await fetch(rawUrl, {
         redirect: 'follow',
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(10000),
         headers: {
           'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: 'image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+          Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.9,*/*;q=0.8',
         },
       });
 
@@ -583,13 +588,7 @@ async function startServer() {
       }
 
       if (!upstream.ok) {
-        res.status(404).end();
-        return;
-      }
-
-      const contentType = (upstream.headers.get('content-type') ?? '').toLowerCase();
-      if (!/^image\/(jpeg|jpg|png|webp|avif)/.test(contentType)) {
-        res.status(415).end();
+        res.status(upstream.status === 404 ? 404 : 502).end();
         return;
       }
 
@@ -600,12 +599,21 @@ async function startServer() {
       }
 
       const buffer = Buffer.from(await upstream.arrayBuffer());
-      if (buffer.byteLength < 1024 || buffer.byteLength > MAX_PROXY_IMAGE_BYTES) {
+      if (buffer.byteLength < 256 || buffer.byteLength > MAX_PROXY_IMAGE_BYTES) {
         res.status(buffer.byteLength > MAX_PROXY_IMAGE_BYTES ? 413 : 404).end();
         return;
       }
 
-      res.setHeader('Content-Type', contentType);
+      const contentType = (upstream.headers.get('content-type') ?? '').toLowerCase();
+      const resolvedMime = resolveValidImageMime(contentType, buffer);
+      if (!resolvedMime) {
+        res.status(415).end();
+        return;
+      }
+
+      registerVerifiedImage(rawUrl, resolvedMime);
+      res.setHeader('Content-Type', resolvedMime);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.send(buffer);
     } catch {

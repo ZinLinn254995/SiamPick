@@ -48,6 +48,7 @@ import {
 } from '../utils/categoryRegistry';
 import { computeStrategyWeights, SCORING_FACTOR_ORDER } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
+import { InfoPopover } from './InfoPopover';
 
 interface ResearchSettingsPanelProps {
   selectedCategories: ProductCategory[];
@@ -449,32 +450,50 @@ export function ResearchSettingsPanel({
         </div>
       </div>
 
-      {/* Fixed & Core Research Specifications (Clean 3-Column Unboxed Readout) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-5 border-b border-zinc-100">
+      {/* Fixed Specifications Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-5 border-b border-zinc-100">
         <div className="space-y-1">
-          <div className="text-xs text-zinc-500">{t.settingMarketLabel}</div>
-          <div className="flex items-center gap-1.5 text-sm font-medium text-zinc-950">
-            <Lock className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
-            <span>{t.settingMarketValue}</span>
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500">
+            <Lock className="w-3 h-3 text-zinc-400 shrink-0" aria-hidden="true" />
+            <span>{t.settingMarketLabel}</span>
+            <InfoPopover
+              variant="info"
+              label={t.settingMarketLabel}
+              title={t.settingMarketLabel}
+              content={t.settingFixedNote}
+            />
           </div>
-          <div className="text-xs text-zinc-400">{t.settingFixedNote}</div>
+          <div className="text-xs sm:text-sm font-semibold text-zinc-950">
+            {t.settingMarketValue}
+          </div>
         </div>
 
         <div className="space-y-1">
-          <div className="text-xs text-zinc-500">{t.settingPriceLabel}</div>
-          <div className="text-sm font-medium text-zinc-950">{t.settingPriceValue}</div>
-          <div className="text-xs text-zinc-400 font-mono tabular-nums">THB (฿)</div>
+          <div className="text-[11px] font-medium text-zinc-500">{t.settingPriceLabel}</div>
+          <div className="text-xs sm:text-sm font-semibold text-zinc-950">
+            {t.settingPriceValue}{' '}
+            <span className="font-mono text-xs font-normal text-zinc-400 tabular-nums">
+              (THB ฿)
+            </span>
+          </div>
         </div>
 
         <div className="space-y-1">
-          <div className="text-xs text-zinc-500">{t.strategyLabel}</div>
-          <div className="text-sm font-medium text-zinc-950">
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500">
+            <span>{t.strategyLabel}</span>
+            <InfoPopover
+              variant="help"
+              label={t.strategyLabel}
+              title={t.strategyLabel}
+              content={t.settingStrategyValue}
+            />
+          </div>
+          <div className="text-xs sm:text-sm font-semibold text-zinc-950">
             {strategySummary}{' '}
             <span className="font-mono text-xs font-normal text-zinc-500 tabular-nums">
               ({salesWeightPct}/{100 - salesWeightPct})
             </span>
           </div>
-          <div className="text-xs text-zinc-400">{t.settingStrategyValue}</div>
         </div>
       </div>
 
@@ -574,11 +593,17 @@ export function ResearchSettingsPanel({
       {/* 1. Universal Multi-Select Product Categories (Verified + Live Kalodata TH Sync + L2 Subcategories) */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-zinc-700">{t.settingCategoryLabel}</span>
             <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
               ({selectedCategories.length} {t.selectedCategoriesCountLabel})
             </span>
+            <InfoPopover
+              variant="help"
+              label={t.settingCategoryLabel}
+              title={t.settingCategoryLabel}
+              content={t.syncCategoriesEmptyHint}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -738,22 +763,37 @@ export function ResearchSettingsPanel({
           })}
         </div>
 
-        {extraCatalogEntries.length > 0 && showAllCategories && (
-          <p className="text-[11px] text-zinc-500">{t.syncCategoriesEmptyHint}</p>
-        )}
-
         {noCategorySelected && (
           <p className="text-xs text-amber-700">{t.noCategorySelectedWarning}</p>
         )}
 
-        {/* Optional L2 Subcategory Selector (Zero Auto Calls — Loads on User Confirmation) */}
+        {/* Optional L2 Subcategory Selector (Always visible when parent L1 category is selected) */}
         {selectedParentL1Ids.length > 0 && (
-          <div className="pt-2 border-t border-zinc-100 space-y-2">
+          <div className="pt-2.5 border-t border-zinc-100 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-600">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-600">
                 <Layers className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
                 <span>{t.subcategorySectionLabel}</span>
-              </span>
+                {selectedSubcategoryIds.length > 0 && (
+                  <span className="font-mono text-emerald-700 tabular-nums">
+                    ({selectedSubcategoryIds.length})
+                  </span>
+                )}
+                <InfoPopover
+                  variant="help"
+                  label={t.subcategorySectionLabel}
+                  title={t.subcategorySectionLabel}
+                  content={
+                    <div className="space-y-1.5">
+                      {selectedSubcategoryIds.length > 0 && (
+                        <p className="text-emerald-700 font-medium">{t.subcategorySelectedHint}</p>
+                      )}
+                      <p>{t.subcategoryEmptyHint}</p>
+                    </div>
+                  }
+                />
+              </div>
+
               <div className="flex items-center gap-3 text-[11px]">
                 {selectedSubcategoryIds.length > 0 && (
                   <button
@@ -775,7 +815,7 @@ export function ResearchSettingsPanel({
               </div>
             </div>
 
-            {visibleSubcategories.length > 0 ? (
+            {visibleSubcategories.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {visibleSubcategories.slice(0, 24).map((sub) => {
                   const active = selectedSubcategoryIds.includes(sub.id);
@@ -796,12 +836,6 @@ export function ResearchSettingsPanel({
                   );
                 })}
               </div>
-            ) : (
-              <p className="text-[11px] text-zinc-400">{t.subcategoryEmptyHint}</p>
-            )}
-
-            {selectedSubcategoryIds.length > 0 && (
-              <p className="text-[11px] text-emerald-700">{t.subcategorySelectedHint}</p>
             )}
           </div>
         )}
@@ -811,11 +845,16 @@ export function ResearchSettingsPanel({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1 border-t border-zinc-100">
         {/* Research Quantity (Presets 10/20/30 + Custom Input) */}
         <div className={multipleSelected ? 'lg:col-span-6 space-y-2.5' : 'lg:col-span-12 space-y-2.5'}>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
             <label htmlFor="custom-quantity-input" className="text-xs font-medium text-zinc-700">
               {t.settingQuantityLabel}
             </label>
-            <span className="text-[11px] text-zinc-400">{t.customQuantityHint}</span>
+            <InfoPopover
+              variant="help"
+              label={t.settingQuantityLabel}
+              title={t.settingQuantityLabel}
+              content={t.customQuantityHint}
+            />
           </div>
 
           <div className="flex flex-wrap sm:flex-nowrap items-stretch gap-2">
@@ -862,7 +901,26 @@ export function ResearchSettingsPanel({
         {/* Combined vs Split Mode (Shown whenever 2+ L1 Categories are selected without L2 override) */}
         {multipleSelected && (
           <div className="lg:col-span-6 space-y-2.5">
-            <div className="text-xs font-medium text-zinc-700">{t.multiCategoryModeLabel}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium text-zinc-700">{t.multiCategoryModeLabel}</span>
+              <InfoPopover
+                variant="help"
+                label={t.multiCategoryModeLabel}
+                title={t.multiCategoryModeLabel}
+                content={
+                  <div className="space-y-2">
+                    <div>
+                      <div className="font-semibold text-zinc-900">{t.bothModeCombined}</div>
+                      <p className="text-zinc-600">{t.multiCategoryCombinedDesc}</p>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-zinc-900">{t.bothModeSplit}</div>
+                      <p className="text-zinc-600">{t.multiCategorySplitDesc}</p>
+                    </div>
+                  </div>
+                }
+              />
+            </div>
             <div
               className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1 bg-zinc-100 rounded-lg"
               role="radiogroup"
@@ -873,12 +931,10 @@ export function ResearchSettingsPanel({
                   {
                     id: 'combined' as const,
                     label: t.bothModeCombined,
-                    desc: t.multiCategoryCombinedDesc,
                   },
                   {
                     id: 'split' as const,
                     label: t.bothModeSplit,
-                    desc: t.multiCategorySplitDesc,
                   },
                 ]
               ).map((mode) => (
@@ -888,16 +944,13 @@ export function ResearchSettingsPanel({
                   role="radio"
                   aria-checked={bothCategoryMode === mode.id}
                   onClick={() => onBothCategoryModeChange(mode.id)}
-                  className={`px-2.5 py-1.5 rounded-md text-left transition-all cursor-pointer ${
+                  className={`min-h-[38px] px-3 py-1.5 rounded-md text-center text-xs font-medium transition-all cursor-pointer ${
                     bothCategoryMode === mode.id
                       ? 'bg-white text-zinc-950 shadow-xs'
                       : 'text-zinc-600 hover:text-zinc-950'
                   }`}
                 >
-                  <div className="text-xs font-medium">{mode.label}</div>
-                  <div className="text-[11px] text-zinc-500 leading-snug mt-0.5">
-                    {mode.desc}
-                  </div>
+                  {mode.label}
                 </button>
               ))}
             </div>
@@ -905,10 +958,33 @@ export function ResearchSettingsPanel({
         )}
       </div>
 
-      {/* 3. Research Mode Selector (Fast / Balanced / Deep Research) */}
+      {/* 3. Research Mode Selector (Clean Cards + Individual Tap-to-Open Info Icons) */}
       <div className="space-y-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-zinc-700">{t.researchModeLabel}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-zinc-700">{t.researchModeLabel}</span>
+            <InfoPopover
+              variant="help"
+              label={t.researchModeLabel}
+              title={t.researchModeLabel}
+              content={
+                <div className="space-y-2">
+                  <div>
+                    <div className="font-semibold text-zinc-900">{t.modeFastTitle}</div>
+                    <p>{t.modeFastDesc}</p>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-zinc-900">{t.modeBalancedTitle}</div>
+                    <p>{t.modeBalancedDesc}</p>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-zinc-900">{t.modeDeepTitle}</div>
+                    <p>{t.modeDeepDesc}</p>
+                  </div>
+                </div>
+              }
+            />
+          </div>
           {plan.usesGeminiAnalysis && (
             <span className="text-[11px] text-emerald-700 font-medium">
               {t.geminiAnalysisActiveLabel}
@@ -947,55 +1023,61 @@ export function ResearchSettingsPanel({
             const modeExceedsLimit =
               !noCategorySelected && item.modePlan.estimatedCredits > spendingLimitCredits + 1e-6;
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => onResearchModeChange(item.id)}
-                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2 ${
                   active
                     ? 'bg-zinc-950 text-white border-zinc-950'
                     : 'bg-white text-zinc-800 border-zinc-200 hover:border-zinc-400'
                 }`}
               >
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs sm:text-sm font-semibold">{item.title}</span>
-                    <span
-                      className={`font-mono text-xs font-semibold tabular-nums ${
-                        active
-                          ? modeExceedsLimit
-                            ? 'text-red-300'
-                            : 'text-emerald-300'
-                          : modeExceedsLimit
-                            ? 'text-red-700'
-                            : 'text-zinc-900'
-                      }`}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => onResearchModeChange(item.id)}
+                      className="text-left text-xs sm:text-sm font-semibold truncate cursor-pointer focus-visible:outline-none focus-visible:underline"
                     >
-                      {formatCredits(item.modePlan.estimatedCredits)} cr
-                    </span>
+                      {item.title}
+                    </button>
+                    <InfoPopover
+                      variant="info"
+                      tone={active ? 'dark' : 'light'}
+                      label={item.title}
+                      title={item.title}
+                      content={item.desc}
+                    />
                   </div>
-                  <p
-                    className={`text-[11px] leading-relaxed ${
-                      active ? 'text-zinc-300' : 'text-zinc-500'
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => onResearchModeChange(item.id)}
+                    className={`font-mono text-xs font-semibold tabular-nums shrink-0 cursor-pointer ${
+                      active
+                        ? modeExceedsLimit
+                          ? 'text-red-300'
+                          : 'text-emerald-300'
+                        : modeExceedsLimit
+                          ? 'text-red-700'
+                          : 'text-zinc-900'
                     }`}
                   >
-                    {item.desc}
-                  </p>
+                    {formatCredits(item.modePlan.estimatedCredits)} cr
+                  </button>
                 </div>
 
-                <div
-                  className={`font-mono text-[11px] tabular-nums pt-1 border-t ${
-                    active
-                      ? 'border-zinc-800 text-zinc-400'
-                      : 'border-zinc-100 text-zinc-400'
-                  }`}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => onResearchModeChange(item.id)}
+                  className="text-left font-mono text-[11px] tabular-nums text-zinc-400 cursor-pointer"
                 >
                   {item.modePlan.plannedApiCalls} {t.plannedCallsLabel} · ≈{' '}
                   {formatUsd(item.modePlan.estimatedUsd)}
-                </div>
-              </button>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -1003,120 +1085,101 @@ export function ResearchSettingsPanel({
         {/* Inline Deep Research Cost-Cap Controls (Only visible when Deep Research is selected) */}
         {researchMode === 'deep' && (
           <div className="p-3.5 bg-zinc-50/90 border border-zinc-200/80 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-zinc-800">
-                  {t.deepDiveCountLabel}
-                </span>
-                <div className="inline-flex items-center gap-1 p-0.5 bg-zinc-200/70 rounded-lg">
-                  {DEEP_DIVE_PRESETS.filter((preset) => preset <= maxAllowedDeepDive).map(
-                    (preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => onDeepDiveCountChange(preset)}
-                        className={`px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
-                          effectiveDeepDiveCap === preset
-                            ? 'bg-white text-zinc-950 shadow-xs'
-                            : 'text-zinc-600 hover:text-zinc-950'
-                        }`}
-                      >
-                        Top {preset}
-                      </button>
-                    )
-                  )}
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={MIN_DEEP_DIVE_COUNT}
-                    max={maxAllowedDeepDive}
-                    value={effectiveDeepDiveCap}
-                    onChange={(e) => {
-                      const parsed = Number.parseInt(e.target.value, 10);
-                      if (Number.isFinite(parsed)) {
-                        onDeepDiveCountChange(clampDeepDiveCount(parsed, quantity));
-                      }
-                    }}
-                    aria-label={t.deepDiveCountLabel}
-                    className="w-12 px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 bg-white border border-zinc-200 rounded-md tabular-nums focus:outline-none focus:border-zinc-900"
-                  />
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1">
+                <span className="text-xs font-medium text-zinc-800">{t.deepDiveCountLabel}</span>
+                <InfoPopover
+                  variant="help"
+                  label={t.deepDiveCountLabel}
+                  title={t.deepDiveCountLabel}
+                  content={t.deepDiveCountHint}
+                />
               </div>
-              <p className="text-[11px] text-zinc-500">{t.deepDiveCountHint}</p>
+              <div className="inline-flex items-center gap-1 p-0.5 bg-zinc-200/70 rounded-lg">
+                {DEEP_DIVE_PRESETS.filter((preset) => preset <= maxAllowedDeepDive).map(
+                  (preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => onDeepDiveCountChange(preset)}
+                      className={`px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
+                        effectiveDeepDiveCap === preset
+                          ? 'bg-white text-zinc-950 shadow-xs'
+                          : 'text-zinc-600 hover:text-zinc-950'
+                      }`}
+                    >
+                      Top {preset}
+                    </button>
+                  )
+                )}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_DEEP_DIVE_COUNT}
+                  max={maxAllowedDeepDive}
+                  value={effectiveDeepDiveCap}
+                  onChange={(e) => {
+                    const parsed = Number.parseInt(e.target.value, 10);
+                    if (Number.isFinite(parsed)) {
+                      onDeepDiveCountChange(clampDeepDiveCount(parsed, quantity));
+                    }
+                  }}
+                  aria-label={t.deepDiveCountLabel}
+                  className="w-12 px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 bg-white border border-zinc-200 rounded-md tabular-nums focus:outline-none focus:border-zinc-900"
+                />
+              </div>
             </div>
 
-            <label className="flex items-start gap-2.5 cursor-pointer select-none lg:border-l lg:border-zinc-200 lg:pl-4">
-              <input
-                type="checkbox"
-                checked={includeReviewInsights}
-                onChange={(e) => onIncludeReviewInsightsChange(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded-sm border-zinc-300 accent-zinc-950 cursor-pointer shrink-0"
-              />
-              <span className="space-y-0.5">
-                <span className="block text-xs font-medium text-zinc-800">
+            <div className="flex items-center gap-1.5 lg:border-l lg:border-zinc-200 lg:pl-4">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeReviewInsights}
+                  onChange={(e) => onIncludeReviewInsightsChange(e.target.checked)}
+                  className="w-4 h-4 rounded-sm border-zinc-300 accent-zinc-950 cursor-pointer shrink-0"
+                />
+                <span className="text-xs font-medium text-zinc-800">
                   {t.includeReviewInsightsLabel}{' '}
                   <span className="font-mono text-[11px] text-amber-700">
                     (+{formatCredits(Math.min(effectiveDeepDiveCap, DEEP_COMMENT_INSIGHT_CAP))} cr)
                   </span>
                 </span>
-                <span className="block text-[11px] text-zinc-500">
-                  {t.includeReviewInsightsDesc}
-                </span>
-              </span>
-            </label>
+              </label>
+              <InfoPopover
+                variant="info"
+                label={t.includeReviewInsightsLabel}
+                title={t.includeReviewInsightsLabel}
+                content={t.includeReviewInsightsDesc}
+              />
+            </div>
           </div>
         )}
       </div>
 
       {/* 4. Cost Preview & 5. Spending Limit Protection */}
-      <div className="bg-zinc-50/80 border border-zinc-200/80 rounded-xl p-4 space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Estimated Cost (Before Call) + Actual Cost (After Last Run — Clearly Separated) */}
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900">
+      <div className="bg-zinc-50/80 border border-zinc-200/80 rounded-xl px-4 py-3.5 space-y-2.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs min-w-0">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-900">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" aria-hidden="true" />
-              <span>{t.costPreviewHeading}</span>
-            </div>
-
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
-              <div>
-                <span className="text-zinc-500 mr-1.5">{t.estimatedCostLabel}:</span>
-                <span
-                  className={`font-mono text-sm font-semibold tabular-nums ${
-                    exceedsLimit ? 'text-red-700' : 'text-zinc-950'
-                  }`}
-                >
-                  {formatCredits(plan.estimatedCredits)} {t.creditsUnit}
-                </span>
-                <span className="ml-1.5 font-mono text-zinc-500 tabular-nums">
-                  (≈ {formatUsd(plan.estimatedUsd)} · {plan.plannedApiCalls} {t.plannedCallsLabel})
-                </span>
-              </div>
-
-              {lastCostSummary && (
-                <div className="pl-0 sm:pl-4 sm:border-l border-zinc-200">
-                  <span className="text-zinc-500 mr-1.5">{t.actualCostLabel}:</span>
-                  {lastCostSummary.actualCredits !== null ? (
-                    <span className="font-mono text-xs font-semibold text-emerald-700 tabular-nums">
-                      {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
-                      {lastCostSummary.actualUsd !== null
-                        ? ` (≈ ${formatUsd(lastCostSummary.actualUsd)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                        : ''}
-                    </span>
-                  ) : (
-                    <span className="text-zinc-400">{t.actualCostUnavailable}</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-mono text-zinc-600 tabular-nums">
-              <span>{modeSummary}</span>
-              <span aria-hidden="true">·</span>
-              <span>{callBreakdownText}</span>
-            </div>
-
-            <p className="text-[11px] text-zinc-500">{t.pricingFormulaNote}</p>
+              <span>{t.estimatedCostLabel}:</span>
+            </span>
+            <span
+              className={`font-mono text-sm font-semibold tabular-nums ${
+                exceedsLimit ? 'text-red-700' : 'text-zinc-950'
+              }`}
+            >
+              {formatCredits(plan.estimatedCredits)} {t.creditsUnit}
+            </span>
+            <span className="font-mono text-zinc-500 tabular-nums">
+              (≈ {formatUsd(plan.estimatedUsd)} · {plan.plannedApiCalls} {t.plannedCallsLabel})
+            </span>
+            <InfoPopover
+              variant="help"
+              label={t.estimatedCostLabel}
+              title={t.estimatedCostLabel}
+              content={t.pricingFormulaNote}
+            />
           </div>
 
           {/* User Spending Limit Control */}
@@ -1128,7 +1191,7 @@ export function ResearchSettingsPanel({
               {t.spendingLimitLabel}
             </label>
             <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-lg w-32 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border rounded-lg w-28 ${
                 exceedsLimit
                   ? 'border-red-400 focus-within:border-red-600'
                   : 'border-zinc-200 focus-within:border-zinc-900'
@@ -1149,6 +1212,31 @@ export function ResearchSettingsPanel({
               <span className="text-[11px] text-zinc-400 font-mono">cr</span>
             </div>
           </div>
+        </div>
+
+        {/* Crisp 1-Line Call Breakdown & Last Actual Cost */}
+        <div className="pt-2 border-t border-zinc-200/70 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-600 tabular-nums">
+          <span className="font-sans font-medium text-zinc-800">{modeSummary}</span>
+          <span aria-hidden="true">·</span>
+          <span>{callBreakdownText}</span>
+          {lastCostSummary && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="font-sans text-zinc-500">
+                {t.actualCostLabel}:{' '}
+                {lastCostSummary.actualCredits !== null ? (
+                  <strong className="font-mono text-emerald-700">
+                    {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
+                    {lastCostSummary.actualUsd !== null
+                      ? ` (≈ ${formatUsd(lastCostSummary.actualUsd)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                      : ''}
+                  </strong>
+                ) : (
+                  <span>{t.actualCostUnavailable}</span>
+                )}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Hard Spending Limit Block Notice */}

@@ -42,6 +42,7 @@ import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistr
 import { TRANSLATIONS } from '../i18n/translations';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ResearchComparisonPanel } from './ResearchComparisonPanel';
+import { InfoPopover } from './InfoPopover';
 
 interface ResearchHistoryViewProps {
   records: ResearchHistoryRecord[];
@@ -375,6 +376,11 @@ export function ResearchHistoryView({
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                 <span className="font-semibold text-zinc-900">{t.historyArchiveBannerTitle}</span>
+                <InfoPopover
+                  label={t.historyArchiveBannerTitle}
+                  title={t.historyArchiveBannerTitle}
+                  content={t.historyArchiveBannerDesc}
+                />
                 <span aria-hidden="true">·</span>
                 <span className="font-mono text-zinc-600 tabular-nums">{selectedRecord.id}</span>
               </div>
@@ -384,7 +390,6 @@ export function ResearchHistoryView({
               >
                 {formatResearchDateTime(selectedRecord.researchedAt, language)}
               </h1>
-              <p className="text-xs text-zinc-500 leading-relaxed">{t.historyArchiveBannerDesc}</p>
             </div>
 
             {/* Score View Mode Switch (Original Session Scores vs Current Strategy Slider) */}
@@ -517,7 +522,7 @@ export function ResearchHistoryView({
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-zinc-200">
           <div className="max-w-2xl">
-            <div className="flex items-baseline gap-2.5">
+            <div className="flex items-center gap-2">
               <h1
                 id="history-view-heading"
                 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950"
@@ -527,9 +532,19 @@ export function ResearchHistoryView({
               <span className="font-mono text-sm text-zinc-500 tabular-nums">
                 ({records.length})
               </span>
+              <InfoPopover
+                label={t.historyViewTitle}
+                title={t.historyViewTitle}
+                content={
+                  <>
+                    <p>{t.historyViewSubtitle}</p>
+                    <p className="text-[11px] text-zinc-500 pt-1 border-t border-zinc-100">
+                      {t.historyStorageNote}
+                    </p>
+                  </>
+                }
+              />
             </div>
-            <p className="mt-2 text-sm text-zinc-600 leading-relaxed">{t.historyViewSubtitle}</p>
-            <p className="mt-1.5 text-xs text-zinc-400">{t.historyStorageNote}</p>
           </div>
 
           {/* Sub-Tabs: History Sessions | Compare Sessions */}

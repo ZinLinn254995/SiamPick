@@ -29,6 +29,7 @@ import {
 } from '../utils/aiAnalysisCache';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
+import { InfoPopover } from './InfoPopover';
 
 interface AiProductAnalysisSectionProps {
   product: ResearchProduct;
@@ -286,14 +287,17 @@ export function AiProductAnalysisSection({
     >
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-zinc-900 shrink-0" aria-hidden="true" />
-            <h3 className="font-display text-sm font-semibold text-zinc-950">
-              {t.aiSectionHeading}
-            </h3>
-          </div>
-          <p className="mt-0.5 text-xs text-zinc-500">{t.aiSectionSubtitle}</p>
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-4 h-4 text-zinc-900 shrink-0" aria-hidden="true" />
+          <h3 className="font-display text-sm font-semibold text-zinc-950">
+            {t.aiSectionHeading}
+          </h3>
+          <InfoPopover
+            variant="info"
+            label={t.aiSectionHeading}
+            title={t.aiSectionHeading}
+            content={t.aiSectionSubtitle}
+          />
         </div>
 
         <div className="text-xs font-medium shrink-0">
@@ -423,9 +427,14 @@ export function AiProductAnalysisSection({
       {/* Empty Ready State (No Cached Analysis Yet — Zero Auto API Calls) */}
       {!analysis && !isAnalyzing && (
         <div className="p-5 rounded-xl bg-zinc-50/90 border border-zinc-200/90 space-y-4">
-          <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
             <h4 className="font-display text-sm font-semibold text-zinc-950">{t.aiEmptyTitle}</h4>
-            <p className="text-xs text-zinc-600 leading-relaxed">{t.aiEmptyDesc}</p>
+            <InfoPopover
+              variant="info"
+              label={t.aiEmptyTitle}
+              title={t.aiEmptyTitle}
+              content={t.aiEmptyDesc}
+            />
           </div>
 
           {/* Factual Kalodata Basis Preview */}
@@ -471,15 +480,18 @@ export function AiProductAnalysisSection({
       {/* Completed 10-Point Analysis Display (Gemini or Kalodata Fallback) */}
       {analysis && !isAnalyzing && (
         <div className="space-y-5">
-          {/* Clear Separation Notice: Market Data vs AI Interpretation (Requirement 6) */}
-          <p className="text-xs text-zinc-500 leading-relaxed">{t.aiDataSeparationNote}</p>
-
           {/* Block A: Strictly Factual Kalodata Market Data Basis */}
           <div className="p-4 rounded-xl bg-zinc-50/90 border border-zinc-200/80 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900">
                 <Database className="w-3.5 h-3.5 text-zinc-600" aria-hidden="true" />
                 <span>{t.aiDataBasisHeading}</span>
+                <InfoPopover
+                  variant="info"
+                  label={t.aiDataBasisHeading}
+                  title={t.aiDataBasisHeading}
+                  content={t.aiDataSeparationNote}
+                />
               </div>
               <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
                 {t.cardConfidence}: {t.confidenceLabels[analysis.overallDataConfidence]}
@@ -505,11 +517,16 @@ export function AiProductAnalysisSection({
 
           {/* Block B: AI Strategic Interpretation (All 10 Structured Sections) */}
           <div className="space-y-5">
-            <div className="space-y-0.5">
-              <h4 className="font-display text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-display text-xs font-semibold text-zinc-700">
                 {t.aiInterpretationHeading}
               </h4>
-              <p className="text-[11px] text-zinc-500">{t.aiInterpretationNote}</p>
+              <InfoPopover
+                variant="help"
+                label={t.aiInterpretationHeading}
+                title={t.aiInterpretationHeading}
+                content={t.aiInterpretationNote}
+              />
             </div>
 
             {/* Phase 8: Category Alignment Unverified Warning Banner */}

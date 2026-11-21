@@ -1466,11 +1466,31 @@ export async function runThailandProductResearch(
     const shopDetail = shopId ? (shopDetailMap.get(shopId) ?? null) : null;
     const commentInsight = commentInsightMap.get(pid) ?? null;
 
-    const masterImageUrl =
-      typeof entry.item.master_image_url === 'string' &&
-      entry.item.master_image_url.trim() !== ''
-        ? entry.item.master_image_url.trim()
-        : null;
+    const extractKalodataImageUrl = (item: Record<string, unknown>): string | null => {
+      const candidateKeys = [
+        'master_image_url',
+        'image_url',
+        'product_image',
+        'product_image_url',
+        'cover_url',
+        'thumb_url',
+      ];
+      for (const key of candidateKeys) {
+        const val = item[key];
+        if (typeof val === 'string' && val.trim() !== '') {
+          return val.trim();
+        }
+      }
+      if (Array.isArray(item.images)) {
+        const firstImg = item.images.find(
+          (img): img is string => typeof img === 'string' && img.trim() !== ''
+        );
+        if (firstImg) return firstImg.trim();
+      }
+      return null;
+    };
+
+    const masterImageUrl = extractKalodataImageUrl(entry.item);
     const imageCheck = await verifyKalodataImageUrl(masterImageUrl);
 
     return buildKalodataProductSummary(

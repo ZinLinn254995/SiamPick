@@ -12,6 +12,7 @@ import {
   ResearchProduct,
 } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
+import { InfoPopover } from './InfoPopover';
 
 interface BestProductsStripProps {
   selections: BestProductSelectionItem[];
@@ -35,30 +36,38 @@ export function BestProductsStrip({
   if (selections.length === 0) return null;
 
   return (
-    <div className="mt-5 bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setExpanded((prev) => !prev)}
-        aria-expanded={expanded}
-        className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-4 text-left hover:bg-zinc-50/70 transition-colors cursor-pointer"
-      >
-        <div className="min-w-0">
-          <h3 className="font-display text-sm font-semibold text-zinc-950">
+    <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
+      <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-expanded={expanded}
+            className="text-left font-display text-xs sm:text-sm font-semibold text-zinc-950 hover:text-zinc-700 transition-colors cursor-pointer truncate"
+          >
             {t.bestSelectionHeading}
-          </h3>
-          <p className="mt-0.5 text-xs text-zinc-500 leading-relaxed">
-            {t.bestSelectionSubtitle}
-          </p>
+          </button>
+          <InfoPopover
+            variant="info"
+            label={t.bestSelectionHeading}
+            title={t.bestSelectionHeading}
+            content={t.bestSelectionSubtitle}
+          />
         </div>
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 shrink-0 whitespace-nowrap">
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded}
+          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-950 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
+        >
           <span>{expanded ? t.bestSelectionHide : t.bestSelectionShow}</span>
           {expanded ? (
             <ChevronUp className="w-4 h-4" aria-hidden="true" />
           ) : (
             <ChevronDown className="w-4 h-4" aria-hidden="true" />
           )}
-        </span>
-      </button>
+        </button>
+      </div>
 
       {expanded && (
         <div className="border-t border-zinc-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 divide-y md:divide-y-0 md:gap-px md:bg-zinc-100">

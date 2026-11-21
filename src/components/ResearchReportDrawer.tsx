@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Bookmark,
@@ -51,6 +51,7 @@ import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { AiProductAnalysisSection } from './AiProductAnalysisSection';
 import { DataEnrichmentSection } from './DataEnrichmentSection';
+import { InfoPopover } from './InfoPopover';
 
 interface ResearchReportDrawerProps {
   product: ResearchProduct | null;
@@ -121,12 +122,10 @@ export function ResearchReportDrawer({
 }: ResearchReportDrawerProps) {
   const [copied, setCopied] = useState(false);
   const [activeAiAnalysis, setActiveAiAnalysis] = useState<AiProductAnalysis | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCopied(false);
     setActiveAiAnalysis(null);
-    scrollContainerRef.current?.scrollTo({ top: 0 });
   }, [product?.id]);
 
   useEffect(() => {
@@ -194,7 +193,10 @@ export function ResearchReportDrawer({
 
   const effectiveCommissionPerSaleStatus: DataStatus =
     earningPerOrderThb !== null
-      ? normalizeDataStatus(product.commissionPerSaleStatus ?? (effectivePriceStatus === 'verified' ? 'verified' : 'estimated'))
+      ? normalizeDataStatus(
+          product.commissionPerSaleStatus ??
+            (effectivePriceStatus === 'verified' ? 'verified' : 'estimated')
+        )
       : 'unavailable';
 
   const hasVerifiedSource = product.sources.some((s) => s.verified && Boolean(s.url));
@@ -209,7 +211,9 @@ export function ResearchReportDrawer({
     {
       label: t.fieldSeller,
       value: product.brand ? `${product.brand} · ${product.shopName}` : product.shopName,
-      status: normalizeDataStatus(product.sellerStatus ?? (hasVerifiedSource ? 'estimated' : 'unverified')),
+      status: normalizeDataStatus(
+        product.sellerStatus ?? (hasVerifiedSource ? 'estimated' : 'unverified')
+      ),
     },
     {
       label: t.fieldSalesEvidence,
@@ -260,9 +264,7 @@ export function ResearchReportDrawer({
     },
     {
       label: t.fieldCompetition,
-      value: competitionUnavailable
-        ? '—'
-        : t.competitionLabels[product.competitionLevel],
+      value: competitionUnavailable ? '—' : t.competitionLabels[product.competitionLevel],
       status: competitionUnavailable
         ? 'unavailable'
         : normalizeDataStatus(product.competitionStatus ?? 'estimated'),
@@ -289,7 +291,8 @@ export function ResearchReportDrawer({
       label: t.fieldProductQuality,
       value: product.productQualityEvidenceEn ? 'Recorded' : '—',
       status: normalizeDataStatus(
-        product.productQualityStatus ?? (product.productQualityEvidenceEn ? 'estimated' : 'unavailable')
+        product.productQualityStatus ??
+          (product.productQualityEvidenceEn ? 'estimated' : 'unavailable')
       ),
     },
     {
@@ -327,13 +330,6 @@ export function ResearchReportDrawer({
   const missingData = isMy ? product.missingDataMy : product.missingDataEn;
   const imageSourceNote = isMy ? product.imageSourceNoteMy : product.imageSourceNoteEn;
 
-  const jumpToSection = (sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
   const effectiveDateIso = researchDate ?? product.researchedAt ?? null;
   const formattedResearchDate = effectiveDateIso
     ? formatResearchDate(effectiveDateIso, language)
@@ -349,6 +345,10 @@ export function ResearchReportDrawer({
   const formattedLastUpdated = lastUpdatedIso
     ? formatResearchDateTime(lastUpdatedIso, language)
     : t.dataStatusLabels.unavailable;
+
+  const jumpToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const handleCopyReport = async () => {
     const fullText = buildCompleteTextReport({
@@ -441,28 +441,30 @@ export function ResearchReportDrawer({
             </button>
           </div>
 
-          {/* Quick Jump Bar — All 10 Structured Report Sections */}
+          {/* 10-Link Quick-Jump Section Navigation */}
           <nav
             aria-label="Report sections"
             className="px-5 sm:px-7 pb-2.5 flex items-center gap-4 overflow-x-auto text-xs font-medium text-zinc-500"
           >
-            {[
-              { id: 'rep-overview', label: t.reportJumpSummary },
-              { id: 'rep-decision', label: t.reportTabDecision },
-              { id: 'rep-market-data', label: t.reportTabMarketData },
-              { id: 'rep-enrichment', label: t.enrichJumpLabel },
-              { id: 'rep-score', label: t.scoringJumpLabel },
-              { id: 'rep-ai-analysis', label: t.aiJumpLabel },
-              { id: 'rep-reviews', label: t.reportJumpReviews },
-              { id: 'rep-risks', label: t.reportTabStrengths },
-              { id: 'rep-video', label: t.reportJumpVideo },
-              { id: 'rep-sources', label: t.reportJumpSources },
-            ].map((item) => (
+            {(
+              [
+                { id: 'rep-overview', label: t.reportJumpSummary },
+                { id: 'rep-decision', label: t.reportTabDecision },
+                { id: 'rep-market-data', label: t.reportTabMarketData },
+                { id: 'rep-enrichment', label: t.enrichJumpLabel },
+                { id: 'rep-score', label: t.scoringJumpLabel },
+                { id: 'rep-ai-analysis', label: t.aiJumpLabel },
+                { id: 'rep-reviews', label: t.reportJumpReviews },
+                { id: 'rep-risks', label: t.reportJumpRisks },
+                { id: 'rep-video', label: t.reportJumpVideo },
+                { id: 'rep-sources', label: t.reportJumpSources },
+              ] as const
+            ).map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => jumpToSection(item.id)}
-                className="py-1 hover:text-zinc-950 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="hover:text-zinc-950 transition-colors cursor-pointer whitespace-nowrap shrink-0 py-0.5"
               >
                 {item.label}
               </button>
@@ -471,37 +473,52 @@ export function ResearchReportDrawer({
         </div>
 
         {/* Scrollable Dossier */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto px-5 sm:px-7 py-6 space-y-8"
-        >
-          {/* Product Dossier Hero Summary */}
+        <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-6 space-y-8">
+          {/* 1. Product Dossier Hero Summary */}
           <div
             id="rep-overview"
             className="scroll-mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-start"
           >
             <div className="md:col-span-5 space-y-2">
-              <div className="aspect-[4/3] w-full rounded-xl overflow-hidden bg-zinc-100">
+              <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-zinc-100">
                 {hasVerifiedImage && product.imageUrl ? (
-                  <ProductImage
-                    src={product.imageUrl}
-                    alt={product.name}
-                    title={displayName}
-                    unavailableLabel={t.cardImageUnverified}
-                  />
+                  <>
+                    <ProductImage
+                      src={product.imageUrl}
+                      fallbackSrc={product.imageOriginUrl}
+                      alt={product.name}
+                      title={displayName}
+                      unavailableLabel={t.cardImageUnverified}
+                    />
+                    {imageSourceNote && (
+                      <div className="absolute bottom-2 right-2">
+                        <InfoPopover
+                          variant="info"
+                          label={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
+                          title={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
+                          content={imageSourceNote}
+                          className="bg-white/90 text-zinc-700 shadow-xs hover:bg-white"
+                        />
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center p-5 text-center">
                     <ImageOff className="w-6 h-6 text-zinc-400 mb-2" aria-hidden="true" />
-                    <p className="text-xs font-medium text-zinc-600">{t.cardImageUnverified}</p>
-                    <p className="mt-1 text-[11px] text-zinc-500 leading-relaxed">
-                      {imageSourceNote}
-                    </p>
+                    <div className="inline-flex items-center gap-1">
+                      <p className="text-xs font-medium text-zinc-600">{t.cardImageUnverified}</p>
+                      {imageSourceNote && (
+                        <InfoPopover
+                          variant="info"
+                          label={t.cardImageUnverified}
+                          title={t.cardImageUnverified}
+                          content={imageSourceNote}
+                        />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-              {hasVerifiedImage && imageSourceNote && (
-                <p className="text-[11px] text-zinc-500 leading-relaxed">{imageSourceNote}</p>
-              )}
             </div>
 
             <div className="md:col-span-7 flex flex-col justify-between space-y-4">
@@ -578,7 +595,7 @@ export function ResearchReportDrawer({
             </div>
           </div>
 
-          {/* Phase 5: Multi-Signal Final Decision Summary */}
+          {/* 2. Phase 5: Multi-Signal Final Decision Summary */}
           <section
             id="rep-decision"
             className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-3"
@@ -616,7 +633,7 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* Dedicated Verified Kalodata Market Data Block (Clearly Separate from AI Assessment) */}
+          {/* 3. Dedicated Verified Kalodata Market Data Block (Clearly Separate from AI Assessment) */}
           <section
             id="rep-market-data"
             className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-3"
@@ -648,7 +665,9 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500">{isMy ? 'ဝင်ငွေ (GMV)' : 'Revenue (THB)'}</dt>
+                <dt className="text-[11px] text-zinc-500">
+                  {isMy ? 'ဝင်ငွေ (GMV)' : 'Revenue (THB)'}
+                </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
                   {typeof km?.revenueThb === 'number'
                     ? formatThb(km.revenueThb)
@@ -656,7 +675,9 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500">{isMy ? 'ဝင်ငွေတိုးတက်နှုန်း' : 'Revenue Growth'}</dt>
+                <dt className="text-[11px] text-zinc-500">
+                  {isMy ? 'ဝင်ငွေတိုးတက်နှုန်း' : 'Revenue Growth'}
+                </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
                   {typeof km?.revenueGrowthRate === 'number'
                     ? `${km.revenueGrowthRate >= 0 ? '+' : ''}${km.revenueGrowthRate.toFixed(1)}%`
@@ -664,7 +685,9 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500">{isMy ? 'Creator အရေအတွက်' : 'Creator Count'}</dt>
+                <dt className="text-[11px] text-zinc-500">
+                  {isMy ? 'Creator အရေအတွက်' : 'Creator Count'}
+                </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
                   {typeof km?.creatorNumber === 'number'
                     ? km.creatorNumber.toLocaleString('en-US')
@@ -680,7 +703,9 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500">{isMy ? 'Video ဝင်ငွေ' : 'Video Revenue'}</dt>
+                <dt className="text-[11px] text-zinc-500">
+                  {isMy ? 'Video ဝင်ငွေ' : 'Video Revenue'}
+                </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
                   {typeof km?.videoRevenueThb === 'number'
                     ? formatThb(km.videoRevenueThb)
@@ -688,7 +713,9 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500">{isMy ? 'Live ဝင်ငွေ' : 'Live Revenue'}</dt>
+                <dt className="text-[11px] text-zinc-500">
+                  {isMy ? 'Live ဝင်ငွေ' : 'Live Revenue'}
+                </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 tabular-nums">
                   {typeof km?.liveRevenueThb === 'number'
                     ? formatThb(km.liveRevenueThb)
@@ -706,15 +733,21 @@ export function ResearchReportDrawer({
             </dl>
           </section>
 
-          {/* 14-Field Data Provenance Matrix (Verified / Estimated / Unverified / Unavailable) */}
+          {/* 4. 14-Field Data Provenance Matrix */}
           <section className="pt-6 border-t border-zinc-200 space-y-3">
-            <div>
+            <div className="flex items-center gap-1.5">
               <h3 className="font-display text-sm font-semibold text-zinc-950">
                 {t.dataVerificationHeading}
               </h3>
-              <p className="mt-0.5 text-xs text-zinc-500">{t.dataVerificationSubtitle}</p>
+              <InfoPopover
+                variant="info"
+                label={t.dataVerificationHeading}
+                title={t.dataVerificationHeading}
+                content={t.dataVerificationSubtitle}
+              />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 border-y border-zinc-200/80 divide-y divide-zinc-100 sm:divide-y-0">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 divide-y divide-zinc-100 sm:divide-y-0">
               {provenanceItems.map((item) => (
                 <div
                   key={item.label}
@@ -734,7 +767,7 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* Phase 4: Kalodata Data Enrichment (Product Detail, Shop Info, Review Insights, Cost Control) */}
+          {/* 5. Phase 4: Kalodata Data Enrichment (Product Detail, Shop Info, Review Insights, Cost Control) */}
           <DataEnrichmentSection
             product={product}
             salesWeightPct={salesWeightPct}
@@ -744,16 +777,42 @@ export function ResearchReportDrawer({
             onProductEnriched={onProductEnriched}
           />
 
-          {/* Phase 2: 7-Factor 100-Point Product Scoring Engine Breakdown & Explanations */}
-          <section id="rep-score" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4">
+          {/* 6. Phase 2: 7-Factor 100-Point Product Scoring Engine Breakdown & Explanations */}
+          <section
+            id="rep-score"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4"
+          >
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
               <div>
-                <h3 className="font-display text-sm font-semibold text-zinc-950">
-                  {t.scoringBreakdownHeading}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-display text-sm font-semibold text-zinc-950">
+                    {t.scoringBreakdownHeading}
+                  </h3>
+                  <InfoPopover
+                    variant="help"
+                    label={t.scoringBreakdownHeading}
+                    title={t.scoringBreakdownHeading}
+                    content={
+                      <div className="space-y-1.5">
+                        <p className="font-medium text-zinc-800">{t.scoringDisclaimer}</p>
+                        <p>{t.scoringVerificationRule}</p>
+                        {evaluation.redistributedWeightPct > 0 && (
+                          <p className="text-amber-800 font-medium">
+                            {t.scoringRedistributedNotice} ({evaluation.redistributedWeightPct} pts)
+                          </p>
+                        )}
+                      </div>
+                    }
+                  />
+                </div>
                 <p className="mt-0.5 text-xs text-zinc-500">
                   {t.scoringStrategyActiveLabel}: {strategyFocusLabel} ({evaluation.salesWeightPct}/
                   {100 - evaluation.salesWeightPct})
+                  {evaluation.redistributedWeightPct > 0 ? (
+                    <span className="ml-2 text-amber-700 font-medium">
+                      · {evaluation.redistributedWeightPct} pts redistributed
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <span className="font-mono text-xs text-zinc-600 tabular-nums">
@@ -762,17 +821,6 @@ export function ResearchReportDrawer({
                   {t.confidenceLabels[evaluation.confidenceLevel]} ({evaluation.confidencePct}%)
                 </strong>
               </span>
-            </div>
-
-            {/* Independence & Redistribution Fairness Notice */}
-            <div className="p-3.5 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 space-y-1">
-              <p className="font-medium text-zinc-800">{t.scoringDisclaimer}</p>
-              <p>{t.scoringVerificationRule}</p>
-              {evaluation.redistributedWeightPct > 0 && (
-                <p className="text-amber-800 font-medium pt-0.5">
-                  {t.scoringRedistributedNotice} ({evaluation.redistributedWeightPct} pts)
-                </p>
-              )}
             </div>
 
             {/* 7-Factor Transparent Breakdown Table */}
@@ -789,18 +837,34 @@ export function ResearchReportDrawer({
                   Math.abs(item.effectiveWeight - item.baseWeight) >= 0.1;
 
                 return (
-                  <div key={item.key} className="py-3 space-y-1.5">
+                  <div key={item.key} className="py-2.5 space-y-1.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                      <div className="font-medium text-zinc-900">
-                        <span className="font-mono text-zinc-400 mr-1.5 tabular-nums">
+                      <div className="flex items-center gap-1 font-medium text-zinc-900 min-w-0">
+                        <span className="font-mono text-zinc-400 mr-0.5 tabular-nums shrink-0">
                           0{idx + 1}.
                         </span>
-                        {t.factorLabels[item.key]}
+                        <span className="truncate">{t.factorLabels[item.key]}</span>
                         {metricDisplay && (
-                          <span className="ml-2 font-mono text-[11px] font-normal text-zinc-500 tabular-nums">
+                          <span className="ml-1 font-mono text-[11px] font-normal text-zinc-500 tabular-nums truncate">
                             · {metricDisplay}
                           </span>
                         )}
+                        <InfoPopover
+                          variant="info"
+                          label={t.factorLabels[item.key]}
+                          title={t.factorLabels[item.key]}
+                          content={
+                            <div className="space-y-1.5">
+                              <p>{evidence}</p>
+                              <p className="font-mono text-[11px] text-zinc-500 tabular-nums">
+                                {t.scoringBaseWeightLabel}: {item.baseWeight} pts
+                                {weightAdjusted
+                                  ? ` → ${t.scoringEffectiveWeightLabel}: ${item.effectiveWeight.toFixed(1)} pts`
+                                  : ''}
+                              </p>
+                            </div>
+                          }
+                        />
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0">
@@ -835,24 +899,14 @@ export function ResearchReportDrawer({
                         />
                       )}
                     </div>
-
-                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs text-zinc-500">
-                      <span className="leading-relaxed">{evidence}</span>
-                      <span className="font-mono text-[11px] text-zinc-400 tabular-nums shrink-0">
-                        {t.scoringBaseWeightLabel}: {item.baseWeight} pts
-                        {weightAdjusted
-                          ? ` → ${t.scoringEffectiveWeightLabel}: ${item.effectiveWeight.toFixed(1)} pts`
-                          : ''}
-                      </span>
-                    </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Score Explanation Grid: Strengths, Weaknesses, Risks, Data Confidence */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+            {/* 4-Box Score Explanation Grid: Strengths, Weaknesses, Risks, Data Confidence */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-emerald-800">
                   {t.scoringStrengthsHeading}
                 </h4>
@@ -863,7 +917,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-zinc-900">
                   {t.scoringWeaknessesHeading}
                 </h4>
@@ -874,7 +928,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-amber-800">
                   {t.scoringRisksHeading}
                 </h4>
@@ -885,7 +939,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50/80 border border-zinc-200/80 space-y-2">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2">
                 <div className="flex items-baseline justify-between gap-2">
                   <h4 className="font-display text-xs font-semibold text-zinc-950">
                     {t.scoringConfidenceHeading}
@@ -901,7 +955,7 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* Phase 3: Gemini AI Product Analysis (Explicitly Separated from Verified Kalodata Market Data) */}
+          {/* 7. Phase 3: Gemini AI Product Analysis (Explicitly Separated from Verified Kalodata Market Data) */}
           <div className="space-y-1">
             <div className="text-[11px] font-medium text-zinc-500">{t.reportAiTag}</div>
             <AiProductAnalysisSection
@@ -919,17 +973,17 @@ export function ResearchReportDrawer({
             />
           </div>
 
-          {/* 01. Why Choose This Product */}
-          <section className="pt-6 border-t border-zinc-200 space-y-2.5">
+          {/* 8. 01. Why Choose This Product */}
+          <section className="pt-6 border-t border-zinc-200 space-y-2">
             <h3 className="font-display text-sm font-semibold text-zinc-950">
               {t.sec01WhyChoose}
             </h3>
             <p className="text-sm text-zinc-700 leading-relaxed">{whyChoose}</p>
           </section>
 
-          {/* 02. Market Demand Evidence & 03. Sales Potential */}
+          {/* 9. 02. Market Demand & 03. Sales Potential */}
           <section className="pt-6 border-t border-zinc-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec02MarketDemand}
@@ -938,14 +992,14 @@ export function ResearchReportDrawer({
                   {t.demandLabels[product.demandLevel]}
                 </span>
               </div>
-              <ul className="space-y-2 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
+              <ul className="space-y-1.5 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
                 {demandEvidence.map((item, idx) => (
                   <li key={`${idx}-${item}`}>{item}</li>
                 ))}
               </ul>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <h3 className="font-display text-sm font-semibold text-zinc-950">
                 {t.sec03SalesPotential}
               </h3>
@@ -953,55 +1007,62 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 04. Commission Rate & Earning per Sale */}
+          {/* 10. 04. Commission Rate & Earning per Sale */}
           <section className="pt-6 border-t border-zinc-200 space-y-3">
-            <h3 className="font-display text-sm font-semibold text-zinc-950">
-              {t.sec04CommissionIncome}
-            </h3>
-            <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-baseline gap-6">
-                <div>
-                  <div className="text-xs text-zinc-500">{t.cardCommission}</div>
-                  <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
-                    {hasVerifiedCommission && product.commissionRate !== null ? (
-                      <span className="text-emerald-700">{product.commissionRate}%</span>
-                    ) : (
-                      <span className="font-sans text-sm font-medium text-amber-700">
-                        {t.dataStatusLabels[effectiveCommissionStatus]}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-zinc-500">{t.estEarningPerSale}</div>
-                  <div className="mt-0.5 font-mono text-lg font-semibold text-zinc-950 tabular-nums">
-                    {earningPerOrderThb !== null ? formatThb(earningPerOrderThb) : '—'}
-                  </div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="font-display text-sm font-semibold text-zinc-950">
+                {t.sec04CommissionIncome}
+              </h3>
+              {commissionNote && (
+                <InfoPopover
+                  variant="info"
+                  label={t.sec04CommissionIncome}
+                  title={t.sec04CommissionIncome}
+                  content={commissionNote}
+                />
+              )}
+            </div>
+            <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 flex items-baseline gap-8">
+              <div>
+                <div className="text-xs text-zinc-500">{t.cardCommission}</div>
+                <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+                  {hasVerifiedCommission && product.commissionRate !== null ? (
+                    <span className="text-emerald-700">{product.commissionRate}%</span>
+                  ) : (
+                    <span className="font-sans text-sm font-medium text-amber-700">
+                      {t.dataStatusLabels[effectiveCommissionStatus]}
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <p className="text-xs text-zinc-600 leading-relaxed sm:max-w-sm">
-                {commissionNote}
-              </p>
+              <div>
+                <div className="text-xs text-zinc-500">{t.estEarningPerSale}</div>
+                <div className="mt-0.5 font-mono text-lg font-semibold text-zinc-950 tabular-nums">
+                  {earningPerOrderThb !== null ? formatThb(earningPerOrderThb) : '—'}
+                </div>
+              </div>
             </div>
           </section>
 
-          {/* 05. Customer Review Strengths, Rating/Count, Quality Evidence & 06. Complaints */}
+          {/* 11. 05. Customer Review Strengths & 06. Complaints */}
           <section
             id="rep-reviews"
-            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-5"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4"
           >
             {(typeof product.customerRating === 'number' ||
               typeof product.reviewCount === 'number' ||
               productQualityEvidence) && (
-              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2 text-xs">
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-2 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-zinc-900">{t.productQualityHeading}</span>
                   <div className="flex items-center gap-2 font-mono tabular-nums text-zinc-700">
                     {typeof product.customerRating === 'number' && product.customerRating > 0 && (
                       <span className="inline-flex items-center gap-1 font-semibold text-zinc-950">
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" aria-hidden="true" />
+                        <Star
+                          className="w-3.5 h-3.5 text-amber-500 fill-amber-500"
+                          aria-hidden="true"
+                        />
                         {product.customerRating.toFixed(1)}/5.0
                       </span>
                     )}
@@ -1019,22 +1080,22 @@ export function ResearchReportDrawer({
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec05ReviewStrengths}
                 </h3>
-                <ul className="space-y-2 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-emerald-600">
+                <ul className="space-y-1.5 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-emerald-600">
                   {reviewStrengths.map((item, idx) => (
                     <li key={`${idx}-${item}`}>{item}</li>
                   ))}
                 </ul>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec06CustomerComplaints}
                 </h3>
-                <ul className="space-y-2 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-amber-600">
+                <ul className="space-y-1.5 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-amber-600">
                   {customerComplaints.map((item, idx) => (
                     <li key={`${idx}-${item}`}>{item}</li>
                   ))}
@@ -1043,9 +1104,9 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 07. Competitor Landscape & 08. Seller Reliability */}
+          {/* 12. 07. Competitor Landscape & 08. Seller Reliability */}
           <section className="pt-6 border-t border-zinc-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec07CompetitorLandscape}
@@ -1059,7 +1120,7 @@ export function ResearchReportDrawer({
               <p className="text-sm text-zinc-700 leading-relaxed">{competitionDetail}</p>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec08SellerReliability}
@@ -1072,23 +1133,28 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 09. Product Risks + Category-Specific Audit */}
-          <section id="rep-risks" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-5">
-            <div className="space-y-2.5">
-              <h3 className="font-display text-sm font-semibold text-zinc-950">
-                {t.sec09ProductRisks}
-              </h3>
-              <ul className="space-y-2 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
-                {generalRisks.map((risk, idx) => (
-                  <li key={`${idx}-${risk}`}>{risk}</li>
-                ))}
-              </ul>
-            </div>
+          {/* 13. 09. Product Risks + Category-Specific Audit */}
+          <section
+            id="rep-risks"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-4"
+          >
+            <h3 className="font-display text-sm font-semibold text-zinc-950">
+              {t.sec09ProductRisks}
+            </h3>
+
+            <ul className="space-y-1.5 text-sm text-zinc-700 leading-relaxed list-disc pl-4 marker:text-zinc-400">
+              {generalRisks.map((risk, idx) => (
+                <li key={`${idx}-${risk}`}>{risk}</li>
+              ))}
+            </ul>
 
             {product.category === 'womens-fashion' && product.fashionReturnRisk && (
-              <div className="p-5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-4">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-3.5">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+                  <AlertTriangle
+                    className="w-4 h-4 text-amber-700 shrink-0"
+                    aria-hidden="true"
+                  />
                   <h4 className="font-display text-xs sm:text-sm font-semibold text-zinc-950">
                     {t.fashionRiskHeading}
                   </h4>
@@ -1097,10 +1163,26 @@ export function ResearchReportDrawer({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {(
                     [
-                      { key: 'sizing', label: t.fashionRiskSizing, data: product.fashionReturnRisk.sizing },
-                      { key: 'fabric', label: t.fashionRiskFabric, data: product.fashionReturnRisk.fabric },
-                      { key: 'color', label: t.fashionRiskColor, data: product.fashionReturnRisk.colorAccuracy },
-                      { key: 'fit', label: t.fashionRiskFit, data: product.fashionReturnRisk.fitDifference },
+                      {
+                        key: 'sizing',
+                        label: t.fashionRiskSizing,
+                        data: product.fashionReturnRisk.sizing,
+                      },
+                      {
+                        key: 'fabric',
+                        label: t.fashionRiskFabric,
+                        data: product.fashionReturnRisk.fabric,
+                      },
+                      {
+                        key: 'color',
+                        label: t.fashionRiskColor,
+                        data: product.fashionReturnRisk.colorAccuracy,
+                      },
+                      {
+                        key: 'fit',
+                        label: t.fashionRiskFit,
+                        data: product.fashionReturnRisk.fitDifference,
+                      },
                     ] as const
                   ).map((item) => (
                     <div
@@ -1123,15 +1205,18 @@ export function ResearchReportDrawer({
             )}
 
             {product.category === 'cosmetics-beauty' && product.cosmeticsComplianceRisk && (
-              <div className="p-5 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-4">
+              <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-3.5">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+                  <ShieldAlert
+                    className="w-4 h-4 text-amber-700 shrink-0"
+                    aria-hidden="true"
+                  />
                   <h4 className="font-display text-xs sm:text-sm font-semibold text-zinc-950">
                     {t.cosmeticsCheckHeading}
                   </h4>
                 </div>
 
-                <div className="space-y-3.5">
+                <div className="space-y-3">
                   {(
                     [
                       {
@@ -1176,9 +1261,12 @@ export function ResearchReportDrawer({
             )}
           </section>
 
-          {/* 10. AI Video Advertising Potential & 11. 3 Video Content Ideas */}
-          <section id="rep-video" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-6">
-            <div className="space-y-2.5">
+          {/* 14. 10. AI Video Advertising Potential & 11. 3 Video Content Ideas */}
+          <section
+            id="rep-video"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-5"
+          >
+            <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec10AiVideoPotential}
@@ -1190,13 +1278,16 @@ export function ResearchReportDrawer({
               <p className="text-sm text-zinc-700 leading-relaxed">{aiVideoDetail}</p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <h3 className="font-display text-sm font-semibold text-zinc-950">
                 {t.sec11VideoContentIdeas}
               </h3>
               <ol className="divide-y divide-zinc-200/80 border-y border-zinc-200/80">
                 {product.videoIdeas.map((idea, idx) => (
-                  <li key={`${idx}-${idea.titleEn}`} className="py-3.5 flex items-start gap-3.5">
+                  <li
+                    key={`${idx}-${idea.titleEn}`}
+                    className="py-3 flex items-start gap-3"
+                  >
                     <span className="font-mono text-xs font-medium text-zinc-400 pt-0.5 tabular-nums shrink-0">
                       0{idx + 1}.
                     </span>
@@ -1212,7 +1303,7 @@ export function ResearchReportDrawer({
                           {isMy ? idea.formatMy : idea.formatEn}
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-zinc-600 leading-relaxed">
+                      <p className="text-sm text-zinc-600 leading-relaxed">
                         {isMy ? idea.outlineMy : idea.outlineEn}
                       </p>
                     </div>
@@ -1222,8 +1313,11 @@ export function ResearchReportDrawer({
             </div>
           </section>
 
-          {/* 12. Research Sources & Links, Last Updated, 13. Confidence Level, 14. Unavailable Data */}
-          <section id="rep-sources" className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-6">
+          {/* 15. 12. Research Sources, Last Updated, 13. Confidence, 14. Missing Data */}
+          <section
+            id="rep-sources"
+            className="scroll-mt-4 pt-6 border-t border-zinc-200 space-y-5"
+          >
             <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2 border-b border-zinc-100 text-xs text-zinc-500">
               <span>
                 {t.reportLastUpdatedLabel}:{' '}
@@ -1241,7 +1335,7 @@ export function ResearchReportDrawer({
               )}
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               <h3 className="font-display text-sm font-semibold text-zinc-950">
                 {t.sec12ResearchSources}
               </h3>
@@ -1278,8 +1372,8 @@ export function ResearchReportDrawer({
               </ul>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-zinc-100">
+              <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="font-display text-sm font-semibold text-zinc-950">
                     {t.sec13ConfidenceLevel}
@@ -1291,7 +1385,7 @@ export function ResearchReportDrawer({
                 <p className="text-sm text-zinc-700 leading-relaxed">{confidenceDetail}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <h3 className="font-display text-sm font-semibold text-zinc-950">
                   {t.sec14MissingData}
                 </h3>
@@ -1379,7 +1473,10 @@ export function ResearchReportDrawer({
                   : 'bg-zinc-950 hover:bg-zinc-800'
               }`}
             >
-              <Bookmark className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`} aria-hidden="true" />
+              <Bookmark
+                className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`}
+                aria-hidden="true"
+              />
               <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
             </button>
           </div>

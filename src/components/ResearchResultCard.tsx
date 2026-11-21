@@ -84,7 +84,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
 
   const displayName = isMy ? product.nameMy : product.name;
   const subCategory = isMy ? product.subCategoryMy : product.subCategory;
-  const categoryLabel = getCategoryLabel(product.category, language);
+  const categoryLabel = getCategoryLabel(product.category, language, { short: true });
 
   const isSaved = decision === 'saved';
   const isRejected = decision === 'rejected';
@@ -149,6 +149,9 @@ export const ResearchResultCard = memo(function ResearchResultCard({
         : 'text-amber-700';
 
   const aiDisplay = t.aiVideoLabels[getEffectiveAiSuitabilityBand(product, evaluation)];
+  const hasSalesVolume =
+    typeof product.kalodataMetrics?.salesVolume === 'number' &&
+    Number.isFinite(product.kalodataMetrics.salesVolume);
 
   return (
     <article
@@ -158,7 +161,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
           : 'border-zinc-200/90 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-[0_10px_28px_-14px_rgba(9,9,11,0.12)]'
       }`}
     >
-      {/* Product Image — Rendered ONLY when retrieved & verified from official brand/listing page */}
+      {/* Product Image */}
       <button
         type="button"
         onClick={() => onOpenReport(product)}
@@ -168,6 +171,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
         {hasVerifiedImage && product.imageUrl ? (
           <ProductImage
             src={product.imageUrl}
+            fallbackSrc={product.imageOriginUrl}
             alt={product.name}
             title={displayName}
             unavailableLabel={t.cardImageUnverified}
@@ -184,154 +188,134 @@ export const ResearchResultCard = memo(function ResearchResultCard({
       </button>
 
       {/* Card Body */}
-      <div className="p-5 flex-1 flex flex-col">
-        {/* Category Metadata + Brand/Seller + Opportunity Score */}
+      <div className="p-4 sm:p-5 flex-1 flex flex-col">
+        {/* Top Row: Category · Subcategory · Brand · Shop + Title + 100-Point Score */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs text-zinc-500 truncate">
-              {categoryLabel} · {subCategory}
+              {categoryLabel} · {subCategory} ·{' '}
+              {product.brand ? `${product.brand} · ` : ''}
+              {product.shopName}
             </div>
             <button
               type="button"
               onClick={() => onOpenReport(product)}
-              className="mt-1.5 text-left cursor-pointer group/title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded-sm"
+              className="mt-1 text-left cursor-pointer group/title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 rounded-sm"
             >
-              <h3 className="font-display text-base font-semibold text-zinc-950 leading-snug line-clamp-2 group-hover/title:text-zinc-700 transition-colors min-h-[2.75rem]">
+              <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 leading-snug line-clamp-2 group-hover/title:text-zinc-700 transition-colors min-h-[2.5rem]">
                 {displayName}
               </h3>
             </button>
-            <div className="mt-1 text-[11px] text-zinc-500 truncate">
-              {product.brand ? `${product.brand} · ` : ''}
-              {product.shopName}
-            </div>
           </div>
 
-          {/* Phase 2 100-Point Product Score */}
           <div className="text-right shrink-0 pl-2.5 border-l border-zinc-100">
-            <div className="text-[11px] text-zinc-500 whitespace-nowrap">
-              {t.cardOpportunityScore}
-            </div>
-            <div className="font-mono text-xl font-semibold text-zinc-950 tabular-nums leading-tight mt-0.5">
+            <div className="font-mono text-xl font-semibold text-zinc-950 tabular-nums leading-none">
               {evaluation.totalScore}
-              <span className="text-xs font-normal text-zinc-400">/100</span>
             </div>
+            <div className="text-[10px] font-mono text-zinc-400 mt-1">/100</div>
           </div>
         </div>
 
-        {/* Product Decision Summary (Multi-Signal Verdict) + Evidence Coverage */}
-        <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
+        {/* Verdict + Confidence */}
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs">
           <span className={`font-semibold truncate ${decisionColorClass(decisionSummary.verdict)}`}>
             {t.decisionVerdictLabels[decisionSummary.verdict]}
           </span>
-          <span className="font-mono text-[11px] text-zinc-500 tabular-nums shrink-0">
-            {product.researchDepthTag === 'deep-audited' && (
-              <span className="font-sans font-medium text-emerald-700 mr-1.5">
-                {t.depthTagDeep} ·
-              </span>
-            )}
-            {product.researchDepthTag === 'detail-enriched' && (
-              <span className="font-sans font-medium text-zinc-700 mr-1.5">
-                {t.depthTagDetail} ·
-              </span>
-            )}
-            {evaluation.verifiedCount}/{evaluation.totalCriteria} {t.scoringVerifiedCountLabel}
+          <span className={`text-[11px] font-medium shrink-0 ${confidenceColor}`}>
+            {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
+            <span className="font-mono tabular-nums opacity-80">{evaluation.confidencePct}%</span>
           </span>
         </div>
 
-        {/* Price (THB) & Verified-Only Commission Rate (with 4-state DataStatus) */}
-        <div className="mt-3.5 pt-3.5 border-t border-zinc-100 grid grid-cols-2 gap-3">
-          <div>
-            <div className="flex items-baseline gap-1.5 text-[11px] text-zinc-500">
-              <span>{t.cardPrice}</span>
-            </div>
+        {/* Price · Commission · Sales Grid */}
+        <div className="mt-3.5 pt-3 border-t border-zinc-100 grid grid-cols-3 gap-2">
+          <div className="min-w-0">
+            <div className="text-[11px] text-zinc-500 truncate">{t.cardPrice}</div>
             {product.priceThb !== null && product.priceThb > 0 ? (
-              <div className="mt-0.5 flex flex-wrap items-baseline gap-1.5">
-                <span className="font-mono text-sm font-semibold text-zinc-950 tabular-nums">
+              <>
+                <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 tabular-nums truncate">
                   {formatThb(product.priceThb)}
-                </span>
-                <span
-                  className={`text-[11px] font-medium ${dataStatusColorClass(effectivePriceStatus)}`}
+                </div>
+                <div
+                  className={`text-[10px] font-medium truncate ${dataStatusColorClass(effectivePriceStatus)}`}
                 >
                   {t.dataStatusLabels[effectivePriceStatus]}
-                </span>
-              </div>
+                </div>
+              </>
             ) : (
-              <div className="mt-0.5 text-xs font-medium text-zinc-400">
+              <div className="mt-0.5 text-xs font-medium text-zinc-400 truncate">
                 {t.dataStatusLabels[effectivePriceStatus]}
               </div>
             )}
           </div>
 
-          <div>
-            <div className="text-[11px] text-zinc-500">{t.cardCommission}</div>
+          <div className="min-w-0">
+            <div className="text-[11px] text-zinc-500 truncate">{t.cardCommission}</div>
             {hasVerifiedCommission && product.commissionRate !== null ? (
-              <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
-                <span className="font-mono text-sm font-semibold text-emerald-700 tabular-nums">
+              <>
+                <div className="mt-0.5 font-mono text-sm font-semibold text-emerald-700 tabular-nums truncate">
                   {product.commissionRate}%
-                </span>
+                </div>
                 {earningPerOrderThb !== null ? (
-                  <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
-                    ({formatThb(earningPerOrderThb)} {t.perOrder})
-                  </span>
+                  <div className="text-[10px] font-mono text-zinc-500 tabular-nums truncate">
+                    {formatThb(earningPerOrderThb)} {t.perOrder}
+                  </div>
                 ) : (
-                  <span className="text-[11px] font-medium text-emerald-700">
-                    {t.dataStatusLabels.verified}
-                  </span>
+                  <div
+                    className={`text-[10px] font-medium truncate ${dataStatusColorClass(effectiveCommissionStatus)}`}
+                  >
+                    {t.dataStatusLabels[effectiveCommissionStatus]}
+                  </div>
                 )}
-              </div>
+              </>
             ) : (
-              <div className="mt-0.5 text-xs font-medium text-zinc-400">
+              <div className="mt-0.5 text-xs font-medium text-zinc-400 truncate">
                 {t.dataStatusLabels[effectiveCommissionStatus]}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Rating & Reviews Strip (Only when real figures found; otherwise explicit status) */}
-        <div className="mt-3 pt-3 border-t border-zinc-100 flex items-center justify-between gap-2 text-xs">
-          <span className="text-[11px] text-zinc-500">{t.cardRatingReviews}</span>
-          {hasRating || hasReviews ? (
-            <div className="flex items-center gap-1.5 font-mono tabular-nums text-zinc-900">
-              {hasRating && (
-                <span className="inline-flex items-center gap-0.5 font-semibold">
-                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" aria-hidden="true" />
-                  {product.customerRating!.toFixed(1)}
-                </span>
-              )}
-              {hasReviews && (
-                <span className="text-zinc-500 text-[11px]">
-                  ({product.reviewCount!.toLocaleString()} {t.cardReviewsUnit})
-                </span>
-              )}
-              <span className={`font-sans text-[11px] font-medium ${dataStatusColorClass(ratingStatus)}`}>
-                · {t.dataStatusLabels[ratingStatus]}
-              </span>
+          <div className="min-w-0">
+            <div className="text-[11px] text-zinc-500 truncate">
+              {isMy ? 'ရောင်းအား' : 'Sales'}
             </div>
-          ) : (
-            <span className="text-[11px] font-medium text-zinc-400">
-              {t.dataStatusLabels[ratingStatus]}
-            </span>
-          )}
+            <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 tabular-nums truncate">
+              {hasSalesVolume ? (
+                product.kalodataMetrics!.salesVolume!.toLocaleString('en-US')
+              ) : (
+                <span className="font-sans text-xs font-medium text-zinc-400">
+                  {t.dataStatusLabels.unavailable}
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-zinc-500 truncate">
+              {t.demandLabels[product.demandLevel]}
+            </div>
+          </div>
         </div>
 
-        {/* Structured Signals Grid: Sales, Competition, AI Video Fit, Data Confidence */}
-        <dl className="mt-3 pt-3 border-t border-zinc-100 grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+        {/* Secondary Signals Always Visible */}
+        <dl className="mt-3 pt-2.5 border-t border-zinc-100 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           <div>
-            <dt className="text-[11px] text-zinc-500">
-              {isMy ? 'ရောင်းအား (Sales)' : 'Sales Volume'}
-            </dt>
-            <dd className="mt-0.5 font-mono font-medium text-zinc-900 tabular-nums truncate">
-              {typeof product.kalodataMetrics?.salesVolume === 'number' &&
-              Number.isFinite(product.kalodataMetrics.salesVolume) ? (
-                <>
-                  {product.kalodataMetrics.salesVolume.toLocaleString('en-US')}{' '}
-                  <span className="font-sans text-[11px] text-zinc-500">
-                    {isMy ? 'ခု' : 'units'}
-                  </span>
-                </>
+            <dt className="text-[11px] text-zinc-500">{t.cardRatingReviews}</dt>
+            <dd className="mt-0.5 font-mono text-xs text-zinc-900 tabular-nums">
+              {hasRating || hasReviews ? (
+                <span className="inline-flex items-center gap-1 flex-wrap">
+                  {hasRating && (
+                    <span className="inline-flex items-center gap-0.5 font-semibold">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" aria-hidden="true" />
+                      {product.customerRating!.toFixed(1)}
+                    </span>
+                  )}
+                  {hasReviews && (
+                    <span className="text-zinc-500 text-[11px]">
+                      ({product.reviewCount!.toLocaleString()})
+                    </span>
+                  )}
+                </span>
               ) : (
-                <span className="font-sans text-zinc-400">
-                  {t.dataStatusLabels.unavailable}
+                <span className="font-sans text-[11px] text-zinc-400">
+                  {t.dataStatusLabels[ratingStatus]}
                 </span>
               )}
             </dd>
@@ -350,19 +334,26 @@ export const ResearchResultCard = memo(function ResearchResultCard({
           </div>
 
           <div>
-            <dt className="text-[11px] text-zinc-500">{t.cardConfidence}</dt>
-            <dd className={`mt-0.5 font-medium ${confidenceColor}`}>
-              {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
-              <span className="font-mono text-[11px] tabular-nums opacity-80">
-                ({evaluation.confidencePct}%)
-              </span>
+            <dt className="text-[11px] text-zinc-500">{t.scoringVerifiedCountLabel}</dt>
+            <dd className="mt-0.5 font-mono text-xs text-zinc-700 tabular-nums">
+              {evaluation.verifiedCount}/{evaluation.totalCriteria}
+              {product.researchDepthTag === 'deep-audited' && (
+                <span className="font-sans text-[11px] text-emerald-700 ml-1">
+                  · {t.depthTagDeep}
+                </span>
+              )}
+              {product.researchDepthTag === 'detail-enriched' && (
+                <span className="font-sans text-[11px] text-zinc-600 ml-1">
+                  · {t.depthTagDetail}
+                </span>
+              )}
             </dd>
           </div>
         </dl>
 
-        {/* Quiet Link to Full Research Report + Compare Toggle */}
-        <div className="mt-auto pt-4">
-          <div className="pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+        {/* Report + Compare + Save/Reject Actions */}
+        <div className="mt-auto pt-3.5">
+          <div className="pt-2.5 border-t border-zinc-100 flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => onOpenReport(product)}
@@ -393,13 +384,12 @@ export const ResearchResultCard = memo(function ResearchResultCard({
             ) : null}
           </div>
 
-          {/* Save Product & Reject Product Action Row */}
-          <div className={`mt-3 grid gap-2.5 ${hideRejectAction ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div className={`mt-2.5 grid gap-2 ${hideRejectAction ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => onSave(product.id)}
               aria-pressed={isSaved}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
                 isSaved
                   ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                   : 'bg-zinc-950 text-white hover:bg-zinc-800'
@@ -417,7 +407,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
                 type="button"
                 onClick={() => onReject(product.id)}
                 aria-pressed={isRejected}
-                className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                className={`inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                   isRejected
                     ? 'bg-zinc-100 text-zinc-800 border-zinc-300 hover:bg-zinc-200'
                     : 'bg-white text-zinc-700 border-zinc-200 hover:border-red-300 hover:text-red-700 hover:bg-red-50/40'

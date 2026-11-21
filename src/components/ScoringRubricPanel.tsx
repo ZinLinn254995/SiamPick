@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Scale } from 'lucide-react';
 import { Language, ScoreTier } from '../types/product';
 import { deriveStrategyPresetFromWeight, getScoringRubricForStrategy } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
+import { InfoPopover } from './InfoPopover';
 
 interface ScoringRubricPanelProps {
   isOpen: boolean;
@@ -71,9 +72,17 @@ export function ScoringRubricPanel({
           {/* 7 Live Strategy-Weighted Factors (Always Totaling 100 Points) */}
           <div className="lg:col-span-7 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
-              <span className="font-medium text-zinc-800">
-                {t.scoringStrategyActiveLabel}: {strategyLabel}
-              </span>
+              <div className="inline-flex items-center gap-1.5">
+                <span className="font-medium text-zinc-800">
+                  {t.scoringStrategyActiveLabel}: {strategyLabel}
+                </span>
+                <InfoPopover
+                  variant="help"
+                  label={t.scoringPanelTitle}
+                  title={t.scoringPanelTitle}
+                  content={t.scoringVerificationRule}
+                />
+              </div>
               <span className="font-mono font-semibold text-zinc-950 tabular-nums">
                 {t.scoringTotalWeightLabel}: {totalPoints}/100
               </span>
@@ -97,14 +106,26 @@ export function ScoringRubricPanel({
                 </div>
               ))}
             </div>
-            <p className="text-xs text-zinc-500 leading-relaxed pt-1">
-              {t.scoringVerificationRule}
-            </p>
           </div>
 
-          {/* 3 Recommendation Tiers + Evaluation Reminder */}
-          <div className="lg:col-span-5 space-y-3 lg:border-l lg:border-zinc-100 lg:pl-6">
-            <p className="text-xs text-zinc-600 leading-relaxed">{t.scoringDisclaimer}</p>
+          {/* 3 Recommendation Tiers + Info Popover for Disclaimers */}
+          <div className="lg:col-span-5 space-y-2.5 lg:border-l lg:border-zinc-100 lg:pl-6">
+            <div className="flex items-center gap-1.5 text-xs pb-1">
+              <span className="font-medium text-zinc-800">
+                {language === 'my' ? 'အဆင့်သတ်မှတ်ချက်များ' : 'Score Tiers'}
+              </span>
+              <InfoPopover
+                variant="info"
+                label={t.scoringPanelTitle}
+                title={t.scoringPanelTitle}
+                content={
+                  <div className="space-y-1.5">
+                    <p>{t.scoringDisclaimer}</p>
+                    <p className="text-zinc-500">{t.scoringPairReminder}</p>
+                  </div>
+                }
+              />
+            </div>
             <div className="space-y-2">
               {TIER_ORDER.map((tier) => (
                 <div
@@ -120,9 +141,6 @@ export function ScoringRubricPanel({
                 </div>
               ))}
             </div>
-            <p className="text-xs text-zinc-500 leading-relaxed">
-              {t.scoringPairReminder}
-            </p>
           </div>
         </div>
       )}

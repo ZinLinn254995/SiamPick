@@ -30,6 +30,7 @@ import { formatResearchDate } from '../utils/savedProductsStorage';
 import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
+import { InfoPopover } from './InfoPopover';
 
 interface SavedProductsViewProps {
   records: SavedProductRecord[];
@@ -205,7 +206,7 @@ export function SavedProductsView({
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-zinc-200">
           <div className="max-w-2xl">
-            <div className="flex items-baseline gap-2.5">
+            <div className="flex items-center gap-2">
               <h1
                 id="saved-products-heading"
                 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950"
@@ -215,11 +216,19 @@ export function SavedProductsView({
               <span className="font-mono text-sm text-zinc-500 tabular-nums">
                 ({records.length})
               </span>
+              <InfoPopover
+                label={t.savedViewTitle}
+                title={t.savedViewTitle}
+                content={
+                  <>
+                    <p>{t.savedViewSubtitle}</p>
+                    <p className="text-[11px] text-zinc-500 pt-1 border-t border-zinc-100">
+                      {t.savedStorageNote}
+                    </p>
+                  </>
+                }
+              />
             </div>
-            <p className="mt-2 text-sm text-zinc-600 leading-relaxed">
-              {t.savedViewSubtitle}
-            </p>
-            <p className="mt-1.5 text-xs text-zinc-400">{t.savedStorageNote}</p>
           </div>
 
           {records.length > 0 && (
@@ -401,6 +410,7 @@ export function SavedProductsView({
                         {hasVerifiedImg && product.imageUrl ? (
                           <ProductImage
                             src={product.imageUrl}
+                            fallbackSrc={product.imageOriginUrl}
                             alt={product.name}
                             title={displayName}
                             unavailableLabel={t.cardImageUnverified}

@@ -115,7 +115,7 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
   return (
     <section
       aria-label={t.kalodataSectionLabel}
-      className="mt-4 bg-white border border-zinc-200/90 rounded-xl px-5 py-4"
+      className="mt-4 bg-white border border-zinc-200/90 rounded-xl px-4 sm:px-5 py-3.5"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
@@ -137,10 +137,9 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
           )}
 
           <div className="min-w-0 space-y-1">
-            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-              <span className="text-xs font-semibold text-zinc-950">
-                {t.kalodataSectionLabel}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
+              <span className="font-semibold text-zinc-900">{t.kalodataSectionLabel}</span>
+              <span className="text-zinc-300" aria-hidden="true">·</span>
               <span className="font-mono text-[11px] text-zinc-400">
                 GET /openapi/v1/credit/balance
               </span>
@@ -149,32 +148,25 @@ export function KalodataBalanceBar({ language, refreshSignal = 0 }: KalodataBala
             {loading ? (
               <p className="text-xs text-zinc-500">{t.kalodataChecking}</p>
             ) : status?.ok ? (
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <p className="text-xs sm:text-sm text-zinc-800">
-                  <span className="text-zinc-500 mr-1.5">{t.kalodataBalanceLabel}:</span>
-                  <span className="font-mono font-semibold text-zinc-950 tabular-nums">
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
+                <span className="text-zinc-600">
+                  {t.kalodataBalanceLabel}:{' '}
+                  <strong className="font-mono text-sm font-semibold text-zinc-950 tabular-nums">
                     {status.balance !== null
                       ? status.balance.toLocaleString()
                       : t.dataStatusLabels.unavailable}
+                    {status.balance !== null && status.unit ? ` ${status.unit}` : ''}
+                  </strong>
+                </span>
+                {status.fields.map((entry) => (
+                  <span key={entry.key} className="font-mono text-[11px] text-zinc-500 tabular-nums">
+                    {formatFieldLabel(entry.key)}:{' '}
+                    <span className="text-zinc-800">{String(entry.value)}</span>
                   </span>
-                  {status.balance !== null && status.unit && (
-                    <span className="ml-1 text-xs text-zinc-500 font-mono">{status.unit}</span>
-                  )}
-                </p>
-
-                {status.fields.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500">
-                    {status.fields.map((entry) => (
-                      <span key={entry.key} className="font-mono tabular-nums">
-                        {formatFieldLabel(entry.key)}:{' '}
-                        <span className="text-zinc-800">{String(entry.value)}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <p className="text-xs text-zinc-700 leading-relaxed">{errorMessage}</p>
                 {(status?.upstreamCode || status?.errorCategory) && (
                   <p className="font-mono text-[11px] text-zinc-400">
