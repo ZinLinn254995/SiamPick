@@ -29,7 +29,7 @@ import {
   ScoreTier,
   VerificationState,
 } from '../types/product';
-import { formatThb, isSafeHttpUrl } from '../utils/format';
+import { formatThb, getTikTokShopProductUrl, isSafeHttpUrl } from '../utils/format';
 import { DEFAULT_SPENDING_LIMIT_CREDITS } from '../utils/kalodataPricing';
 import {
   evaluateProductOpportunity,
@@ -346,6 +346,7 @@ export function ResearchReportDrawer({
     effectiveAiAnalysis
   );
   const km = product.kalodataMetrics;
+  const tiktokShopUrl = getTikTokShopProductUrl(product);
   const myanmarInfo = product.myanmarLanguage ?? detectMyanmarLanguageForProduct(product);
   const lastUpdatedIso = km?.lastEnrichedAt ?? effectiveDateIso;
   const formattedLastUpdated = lastUpdatedIso
@@ -555,6 +556,23 @@ export function ResearchReportDrawer({
                 <p className={`mt-1.5 text-xs font-medium ${tierTextColor(evaluation.tier)}`}>
                   {t.scoringTierRanges[evaluation.tier]} · {t.scoringTierLabels[evaluation.tier]}
                 </p>
+                {tiktokShopUrl && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <a
+                      href={tiktokShopUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      <span>
+                        {isMy
+                          ? 'TikTok Shop တွင် တိုက်ရိုက်ကြည့်ရန်'
+                          : 'Open on TikTok Shop'}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* At-a-Glance Decision Strip */}
@@ -1572,35 +1590,74 @@ export function ResearchReportDrawer({
                 {t.sec12ResearchSources}
               </h3>
               <ul className="space-y-2">
-                {product.sources.map((src, idx) => (
-                  <li
-                    key={`${idx}-${src.url ?? src.labelEn}`}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 py-2 border-b border-zinc-100 dark:border-zinc-800/70 last:border-b-0 text-xs"
-                  >
-                    <div className="text-zinc-700 dark:text-zinc-300 min-w-0">
-                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                        {isMy ? src.labelMy : src.labelEn}
-                      </span>{' '}
-                      <span className="text-zinc-400 dark:text-zinc-500">· {src.sourceType}</span>
-                    </div>
-
-                    {src.verified && isSafeHttpUrl(src.url) ? (
+                {tiktokShopUrl &&
+                  !product.sources.some(
+                    (s) =>
+                      s.url === tiktokShopUrl ||
+                      (typeof s.url === 'string' &&
+                        s.url.includes('shop.tiktok.com/view/product/'))
+                  ) && (
+                    <li className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 py-2 border-b border-zinc-100 dark:border-zinc-800/70 text-xs">
+                      <div className="text-zinc-700 dark:text-zinc-300 min-w-0">
+                        <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {isMy
+                            ? `TikTok Shop Thailand မူရင်း Product စာမျက်နှာ (#${getCanonicalProductId(product)})`
+                            : `TikTok Shop Thailand Original Product Page (#${getCanonicalProductId(product)})`}
+                        </span>{' '}
+                        <span className="text-zinc-400 dark:text-zinc-500">
+                          · TikTok Shop TH
+                        </span>
+                      </div>
                       <a
-                        href={src.url}
+                        href={tiktokShopUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 hover:underline whitespace-nowrap shrink-0"
                       >
-                        <span>{t.sourceOpenLink}</span>
+                        <span>
+                          {isMy ? 'TikTok Shop ဖွင့်ရန်' : 'Open TikTok Shop'}
+                        </span>
                         <ExternalLink className="w-3 h-3" aria-hidden="true" />
                       </a>
-                    ) : (
-                      <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
-                        {t.sourcePendingLink}
-                      </span>
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  )}
+                {product.sources.map((src, idx) => {
+                  const resolvedSourceUrl =
+                    tiktokShopUrl &&
+                    typeof src.url === 'string' &&
+                    src.url.includes('shop.tiktok.com/view/product/')
+                      ? tiktokShopUrl
+                      : src.url;
+                  return (
+                    <li
+                      key={`${idx}-${resolvedSourceUrl ?? src.labelEn}`}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 py-2 border-b border-zinc-100 dark:border-zinc-800/70 last:border-b-0 text-xs"
+                    >
+                      <div className="text-zinc-700 dark:text-zinc-300 min-w-0">
+                        <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {isMy ? src.labelMy : src.labelEn}
+                        </span>{' '}
+                        <span className="text-zinc-400 dark:text-zinc-500">· {src.sourceType}</span>
+                      </div>
+
+                      {src.verified && isSafeHttpUrl(resolvedSourceUrl) ? (
+                        <a
+                          href={resolvedSourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                        >
+                          <span>{t.sourceOpenLink}</span>
+                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                        </a>
+                      ) : (
+                        <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                          {t.sourcePendingLink}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

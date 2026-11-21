@@ -51,7 +51,7 @@ import {
 } from '../utils/deepDiveReportBuilder';
 import { triggerFileDownload } from '../utils/exportReports';
 import { getCategoryLabel } from '../utils/categoryRegistry';
-import { formatThb } from '../utils/format';
+import { formatThb, getTikTokShopProductUrl } from '../utils/format';
 import {
   DEFAULT_SPENDING_LIMIT_CREDITS,
   formatCredits,
@@ -976,30 +976,50 @@ export function DeepDiveWorkspaceView({
               </h2>
             </div>
 
-            <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
-                <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                  {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {copy.commissionLabel}
-                </dt>
-                <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
-                  {product.commissionRate !== null
-                    ? `${product.commissionRate}%`
-                    : t.dataStatusLabels.unavailable}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
-                <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                  {evaluation.totalScore}/100
-                </dd>
-              </div>
-            </dl>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
+              <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div>
+                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
+                  <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                    {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {copy.commissionLabel}
+                  </dt>
+                  <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
+                    {product.commissionRate !== null
+                      ? `${product.commissionRate}%`
+                      : t.dataStatusLabels.unavailable}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
+                  <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                    {evaluation.totalScore}/100
+                  </dd>
+                </div>
+              </dl>
+
+              {(() => {
+                const tiktokUrl = getTikTokShopProductUrl(product);
+                if (!tiktokUrl) return null;
+                return (
+                  <a
+                    href={tiktokUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
+                  >
+                    <span>
+                      {isMy ? 'TikTok Shop တွင် ကြည့်ရန်' : 'Open on TikTok Shop'}
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  </a>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </section>

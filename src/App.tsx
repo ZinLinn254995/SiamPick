@@ -1627,6 +1627,9 @@ export default function App() {
             comparedKeys={comparedKeySet}
             onToggleCompareHistoryProduct={handleToggleCompareHistoryProduct}
             onOpenReport={handleOpenHistoryReport}
+            onOpenDeepDive={(targetProduct, archiveDate, archiveMode) =>
+              handleOpenDeepDive(targetProduct, 'history', archiveDate, archiveMode)
+            }
             onDeleteRecords={handleDeleteHistoryRecords}
             onBackToHunting={handleGoHome}
             language={language}

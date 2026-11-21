@@ -3,24 +3,36 @@ import {
   AlertTriangle,
   ArrowLeft,
   Calendar,
-  Download,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
   Eye,
   GitCompareArrows,
+  Globe,
   HardDrive,
   History,
+  RotateCcw,
   Search,
+  SlidersHorizontal,
   Trash2,
   X,
 } from 'lucide-react';
 import {
   CategoryFilter,
+  DecisionFilter,
   Language,
   OpportunityEvaluation,
+  ProductCategory,
   ProductDecision,
+  ProductDecisionSummary,
+  ProductResultsFilterState,
+  ProductSortField,
   ResearchHistoryRecord,
   ResearchMode,
   ResearchProduct,
+  SortDirection,
   StorageWriteResult,
+  StrategyPreset,
 } from '../types/product';
 import { formatCredits, formatUsd } from '../utils/kalodataPricing';
 import {
@@ -28,6 +40,13 @@ import {
   evaluateProductBatch,
   evaluateProductOpportunity,
 } from '../utils/scoring';
+import {
+  computeBestProductSelections,
+  DEFAULT_PRODUCT_FILTERS,
+  deriveProductDecisionSummary,
+  filterProducts,
+  sortProductsByField,
+} from '../utils/productAnalytics';
 import {
   formatByteSize,
   getLocalStorageUsageStats,
@@ -42,7 +61,26 @@ import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistr
 import { TRANSLATIONS } from '../i18n/translations';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ResearchComparisonPanel } from './ResearchComparisonPanel';
+import { ScoringRubricPanel } from './ScoringRubricPanel';
+import { BestProductsStrip } from './BestProductsStrip';
+import { ProductFilterBar } from './ProductFilterBar';
 import { InfoPopover } from './InfoPopover';
+
+const ARCHIVE_STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
+  balanced: 50,
+  'sales-first': 70,
+  'commission-first': 30,
+};
+
+function isSafeHttpUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
 
 interface ResearchHistoryViewProps {
   records: ResearchHistoryRecord[];
@@ -63,6 +101,11 @@ interface ResearchHistoryViewProps {
     researchDate: string,
     evaluation?: OpportunityEvaluation,
     peerProducts?: readonly ResearchProduct[],
+    researchMode?: ResearchMode
+  ) => void;
+  onOpenDeepDive?: (
+    product: ResearchProduct,
+    researchDate: string,
     researchMode?: ResearchMode
   ) => void;
   onDeleteRecords: (ids: string[]) => void;
@@ -109,6 +152,7 @@ export function ResearchHistoryView({
   comparedKeys,
   onToggleCompareHistoryProduct,
   onOpenReport,
+  onOpenDeepDive,
   onDeleteRecords,
   onBackToHunting,
   language,
@@ -119,6 +163,22 @@ export function ResearchHistoryView({
   const [activeTab, setActiveTab] = useState<HistoryTab>('records');
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [archiveScoreMode, setArchiveScoreMode] = useState<'original' | 'live'>('original');
+  const [archiveLiveWeightPct, setArchiveLiveWeightPct] = useState<number>(currentSalesWeightPct);
+  const [archiveLivePreset, setArchiveLivePreset] = useState<StrategyPreset>(
+    currentSalesWeightPct >= 62
+      ? 'sales-first'
+      : currentSalesWeightPct <= 38
+        ? 'commission-first'
+        : 'balanced'
+  );
+  const [archiveRubricOpen, setArchiveRubricOpen] = useState(false);
+  const [archiveGroundingOpen, setArchiveGroundingOpen] = useState(false);
+  const [archiveFilters, setArchiveFilters] = useState<ProductResultsFilterState>({
+    ...DEFAULT_PRODUCT_FILTERS,
+  });
+  const [archiveDecisionFilter, setArchiveDecisionFilter] = useState<DecisionFilter>('active');
+  const [archiveSortField, setArchiveSortField] = useState<ProductSortField>('overallScore');
+  const [archiveSortDirection, setArchiveSortDirection] = useState<SortDirection>('desc');
 
   // Search, Filter & Sort state for History List
   const [searchQuery, setSearchQuery] = useState('');
@@ -133,6 +193,39 @@ export function ResearchHistoryView({
   // Compare shortcut state
   const [compareOlderId, setCompareOlderId] = useState<string | null>(null);
   const [compareNewerId, setCompareNewerId] = useState<string | null>(null);
+
+  const openArchiveRecord = (rec: ResearchHistoryRecord) => {
+    setArchiveScoreMode('original');
+    const origWeight = rec.researchSettings.salesWeightPct ?? currentSalesWeightPct;
+    setArchiveLiveWeightPct(origWeight);
+    setArchiveLivePreset(
+      origWeight >= 62 ? 'sales-first' : origWeight <= 38 ? 'commission-first' : 'balanced'
+    );
+    setArchiveFilters({ ...DEFAULT_PRODUCT_FILTERS });
+    setArchiveDecisionFilter('active');
+    setArchiveSortField('overallScore');
+    setArchiveSortDirection('desc');
+    setArchiveGroundingOpen(false);
+    setSelectedRecordId(rec.id);
+  };
+
+  const handleArchiveSelectPreset = (preset: StrategyPreset) => {
+    setArchiveScoreMode('live');
+    setArchiveLivePreset(preset);
+    setArchiveLiveWeightPct(ARCHIVE_STRATEGY_WEIGHTS[preset]);
+  };
+
+  const handleArchiveCustomWeightChange = (newSalesWeight: number) => {
+    setArchiveScoreMode('live');
+    setArchiveLiveWeightPct(newSalesWeight);
+    if (newSalesWeight >= 62) {
+      setArchiveLivePreset('sales-first');
+    } else if (newSalesWeight <= 38) {
+      setArchiveLivePreset('commission-first');
+    } else {
+      setArchiveLivePreset('balanced');
+    }
+  };
 
   const storageStats = useMemo(
     () => getLocalStorageUsageStats(records.length, savedCount),
@@ -192,13 +285,26 @@ export function ResearchHistoryView({
     });
   }, [records, searchQuery, modeFilter, categoryFilter, sortKey, language]);
 
+  const effectiveArchiveSalesWeightPct = useMemo(() => {
+    if (!selectedRecord) return currentSalesWeightPct;
+    return archiveScoreMode === 'live'
+      ? archiveLiveWeightPct
+      : selectedRecord.researchSettings.salesWeightPct ?? 50;
+  }, [selectedRecord, archiveScoreMode, archiveLiveWeightPct, currentSalesWeightPct]);
+
+  const effectiveArchiveStrategyPreset: StrategyPreset = useMemo(() => {
+    if (archiveScoreMode === 'live') return archiveLivePreset;
+    const origWeight = selectedRecord?.researchSettings.salesWeightPct ?? 50;
+    if (selectedRecord?.researchSettings.strategyPreset) {
+      return selectedRecord.researchSettings.strategyPreset;
+    }
+    return origWeight >= 62 ? 'sales-first' : origWeight <= 38 ? 'commission-first' : 'balanced';
+  }, [archiveScoreMode, archiveLivePreset, selectedRecord]);
+
   // Precompute evaluations for currently inspected archived session
   const selectedArchiveEvaluations = useMemo(() => {
     if (!selectedRecord) return new Map<string, OpportunityEvaluation>();
-    const weightToUse =
-      archiveScoreMode === 'live'
-        ? currentSalesWeightPct
-        : selectedRecord.researchSettings.salesWeightPct ?? 50;
+    const weightToUse = effectiveArchiveSalesWeightPct;
 
     if (archiveScoreMode === 'original') {
       const map = new Map<string, OpportunityEvaluation>();
@@ -246,9 +352,109 @@ export function ResearchHistoryView({
     }
 
     return evaluateProductBatch(selectedRecord.products, {
-      salesWeightPct: currentSalesWeightPct,
+      salesWeightPct: archiveLiveWeightPct,
+      strategyPreset: archiveLivePreset,
     });
-  }, [selectedRecord, archiveScoreMode, currentSalesWeightPct]);
+  }, [
+    selectedRecord,
+    archiveScoreMode,
+    effectiveArchiveSalesWeightPct,
+    archiveLiveWeightPct,
+    archiveLivePreset,
+  ]);
+
+  // Multi-signal Product Decision Summaries for archived products (same engine as live results)
+  const selectedArchiveDecisions = useMemo(() => {
+    const map = new Map<string, ProductDecisionSummary>();
+    if (!selectedRecord) return map;
+    for (const product of selectedRecord.products) {
+      const ev = selectedArchiveEvaluations.get(product.id);
+      if (ev) {
+        map.set(product.id, deriveProductDecisionSummary(product, ev));
+      }
+    }
+    return map;
+  }, [selectedRecord, selectedArchiveEvaluations]);
+
+  const archiveQueueCounts = useMemo(() => {
+    let active = 0;
+    let saved = 0;
+    let rejected = 0;
+    if (!selectedRecord) return { active, saved, rejected };
+    for (const p of selectedRecord.products) {
+      const d = getDecision(p.id);
+      if (d === 'rejected') {
+        rejected += 1;
+      } else {
+        active += 1;
+        if (d === 'saved') saved += 1;
+      }
+    }
+    return { active, saved, rejected };
+  }, [selectedRecord, getDecision]);
+
+  const availableArchiveCategories = useMemo<ProductCategory[]>(() => {
+    if (!selectedRecord) return [];
+    const seen = new Set<ProductCategory>();
+    for (const product of selectedRecord.products) {
+      seen.add(product.category);
+    }
+    return Array.from(seen);
+  }, [selectedRecord]);
+
+  const visibleArchiveProducts = useMemo<ResearchProduct[]>(() => {
+    if (!selectedRecord) return [];
+    const queueFiltered = selectedRecord.products.filter((product) => {
+      const d = getDecision(product.id);
+      if (archiveDecisionFilter === 'active') return d !== 'rejected';
+      if (archiveDecisionFilter === 'saved') return d === 'saved';
+      if (archiveDecisionFilter === 'rejected') return d === 'rejected';
+      return true;
+    });
+
+    const multiFiltered = filterProducts(
+      queueFiltered,
+      selectedArchiveEvaluations,
+      archiveFilters,
+      selectedArchiveDecisions
+    );
+
+    return sortProductsByField(
+      multiFiltered,
+      selectedArchiveEvaluations,
+      archiveSortField,
+      archiveSortDirection
+    );
+  }, [
+    selectedRecord,
+    getDecision,
+    archiveDecisionFilter,
+    selectedArchiveEvaluations,
+    archiveFilters,
+    selectedArchiveDecisions,
+    archiveSortField,
+    archiveSortDirection,
+  ]);
+
+  const archiveBestSelections = useMemo(
+    () =>
+      visibleArchiveProducts.length > 0
+        ? computeBestProductSelections(visibleArchiveProducts, selectedArchiveEvaluations)
+        : [],
+    [visibleArchiveProducts, selectedArchiveEvaluations]
+  );
+
+  const comparedArchiveProductIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!selectedRecord || !comparedKeys) return set;
+    const prefix = `history:${selectedRecord.id}:`;
+    for (const product of selectedRecord.products) {
+      if (comparedKeys.has(`${prefix}${product.id}`)) {
+        set.add(product.id);
+      }
+    }
+    return set;
+  }, [selectedRecord, comparedKeys]);
 
   const toggleChecked = (id: string) => {
     setCheckedIds((prev) =>
@@ -287,16 +493,47 @@ export function ResearchHistoryView({
     setActiveTab('compare');
   };
 
-  // Detail View for a single archived Research History record
+  // Detail View for a single archived Research History record (full Research Results parity)
   if (selectedRecord) {
-    const sortedProducts = [...selectedRecord.products].sort((a, b) => {
-      const scoreA = selectedArchiveEvaluations.get(a.id)?.totalScore ?? a.opportunityScore;
-      const scoreB = selectedArchiveEvaluations.get(b.id)?.totalScore ?? b.opportunityScore;
-      return scoreB - scoreA;
-    });
+    const handleExportArchiveCsv = () => {
+      if (visibleArchiveProducts.length === 0) return;
+      const csv = buildProductsExportCsv(visibleArchiveProducts, {
+        salesWeightPct: effectiveArchiveSalesWeightPct,
+        evaluations: selectedArchiveEvaluations,
+        researchDate: selectedRecord.researchedAt,
+        exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
+        language,
+      });
+      triggerFileDownload(
+        csv,
+        `siampick-history-${selectedRecord.id}.csv`,
+        'text/csv;charset=utf-8;'
+      );
+    };
+
+    const handleExportArchiveJson = () => {
+      if (visibleArchiveProducts.length === 0) return;
+      const json = buildProductsExportJson(visibleArchiveProducts, {
+        salesWeightPct: effectiveArchiveSalesWeightPct,
+        evaluations: selectedArchiveEvaluations,
+        researchDate: selectedRecord.researchedAt,
+        exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
+        language,
+      });
+      triggerFileDownload(
+        json,
+        `siampick-history-${selectedRecord.id}.json`,
+        'application/json;charset=utf-8;'
+      );
+    };
+
+    const archiveCostSummary = selectedRecord.costSummary;
+    const archiveSources = selectedRecord.groundingSources ?? [];
+    const archiveQueries = selectedRecord.searchQueries ?? [];
+    const hasSourcesOrCostBar = archiveSources.length > 0 || archiveCostSummary !== null;
 
     return (
-      <section aria-labelledby="archive-detail-heading" className="space-y-6">
+      <section aria-labelledby="archive-detail-heading" className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
@@ -308,56 +545,6 @@ export function ResearchHistoryView({
           </button>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const csv = buildProductsExportCsv(sortedProducts, {
-                  salesWeightPct:
-                    archiveScoreMode === 'live'
-                      ? currentSalesWeightPct
-                      : selectedRecord.researchSettings.salesWeightPct ?? 50,
-                  evaluations: selectedArchiveEvaluations,
-                  researchDate: selectedRecord.researchedAt,
-                  exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
-                  language,
-                });
-                triggerFileDownload(
-                  csv,
-                  `siampick-history-${selectedRecord.id}.csv`,
-                  'text/csv;charset=utf-8;'
-                );
-              }}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.exportCsvBtn}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                const json = buildProductsExportJson(sortedProducts, {
-                  salesWeightPct:
-                    archiveScoreMode === 'live'
-                      ? currentSalesWeightPct
-                      : selectedRecord.researchSettings.salesWeightPct ?? 50,
-                  evaluations: selectedArchiveEvaluations,
-                  researchDate: selectedRecord.researchedAt,
-                  exportTitle: `SiamPick History Archive ${selectedRecord.id}`,
-                  language,
-                });
-                triggerFileDownload(
-                  json,
-                  `siampick-history-${selectedRecord.id}.json`,
-                  'application/json;charset=utf-8;'
-                );
-              }}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.exportJsonBtn}</span>
-            </button>
-
             {records.length >= 2 && (
               <button
                 type="button"
@@ -376,24 +563,33 @@ export function ResearchHistoryView({
           <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">{t.historyArchiveBannerTitle}</span>
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  {t.historyArchiveBannerTitle}
+                </span>
                 <InfoPopover
                   label={t.historyArchiveBannerTitle}
                   title={t.historyArchiveBannerTitle}
                   content={t.historyArchiveBannerDesc}
                 />
                 <span aria-hidden="true">·</span>
-                <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">{selectedRecord.id}</span>
+                <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
+                  {selectedRecord.id}
+                </span>
               </div>
-              <h1
-                id="archive-detail-heading"
-                className="font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50"
-              >
-                {formatResearchDateTime(selectedRecord.researchedAt, language)}
-              </h1>
+              <div className="flex flex-wrap items-baseline gap-2">
+                <h1
+                  id="archive-detail-heading"
+                  className="font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50"
+                >
+                  {formatResearchDateTime(selectedRecord.researchedAt, language)}
+                </h1>
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                  ({visibleArchiveProducts.length}/{selectedRecord.products.length})
+                </span>
+              </div>
             </div>
 
-            {/* Score View Mode Switch (Original Session Scores vs Current Strategy Slider) */}
+            {/* Score View Mode Switch (Original Session Scores vs Interactive Strategy Slider) */}
             <div
               className="inline-flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start shrink-0"
               role="group"
@@ -419,7 +615,7 @@ export function ResearchHistoryView({
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                 }`}
               >
-                {t.historyScoreModeLive} ({currentSalesWeightPct}/{100 - currentSalesWeightPct})
+                {t.historyScoreModeLive} ({archiveLiveWeightPct}/{100 - archiveLiveWeightPct})
               </button>
             </div>
           </div>
@@ -466,45 +662,350 @@ export function ResearchHistoryView({
           </div>
         </div>
 
-        {/* Archived Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedProducts.map((product) => {
-            const evalResult = selectedArchiveEvaluations.get(product.id);
-            const compareKey = `history:${selectedRecord.id}:${product.id}`;
-            return (
-              <ResearchResultCard
-                key={`${selectedRecord.id}-${product.id}`}
-                product={product}
-                evaluation={evalResult}
-                decision={getDecision(product.id)}
-                onSave={() => onSaveProduct(product, selectedRecord.researchedAt)}
-                onReject={() => {}}
-                hideRejectAction
-                isCompared={comparedKeys?.has(compareKey) ?? false}
-                onToggleCompare={
-                  onToggleCompareHistoryProduct
-                    ? (prod) =>
-                        onToggleCompareHistoryProduct(
-                          prod,
-                          selectedRecord.id,
-                          selectedRecord.researchedAt
-                        )
-                    : undefined
-                }
-                onOpenReport={(prod) =>
-                  onOpenReport(
-                    prod,
-                    selectedRecord.researchedAt,
-                    evalResult,
-                    selectedRecord.products,
-                    selectedRecord.researchMode
-                  )
-                }
-                language={language}
+        {/* Transparent 7-Factor Product Scoring Engine Guide & Strategy Weights (Matches Research Results) */}
+        <ScoringRubricPanel
+          isOpen={archiveRubricOpen}
+          onToggle={() => setArchiveRubricOpen((prev) => !prev)}
+          salesWeightPct={effectiveArchiveSalesWeightPct}
+          language={language}
+        />
+
+        {/* Interactive Strategy Slider Bar (Recalculates Archived Scores & Re-Sorts Instantly without mutating archive) */}
+        {selectedRecord.products.length > 0 && (
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
+                <SlidersHorizontal
+                  className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400"
+                  aria-hidden="true"
+                />
+                <span>{t.strategyLabel}</span>
+              </span>
+              {(
+                [
+                  { id: 'sales-first', label: t.strategySales },
+                  { id: 'balanced', label: t.strategyBalanced },
+                  { id: 'commission-first', label: t.strategyCommission },
+                ] as const
+              ).map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => handleArchiveSelectPreset(preset.id)}
+                  className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                    effectiveArchiveStrategyPreset === preset.id
+                      ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="w-full lg:w-72 space-y-1 shrink-0">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {t.commissionWeight}{' '}
+                  <strong className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {100 - effectiveArchiveSalesWeightPct}%
+                  </strong>
+                </span>
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {t.salesWeight}{' '}
+                  <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
+                    {effectiveArchiveSalesWeightPct}%
+                  </strong>
+                </span>
+              </div>
+              <input
+                type="range"
+                min={10}
+                max={90}
+                step={5}
+                value={effectiveArchiveSalesWeightPct}
+                onChange={(e) => handleArchiveCustomWeightChange(Number(e.target.value))}
+                aria-label={t.strategyLabel}
+                className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-950 dark:accent-zinc-100"
               />
-            );
-          })}
-        </div>
+            </div>
+          </div>
+        )}
+
+        {/* Kalodata OpenAPI Verified Sources & API Call Breakdown Bar (Matches Research Results) */}
+        {hasSourcesOrCostBar && (
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
+            <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                <Globe
+                  className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                  {t.kalodataSourceBarLabel}
+                </span>
+                <InfoPopover
+                  variant="info"
+                  label={t.kalodataSourceBarLabel}
+                  title={t.kalodataSourceBarLabel}
+                  content={
+                    <div className="space-y-1.5">
+                      <p>{t.kalodataSourceNote}</p>
+                      {selectedRecord.productCount < selectedRecord.requestedQuantity && (
+                        <p className="text-zinc-500 dark:text-zinc-400">
+                          {t.qualityGateExcludedNote}
+                        </p>
+                      )}
+                    </div>
+                  }
+                />
+                {archiveSources.length > 0 && (
+                  <>
+                    <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">
+                      ·
+                    </span>
+                    <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
+                      {archiveSources.length} {t.groundingSourcesCount}
+                    </span>
+                  </>
+                )}
+                <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">
+                  ·
+                </span>
+                <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
+                  {selectedRecord.productCount}/{selectedRecord.requestedQuantity}{' '}
+                  {t.qualityGateVerifiedLabel}
+                </span>
+              </div>
+
+              {(archiveSources.length > 0 || archiveQueries.length > 0) && (
+                <button
+                  type="button"
+                  onClick={() => setArchiveGroundingOpen((prev) => !prev)}
+                  aria-expanded={archiveGroundingOpen}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
+                >
+                  <span>
+                    {archiveGroundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
+                  </span>
+                  {archiveGroundingOpen ? (
+                    <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {archiveCostSummary && (
+              <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300">
+                <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
+                  {modeLabel(archiveCostSummary.researchMode, language)}
+                </span>
+                <span>
+                  {[
+                    archiveCostSummary.rankApiCalls > 0
+                      ? `${t.breakdownRankLabel}: ${archiveCostSummary.rankApiCalls}`
+                      : null,
+                    (archiveCostSummary.videoRankApiCalls ?? 0) > 0
+                      ? `${t.breakdownVideoRankLabel}: ${archiveCostSummary.videoRankApiCalls}`
+                      : null,
+                    archiveCostSummary.productDetailApiCalls > 0
+                      ? `${t.breakdownDetailLabel}: ${archiveCostSummary.productDetailApiCalls}`
+                      : null,
+                    archiveCostSummary.shopDetailApiCalls > 0
+                      ? `${t.breakdownShopLabel}: ${archiveCostSummary.shopDetailApiCalls}`
+                      : null,
+                    archiveCostSummary.commentInsightApiCalls > 0
+                      ? `${t.breakdownReviewLabel}: ${archiveCostSummary.commentInsightApiCalls}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                {archiveCostSummary.geminiAnalysisApplied && (
+                  <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
+                    {t.geminiAnalysisActiveLabel}
+                  </span>
+                )}
+                <span>
+                  {t.estimatedCostLabel}: {formatCredits(archiveCostSummary.estimatedCredits)}{' '}
+                  {t.creditsUnit} (≈ {formatUsd(archiveCostSummary.estimatedUsd)})
+                </span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                  {t.actualCostLabel}:{' '}
+                  {archiveCostSummary.actualCredits !== null
+                    ? `${formatCredits(archiveCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(archiveCostSummary.actualUsd ?? 0)} · ${archiveCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                    : t.actualCostUnavailable}
+                </span>
+              </div>
+            )}
+
+            {archiveGroundingOpen && (
+              <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
+                {archiveQueries.length > 0 && (
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
+                      {t.groundingQueriesLabel}:
+                    </span>
+                    <span>{archiveQueries.join(' · ')}</span>
+                  </div>
+                )}
+                {archiveSources.length > 0 && (
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                    {archiveSources.map((src, idx) => (
+                      <li
+                        key={`${idx}-${src.url}`}
+                        className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
+                      >
+                        <span className="text-zinc-700 dark:text-zinc-300 truncate">
+                          {src.title}{' '}
+                          <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
+                        </span>
+                        {isSafeHttpUrl(src.url) ? (
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                          >
+                            <span>{t.sourceOpenLink}</span>
+                            <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                          </a>
+                        ) : (
+                          <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                            {t.sourcePendingLink}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Phase 5: Best Product Selection Highlights (6 Categories with Sufficiency Guards) */}
+        {archiveBestSelections.length > 0 && (
+          <BestProductsStrip
+            selections={archiveBestSelections}
+            comparedIds={comparedArchiveProductIds}
+            onOpenReport={(prod) =>
+              onOpenReport(
+                prod,
+                selectedRecord.researchedAt,
+                selectedArchiveEvaluations.get(prod.id),
+                selectedRecord.products,
+                selectedRecord.researchMode
+              )
+            }
+            onToggleCompare={(prod) =>
+              onToggleCompareHistoryProduct?.(
+                prod,
+                selectedRecord.id,
+                selectedRecord.researchedAt
+              )
+            }
+            language={language}
+          />
+        )}
+
+        {/* Phase 5: 8-Field Sort + Highest/Lowest + 9-Criteria Multi-Filter + Export CSV/JSON */}
+        <ProductFilterBar
+          filters={archiveFilters}
+          onChangeFilters={setArchiveFilters}
+          decisionFilter={archiveDecisionFilter}
+          onChangeDecisionFilter={setArchiveDecisionFilter}
+          queueCounts={archiveQueueCounts}
+          sortField={archiveSortField}
+          onChangeSortField={setArchiveSortField}
+          sortDirection={archiveSortDirection}
+          onToggleSortDirection={() =>
+            setArchiveSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+          }
+          exportDisabled={visibleArchiveProducts.length === 0}
+          onExportCsv={handleExportArchiveCsv}
+          onExportJson={handleExportArchiveJson}
+          availableCategories={availableArchiveCategories}
+          language={language}
+        />
+
+        {/* Archived Product Cards Grid or Filtered Empty State */}
+        {visibleArchiveProducts.length === 0 ? (
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
+            <h3 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
+              {t.emptyFilteredTitle}
+            </h3>
+            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+              {t.emptyFilteredDesc}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setArchiveFilters({ ...DEFAULT_PRODUCT_FILTERS });
+                setArchiveDecisionFilter('active');
+              }}
+              className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" aria-hidden="true" />
+              <span>{t.resetViewBtn}</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visibleArchiveProducts.map((product) => {
+              const evalResult = selectedArchiveEvaluations.get(product.id);
+              const decisionSummary = selectedArchiveDecisions.get(product.id);
+              const compareKey = `history:${selectedRecord.id}:${product.id}`;
+              return (
+                <ResearchResultCard
+                  key={`${selectedRecord.id}-${product.id}`}
+                  product={product}
+                  evaluation={evalResult}
+                  decisionSummary={decisionSummary}
+                  salesWeightPct={effectiveArchiveSalesWeightPct}
+                  peerProducts={selectedRecord.products}
+                  decision={getDecision(product.id)}
+                  onSave={() => onSaveProduct(product, selectedRecord.researchedAt)}
+                  onReject={() => {}}
+                  hideRejectAction
+                  isCompared={comparedKeys?.has(compareKey) ?? false}
+                  onToggleCompare={
+                    onToggleCompareHistoryProduct
+                      ? (prod) =>
+                          onToggleCompareHistoryProduct(
+                            prod,
+                            selectedRecord.id,
+                            selectedRecord.researchedAt
+                          )
+                      : undefined
+                  }
+                  onOpenReport={(prod) =>
+                    onOpenReport(
+                      prod,
+                      selectedRecord.researchedAt,
+                      evalResult,
+                      selectedRecord.products,
+                      selectedRecord.researchMode
+                    )
+                  }
+                  onOpenDeepDive={
+                    onOpenDeepDive
+                      ? (prod) =>
+                          onOpenDeepDive(
+                            prod,
+                            selectedRecord.researchedAt,
+                            selectedRecord.researchMode
+                          )
+                      : undefined
+                  }
+                  language={language}
+                />
+              );
+            })}
+          </div>
+        )}
       </section>
     );
   }
@@ -805,10 +1306,7 @@ export function ResearchHistoryView({
                           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                             <button
                               type="button"
-                              onClick={() => {
-                                setArchiveScoreMode('original');
-                                setSelectedRecordId(rec.id);
-                              }}
+                              onClick={() => openArchiveRecord(rec)}
                               className="inline-flex items-center gap-1.5 font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:underline text-left cursor-pointer"
                             >
                               <Calendar className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
@@ -854,10 +1352,7 @@ export function ResearchHistoryView({
                       <div className="flex flex-wrap items-center gap-2 shrink-0 pl-7 lg:pl-0">
                         <button
                           type="button"
-                          onClick={() => {
-                            setArchiveScoreMode('original');
-                            setSelectedRecordId(rec.id);
-                          }}
+                          onClick={() => openArchiveRecord(rec)}
                           className="inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                         >
                           <Eye className="w-3.5 h-3.5" aria-hidden="true" />

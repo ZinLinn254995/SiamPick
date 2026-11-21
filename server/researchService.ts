@@ -677,12 +677,27 @@ function buildKalodataProductSummary(
   }
 
   const kalodataProductUrl = `https://www.kalodata.com/product/detail?id=${encodeURIComponent(productId)}&region=TH`;
+  const cleanNumericProductId = productId.replace(/^(kalodata-th-|kd[_-])/i, '').trim();
+  const tiktokShopProductUrl = /^\d{8,24}$/.test(cleanNumericProductId)
+    ? `https://shop.tiktok.com/th/pdp/${cleanNumericProductId}`
+    : null;
   const sourceEndpoints = [sourceMode === 'video-rank' ? 'TH Video Rank' : 'TH Product Rank'];
   if (productDetail) sourceEndpoints.push('Product Detail');
   if (shopDetail) sourceEndpoints.push('Shop Detail');
   if (commentInsight) sourceEndpoints.push('Comment Insight');
 
   const sources: ResearchSourceItem[] = [
+    ...(tiktokShopProductUrl
+      ? [
+          {
+            labelEn: `TikTok Shop Thailand Product #${cleanNumericProductId} (${shopName})`,
+            labelMy: `TikTok Shop Thailand မူရင်း Product #${cleanNumericProductId} (${shopName})`,
+            sourceType: 'TikTok Shop TH',
+            url: tiktokShopProductUrl,
+            verified: true,
+          },
+        ]
+      : []),
     {
       labelEn: `Kalodata TH Product #${productId} (${shopName})`,
       labelMy: `Kalodata TH Product #${productId} (${shopName}) — ${sourceEndpoints.join(' + ')}`,
