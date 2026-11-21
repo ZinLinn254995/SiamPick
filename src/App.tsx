@@ -119,6 +119,7 @@ import { useTheme } from './hooks/useTheme';
 import { useKalodataBalance } from './hooks/useKalodataBalance';
 import type {
   DeepDiveAnalysisId,
+  DeepDiveHistoryRecord,
   DeepDiveOriginView,
   DeepDiveServerBudgetSnapshot,
   DeepDiveSourceContext,
@@ -133,6 +134,13 @@ import {
   toggleDeepDiveSelection,
 } from './utils/deepDiveRegistry';
 import { runDeepDiveModules } from './utils/deepDiveEngine';
+import {
+  appendDeepDiveHistoryRecord,
+  createDeepDiveHistoryRecord,
+  deleteDeepDiveHistoryRecord,
+  hydrateWorkspaceStateFromHistory,
+  loadAllDeepDiveHistoryByProduct,
+} from './utils/deepDiveHistoryStorage';
 
 const STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -300,11 +308,14 @@ export default function App() {
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
   const [rubricOpen, setRubricOpen] = useState(false);
 
-  // Phase 9.1: Deep Dive Foundation (Per-product isolated state; zero mutation of original results)
+  // Phase 9.1 / 9.4: Deep Dive Foundation & Per-Product Browser History (Zero mutation of original results)
   const [deepDiveTarget, setDeepDiveTarget] = useState<DeepDiveSourceContext | null>(null);
   const [deepDiveStatesByProduct, setDeepDiveStatesByProduct] = useState<
     Record<string, DeepDiveWorkspaceState>
   >({});
+  const [deepDiveHistoryByProduct, setDeepDiveHistoryByProduct] = useState<
+    Record<string, DeepDiveHistoryRecord[]>
+  >(() => loadAllDeepDiveHistoryByProduct());
 
   // Phase 9.3.1: Authoritative Server-Side Persistent Budget Ledger Status
   const [serverBudgetStatus, setServerBudgetStatus] = useState<{
@@ -999,12 +1010,16 @@ export default function App() {
     );
     setActiveReport(null);
     setDeepDiveTarget(context);
+    const productHistory = deepDiveHistoryByProduct[context.canonicalProductId] ?? [];
     setDeepDiveStatesByProduct((prev) =>
       prev[context.canonicalProductId]
         ? prev
         : {
             ...prev,
-            [context.canonicalProductId]: createInitialDeepDiveWorkspaceState(),
+            [context.canonicalProductId]: hydrateWorkspaceStateFromHistory(
+              createInitialDeepDiveWorkspaceState(),
+              productHistory
+            ),
           }
     );
     setActiveView('deep-dive');
@@ -1141,9 +1156,38 @@ export default function App() {
       };
     });
 
+    // Phase 9.4: Persist real execution record into Browser Local Storage Deep Dive History
+    const hadPriorResult = analysisIds.some((id) => Boolean(currentSnapshot.slots[id]?.result));
+    const runType = forceRefresh ? 'refresh' : hadPriorResult ? 'rerun' : 'initial';
+    const historyRecord = createDeepDiveHistoryRecord({
+      canonicalProductId: key,
+      productName: target.product.name,
+      productNameMy: target.product.nameMy,
+      analysisIds,
+      slots: outcome.slots,
+      runSummary: outcome.runSummary ?? null,
+      runType,
+      analyzedAt: outcome.runSummary?.completedAt ?? runTimestamp,
+    });
+    const { records: updatedHistory } = appendDeepDiveHistoryRecord(historyRecord);
+    setDeepDiveHistoryByProduct((prev) => ({
+      ...prev,
+      [key]: updatedHistory,
+    }));
+
     if (outcome.totalCreditsUsed > 0) {
       setBalanceRefreshSignal((n) => n + 1);
     }
+  };
+
+  const handleDeleteDeepDiveHistoryRecord = (recordId: string) => {
+    if (!deepDiveTarget) return;
+    const key = deepDiveTarget.canonicalProductId;
+    const { records } = deleteDeepDiveHistoryRecord(key, recordId);
+    setDeepDiveHistoryByProduct((prev) => ({
+      ...prev,
+      [key]: records,
+    }));
   };
 
   const handleDeepDiveRunSelected = (userConfirmedPaidExecution = false) => {
@@ -1595,6 +1639,8 @@ export default function App() {
             onToggleExpand={handleDeepDiveToggleExpand}
             onRunSelected={handleDeepDiveRunSelected}
             onRunSingle={handleDeepDiveRunSingle}
+            historyRecords={deepDiveHistoryByProduct[deepDiveTarget.canonicalProductId] ?? []}
+            onDeleteHistoryRecord={handleDeleteDeepDiveHistoryRecord}
             onBack={() => {
               setActiveView(deepDiveTarget.originView);
               window.scrollTo({ top: 0, behavior: 'smooth' });

@@ -7,20 +7,28 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Clock,
+  Copy,
+  Download,
   ExternalLink,
+  FileText,
+  History,
   ImageOff,
   Layers,
   Loader2,
   Play,
+  RefreshCw,
   RotateCw,
   ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 import type {
   DeepDiveAnalysisId,
   DeepDiveAnalysisSlotState,
   DeepDiveExecutionStatus,
+  DeepDiveHistoryRecord,
   DeepDiveModuleCostEstimate,
   DeepDiveModuleResult,
   DeepDiveSourceContext,
@@ -36,6 +44,12 @@ import {
   estimateDeepDiveExecutionCost,
   evaluateDeepDiveBudgetGuard,
 } from '../utils/deepDiveEngine';
+import {
+  buildDeepDiveFinalReport,
+  buildDeepDiveReportJson,
+  buildDeepDiveReportMarkdown,
+} from '../utils/deepDiveReportBuilder';
+import { triggerFileDownload } from '../utils/exportReports';
 import { getCategoryLabel } from '../utils/categoryRegistry';
 import { formatThb } from '../utils/format';
 import {
@@ -74,10 +88,20 @@ interface DeepDiveWorkspaceViewProps {
     forceRefresh?: boolean,
     userConfirmedPaidExecution?: boolean
   ) => void;
+  historyRecords?: DeepDiveHistoryRecord[];
+  onDeleteHistoryRecord?: (recordId: string) => void;
   onBack: () => void;
   onOpenProductDetail: () => void;
   language: Language;
 }
+
+const API_REFRESHABLE_MODULES = new Set<DeepDiveAnalysisId>([
+  'product-intelligence',
+  'sales-market-intelligence',
+  'creator-competition-analysis',
+  'video-intelligence',
+  'customer-review-intelligence',
+]);
 
 function getOriginModeLabel(mode: ResearchMode, language: Language): string {
   const t = TRANSLATIONS[language];
@@ -92,12 +116,13 @@ function formatCompletedTime(iso: string | null, language: Language): string {
   if (Number.isNaN(date.getTime())) return iso;
   try {
     return new Intl.DateTimeFormat(language === 'my' ? 'en-GB' : 'en-US', {
+      month: 'short',
+      day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
     }).format(date);
   } catch {
-    return date.toISOString().slice(11, 19);
+    return date.toISOString().slice(0, 16).replace('T', ' ');
   }
 }
 
@@ -164,9 +189,14 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
   const isMy = language === 'my';
   const t = TRANSLATIONS[language];
   const isRunning = slot.status === 'running';
+  const result: DeepDiveModuleResult | null = slot.result;
+  const hasError = slot.status === 'error' && Boolean(slot.error);
+  const canForceRefresh = API_REFRESHABLE_MODULES.has(slot.analysisId);
 
-  if (slot.status === 'error' && slot.error) {
-    return (
+  if (!hasError && !result) return null;
+
+  const errorBanner =
+    hasError && slot.error ? (
       <div
         role="alert"
         className="px-4 py-3.5 border-t border-rose-200/80 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 space-y-2.5 text-xs"
@@ -202,16 +232,20 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
         </div>
 
         <div className="text-[11px] text-rose-700/90 dark:text-rose-300/80">
-          {isMy
-            ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ။'
-            : 'Isolated failure — other Deep Dive modules are unaffected.'}
+          {result
+            ? isMy
+              ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ — အရင်ရရှိထားသော ရလဒ်ကို အောက်တွင် ဆက်လက်ထိန်းသိမ်းထားပါသည်။'
+              : 'Isolated failure — your previous verified result is safely preserved below.'
+            : isMy
+              ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ။'
+              : 'Isolated failure — other Deep Dive modules are unaffected.'}
         </div>
       </div>
-    );
-  }
+    ) : null;
 
-  const result: DeepDiveModuleResult | null = slot.result;
-  if (!result) return null;
+  if (!result) {
+    return errorBanner;
+  }
 
   const dataStatusLabel = t.dataStatusLabels[result.dataStatus];
   const headline = isMy ? result.headlineMy : result.headlineEn;
@@ -220,26 +254,47 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
   const dataSources = isMy ? result.dataSourcesMy : result.dataSourcesEn;
 
   return (
-    <div className="px-4 py-4 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 space-y-3.5 text-xs">
-      {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
-      {result.isAiInterpretation && (
-        <div className="flex items-start gap-2 pb-2.5 border-b border-sky-200/70 dark:border-sky-900/60 text-sky-900 dark:text-sky-200">
-          <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="leading-relaxed">
-            <span className="font-semibold">
-              {isMy
-                ? 'AI Interpretation (AI ဗျူဟာသုံးသပ်ချက်)'
-                : 'AI Interpretation (Strategic Synthesis)'}
-            </span>
-            <span className="text-sky-800/90 dark:text-sky-300/90">
-              {' — '}
-              {isMy
-                ? 'အတည်ပြုပြီး Market Data များအပေါ် အခြေခံ၍ Gemini AI မှ ထုတ်ပေးသော သုံးသပ်အကြံပြုချက်ဖြစ်ပါသည် (Verified Market Data နှင့် သီးခြားခွဲခြားထားသည်)။'
-                : 'Generated by Gemini AI on top of verified market data — clearly separated from raw Verified Market Data.'}
-            </span>
-          </div>
+    <div>
+      {errorBanner}
+      <div className="px-4 py-4 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 space-y-3.5 text-xs">
+        {/* Phase 9.4 Top Provenance Strip: Clear Data Status & Last Updated */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className={`font-semibold ${getDataStatusStyle(result.dataStatus)}`}>
+            {isMy ? 'Data Status' : 'Data Status'}: {dataStatusLabel}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="font-mono tabular-nums">
+            {isMy ? 'Last Updated' : 'Last Updated'}: {formatCompletedTime(result.completedAt, language)}
+          </span>
+          {result.reusedFromCache && result.apiCallsMade === 0 && !result.isAiInterpretation && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                {isMy ? 'Cache / Local (0 cr)' : 'Cache / Local (0 cr)'}
+              </span>
+            </>
+          )}
         </div>
-      )}
+
+        {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
+        {result.isAiInterpretation && (
+          <div className="flex items-start gap-2 pb-2.5 border-b border-sky-200/70 dark:border-sky-900/60 text-sky-900 dark:text-sky-200">
+            <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="leading-relaxed">
+              <span className="font-semibold">
+                {isMy
+                  ? 'AI Interpretation (AI ဗျူဟာသုံးသပ်ချက်)'
+                  : 'AI Interpretation (Strategic Synthesis)'}
+              </span>
+              <span className="text-sky-800/90 dark:text-sky-300/90">
+                {' — '}
+                {isMy
+                  ? 'အတည်ပြုပြီး Market Data များအပေါ် အခြေခံ၍ Gemini AI မှ ထုတ်ပေးသော သုံးသပ်အကြံပြုချက်ဖြစ်ပါသည် (Verified Market Data နှင့် သီးခြားခွဲခြားထားသည်)။'
+                  : 'Generated by Gemini AI on top of verified market data — clearly separated from raw Verified Market Data.'}
+              </span>
+            </div>
+          </div>
+        )}
 
       {/* Headline & Summary */}
       <div className="space-y-1">
@@ -424,15 +479,29 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => onRerun(false)}
-            disabled={isRunning}
-            className="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
-          >
-            <RotateCw className="w-3 h-3 shrink-0" aria-hidden="true" />
-            <span>{isMy ? 'ပြန် Run မည်' : 'Re-run'}</span>
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => onRerun(false)}
+              disabled={isRunning}
+              className="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
+            >
+              <RotateCw className="w-3 h-3 shrink-0" aria-hidden="true" />
+              <span>{isMy ? 'ပြန် Run (Cache)' : 'Re-run (Cache)'}</span>
+            </button>
+
+            {canForceRefresh && (
+              <button
+                type="button"
+                onClick={() => onRerun(true)}
+                disabled={isRunning}
+                className="inline-flex items-center gap-1 font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
+              >
+                <RefreshCw className="w-3 h-3 shrink-0" aria-hidden="true" />
+                <span>{isMy ? 'Data အသစ်ယူမည်' : 'Refresh Live'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="leading-relaxed">
@@ -441,6 +510,7 @@ function ModuleResultPanel({ slot, language, onRerun }: ModuleResultPanelProps) 
           </span>{' '}
           <span>{dataSources.join(' · ')}</span>
         </div>
+      </div>
       </div>
     </div>
   );
@@ -496,6 +566,8 @@ export function DeepDiveWorkspaceView({
   onToggleExpand,
   onRunSelected,
   onRunSingle,
+  historyRecords = [],
+  onDeleteHistoryRecord,
   onBack,
   onOpenProductDetail,
   language,
@@ -530,9 +602,20 @@ export function DeepDiveWorkspaceView({
   const [pendingRun, setPendingRun] = useState<PendingRunTarget | null>(null);
   const confirmPanelRef = useRef<HTMLDivElement | null>(null);
 
-  // Cancel stale confirmation if product changes
+  // Phase 9.4: Final Report & Browser Local History Progressive Disclosure state
+  const [showFinalReport, setShowFinalReport] = useState<boolean>(false);
+  const [showHistorySection, setShowHistorySection] = useState<boolean>(false);
+  const [inspectedHistoryId, setInspectedHistoryId] = useState<string | null>(null);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
+  const [copiedReportNotice, setCopiedReportNotice] = useState<boolean>(false);
+  const finalReportRef = useRef<HTMLElement | null>(null);
+
+  // Cancel stale confirmation & snapshot inspection if product changes
   useEffect(() => {
     setPendingRun(null);
+    setInspectedHistoryId(null);
+    setExpandedHistoryIds([]);
+    setCopiedReportNotice(false);
   }, [canonicalProductId]);
 
   const evaluation =
@@ -1779,6 +1862,692 @@ export function DeepDiveWorkspaceView({
                 </dd>
               </div>
             </dl>
+          </div>
+        )}
+      </section>
+
+      {/* Phase 9.4: Consolidated Final Deep Dive Report (Inline Progressive Disclosure, Zero Modals) */}
+      {(() => {
+        const inspectedHistoryRecord =
+          inspectedHistoryId
+            ? (historyRecords.find((rec) => rec.id === inspectedHistoryId) ?? null)
+            : null;
+        const reportSlots = inspectedHistoryRecord
+          ? inspectedHistoryRecord.slotsSnapshot
+          : workspaceState.slots;
+        const finalReport = buildDeepDiveFinalReport({
+          context,
+          slots: reportSlots,
+          evaluation,
+          salesWeightPct,
+        });
+        const hasAnyRunOutput =
+          finalReport.completedModulesCount +
+            finalReport.unavailableModulesCount +
+            finalReport.errorModulesCount >
+          0;
+        const isReportExpanded = showFinalReport || Boolean(inspectedHistoryRecord);
+
+        const handleCopyFinalReport = async () => {
+          const markdown = buildDeepDiveReportMarkdown(finalReport, language);
+          try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(markdown);
+              setCopiedReportNotice(true);
+              window.setTimeout(() => setCopiedReportNotice(false), 2200);
+            }
+          } catch {
+            // Clipboard unavailable in restricted context — fallback to download
+            triggerFileDownload(
+              markdown,
+              `siampick-deep-dive-${canonicalProductId}.md`,
+              'text/markdown;charset=utf-8'
+            );
+          }
+        };
+
+        const handleExportMarkdown = () => {
+          const markdown = buildDeepDiveReportMarkdown(finalReport, language);
+          triggerFileDownload(
+            markdown,
+            `siampick-deep-dive-${canonicalProductId}.md`,
+            'text/markdown;charset=utf-8'
+          );
+        };
+
+        const handleExportJson = () => {
+          const jsonStr = buildDeepDiveReportJson(finalReport);
+          triggerFileDownload(
+            jsonStr,
+            `siampick-deep-dive-${canonicalProductId}.json`,
+            'application/json;charset=utf-8'
+          );
+        };
+
+        return (
+          <section
+            ref={finalReportRef}
+            data-testid="deep-dive-final-report"
+            aria-labelledby="deep-dive-final-report-heading"
+            className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4"
+          >
+            {/* Report Header & Export Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FileText
+                    className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <h2
+                    id="deep-dive-final-report-heading"
+                    className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
+                  >
+                    {isMy
+                      ? 'Deep Dive စုစည်းအစီရင်ခံစာ (Final Report)'
+                      : 'Consolidated Deep Dive Final Report'}
+                  </h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+                  <span>
+                    {isMy
+                      ? `ပြီးစီးပြီး ${finalReport.completedModulesCount}/${finalReport.totalModulesCount}`
+                      : `${finalReport.completedModulesCount}/${finalReport.totalModulesCount} completed`}
+                  </span>
+                  {finalReport.unavailableModulesCount > 0 && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="text-amber-700 dark:text-amber-400">
+                        {finalReport.unavailableModulesCount}{' '}
+                        {isMy ? 'မရရှိနိုင်' : 'unavailable'}
+                      </span>
+                    </>
+                  )}
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {finalReport.notRunModulesCount} {isMy ? 'မ Run ရသေး' : 'not run'}
+                  </span>
+                  {finalReport.lastUpdatedAt && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {isMy ? 'Updated' : 'Updated'}:{' '}
+                        {formatCompletedTime(finalReport.lastUpdatedAt, language)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                {hasAnyRunOutput && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyFinalReport()}
+                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      {copiedReportNotice ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>
+                        {copiedReportNotice
+                          ? isMy
+                            ? 'ကူးယူပြီး'
+                            : 'Copied'
+                          : isMy
+                            ? 'Report ကူးယူမည်'
+                            : 'Copy Report'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportMarkdown}
+                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>Markdown</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportJson}
+                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>JSON</span>
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (inspectedHistoryRecord) {
+                      setInspectedHistoryId(null);
+                    }
+                    setShowFinalReport((prev) => !prev);
+                  }}
+                  aria-expanded={isReportExpanded}
+                  aria-controls="deep-dive-final-report-body"
+                  className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span>
+                    {isReportExpanded
+                      ? isMy
+                        ? 'Report ပိတ်မည်'
+                        : 'Hide Report'
+                      : isMy
+                        ? 'Final Report ကြည့်မည်'
+                        : 'View Final Report'}
+                  </span>
+                  {isReportExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Historical Snapshot Inspection Notice */}
+            {inspectedHistoryRecord && (
+              <div
+                role="status"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-sky-200/80 dark:border-sky-900/60 text-xs text-sky-900 dark:text-sky-200"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
+                  <span>
+                    {isMy
+                      ? `History မှတ်တမ်း (${formatCompletedTime(inspectedHistoryRecord.analyzedAt, language)}) ကို ပြန်ကြည့်နေပါသည် — API မခေါ်ပါ။`
+                      : `Inspecting historical snapshot from ${formatCompletedTime(inspectedHistoryRecord.analyzedAt, language)} — 0 API calls.`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInspectedHistoryId(null)}
+                  className="inline-flex items-center justify-center min-h-[30px] px-2.5 py-1 text-xs font-medium text-sky-900 dark:text-sky-100 bg-sky-100/80 dark:bg-sky-950/60 hover:bg-sky-200/80 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  {isMy ? 'လက်ရှိရလဒ်သို့ ပြန်သွားမည်' : 'Return to Latest'}
+                </button>
+              </div>
+            )}
+
+            {isReportExpanded && (
+              <div
+                id="deep-dive-final-report-body"
+                className="pt-3.5 border-t border-zinc-200/80 dark:border-zinc-800 space-y-5"
+              >
+                {/* Decision Overview Strip */}
+                <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800/80 text-xs">
+                  <div>
+                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {isMy ? '7-Factor Score' : '7-Factor Score'}
+                    </dt>
+                    <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {finalReport.overallScore}/100{' '}
+                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                        ({finalReport.confidencePct}%)
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'AI Verdict (သီးခြား)' : 'AI Verdict (Separate)'}
+                    </dt>
+                    <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 mt-0.5">
+                      {finalReport.aiVerdict ?? (isMy ? 'မ Run ရသေး' : 'Not Run')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'Kalodata စရိတ် (Report)' : 'Kalodata Cost (Report)'}
+                    </dt>
+                    <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {formatCredits(finalReport.totalKalodataCreditsUsed)} cr{' '}
+                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                        ({formatUsd(finalReport.totalKalodataUsdUsed)})
+                      </span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'Gemini AI Calls (သီးခြား)' : 'Gemini AI Calls (Separate)'}
+                    </dt>
+                    <dd className="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400 tabular-nums mt-0.5">
+                      {finalReport.totalGeminiApiCalls}{' '}
+                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                        {finalReport.totalGeminiApiCalls > 0
+                          ? isMy
+                            ? '· ခန့်မှန်း/မတွက်နိုင်သေး'
+                            : '· Est./Unavailable'
+                          : isMy
+                            ? 'call'
+                            : 'calls'}
+                      </span>
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* All 8 Consolidated Decision Sections (Unrun / Unavailable explicitly shown — never hidden) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                  {finalReport.sections.map((sec) => {
+                    const secTitle = isMy ? sec.titleMy : sec.titleEn;
+                    const secHeadline = isMy ? sec.headlineMy : sec.headlineEn;
+                    const secSummary = isMy ? sec.summaryMy : sec.summaryEn;
+                    const secHighlights = isMy ? sec.highlightsMy : sec.highlightsEn;
+                    const secNotes = isMy ? sec.unavailableNotesMy : sec.unavailableNotesEn;
+                    const secSources = isMy ? sec.dataSourcesMy : sec.dataSourcesEn;
+                    const primaryRunId = sec.sourceAnalysisIds[0];
+
+                    return (
+                      <div
+                        key={sec.id}
+                        data-report-section-id={sec.id}
+                        className="pt-3.5 border-t border-zinc-200/80 dark:border-zinc-800 space-y-2.5 text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-0.5 min-w-0">
+                            <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
+                              {secTitle}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              <span className={`font-semibold ${getDataStatusStyle(sec.dataStatus)}`}>
+                                {t.dataStatusLabels[sec.dataStatus]}
+                              </span>
+                              {sec.availability === 'not-run' && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{isMy ? 'မ Run ရသေး' : 'Not Run'}</span>
+                                </>
+                              )}
+                              {sec.isAiInterpretation && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="text-sky-700 dark:text-sky-400 font-medium">
+                                    {isMy ? 'AI Interpretation (သီးခြား)' : 'AI Interpretation'}
+                                  </span>
+                                </>
+                              )}
+                              {sec.lastUpdatedAt && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span className="font-mono tabular-nums">
+                                    {formatCompletedTime(sec.lastUpdatedAt, language)}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {sec.availability === 'not-run' &&
+                            !inspectedHistoryRecord &&
+                            primaryRunId && (
+                              <button
+                                type="button"
+                                onClick={() => handleRequestSingleRun(primaryRunId, false)}
+                                disabled={isAnyRunning}
+                                className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                              >
+                                <Play className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                <span>{isMy ? 'Run မည်' : 'Run'}</span>
+                              </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {secHeadline}
+                          </div>
+                          <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                            {secSummary}
+                          </p>
+                        </div>
+
+                        {sec.metrics.length > 0 && (
+                          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/70">
+                            {sec.metrics.map((metric) => (
+                              <div key={`${sec.id}-${metric.key}`} className="min-w-0">
+                                <dt className="flex items-center justify-between gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                  <span className="truncate">
+                                    {isMy ? metric.labelMy : metric.labelEn}
+                                  </span>
+                                  <span
+                                    className={`font-medium shrink-0 ${getDataStatusStyle(metric.status)}`}
+                                  >
+                                    {t.dataStatusLabels[metric.status]}
+                                  </span>
+                                </dt>
+                                <dd className="font-mono text-xs font-semibold text-zinc-950 dark:text-zinc-100 tabular-nums mt-0.5 break-words">
+                                  {isMy ? metric.valueMy : metric.valueEn}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+
+                        {secHighlights.length > 0 && (
+                          <ul className="space-y-1 text-zinc-600 dark:text-zinc-300 list-disc pl-4">
+                            {secHighlights.map((item, idx) => (
+                              <li key={`${sec.id}-h-${idx}`} className="leading-relaxed">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+
+                        {secNotes.length > 0 && (
+                          <div className="text-[11px] text-amber-800 dark:text-amber-300/90 space-y-0.5">
+                            {secNotes.slice(0, 3).map((note, idx) => (
+                              <p key={`${sec.id}-n-${idx}`} className="leading-relaxed">
+                                • {note}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {secSources.length > 0 && (
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                              Source:
+                            </span>{' '}
+                            {secSources.join(' · ')}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Consolidated Report Sources Footer */}
+                <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                    {isMy ? 'Report Data Sources:' : 'Report Data Sources:'}
+                  </span>{' '}
+                  {(isMy ? finalReport.allDataSourcesMy : finalReport.allDataSourcesEn).length > 0
+                    ? (isMy ? finalReport.allDataSourcesMy : finalReport.allDataSourcesEn).join(' · ')
+                    : isMy
+                      ? 'Baseline Research Product Data (Deep Dive Module များ မ Run ရသေးပါ)'
+                      : 'Baseline Research Product Data (no Deep Dive modules executed yet)'}
+                </div>
+              </div>
+            )}
+          </section>
+        );
+      })()}
+
+      {/* Phase 9.4: Per-Product Deep Dive Analysis History (Transparent Browser Local Storage) */}
+      <section
+        data-testid="deep-dive-analysis-history"
+        aria-labelledby="deep-dive-history-heading"
+        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <History
+                className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0"
+                aria-hidden="true"
+              />
+              <h2
+                id="deep-dive-history-heading"
+                className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
+              >
+                {isMy
+                  ? 'Deep Dive Analysis မှတ်တမ်း (Analysis History)'
+                  : 'Deep Dive Analysis History'}
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="font-mono tabular-nums">
+                {historyRecords.length}{' '}
+                {isMy ? 'ကြိမ် သိမ်းဆည်းထားသည်' : historyRecords.length === 1 ? 'saved run' : 'saved runs'}
+              </span>
+              {' · '}
+              {isMy
+                ? 'ဤ Browser localStorage ထဲတွင်သာ သိမ်းဆည်းထားသည် (Cloud Database မဟုတ်ပါ)'
+                : 'Stored locally in this browser (localStorage — not synced to a remote database)'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowHistorySection((prev) => !prev)}
+            aria-expanded={showHistorySection}
+            aria-controls="deep-dive-history-list"
+            className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto"
+          >
+            <span>
+              {showHistorySection
+                ? isMy
+                  ? 'မှတ်တမ်း ပိတ်မည်'
+                  : 'Hide History'
+                : isMy
+                  ? `မှတ်တမ်း ကြည့်မည် (${historyRecords.length})`
+                  : `View History (${historyRecords.length})`}
+            </span>
+            {showHistorySection ? (
+              <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+
+        {showHistorySection && (
+          <div
+            id="deep-dive-history-list"
+            className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 space-y-3 text-xs"
+          >
+            {historyRecords.length === 0 ? (
+              <p className="text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                {isMy
+                  ? 'ဤ Product အတွက် Deep Dive Analysis မှတ်တမ်း မရှိသေးပါ။ အထက်ပါ Module တစ်ခုခုကို Run လိုက်သည်နှင့် Analysis Date၊ Data Source၊ Cost နှင့် Result Status များကို ဤနေရာတွင် အလိုအလျောက် သိမ်းဆည်းပေးပါမည်။'
+                  : 'No Deep Dive history saved for this product yet. Once you run any analysis module above, its date, data sources, cost, and result status will be saved here automatically.'}
+              </p>
+            ) : (
+              <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800">
+                {historyRecords.map((rec) => {
+                  const isExpandedRec = expandedHistoryIds.includes(rec.id);
+                  const isInspected = inspectedHistoryId === rec.id;
+                  const recSources = isMy ? rec.dataSourcesMy : rec.dataSourcesEn;
+                  const runTypeLabel =
+                    rec.runType === 'refresh'
+                      ? isMy
+                        ? 'Data အသစ်ယူမှု'
+                        : 'Live Refresh'
+                      : rec.runType === 'rerun'
+                        ? isMy
+                          ? 'ပြန် Run'
+                          : 'Re-run'
+                        : isMy
+                          ? 'ပထမအကြိမ်'
+                          : 'Initial Run';
+                  const statusTone =
+                    rec.overallStatus === 'completed'
+                      ? 'text-emerald-700 dark:text-emerald-400'
+                      : rec.overallStatus === 'error'
+                        ? 'text-rose-700 dark:text-rose-400'
+                        : 'text-amber-700 dark:text-amber-400';
+
+                  return (
+                    <div key={rec.id} className="py-3 first:pt-0 last:pb-0 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                              {formatCompletedTime(rec.analyzedAt, language)}
+                            </span>
+                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                              ·
+                            </span>
+                            <span className={`font-semibold ${statusTone}`}>
+                              {rec.overallStatus === 'completed'
+                                ? isMy
+                                  ? 'ပြီးစီးပြီး'
+                                  : 'Completed'
+                                : rec.overallStatus === 'partial'
+                                  ? isMy
+                                    ? 'တစ်စိတ်တစ်ပိုင်း'
+                                    : 'Partial'
+                                  : rec.overallStatus === 'unavailable'
+                                    ? isMy
+                                      ? 'Unavailable'
+                                      : 'Unavailable'
+                                    : isMy
+                                      ? 'Error'
+                                      : 'Error'}
+                            </span>
+                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                              ·
+                            </span>
+                            <span className="text-zinc-600 dark:text-zinc-300">{runTypeLabel}</span>
+                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                              ·
+                            </span>
+                            <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
+                              {formatCredits(rec.kalodataCreditsUsed)} cr ({formatUsd(rec.kalodataUsdUsed)})
+                              {rec.geminiApiCalls > 0
+                                ? ` · +${rec.geminiApiCalls} Gemini AI`
+                                : ''}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                            <span>
+                              {rec.analysisIds
+                                .map((id) => {
+                                  const opt = getDeepDiveOptionById(id);
+                                  return opt ? (isMy ? opt.nameMy : opt.nameEn) : id;
+                                })
+                                .join(' · ')}
+                            </span>
+                          </div>
+                          {recSources.length > 0 && (
+                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                                Sources:
+                              </span>{' '}
+                              {recSources.join(' · ')}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInspectedHistoryId(isInspected ? null : rec.id);
+                              if (!isInspected) {
+                                setShowFinalReport(true);
+                                window.requestAnimationFrame(() => {
+                                  finalReportRef.current?.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'nearest',
+                                  });
+                                });
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-[11px] font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
+                              isInspected
+                                ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
+                                : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
+                            }`}
+                          >
+                            <span>
+                              {isInspected
+                                ? isMy
+                                  ? 'ကြည့်နေသည်'
+                                  : 'Viewing'
+                                : isMy
+                                  ? 'Report တွင်ကြည့်မည်'
+                                  : 'Inspect in Report'}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedHistoryIds((prev) =>
+                                prev.includes(rec.id)
+                                  ? prev.filter((item) => item !== rec.id)
+                                  : [...prev, rec.id]
+                              )
+                            }
+                            aria-expanded={isExpandedRec}
+                            className="inline-flex items-center gap-1 min-h-[30px] px-2 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-md cursor-pointer whitespace-nowrap"
+                          >
+                            <span>{isExpandedRec ? (isMy ? 'ပိတ်' : 'Hide') : isMy ? 'အသေးစိတ်' : 'Details'}</span>
+                            {isExpandedRec ? (
+                              <ChevronUp className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            )}
+                          </button>
+
+                          {onDeleteHistoryRecord && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (inspectedHistoryId === rec.id) {
+                                  setInspectedHistoryId(null);
+                                }
+                                onDeleteHistoryRecord(rec.id);
+                              }}
+                              aria-label={isMy ? 'မှတ်တမ်းဖျက်မည်' : 'Delete history entry'}
+                              className="inline-flex items-center justify-center min-h-[30px] min-w-[30px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-md transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpandedRec && rec.moduleEntries.length > 0 && (
+                        <div className="pt-2 pl-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-1.5 text-[11px]">
+                          {rec.moduleEntries.map((entry) => {
+                            const opt = getDeepDiveOptionById(entry.analysisId);
+                            const modName = opt
+                              ? isMy
+                                ? opt.nameMy
+                                : opt.nameEn
+                              : entry.analysisId;
+                            return (
+                              <div
+                                key={`${rec.id}-${entry.analysisId}`}
+                                className="flex flex-wrap items-baseline justify-between gap-2 text-zinc-600 dark:text-zinc-300"
+                              >
+                                <div className="min-w-0">
+                                  <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                                    {modName}
+                                  </span>
+                                  {' — '}
+                                  <span>{isMy ? entry.headlineMy : entry.headlineEn}</span>
+                                </div>
+                                <div className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
+                                  {entry.dataStatus
+                                    ? t.dataStatusLabels[entry.dataStatus]
+                                    : entry.status}
+                                  {' · '}
+                                  {entry.aiApiCallsMade > 0
+                                    ? `0 cr · +${entry.aiApiCallsMade} AI`
+                                    : entry.creditsUsed > 0
+                                      ? `${formatCredits(entry.creditsUsed)} cr`
+                                      : entry.reusedFromCache
+                                        ? '0 cr (Cache)'
+                                        : '0 cr'}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </section>

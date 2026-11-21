@@ -318,3 +318,124 @@ export interface DeepDiveServerBudgetSnapshot {
   updatedAt: string;
 }
 
+/**
+ * Phase 9.4: Per-product Deep Dive Analysis History persisted in browser localStorage.
+ * Explicitly captures Data Sources, Analysis Date, Cost (Kalodata + Gemini AI separately),
+ * Result Status, and isolated module snapshots so past runs can be inspected at 0 API cost.
+ */
+export type DeepDiveHistoryRunType = 'initial' | 'rerun' | 'refresh';
+
+export type DeepDiveHistoryOverallStatus = 'completed' | 'partial' | 'unavailable' | 'error';
+
+export interface DeepDiveHistoryModuleEntry {
+  analysisId: DeepDiveAnalysisId;
+  status: DeepDiveExecutionStatus;
+  dataStatus: DataStatus | null;
+  headlineEn: string;
+  headlineMy: string;
+  creditsUsed: number;
+  apiCallsMade: number;
+  aiApiCallsMade: number;
+  reusedFromCache: boolean;
+  dataSourcesEn: string[];
+  dataSourcesMy: string[];
+  completedAt: string | null;
+  errorCode: string | null;
+}
+
+export interface DeepDiveHistoryRecord {
+  id: string;
+  schemaVersion: number;
+  storageKind: 'browser-local-storage';
+  canonicalProductId: string;
+  productName: string;
+  productNameMy: string;
+  analyzedAt: string;
+  analysisIds: DeepDiveAnalysisId[];
+  runType: DeepDiveHistoryRunType;
+  overallStatus: DeepDiveHistoryOverallStatus;
+  kalodataCreditsUsed: number;
+  kalodataUsdUsed: number;
+  kalodataApiCalls: number;
+  geminiApiCalls: number;
+  geminiTokenUsage: DeepDiveGeminiTokenUsage | null;
+  cacheReuseCount: number;
+  dataSourcesEn: string[];
+  dataSourcesMy: string[];
+  moduleEntries: DeepDiveHistoryModuleEntry[];
+  slotsSnapshot: Partial<Record<DeepDiveAnalysisId, DeepDiveAnalysisSlotState>>;
+}
+
+/**
+ * Phase 9.4: Consolidated Final Deep Dive Report compiled strictly from real product
+ * and completed Deep Dive module results (never fabricating unavailable/unrun analyses).
+ */
+export type DeepDiveFinalReportSectionId =
+  | 'product-overview'
+  | 'market-opportunity'
+  | 'affiliate-profit'
+  | 'competition'
+  | 'video-insights'
+  | 'customer-reviews'
+  | 'risks'
+  | 'ai-recommendations';
+
+export type DeepDiveReportSectionAvailability =
+  | 'available'
+  | 'partial'
+  | 'unavailable'
+  | 'not-run';
+
+export interface DeepDiveFinalReportSection {
+  id: DeepDiveFinalReportSectionId;
+  titleEn: string;
+  titleMy: string;
+  sourceAnalysisIds: DeepDiveAnalysisId[];
+  availability: DeepDiveReportSectionAvailability;
+  dataStatus: DataStatus;
+  isAiInterpretation: boolean;
+  headlineEn: string;
+  headlineMy: string;
+  summaryEn: string;
+  summaryMy: string;
+  metrics: DeepDiveMetricRow[];
+  highlightsEn: string[];
+  highlightsMy: string[];
+  unavailableNotesEn: string[];
+  unavailableNotesMy: string[];
+  dataSourcesEn: string[];
+  dataSourcesMy: string[];
+  lastUpdatedAt: string | null;
+}
+
+export interface DeepDiveFinalReport {
+  reportVersion: number;
+  generatedAt: string;
+  canonicalProductId: string;
+  originalProductId: string;
+  productName: string;
+  productNameMy: string;
+  categoryLabelEn: string;
+  categoryLabelMy: string;
+  shopName: string;
+  originResearchMode: ResearchMode;
+  overallScore: number;
+  confidenceLevel: 'High' | 'Medium' | 'Low';
+  confidencePct: number;
+  completedModulesCount: number;
+  unavailableModulesCount: number;
+  errorModulesCount: number;
+  notRunModulesCount: number;
+  totalModulesCount: number;
+  aiVerdict: AiRecommendationVerdict | null;
+  totalKalodataCreditsUsed: number;
+  totalKalodataUsdUsed: number;
+  totalKalodataApiCalls: number;
+  totalGeminiApiCalls: number;
+  lastUpdatedAt: string | null;
+  allDataSourcesEn: string[];
+  allDataSourcesMy: string[];
+  sections: DeepDiveFinalReportSection[];
+}
+
+

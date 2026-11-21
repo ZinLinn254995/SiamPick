@@ -427,10 +427,9 @@ export function estimateDeepDiveExecutionCost(
     }
 
     // Product / Sales / Creator / Video modules
-    const needsDetail =
-      forceRefresh && id === 'product-intelligence'
-        ? coverage.hasKalodataId
-        : moduleNeedsProductDetail(id, product);
+    const needsDetail = forceRefresh
+      ? coverage.hasKalodataId
+      : moduleNeedsProductDetail(id, product);
 
     if (!needsDetail) {
       modules.push({
@@ -1194,7 +1193,7 @@ async function executeSalesMarketIntelligence(
   const dataSourcesMy = ['ရှိပြီးသား Kalodata ရောင်းအားနှင့် ဝင်ငွေ Data'];
 
   if (
-    moduleNeedsProductDetail('sales-market-intelligence', session.workingProduct) &&
+    (forceRefresh || moduleNeedsProductDetail('sales-market-intelligence', session.workingProduct)) &&
     isValidKalodataId(session.workingProduct.kalodataMetrics?.productId)
   ) {
     const fetched = await ensureLayerOnSession(session, 'productDetail', forceRefresh);
@@ -1546,7 +1545,7 @@ async function executeCreatorCompetitionAnalysis(
   const dataSourcesMy = ['ရှိပြီးသား Product Creator Data'];
 
   if (
-    moduleNeedsProductDetail('creator-competition-analysis', session.workingProduct) &&
+    (forceRefresh || moduleNeedsProductDetail('creator-competition-analysis', session.workingProduct)) &&
     isValidKalodataId(session.workingProduct.kalodataMetrics?.productId)
   ) {
     const fetched = await ensureLayerOnSession(session, 'productDetail', forceRefresh);
@@ -1686,7 +1685,7 @@ async function executeVideoIntelligence(
   const dataSourcesMy: string[] = [];
 
   if (
-    moduleNeedsProductDetail('video-intelligence', session.workingProduct) &&
+    (forceRefresh || moduleNeedsProductDetail('video-intelligence', session.workingProduct)) &&
     isValidKalodataId(session.workingProduct.kalodataMetrics?.productId)
   ) {
     const fetched = await ensureLayerOnSession(session, 'productDetail', forceRefresh);
@@ -2429,7 +2428,8 @@ function toSlotStateFromResult(result: DeepDiveModuleResult): DeepDiveAnalysisSl
 function toSlotStateFromError(
   analysisId: DeepDiveAnalysisId,
   err: unknown,
-  timestampIso: string
+  timestampIso: string,
+  previousResult: DeepDiveModuleResult | null = null
 ): DeepDiveAnalysisSlotState {
   const errorObj: DeepDiveModuleError =
     err instanceof ModuleExecutionError
@@ -2452,7 +2452,8 @@ function toSlotStateFromError(
     analysisId,
     status: 'error',
     updatedAt: timestampIso,
-    result: null,
+    // Phase 9.4: Never erase a previously completed result when a rerun fails
+    result: previousResult,
     error: errorObj,
     statusNoteEn: errorObj.messageEn,
     statusNoteMy: errorObj.messageMy,
@@ -2628,7 +2629,8 @@ export async function runDeepDiveModules(
       }
       params.onSlotUpdate?.(id, slot);
     } catch (err) {
-      const slot = toSlotStateFromError(id, err, session.deps.nowIsoFn());
+      const previousResult = params.existingSlots?.[id]?.result ?? null;
+      const slot = toSlotStateFromError(id, err, session.deps.nowIsoFn(), previousResult);
       outputSlots[id] = slot;
       failedIds.push(id);
       params.onSlotUpdate?.(id, slot);
@@ -2669,10 +2671,13 @@ export async function runDeepDiveModules(
       completedIds.push('ai-strategic-recommendation');
       params.onSlotUpdate?.('ai-strategic-recommendation', slot);
     } catch (err) {
+      const previousResult =
+        params.existingSlots?.['ai-strategic-recommendation']?.result ?? null;
       const slot = toSlotStateFromError(
         'ai-strategic-recommendation',
         err,
-        session.deps.nowIsoFn()
+        session.deps.nowIsoFn(),
+        previousResult
       );
       outputSlots['ai-strategic-recommendation'] = slot;
       failedIds.push('ai-strategic-recommendation');
