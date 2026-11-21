@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type {
   EnrichmentLayerKey,
   KalodataProductDetailEnrichmentRecord,
@@ -35,6 +36,14 @@ import {
   type ParsedProductDetail,
   type ParsedShopDetail,
 } from './kalodataAnalysis.ts';
+import {
+  BudgetStorageUnavailableError,
+  getDefaultBudgetLedger,
+  PersistentBudgetLedger,
+  resetDefaultBudgetLedgerForTests,
+  resolveAuthoritativeBudgetScope,
+  type BudgetScopeSnapshot,
+} from './budgetLedgerService.ts';
 
 const SERVER_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SERVER_CACHE_MAX_ENTRIES = 500;
@@ -73,42 +82,19 @@ const inFlightReviewInsight = new Map<
   }>
 >();
 
-// Phase 9.3: Synchronous per-run budget reservation ledger preventing concurrent
-// requests from collectively exceeding the user's Spending Limit.
-const RUN_BUDGET_TTL_MS = 10 * 60 * 1000;
-const RUN_BUDGET_MAX_ENTRIES = 500;
-const runBudgetLedger = new Map<
-  string,
-  { reservedCredits: number; updatedAtMs: number }
->();
-
 function roundCredits3(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-function getRunReservedCredits(runId: string): number {
-  const entry = runBudgetLedger.get(runId);
-  if (!entry) return 0;
-  if (Date.now() - entry.updatedAtMs > RUN_BUDGET_TTL_MS) {
-    runBudgetLedger.delete(runId);
-    return 0;
+function isDeterministicNonBilledHttpError(
+  httpStatus: number | null,
+  upstreamCode?: string
+): boolean {
+  if (upstreamCode === 'MISSING_API_KEY') return true;
+  if (httpStatus !== null && [400, 401, 403, 404, 422, 429].includes(httpStatus)) {
+    return true;
   }
-  return entry.reservedCredits;
-}
-
-function adjustRunReservedCredits(runId: string, deltaCredits: number): void {
-  if (!runId || !Number.isFinite(deltaCredits) || Math.abs(deltaCredits) < 1e-9) return;
-  const current = getRunReservedCredits(runId);
-  const next = Math.max(0, roundCredits3(current + deltaCredits));
-  if (next <= 0) {
-    runBudgetLedger.delete(runId);
-    return;
-  }
-  if (runBudgetLedger.size >= RUN_BUDGET_MAX_ENTRIES && !runBudgetLedger.has(runId)) {
-    const oldest = runBudgetLedger.keys().next().value;
-    if (oldest !== undefined) runBudgetLedger.delete(oldest);
-  }
-  runBudgetLedger.set(runId, { reservedCredits: next, updatedAtMs: Date.now() });
+  return false;
 }
 
 function getValidEntry<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
@@ -189,7 +175,7 @@ export function clearServerEnrichmentCache(): void {
   inFlightProductDetail.clear();
   inFlightShopDetail.clear();
   inFlightReviewInsight.clear();
-  runBudgetLedger.clear();
+  resetDefaultBudgetLedgerForTests();
 }
 
 export function toProductDetailRecord(
@@ -286,13 +272,21 @@ export class EnrichmentApiError extends Error {
   status: number;
   code: string;
   errorMy?: string;
+  budgetSnapshot?: BudgetScopeSnapshot;
 
-  constructor(status: number, code: string, message: string, errorMy?: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    errorMy?: string,
+    budgetSnapshot?: BudgetScopeSnapshot
+  ) {
     super(message);
     this.name = 'EnrichmentApiError';
     this.status = status;
     this.code = code;
     this.errorMy = errorMy;
+    this.budgetSnapshot = budgetSnapshot;
   }
 }
 
@@ -300,8 +294,14 @@ export interface EnrichProductParams {
   product: ResearchProduct;
   requestedLayers: EnrichmentSelection;
   spendingLimitCredits?: number;
+  /**
+   * @deprecated Phase 9.3.1 Security Fix: IGNORED by the server!
+   * Cumulative spend is derived strictly from the server-side persistent budget ledger.
+   */
   sessionCreditsAlreadySpent?: number;
   runId?: string;
+  /** Deterministic idempotency key preventing duplicate charges on retries or cross-instance races */
+  idempotencyKey?: string;
   requireExplicitConfirmation?: boolean;
   userConfirmedPaidExecution?: boolean;
   forceRefresh?: boolean;
@@ -310,6 +310,12 @@ export interface EnrichProductParams {
   clientCachedReviewInsight?: KalodataReviewInsightData | null;
   salesWeightPct?: number;
   peerProducts?: readonly ResearchProduct[];
+  /** Optional server-verified user ID for user-scoped persistent budgets */
+  authenticatedUserId?: string | null;
+  /** Optional injected persistent budget ledger (for multi-instance / restart security testing) */
+  budgetLedger?: PersistentBudgetLedger;
+  /** Optional explicit budget scope override (tests only) */
+  budgetScopeKey?: string;
 }
 
 export interface EnrichProductResult {
@@ -321,6 +327,7 @@ export interface EnrichProductResult {
   shopDetail: KalodataShopEnrichmentRecord | null;
   reviewInsight: KalodataReviewInsightData | null;
   summary: ProductEnrichmentExecutionSummary;
+  budgetSnapshot?: BudgetScopeSnapshot;
 }
 
 /**
@@ -445,44 +452,10 @@ export async function enrichSingleProduct(
     typeof params.runId === 'string' && params.runId.trim().length > 0
       ? params.runId.trim().slice(0, 80)
       : null;
-  const sessionCreditsAlreadySpent =
-    typeof params.sessionCreditsAlreadySpent === 'number' &&
-    Number.isFinite(params.sessionCreditsAlreadySpent) &&
-    params.sessionCreditsAlreadySpent > 0
-      ? roundCredits3(params.sessionCreditsAlreadySpent)
-      : 0;
-  const reservedInRun = sanitizedRunId ? getRunReservedCredits(sanitizedRunId) : 0;
-  const projectedTotalSpent = roundCredits3(
-    sessionCreditsAlreadySpent + reservedInRun + effectiveNewCredits
-  );
-
-  // Hard Server-Side Spending Limit Gate (single-request + concurrent batch + cumulative session)
-  if (
-    effectiveNewApiCalls > 0 &&
-    (plan.exceedsSpendingLimit || projectedTotalSpent > spendingLimitCredits + 1e-6)
-  ) {
-    const remainingBudget = Math.max(
-      0,
-      roundCredits3(spendingLimitCredits - sessionCreditsAlreadySpent - reservedInRun)
-    );
-    throw new EnrichmentApiError(
-      400,
-      'SPENDING_LIMIT_EXCEEDED',
-      `Estimated cost (${formatCredits(effectiveNewCredits)} credits across ${effectiveNewApiCalls} new call(s)) exceeds remaining Spending Limit (${formatCredits(remainingBudget)} of ${formatCredits(spendingLimitCredits)} credits). No Kalodata API call was made.`,
-      `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(effectiveNewCredits)} Credits · API ${effectiveNewApiCalls} ကြိမ်) သည် ကျန်ရှိသော Spending Limit (${formatCredits(remainingBudget)} / ${formatCredits(spendingLimitCredits)} Credits) ထက် ကျော်လွန်နေသဖြင့် Kalodata API မခေါ်ဆိုဘဲ ရပ်တန့်ထားပါသည်။`
-    );
-  }
-
-  // Synchronously reserve planned credits for this runId BEFORE the first await
-  let reservedByThisCall = 0;
-  if (sanitizedRunId && effectiveNewCredits > 0) {
-    adjustRunReservedCredits(sanitizedRunId, effectiveNewCredits);
-    reservedByThisCall = effectiveNewCredits;
-  }
 
   // Synchronously register owned in-flight slots BEFORE the first await so a concurrent
-  // duplicate request for the exact same productId/shopId sees it immediately, costs 0 extra
-  // credits against Spending Limit, and shares the exact same upstream Kalodata call.
+  // duplicate request on the SAME instance sees it immediately, costs 0 extra credits,
+  // and shares the exact same upstream Kalodata call.
   type DeferredLayerSlot<T> = {
     key: string;
     promise: Promise<{ record: T | null; error?: { en: string; my: string } }>;
@@ -534,7 +507,146 @@ export async function enrichSingleProduct(
   let balanceAfter: number | null = null;
   let actualApiCalls = 0;
 
+  // Phase 9.3.1: Persistent Atomic Budget Reservation state (ZERO in-memory Map fallback!)
+  let ledger: PersistentBudgetLedger | null = null;
+  const scopeKey =
+    params.budgetScopeKey && params.budgetScopeKey.trim().length > 0
+      ? params.budgetScopeKey.trim()
+      : resolveAuthoritativeBudgetScope({
+          authenticatedUserId: params.authenticatedUserId,
+        }).scopeKey;
+
+  let reservationId: string | null = null;
+  let reservationFinalized = false;
+  let upstreamDispatched = false;
+  let anyUpstreamSucceeded = false;
+  let anyUpstreamUncertainFailure = false;
+  let anyUpstreamDeterministicFailure = false;
+  let allUpstreamMissingApiKey = true;
+  let latestBudgetSnapshot: BudgetScopeSnapshot | undefined;
+
+  const ensureUpstreamDispatched = async (): Promise<void> => {
+    if (upstreamDispatched || !ledger || !reservationId) return;
+    try {
+      await ledger.markReservationDispatched(scopeKey, reservationId);
+      upstreamDispatched = true;
+    } catch (error) {
+      if (error instanceof BudgetStorageUnavailableError) {
+        throw new EnrichmentApiError(
+          503,
+          'BUDGET_STORAGE_UNAVAILABLE',
+          error.message,
+          error.errorMy
+        );
+      }
+      throw new EnrichmentApiError(
+        503,
+        'BUDGET_STORAGE_UNAVAILABLE',
+        'Persistent budget storage became unavailable before calling paid API. Call aborted fail-closed.',
+        'Paid API မခေါ်ဆိုမီ Persistent Budget Storage ချိတ်ဆက်မှု ပြတ်တောက်သွားသဖြင့် Fail-Closed ရပ်တန့်ထားပါသည်။'
+      );
+    }
+  };
+
   try {
+    // Phase 9.3.1: Atomic Persistent Budget Reserve BEFORE any paid API or balance call!
+    // Completely ignores untrusted client `sessionCreditsAlreadySpent` and enforces limits
+    // across restarts, new runIds, and concurrent serverless instances.
+    if (effectiveNewApiCalls > 0 && effectiveNewCredits > 0) {
+      try {
+        ledger = params.budgetLedger ?? getDefaultBudgetLedger();
+      } catch (error) {
+        if (error instanceof BudgetStorageUnavailableError) {
+          throw new EnrichmentApiError(
+            503,
+            'BUDGET_STORAGE_UNAVAILABLE',
+            error.message,
+            error.errorMy
+          );
+        }
+        throw new EnrichmentApiError(
+          503,
+          'BUDGET_STORAGE_UNAVAILABLE',
+          'Persistent budget storage is unavailable. Paid Kalodata API calls are blocked fail-closed.',
+          'Persistent Budget Storage မရရှိနိုင်သဖြင့် Paid Kalodata API များကို Fail-Closed ပိတ်ထားပါသည်။'
+        );
+      }
+
+      const fetchLayerSig = [
+        plan.layers.productDetail.action === 'fetch' && !pdAlreadyInFlight ? 'pd' : null,
+        plan.layers.shopDetail.action === 'fetch' && !sdAlreadyInFlight ? 'sd' : null,
+        plan.layers.reviewInsights.action === 'fetch' && !riAlreadyInFlight ? 'ri' : null,
+      ]
+        .filter(Boolean)
+        .join('+');
+
+      const resolvedIdempotencyKey =
+        typeof params.idempotencyKey === 'string' && params.idempotencyKey.trim().length > 0
+          ? params.idempotencyKey.trim().slice(0, 140)
+          : sanitizedRunId
+            ? `enrich:${sanitizedRunId}:${canonicalProductId}:${fetchLayerSig}`
+            : `enrich:req:${crypto.randomUUID()}`;
+
+      let reserveRes;
+      try {
+        reserveRes = await ledger.atomicReserveBudget({
+          scopeKey,
+          idempotencyKey: resolvedIdempotencyKey,
+          runId: sanitizedRunId,
+          operation: `enrich:${fetchLayerSig}`,
+          reserveCredits: effectiveNewCredits,
+          requestedLimitCredits: spendingLimitCredits,
+        });
+      } catch (error) {
+        if (error instanceof BudgetStorageUnavailableError) {
+          throw new EnrichmentApiError(
+            503,
+            'BUDGET_STORAGE_UNAVAILABLE',
+            error.message,
+            error.errorMy
+          );
+        }
+        throw new EnrichmentApiError(
+          503,
+          'BUDGET_STORAGE_UNAVAILABLE',
+          'Persistent budget reservation failed. Paid Kalodata API calls are blocked fail-closed.',
+          'Persistent Budget ကြိုတင်ထိန်းသိမ်းမှု မအောင်မြင်သဖြင့် Paid Kalodata API များကို Fail-Closed ပိတ်ထားပါသည်။'
+        );
+      }
+
+      latestBudgetSnapshot = reserveRes.snapshot;
+
+      if (!reserveRes.ok) {
+        if (reserveRes.reason === 'IDEMPOTENCY_IN_PROGRESS') {
+          throw new EnrichmentApiError(
+            409,
+            'IDEMPOTENCY_IN_PROGRESS',
+            'An identical paid enrichment request is already in progress. Duplicate charge prevented.',
+            'တူညီသော Paid Enrichment Request တစ်ခု လုပ်ဆောင်နေဆဲဖြစ်သဖြင့် Credit နှစ်ခါမကုန်စေရန် တားဆီးထားပါသည်။',
+            reserveRes.snapshot
+          );
+        }
+        if (reserveRes.reason === 'IDEMPOTENCY_ALREADY_SETTLED') {
+          throw new EnrichmentApiError(
+            409,
+            'IDEMPOTENCY_ALREADY_SETTLED',
+            'This exact paid enrichment request was already executed and settled. Duplicate charge prevented.',
+            'ဤ Paid Enrichment Request ကို လုပ်ဆောင်ပြီးစီးထားပြီးဖြစ်သဖြင့် Credit နှစ်ခါမကုန်စေရန် တားဆီးထားပါသည်။',
+            reserveRes.snapshot
+          );
+        }
+        throw new EnrichmentApiError(
+          400,
+          'SPENDING_LIMIT_EXCEEDED',
+          `Estimated cost (${formatCredits(effectiveNewCredits)} credits across ${effectiveNewApiCalls} new call(s)) exceeds remaining persistent Spending Limit (${formatCredits(reserveRes.snapshot.remainingCredits)} of ${formatCredits(reserveRes.snapshot.effectiveLimitCredits)} credits; ${formatCredits(reserveRes.snapshot.totalCommittedCredits)} credits already committed). No Kalodata API call was made.`,
+          `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(effectiveNewCredits)} Credits · API ${effectiveNewApiCalls} ကြိမ်) သည် Server Persistent Spending Limit လက်ကျန် (${formatCredits(reserveRes.snapshot.remainingCredits)} / ${formatCredits(reserveRes.snapshot.effectiveLimitCredits)} Credits · သုံးစွဲ/ထိန်းသိမ်းပြီး ${formatCredits(reserveRes.snapshot.totalCommittedCredits)} Credits) ထက် ကျော်လွန်နေသဖြင့် Kalodata API မခေါ်ဆိုဘဲ ရပ်တန့်ထားပါသည်။`,
+          reserveRes.snapshot
+        );
+      }
+
+      reservationId = reserveRes.reservationId;
+    }
+
     // Free Credit Balance check BEFORE any paid call (0 credits)
     if (effectiveNewApiCalls > 0) {
       const balanceBeforeRes = await fetchKalodataCreditBalance();
@@ -587,6 +699,7 @@ export async function enrichSingleProduct(
         };
       }
     } else {
+      await ensureUpstreamDispatched();
       actualApiCalls += 1;
       const runFetch = async (): Promise<{
         record: KalodataProductDetailEnrichmentRecord | null;
@@ -601,12 +714,15 @@ export async function enrichSingleProduct(
           need_extra: true,
         });
         if (res.ok && res.data) {
+          allUpstreamMissingApiKey = false;
           const parsed = parseKalodataProductDetail(rawKalodataProductId, res.data);
           if (parsed) {
+            anyUpstreamSucceeded = true;
             const record = toProductDetailRecord(parsed, dateRange, enrichedAt);
             setServerCachedProductDetail(record);
             return { record };
           }
+          anyUpstreamUncertainFailure = true;
           return {
             record: null,
             error: {
@@ -614,6 +730,14 @@ export async function enrichSingleProduct(
               my: 'Kalodata မှ Product Detail ဒေတာ မရရှိပါ။',
             },
           };
+        }
+        if (res.upstreamCode !== 'MISSING_API_KEY') {
+          allUpstreamMissingApiKey = false;
+        }
+        if (isDeterministicNonBilledHttpError(res.httpStatus, res.upstreamCode)) {
+          anyUpstreamDeterministicFailure = true;
+        } else {
+          anyUpstreamUncertainFailure = true;
         }
         return {
           record: null,
@@ -712,6 +836,7 @@ export async function enrichSingleProduct(
             };
           }
         } else {
+          await ensureUpstreamDispatched();
           actualApiCalls += 1;
           const shopPromise = (async () => {
             const res = await fetchKalodataShopDetail({
@@ -723,12 +848,15 @@ export async function enrichSingleProduct(
               need_extra: true,
             });
             if (res.ok && res.data) {
+              allUpstreamMissingApiKey = false;
               const parsed = parseKalodataShopDetail(finalShopId, res.data);
               if (parsed) {
+                anyUpstreamSucceeded = true;
                 const record = toShopEnrichmentRecord(parsed, dateRange, enrichedAt);
                 setServerCachedShopDetail(record);
                 return { record };
               }
+              anyUpstreamUncertainFailure = true;
               return {
                 record: null,
                 error: {
@@ -736,6 +864,14 @@ export async function enrichSingleProduct(
                   my: 'Kalodata မှ Shop Detail ဒေတာ မရရှိပါ။',
                 },
               };
+            }
+            if (res.upstreamCode !== 'MISSING_API_KEY') {
+              allUpstreamMissingApiKey = false;
+            }
+            if (isDeterministicNonBilledHttpError(res.httpStatus, res.upstreamCode)) {
+              anyUpstreamDeterministicFailure = true;
+            } else {
+              anyUpstreamUncertainFailure = true;
             }
             return {
               record: null,
@@ -802,6 +938,7 @@ export async function enrichSingleProduct(
         };
       }
     } else {
+      await ensureUpstreamDispatched();
       actualApiCalls += 1;
       const riPromise = (async () => {
         const res = await fetchKalodataProductCommentInsight({
@@ -809,12 +946,15 @@ export async function enrichSingleProduct(
           country_code: 'th',
         });
         if (res.ok && res.data) {
+          allUpstreamMissingApiKey = false;
           const parsed = parseKalodataCommentInsight(rawKalodataProductId, res.data);
           if (parsed) {
+            anyUpstreamSucceeded = true;
             const record = toReviewInsightRecord(parsed, enrichedAt);
             setServerCachedReviewInsight(record);
             return { record };
           }
+          anyUpstreamUncertainFailure = true;
           return {
             record: null,
             error: {
@@ -822,6 +962,14 @@ export async function enrichSingleProduct(
               my: 'Kalodata မှ Review Insight ဒေတာ မရရှိပါ။',
             },
           };
+        }
+        if (res.upstreamCode !== 'MISSING_API_KEY') {
+          allUpstreamMissingApiKey = false;
+        }
+        if (isDeterministicNonBilledHttpError(res.httpStatus, res.upstreamCode)) {
+          anyUpstreamDeterministicFailure = true;
+        } else {
+          anyUpstreamUncertainFailure = true;
         }
         return {
           record: null,
@@ -880,6 +1028,74 @@ export async function enrichSingleProduct(
       ? Math.round(actualCredits * KALODATA_USD_PER_CREDIT * 10000) / 10000
       : null;
 
+  // Phase 9.3.1: Atomic Reservation Finalization (Settle / Confirmed-Zero Release / Uncertain Hold)
+  if (ledger && reservationId && !reservationFinalized) {
+    reservationFinalized = true;
+    try {
+      if (!upstreamDispatched || actualApiCalls === 0) {
+        const rel = await ledger.releaseReservation({
+          scopeKey,
+          reservationId,
+          verifiedZeroCharge: false,
+          requestedLimitCredits: spendingLimitCredits,
+          reason: 'no-upstream-call-made',
+        });
+        latestBudgetSnapshot = rel.snapshot;
+      } else if (!anyUpstreamSucceeded && allUpstreamMissingApiKey) {
+        const rel = await ledger.releaseReservation({
+          scopeKey,
+          reservationId,
+          verifiedZeroCharge: true,
+          requestedLimitCredits: spendingLimitCredits,
+          reason: 'missing-api-key-no-fetch',
+        });
+        latestBudgetSnapshot = rel.snapshot;
+      } else if (
+        !anyUpstreamSucceeded &&
+        !anyUpstreamUncertainFailure &&
+        anyUpstreamDeterministicFailure &&
+        actualCredits !== null &&
+        actualCredits < 1e-6
+      ) {
+        const rel = await ledger.releaseReservation({
+          scopeKey,
+          reservationId,
+          verifiedZeroCharge: true,
+          requestedLimitCredits: spendingLimitCredits,
+          reason: 'deterministic-error-verified-zero-charge',
+        });
+        latestBudgetSnapshot = rel.snapshot;
+      } else if (
+        !anyUpstreamSucceeded &&
+        (anyUpstreamUncertainFailure || actualCredits === null)
+      ) {
+        // Timeout, network error, 5xx, or unverified balance: DO NOT falsely release budget!
+        latestBudgetSnapshot = await ledger.markReservationUncertain({
+          scopeKey,
+          reservationId,
+          requestedLimitCredits: spendingLimitCredits,
+          reason: anyUpstreamUncertainFailure
+            ? 'upstream-timeout-or-5xx-uncertain'
+            : 'unverified-balance-after-failure',
+        });
+      } else {
+        const conservativeCredits = anyUpstreamUncertainFailure
+          ? Math.max(actualCredits ?? 0, effectiveNewCredits)
+          : (actualCredits ?? effectiveNewCredits);
+        latestBudgetSnapshot = await ledger.settleReservation({
+          scopeKey,
+          reservationId,
+          actualCredits: conservativeCredits,
+          requestedLimitCredits: spendingLimitCredits,
+          note: anyUpstreamSucceeded ? 'settled-success' : 'settled-verified-deduction',
+        });
+      }
+    } catch {
+      // Storage hiccup during settlement leaves the dispatched reservation held in the
+      // persistent ledger (fails conservative -> transitions to uncertain on lease expiry).
+    }
+  }
+
   // Non-destructive merge & Phase 2 score recalculation ONLY when real new data arrived
   const merged = mergeEnrichmentIntoProduct(
     product,
@@ -926,6 +1142,7 @@ export async function enrichSingleProduct(
     shopDetail: resolvedShopDetail,
     reviewInsight: resolvedReviewInsight,
     summary,
+    ...(latestBudgetSnapshot ? { budgetSnapshot: latestBudgetSnapshot } : {}),
   };
   } finally {
     const cancelError = {
@@ -953,10 +1170,31 @@ export async function enrichSingleProduct(
         inFlightReviewInsight.delete(ownedRiSlot.key);
       }
     }
-    // If no paid API call actually fired (e.g., blocked on INSUFFICIENT_CREDITS or shared in-flight),
-    // release our synchronous reservation so it never blocks subsequent calls in the same run.
-    if (sanitizedRunId && reservedByThisCall > 0 && actualApiCalls === 0) {
-      adjustRunReservedCredits(sanitizedRunId, -reservedByThisCall);
+    // Exception-path reservation cleanup:
+    // - If aborted BEFORE upstream dispatch (e.g., INSUFFICIENT_CREDITS), cleanly release (0 cr).
+    // - If threw AFTER upstream dispatch, NEVER falsely release — hold as 'uncertain'!
+    if (ledger && reservationId && !reservationFinalized) {
+      reservationFinalized = true;
+      try {
+        if (!upstreamDispatched) {
+          await ledger.releaseReservation({
+            scopeKey,
+            reservationId,
+            verifiedZeroCharge: false,
+            requestedLimitCredits: spendingLimitCredits,
+            reason: 'aborted-before-upstream-dispatch',
+          });
+        } else {
+          await ledger.markReservationUncertain({
+            scopeKey,
+            reservationId,
+            requestedLimitCredits: spendingLimitCredits,
+            reason: 'exception-after-upstream-dispatch',
+          });
+        }
+      } catch {
+        // Conservative: dispatched reservations stay held until lease reconciliation -> uncertain
+      }
     }
   }
 }

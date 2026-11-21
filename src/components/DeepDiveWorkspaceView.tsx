@@ -60,6 +60,10 @@ interface DeepDiveWorkspaceViewProps {
   spendingLimitCredits?: number;
   onSpendingLimitChange?: (nextLimit: number) => void;
   liveBalanceCredits?: number | null;
+  serverCommittedCredits?: number | null;
+  budgetStorageUnavailable?: boolean;
+  budgetStorageErrorEn?: string | null;
+  budgetStorageErrorMy?: string | null;
   onToggleOption: (id: DeepDiveAnalysisId) => void;
   onSelectAll: () => void;
   onClearAll: () => void;
@@ -482,6 +486,10 @@ export function DeepDiveWorkspaceView({
   spendingLimitCredits: providedSpendingLimit,
   onSpendingLimitChange,
   liveBalanceCredits = null,
+  serverCommittedCredits = null,
+  budgetStorageUnavailable = false,
+  budgetStorageErrorEn = null,
+  budgetStorageErrorMy = null,
   onToggleOption,
   onSelectAll,
   onClearAll,
@@ -542,7 +550,10 @@ export function DeepDiveWorkspaceView({
   const totalCount = DEEP_DIVE_ANALYSIS_OPTIONS.length;
   const allSelected = selectedCount === totalCount;
   const canRun = canRunDeepDiveSelection(workspaceState);
-  const sessionCreditsSpent = workspaceState.totalCreditsUsedInSession ?? 0;
+  const sessionCreditsSpent =
+    typeof serverCommittedCredits === 'number' && Number.isFinite(serverCommittedCredits)
+      ? serverCommittedCredits
+      : (workspaceState.totalCreditsUsedInSession ?? 0);
 
   const isAnyRunning = DEEP_DIVE_ANALYSIS_OPTIONS.some(
     (opt) => workspaceState.slots[opt.id]?.status === 'running'
@@ -665,9 +676,15 @@ export function DeepDiveWorkspaceView({
     scrollToConfirmPanel();
   };
 
+  const paidBlockedByBudgetStorage =
+    budgetStorageUnavailable && selectedCostEstimate.plannedKalodataApiCalls > 0;
+  const pendingPaidBlockedByBudgetStorage =
+    budgetStorageUnavailable && (pendingCostEstimate?.plannedKalodataApiCalls ?? 0) > 0;
+
   const handleConfirmPendingRun = () => {
     if (!pendingRun || !pendingCostEstimate || !pendingBudgetGuard) return;
     if (!pendingBudgetGuard.canProceedWithoutLimitChange) return;
+    if (pendingPaidBlockedByBudgetStorage) return;
     const target = pendingRun;
     setPendingRun(null);
     if (target.mode === 'batch') {
@@ -1361,6 +1378,34 @@ export function DeepDiveWorkspaceView({
           </div>
         )}
 
+        {/* Phase 9.3.1: Fail-Closed Persistent Budget Storage Unavailable Banner */}
+        {budgetStorageUnavailable && (
+          <div
+            role="alert"
+            data-testid="deep-dive-budget-storage-unavailable"
+            className="flex items-start gap-2.5 pt-3 border-t border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200"
+          >
+            <AlertCircle
+              className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <div className="space-y-0.5 min-w-0">
+              <div className="font-semibold text-rose-950 dark:text-rose-100">
+                {isMy
+                  ? 'Persistent Budget Storage မရရှိနိုင်ပါ — Paid Kalodata API ခေါ်ဆိုမှုကို ပိတ်ထားသည်'
+                  : 'Persistent Budget Storage Unavailable — Paid Kalodata Calls Blocked (Fail-Closed)'}
+              </div>
+              <p className="leading-relaxed text-rose-800 dark:text-rose-300">
+                {isMy
+                  ? (budgetStorageErrorMy ??
+                    'ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Persistent Budget Storage မရရှိနိုင်သေးမချင်း Paid Kalodata API များကို ယာယီပိတ်ထားပါသည်။ Local / Cache ရှိပြီးသား Analysis (0 cr) များကို ဆက်လက်အသုံးပြုနိုင်ပါသည်။')
+                  : (budgetStorageErrorEn ??
+                    'Paid Kalodata API calls are safely blocked until persistent budget storage is available. Zero-cost local and cached analyses remain available.')}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Hard Spending Limit / Live Balance Warning */}
         {(selectedBudgetGuard.exceedsSpendingLimit || selectedBudgetGuard.exceedsLiveBalance) && (
           <div
@@ -1559,6 +1604,43 @@ export function DeepDiveWorkspaceView({
               </div>
             </dl>
 
+            {(pendingBudgetGuard.exceedsSpendingLimit || pendingBudgetGuard.exceedsLiveBalance) && (
+              <div
+                role="alert"
+                data-testid="deep-dive-confirm-limit-alert"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 rounded-lg text-xs text-rose-900 dark:text-rose-200"
+              >
+                <div className="flex items-start gap-2 min-w-0">
+                  <AlertCircle
+                    className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
+                    aria-hidden="true"
+                  />
+                  <p className="leading-relaxed">
+                    {pendingBudgetGuard.exceedsSpendingLimit
+                      ? isMy
+                        ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) သည် ကျန်ရှိသော Spending Limit (${formatCredits(pendingBudgetGuard.remainingBudgetBeforeRun)} cr) ထက် ကျော်လွန်နေသဖြင့် Paid API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။`
+                        : `Estimated cost (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) exceeds your remaining Spending Limit (${formatCredits(pendingBudgetGuard.remainingBudgetBeforeRun)} cr). Paid API execution is blocked.`
+                      : isMy
+                        ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) သည် လက်ရှိ Kalodata Balance (${formatCredits(pendingBudgetGuard.liveBalanceCredits ?? 0)} cr) ထက် ကျော်လွန်နေပါသည်။`
+                        : `Estimated cost (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) exceeds your live Kalodata credit balance (${formatCredits(pendingBudgetGuard.liveBalanceCredits ?? 0)} cr).`}
+                  </p>
+                </div>
+                {pendingBudgetGuard.exceedsSpendingLimit && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleSpendingLimitUpdate(pendingBudgetGuard.recommendedMinimumLimit)
+                    }
+                    className="inline-flex items-center justify-center min-h-[32px] px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    {isMy
+                      ? `Limit ကို ${formatCredits(pendingBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
+                      : `Raise Limit to ${formatCredits(pendingBudgetGuard.recommendedMinimumLimit)} cr`}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2">
               <button
                 type="button"
@@ -1570,7 +1652,11 @@ export function DeepDiveWorkspaceView({
               <button
                 type="button"
                 onClick={handleConfirmPendingRun}
-                disabled={isAnyRunning || !pendingBudgetGuard.canProceedWithoutLimitChange}
+                disabled={
+                  isAnyRunning ||
+                  !pendingBudgetGuard.canProceedWithoutLimitChange ||
+                  pendingPaidBlockedByBudgetStorage
+                }
                 className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1601,7 +1687,8 @@ export function DeepDiveWorkspaceView({
                 !canRun ||
                 isAnyRunning ||
                 selectedBudgetGuard.exceedsSpendingLimit ||
-                selectedBudgetGuard.exceedsLiveBalance
+                selectedBudgetGuard.exceedsLiveBalance ||
+                paidBlockedByBudgetStorage
               }
               className="inline-flex items-center justify-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 w-full sm:w-auto"
             >

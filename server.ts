@@ -22,6 +22,11 @@ import { isValidProductCategory, UNIVERSAL_CATEGORIES } from './src/utils/catego
 import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
 import { generateDeepDiveAiStrategy } from './server/deepDiveAiService.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
+import {
+  BudgetStorageUnavailableError,
+  getDefaultBudgetLedger,
+  resolveAuthoritativeBudgetScope,
+} from './server/budgetLedgerService.ts';
 import type { DeepDiveAnalysisId, DeepDiveCompletedModuleDigest } from './src/types/deepDive.ts';
 import {
   clampDeepDiveCount,
@@ -338,6 +343,94 @@ async function startServer() {
         configured: false,
         error: sanitizeServerError(error, 'Unexpected server error while checking Kalodata balance.'),
         code: 'BALANCE_INTERNAL_ERROR',
+      });
+    }
+  });
+
+  // Phase 9.3.1: Authoritative Persistent Budget Status & Spending Limit Configuration
+  app.get('/api/budget/status', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const requestedRaw =
+        typeof req.query.spendingLimitCredits === 'string'
+          ? Number(req.query.spendingLimitCredits)
+          : undefined;
+      const requestedLimit =
+        typeof requestedRaw === 'number' && Number.isFinite(requestedRaw)
+          ? Math.round(
+              Math.max(MIN_SPENDING_LIMIT_CREDITS, Math.min(MAX_SPENDING_LIMIT_CREDITS, requestedRaw)) *
+                1000
+            ) / 1000
+          : undefined;
+
+      const ledger = getDefaultBudgetLedger();
+      const { scopeKey } = resolveAuthoritativeBudgetScope();
+      const snapshot = await ledger.getScopeSnapshot(scopeKey, requestedLimit);
+      res.status(200).json({ ok: true, budget: snapshot });
+    } catch (error) {
+      if (error instanceof BudgetStorageUnavailableError) {
+        res.status(503).json({
+          ok: false,
+          storageAvailable: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+        });
+        return;
+      }
+      res.status(503).json({
+        ok: false,
+        storageAvailable: false,
+        code: 'BUDGET_STORAGE_UNAVAILABLE',
+        error: sanitizeServerError(error, 'Persistent budget storage is unavailable. Paid APIs are blocked fail-closed.'),
+        errorMy: 'Persistent Budget Storage မရရှိနိုင်သဖြင့် Paid API များကို Fail-Closed ပိတ်ထားပါသည်။',
+      });
+    }
+  });
+
+  app.post('/api/budget/limit', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : null;
+      const rawLimit =
+        typeof body?.spendingLimitCredits === 'number' && Number.isFinite(body.spendingLimitCredits)
+          ? body.spendingLimitCredits
+          : typeof body?.spendingLimitCredits === 'string' && body.spendingLimitCredits.trim() !== ''
+            ? Number(body.spendingLimitCredits)
+            : NaN;
+
+      if (!Number.isFinite(rawLimit)) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_SPENDING_LIMIT',
+          error: 'A valid numeric spendingLimitCredits value is required.',
+          errorMy: 'မှန်ကန်သော Spending Limit ကိန်းဂဏန်း လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      const ledger = getDefaultBudgetLedger();
+      const { scopeKey } = resolveAuthoritativeBudgetScope();
+      const snapshot = await ledger.setConfiguredSpendingLimit(scopeKey, rawLimit);
+      res.status(200).json({ ok: true, budget: snapshot });
+    } catch (error) {
+      if (error instanceof BudgetStorageUnavailableError) {
+        res.status(503).json({
+          ok: false,
+          storageAvailable: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+        });
+        return;
+      }
+      res.status(503).json({
+        ok: false,
+        storageAvailable: false,
+        code: 'BUDGET_STORAGE_UNAVAILABLE',
+        error: sanitizeServerError(error, 'Persistent budget storage is unavailable.'),
+        errorMy: 'Persistent Budget Storage မရရှိနိုင်ပါ။',
       });
     }
   });
@@ -849,15 +942,16 @@ async function startServer() {
           ? (body.clientCachedReviewInsight as KalodataReviewInsightData)
           : null;
 
-      const sessionCreditsAlreadySpent =
-        typeof body?.sessionCreditsAlreadySpent === 'number' &&
-        Number.isFinite(body.sessionCreditsAlreadySpent) &&
-        body.sessionCreditsAlreadySpent >= 0
-          ? Math.round(body.sessionCreditsAlreadySpent * 1000) / 1000
-          : 0;
+      // Phase 9.3.1 Security Fix: NEVER trust client-supplied `sessionCreditsAlreadySpent`!
+      // Authoritative spend & active reservations are enforced strictly from the persistent server ledger.
       const runId =
-        typeof body?.runId === 'string' && body.runId.trim().length > 0
-          ? body.runId.trim().slice(0, 80)
+        typeof body?.runId === 'string' && /^[A-Za-z0-9:_-]{2,80}$/.test(body.runId.trim())
+          ? body.runId.trim()
+          : undefined;
+      const idempotencyKey =
+        typeof body?.idempotencyKey === 'string' &&
+        /^[A-Za-z0-9:_-]{4,140}$/.test(body.idempotencyKey.trim())
+          ? body.idempotencyKey.trim()
           : undefined;
       const requireExplicitConfirmation = body?.requireExplicitConfirmation === true;
       const userConfirmedPaidExecution = body?.userConfirmedPaidExecution === true;
@@ -866,8 +960,8 @@ async function startServer() {
         product: rawProduct as unknown as ResearchProduct,
         requestedLayers,
         spendingLimitCredits,
-        sessionCreditsAlreadySpent,
         runId,
+        idempotencyKey,
         requireExplicitConfirmation,
         userConfirmedPaidExecution,
         forceRefresh: body?.forceRefresh === true,
@@ -886,6 +980,7 @@ async function startServer() {
           error: error.message,
           errorMy: error.errorMy,
           code: error.code,
+          ...(error.budgetSnapshot ? { budgetSnapshot: error.budgetSnapshot } : {}),
         });
         return;
       }

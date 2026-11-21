@@ -120,6 +120,7 @@ import { useKalodataBalance } from './hooks/useKalodataBalance';
 import type {
   DeepDiveAnalysisId,
   DeepDiveOriginView,
+  DeepDiveServerBudgetSnapshot,
   DeepDiveSourceContext,
   DeepDiveWorkspaceState,
 } from './types/deepDive';
@@ -305,6 +306,21 @@ export default function App() {
     Record<string, DeepDiveWorkspaceState>
   >({});
 
+  // Phase 9.3.1: Authoritative Server-Side Persistent Budget Ledger Status
+  const [serverBudgetStatus, setServerBudgetStatus] = useState<{
+    loaded: boolean;
+    storageAvailable: boolean;
+    snapshot: DeepDiveServerBudgetSnapshot | null;
+    errorEn: string | null;
+    errorMy: string | null;
+  }>({
+    loaded: false,
+    storageAvailable: true,
+    snapshot: null,
+    errorEn: null,
+    errorMy: null,
+  });
+
   const settingsSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -396,6 +412,111 @@ export default function App() {
       active = false;
     };
   }, []);
+
+  // Phase 9.3.1: Hydrate authoritative server-side persistent budget ledger status on load
+  const refreshServerBudgetStatus = async () => {
+    try {
+      const res = await fetch('/api/budget/status');
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        storageAvailable?: boolean;
+        budget?: DeepDiveServerBudgetSnapshot | null;
+        error?: string;
+        errorMy?: string;
+      } | null;
+
+      if (!res.ok || !data?.ok || data.storageAvailable === false) {
+        setServerBudgetStatus({
+          loaded: true,
+          storageAvailable: false,
+          snapshot: null,
+          errorEn:
+            data?.error ??
+            'Persistent budget storage is unavailable. Paid Kalodata API calls are temporarily blocked for safety.',
+          errorMy:
+            data?.errorMy ??
+            'Persistent Budget Storage မရရှိနိုင်သေးသဖြင့် ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Paid Kalodata API ခေါ်ဆိုမှုများကို ယာယီပိတ်ထားပါသည်။',
+        });
+        return;
+      }
+
+      if (data.budget) {
+        setServerBudgetStatus({
+          loaded: true,
+          storageAvailable: true,
+          snapshot: data.budget,
+          errorEn: null,
+          errorMy: null,
+        });
+        if (
+          typeof data.budget.configuredLimitCredits === 'number' &&
+          Number.isFinite(data.budget.configuredLimitCredits)
+        ) {
+          setSpendingLimitCredits(data.budget.configuredLimitCredits);
+        }
+      }
+    } catch {
+      // Transient network error on initial check; server still enforces fail-closed on paid requests
+    }
+  };
+
+  useEffect(() => {
+    void refreshServerBudgetStatus();
+  }, []);
+
+  const handleSpendingLimitChange = (nextLimit: number) => {
+    if (!Number.isFinite(nextLimit)) return;
+    const clamped =
+      Math.round(
+        Math.max(MIN_SPENDING_LIMIT_CREDITS, Math.min(MAX_SPENDING_LIMIT_CREDITS, nextLimit)) * 1000
+      ) / 1000;
+    setSpendingLimitCredits(clamped);
+
+    void fetch('/api/budget/limit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spendingLimitCredits: clamped }),
+    })
+      .then(async (res) => {
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          storageAvailable?: boolean;
+          budget?: DeepDiveServerBudgetSnapshot | null;
+          error?: string;
+          errorMy?: string;
+        } | null;
+
+        if (!res.ok || !data?.ok) {
+          if (res.status === 503 || data?.storageAvailable === false) {
+            setServerBudgetStatus({
+              loaded: true,
+              storageAvailable: false,
+              snapshot: null,
+              errorEn:
+                data?.error ??
+                'Persistent budget storage is unavailable. Paid Kalodata API calls are temporarily blocked for safety.',
+              errorMy:
+                data?.errorMy ??
+                'Persistent Budget Storage မရရှိနိုင်သေးသဖြင့် ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Paid Kalodata API ခေါ်ဆိုမှုများကို ယာယီပိတ်ထားပါသည်။',
+            });
+          }
+          return;
+        }
+
+        if (data.budget) {
+          setServerBudgetStatus({
+            loaded: true,
+            storageAvailable: true,
+            snapshot: data.budget,
+            errorEn: null,
+            errorMy: null,
+          });
+        }
+      })
+      .catch(() => {
+        // Ignore transient network errors; server enforces authoritative limit on next paid request
+      });
+  };
 
   useEffect(() => {
     return () => {
@@ -951,13 +1072,18 @@ export default function App() {
     const peers = resolveDeepDivePeerProducts(target);
     const runTimestamp = new Date().toISOString();
 
+    const authoritativeSpentBeforeRun =
+      serverBudgetStatus.snapshot?.totalCommittedCredits ??
+      currentSnapshot.totalCreditsUsedInSession ??
+      0;
+
     const outcome = await runDeepDiveModules({
       product: target.product,
       analysisIds,
       peerProducts: peers,
       existingSlots: currentSnapshot.slots,
       spendingLimitCredits,
-      sessionCreditsAlreadySpent: currentSnapshot.totalCreditsUsedInSession ?? 0,
+      sessionCreditsAlreadySpent: authoritativeSpentBeforeRun,
       liveBalanceCredits: creditBalance.status?.balance ?? null,
       requireExplicitConfirmation: true,
       userConfirmedPaidExecution,
@@ -986,6 +1112,18 @@ export default function App() {
       return;
     }
 
+    if (outcome.budgetSnapshot) {
+      setServerBudgetStatus({
+        loaded: true,
+        storageAvailable: outcome.budgetSnapshot.storageAvailable,
+        snapshot: outcome.budgetSnapshot,
+        errorEn: null,
+        errorMy: null,
+      });
+    } else if (outcome.totalKalodataApiCalls > 0 || outcome.failedIds.length > 0) {
+      void refreshServerBudgetStatus();
+    }
+
     setDeepDiveStatesByProduct((prev) => {
       const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
       return {
@@ -995,8 +1133,9 @@ export default function App() {
           lastAttemptedRunIds: [...analysisIds],
           lastAttemptedRunAt: runTimestamp,
           totalCreditsUsedInSession:
+            outcome.budgetSnapshot?.totalCommittedCredits ??
             Math.round(((current.totalCreditsUsedInSession ?? 0) + outcome.totalCreditsUsed) * 1000) /
-            1000,
+              1000,
           lastRunSummary: outcome.runSummary ?? current.lastRunSummary ?? null,
         },
       };
@@ -1442,8 +1581,14 @@ export default function App() {
             }
             salesWeightPct={salesWeightPct}
             spendingLimitCredits={spendingLimitCredits}
-            onSpendingLimitChange={setSpendingLimitCredits}
+            onSpendingLimitChange={handleSpendingLimitChange}
             liveBalanceCredits={creditBalance.status?.balance ?? null}
+            serverCommittedCredits={serverBudgetStatus.snapshot?.totalCommittedCredits ?? null}
+            budgetStorageUnavailable={
+              serverBudgetStatus.loaded && !serverBudgetStatus.storageAvailable
+            }
+            budgetStorageErrorEn={serverBudgetStatus.errorEn}
+            budgetStorageErrorMy={serverBudgetStatus.errorMy}
             onToggleOption={handleDeepDiveToggleOption}
             onSelectAll={handleDeepDiveSelectAll}
             onClearAll={handleDeepDiveClearAll}
@@ -1516,7 +1661,7 @@ export default function App() {
                 quantity={quantity}
                 onQuantityChange={setQuantity}
                 spendingLimitCredits={spendingLimitCredits}
-                onSpendingLimitChange={setSpendingLimitCredits}
+                onSpendingLimitChange={handleSpendingLimitChange}
                 myanmarLanguageOnly={myanmarLanguageOnly}
                 onMyanmarLanguageOnlyChange={setMyanmarLanguageOnly}
                 myanmarVideoScanPages={myanmarVideoScanPages}

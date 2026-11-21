@@ -296,3 +296,25 @@ export interface DeepDiveCompletedModuleDigest {
   metrics: Array<{ label: string; value: string; status: DataStatus }>;
   unavailableNotes: string[];
 }
+
+/**
+ * Phase 9.3.1: Authoritative server-side persistent budget ledger snapshot.
+ * Computed strictly on the server from persisted reservations & settled charges
+ * (never derived from untrusted client-supplied session spend).
+ */
+export interface DeepDiveServerBudgetSnapshot {
+  scopeFingerprint: string;
+  windowKey: string;
+  backend: 'upstash-rest' | 'sqlite-wal';
+  storageAvailable: boolean;
+  spentCredits: number;
+  uncertainCredits: number;
+  activeReservedCredits: number;
+  totalCommittedCredits: number;
+  configuredLimitCredits: number | null;
+  hardCapCredits: number;
+  effectiveLimitCredits: number;
+  remainingCredits: number;
+  updatedAt: string;
+}
+

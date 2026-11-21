@@ -22,6 +22,7 @@ import type {
   DeepDiveModuleResult,
   DeepDiveResultSection,
   DeepDiveRunCostSummary,
+  DeepDiveServerBudgetSnapshot,
   DeepDiveVideoItem,
 } from '../types/deepDive.ts';
 import {
@@ -85,6 +86,7 @@ export interface DeepDiveEnrichRequestPayload {
   spendingLimitCredits?: number;
   sessionCreditsAlreadySpent?: number;
   runId?: string;
+  idempotencyKey?: string;
   requireExplicitConfirmation?: boolean;
   userConfirmedPaidExecution?: boolean;
   forceRefresh?: boolean;
@@ -101,6 +103,7 @@ export interface DeepDiveEnrichResponsePayload {
   shopDetail?: KalodataShopEnrichmentRecord | null;
   reviewInsight?: KalodataReviewInsightData | null;
   summary?: ProductEnrichmentExecutionSummary;
+  budgetSnapshot?: DeepDiveServerBudgetSnapshot | null;
   error?: string;
   errorMy?: string;
   code?: string;
@@ -185,6 +188,7 @@ async function defaultEnrichProductFn(
       errorMy:
         json?.errorMy ??
         `Kalodata ဒေတာရယူမှု မအောင်မြင်ပါ (HTTP ${response.status})။`,
+      budgetSnapshot: json?.budgetSnapshot ?? null,
     };
   }
   return json;
@@ -660,6 +664,7 @@ interface DeepDiveBatchSession {
   userConfirmedPaidExecution: boolean;
   salesWeightPct: number;
   latestBalanceAfter: number | null;
+  latestBudgetSnapshot: DeepDiveServerBudgetSnapshot | null;
   deps: Required<DeepDiveExecutionDependencies>;
 }
 
@@ -702,6 +707,7 @@ function createBatchSession(
     userConfirmedPaidExecution: options.userConfirmedPaidExecution === true,
     salesWeightPct: options.salesWeightPct ?? 50,
     latestBalanceAfter: null,
+    latestBudgetSnapshot: null,
     deps,
   };
 }
@@ -785,6 +791,7 @@ async function ensureLayerOnSession(
         spendingLimitCredits: session.spendingLimitCredits,
         sessionCreditsAlreadySpent: session.sessionCreditsAlreadySpent,
         runId: session.runId,
+        idempotencyKey: `dd:${session.runId}:${session.canonicalProductId}:productDetail${forceRefresh ? ':refresh' : ''}`,
         requireExplicitConfirmation: session.requireExplicitConfirmation,
         userConfirmedPaidExecution: session.userConfirmedPaidExecution,
         forceRefresh,
@@ -793,11 +800,18 @@ async function ensureLayerOnSession(
       });
 
       if (!res.ok) {
+        if (res.budgetSnapshot) {
+          session.latestBudgetSnapshot = res.budgetSnapshot;
+        }
         throw new ModuleExecutionError(
           res.code ?? 'PRODUCT_DETAIL_FAILED',
           res.error ?? 'Failed to fetch Kalodata Product Detail.',
           res.errorMy ?? 'Kalodata Product Detail ရယူမှု မအောင်မြင်ပါ။'
         );
+      }
+
+      if (res.budgetSnapshot) {
+        session.latestBudgetSnapshot = res.budgetSnapshot;
       }
 
       if (res.productDetail) {
@@ -897,6 +911,7 @@ async function ensureLayerOnSession(
       spendingLimitCredits: session.spendingLimitCredits,
       sessionCreditsAlreadySpent: session.sessionCreditsAlreadySpent,
       runId: session.runId,
+      idempotencyKey: `dd:${session.runId}:${session.canonicalProductId}:reviewInsights${forceRefresh ? ':refresh' : ''}`,
       requireExplicitConfirmation: session.requireExplicitConfirmation,
       userConfirmedPaidExecution: session.userConfirmedPaidExecution,
       forceRefresh,
@@ -905,11 +920,18 @@ async function ensureLayerOnSession(
     });
 
     if (!res.ok) {
+      if (res.budgetSnapshot) {
+        session.latestBudgetSnapshot = res.budgetSnapshot;
+      }
       throw new ModuleExecutionError(
         res.code ?? 'REVIEW_INSIGHT_FAILED',
         res.error ?? 'Failed to fetch Kalodata Comment Insight.',
         res.errorMy ?? 'Kalodata Review / Comment Insight ရယူမှု မအောင်မြင်ပါ။'
       );
+    }
+
+    if (res.budgetSnapshot) {
+      session.latestBudgetSnapshot = res.budgetSnapshot;
     }
 
     if (res.reviewInsight) {
@@ -2378,6 +2400,7 @@ export interface RunDeepDiveModulesOutcome {
   failedIds: DeepDiveAnalysisId[];
   blockedReason?: 'CONFIRMATION_REQUIRED' | 'SPENDING_LIMIT_EXCEEDED' | null;
   runSummary?: DeepDiveRunCostSummary | null;
+  budgetSnapshot?: DeepDiveServerBudgetSnapshot | null;
 }
 
 function toSlotStateFromResult(result: DeepDiveModuleResult): DeepDiveAnalysisSlotState {
@@ -2657,13 +2680,17 @@ export async function runDeepDiveModules(
     }
   }
 
-  const sessionCreditsUsedAfterRun = roundCredits(
-    session.sessionCreditsAlreadySpent + totalCreditsUsed
-  );
-  const remainingBudgetCredits = Math.max(
-    0,
-    roundCredits(budgetGuard.spendingLimitCredits - sessionCreditsUsedAfterRun)
-  );
+  const authoritativeSnapshot = session.latestBudgetSnapshot;
+  const sessionCreditsUsedAfterRun = authoritativeSnapshot
+    ? authoritativeSnapshot.totalCommittedCredits
+    : roundCredits(session.sessionCreditsAlreadySpent + totalCreditsUsed);
+  const effectiveSpendingLimitAfterRun = authoritativeSnapshot
+    ? authoritativeSnapshot.effectiveLimitCredits
+    : budgetGuard.spendingLimitCredits;
+  const remainingBudgetCredits = authoritativeSnapshot
+    ? authoritativeSnapshot.remainingCredits
+    : Math.max(0, roundCredits(effectiveSpendingLimitAfterRun - sessionCreditsUsedAfterRun));
+
   const runSummary: DeepDiveRunCostSummary = {
     runId,
     completedAt: session.deps.nowIsoFn(),
@@ -2683,7 +2710,7 @@ export async function runDeepDiveModules(
         ? 'estimated-unavailable'
         : 'none',
     geminiTokenUsage,
-    spendingLimitCredits: budgetGuard.spendingLimitCredits,
+    spendingLimitCredits: effectiveSpendingLimitAfterRun,
     sessionCreditsUsedAfterRun,
     remainingBudgetCredits,
     liveBalanceAfter: session.latestBalanceAfter,
@@ -2698,5 +2725,6 @@ export async function runDeepDiveModules(
     failedIds,
     blockedReason: null,
     runSummary,
+    budgetSnapshot: authoritativeSnapshot,
   };
 }
