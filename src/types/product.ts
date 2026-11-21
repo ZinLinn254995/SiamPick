@@ -230,7 +230,7 @@ export interface GroundingSourceLink {
 
 export interface ResearchQuotaStatus {
   paused: boolean;
-  reason: 'search-quota-exhausted' | 'manual' | null;
+  reason: 'manual' | null;
   pausedAt: string | null;
 }
 
@@ -242,10 +242,7 @@ export interface ResearchSessionResponse {
   researchedAt: string;
   searchQueries: string[];
   groundingSources: GroundingSourceLink[];
-  researchSourceMode?:
-    | 'kalodata-openapi'
-    | 'google-search-grounding'
-    | 'live-official-storefronts';
+  researchSourceMode?: 'kalodata-openapi';
   costSummary?: ResearchCostSummary;
   config: ResearchConfig;
 }

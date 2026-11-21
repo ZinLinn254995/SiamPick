@@ -56,19 +56,13 @@ export const TRANSLATIONS: Record<
     huntingLoadingDesc: string;
     huntingErrorTitle: string;
     huntingRetryBtn: string;
-    groundingBarLabel: string;
     kalodataSourceBarLabel: string;
     kalodataSourceNote: string;
-    liveStorefrontBarLabel: string;
-    liveStorefrontNote: string;
     groundingSourcesCount: string;
     groundingToggleShow: string;
     groundingToggleHide: string;
     groundingQueriesLabel: string;
-    // Quota Pause & Resume
-    quotaPausedTitle: string;
-    quotaPausedDesc: string;
-    quotaResetUnknownNote: string;
+    // Manual Research Pause & Resume
     manualPausedTitle: string;
     manualPausedDesc: string;
     btnPauseResearch: string;
@@ -495,33 +489,24 @@ export const TRANSLATIONS: Record<
     resumeAndStartBtn: 'Resume & Start Hunting',
     huntingInProgress: 'Verifying Thailand TikTok Shop products...',
     huntingCancelBtn: 'Cancel',
-    huntingLoadingTitle: 'Running live grounded search & listing verification',
+    huntingLoadingTitle: 'Running Kalodata Thailand TikTok Shop product research',
     huntingLoadingDesc:
-      'Searching real Thailand TikTok Shop listings, deduplicating products, checking official pages for live product images and prices, and calculating proportional 100-point scores.',
+      'Fetching verified Thailand TikTok Shop affiliate products from Kalodata OpenAPI, validating product images and metrics, and calculating 100-point comparative scores.',
     huntingErrorTitle: 'Live research could not be completed',
     huntingRetryBtn: 'Try Again',
-    groundingBarLabel: 'Google Search Grounding',
     kalodataSourceBarLabel: 'Kalodata OpenAPI · Thailand TikTok Shop',
     kalodataSourceNote:
       'Live Thailand TikTok Shop affiliate products (commission_rate > 0) retrieved directly from Kalodata Product Rank API using verified TH Category IDs (601152 / 601450). Fields not included in Product Rank (ratings, reviews, competition, shop score) remain honestly marked Unavailable/Unverified.',
-    liveStorefrontBarLabel: 'Live Official Thai Storefronts',
-    liveStorefrontNote:
-      'Google Search Grounding quota is currently limited, so products, THB prices, links, and photos were verified live from official Thai brand storefronts and analyzed by Gemini.',
-    groundingSourcesCount: 'verified web sources',
+    groundingSourcesCount: 'verified Kalodata sources',
     groundingToggleShow: 'View sources',
     groundingToggleHide: 'Hide sources',
-    groundingQueriesLabel: 'Search queries used',
-    quotaPausedTitle: 'Live Research Paused — Google Search Grounding Quota Exhausted',
-    quotaPausedDesc:
-      'Google Search Grounding has reached its current API quota limit, so live product research is paused. SiamPick does not generate unverified or fabricated products without live web evidence.',
-    quotaResetUnknownNote:
-      'Quota reset timing is not reported by the API. Wait until your quota replenishes or configure a billing-enabled Gemini API key in Settings > Secrets, then click Resume & Retry.',
+    groundingQueriesLabel: 'API queries executed',
     manualPausedTitle: 'Live Research Paused',
     manualPausedDesc:
-      'Product research is currently paused. Click Resume Research when you are ready to run live Google Search grounding again.',
+      'Product research is currently paused to prevent accidental API runs. Click Resume Research when you are ready to hunt products again.',
     btnPauseResearch: 'Pause Research',
     btnResumeResearch: 'Resume Research',
-    btnResumeAndRetry: 'Resume & Retry Live Search',
+    btnResumeAndRetry: 'Resume Research',
     qualityGateVerifiedLabel: 'verified products returned',
     qualityGateRequestedLabel: 'requested',
     qualityGateExcludedNote:
@@ -1061,33 +1046,24 @@ export const TRANSLATIONS: Record<
     resumeAndStartBtn: 'ပြန်လည်စတင်ရန် (Resume & Hunt)',
     huntingInProgress: 'တကယ်ရောင်းချနေသော Product များကို စစ်ဆေးရှာဖွေနေပါသည်...',
     huntingCancelBtn: 'ရပ်တန့်ရန်',
-    huntingLoadingTitle: 'Live Google Search Grounding နှင့် Listing စစ်ဆေးမှု လုပ်ဆောင်နေပါသည်',
+    huntingLoadingTitle: 'Kalodata ထိုင်း TikTok Shop Product ရှာဖွေမှု လုပ်ဆောင်နေပါသည်',
     huntingLoadingDesc:
-      'ထိုင်း TikTok Shop Product များကို ရှာဖွေခြင်း၊ ထပ်နေသော Product များဖယ်ရှားခြင်း၊ တရားဝင်စာမျက်နှာမှ ဓာတ်ပုံနှင့်ဈေးနှုန်းစစ်ဆေးခြင်းနှင့် အမှတ်တွက်ချက်ခြင်း ပြုလုပ်နေပါသည်။',
+      'Kalodata OpenAPI မှ ထိုင်း TikTok Shop Affiliate Product များကို ရယူခြင်း၊ ဓာတ်ပုံနှင့် ဒေတာအချက်အလက်များ စစ်ဆေးခြင်းနှင့် အမှတ် ၁၀၀ နှိုင်းယှဉ်တွက်ချက်ခြင်း ပြုလုပ်နေပါသည်။',
     huntingErrorTitle: 'Live Research လုပ်ဆောင်၍ မရနိုင်သေးပါ',
     huntingRetryBtn: 'ထပ်မံကြိုးစားရန်',
-    groundingBarLabel: 'Google Search Grounding',
     kalodataSourceBarLabel: 'Kalodata OpenAPI · ထိုင်း TikTok Shop',
     kalodataSourceNote:
       'အတည်ပြုပြီး TH Category IDs (601152 / 601450) ဖြင့် Kalodata Product Rank API မှ တိုက်ရိုက်ရယူထားသော Affiliate Product များ (commission_rate > 0) ဖြစ်ပါသည်။ API တွင် မပါဝင်သော Rating/Reviews/Competition တို့ကို Unavailable/Unverified အဖြစ် ရိုးသားစွာ ဖော်ပြထားပါသည်။',
-    liveStorefrontBarLabel: 'တရားဝင် ထိုင်း Brand ဆိုင်များမှ Live စစ်ဆေးမှု',
-    liveStorefrontNote:
-      'လက်ရှိ Google Search Grounding Quota ကန့်သတ်ချက်ကြောင့် Product အမည်၊ THB ဈေးနှုန်း၊ တရားဝင် Link နှင့် ဓာတ်ပုံများကို ထိုင်း Brand ဆိုင်စစ်များမှ တိုက်ရိုက် Live စစ်ဆေးပြီး Gemini AI ဖြင့် ခွဲခြမ်းစိတ်ဖြာထားပါသည်။',
-    groundingSourcesCount: 'ခု အတည်ပြုပြီး Web Sources',
+    groundingSourcesCount: 'ခု အတည်ပြုပြီး Kalodata Sources',
     groundingToggleShow: 'Sources ကြည့်ရန်',
     groundingToggleHide: 'Sources ပိတ်ရန်',
-    groundingQueriesLabel: 'အသုံးပြုခဲ့သော ရှာဖွေမှုများ',
-    quotaPausedTitle: 'Live Research ခေတ္တရပ်နားထားသည် — Google Search Grounding Quota ပြည့်နေပါသည်',
-    quotaPausedDesc:
-      'လက်ရှိ API Key တွင် Google Search Grounding Quota ပြည့်နေသဖြင့် Live Research ကို ခေတ္တရပ်နားထားပါသည်။ Web အထောက်အထားမရှိဘဲ AI ဖြင့်ခန့်မှန်းထားသော Unverified Product များကို ဖန်တီးပြသမည်မဟုတ်ပါ။',
-    quotaResetUnknownNote:
-      'Quota ပြန်လည်ပြည့်မည့်အချိန်ကို API မှ အတိအကျမဖော်ပြပါ။ Quota ပြန်ရချိန် သို့မဟုတ် Settings > Secrets တွင် Billing ချိတ်ဆက်ထားသော API Key ထည့်သွင်းပြီးနောက် ပြန်လည်စတင်နိုင်ပါသည်။',
+    groundingQueriesLabel: 'အသုံးပြုခဲ့သော API Query များ',
     manualPausedTitle: 'Live Research ကို ခေတ္တရပ်နားထားပါသည်',
     manualPausedDesc:
-      'Product Research ကို ခေတ္တရပ်နားထားပါသည်။ Live Google Search Grounding ပြန်လည်အသုံးပြုလိုပါက Resume ခလုတ်ကို နှိပ်ပါ။',
+      'မတော်တဆ API ခေါ်ဆိုမှု မဖြစ်စေရန် Product Research ကို ခေတ္တရပ်နားထားပါသည်။ ဆက်လက်ရှာဖွေလိုပါက Resume ခလုတ်ကို နှိပ်ပါ။',
     btnPauseResearch: 'ခေတ္တရပ်နားရန် (Pause)',
     btnResumeResearch: 'ပြန်လည်ဖွင့်ရန် (Resume)',
-    btnResumeAndRetry: 'Resume လုပ်ပြီး ထပ်မံရှာဖွေရန်',
+    btnResumeAndRetry: 'Resume လုပ်ပြီး ပြန်ဖွင့်ရန်',
     qualityGateVerifiedLabel: 'ခု အတည်ပြုနိုင်သော Product ရရှိ',
     qualityGateRequestedLabel: 'ခု တောင်းဆိုမှုအနက်',
     qualityGateExcludedNote:

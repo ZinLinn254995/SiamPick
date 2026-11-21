@@ -80,12 +80,12 @@ export function SavedProductsView({
       return true;
     });
 
-    const peers = filtered.map((r) => r.product);
+    const allPeers = records.map((r) => r.product);
     const mapped = filtered.map((record) => ({
       record,
       evaluation: evaluateProductOpportunity(record.product, {
         salesWeightPct,
-        peerProducts: peers,
+        peerProducts: allPeers,
       }),
     }));
 

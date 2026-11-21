@@ -36,6 +36,7 @@ import {
 } from '../utils/scoring';
 import {
   deriveProductDecisionSummary,
+  getEffectiveAiSuitabilityBand,
   resolveEffectiveAiAnalysis,
 } from '../utils/productAnalytics';
 import {
@@ -241,8 +242,16 @@ export function ResearchReportDrawer({
     },
     {
       label: t.fieldCustomerFeedback,
-      value: `${product.reviewStrengthsEn.length + product.customerComplaintsEn.length} notes`,
-      status: normalizeDataStatus(product.feedbackStatus ?? 'estimated'),
+      value:
+        product.reviewStrengthsEn.length + product.customerComplaintsEn.length > 0
+          ? `${product.reviewStrengthsEn.length + product.customerComplaintsEn.length} notes`
+          : '—',
+      status: normalizeDataStatus(
+        product.feedbackStatus ??
+          (product.reviewStrengthsEn.length + product.customerComplaintsEn.length > 0
+            ? 'estimated'
+            : 'unavailable')
+      ),
     },
     {
       label: t.fieldMarketDemand,
@@ -285,7 +294,7 @@ export function ResearchReportDrawer({
     },
     {
       label: t.fieldAiVideoPotential,
-      value: t.aiVideoLabels[product.aiVideoSuitability],
+      value: t.aiVideoLabels[getEffectiveAiSuitabilityBand(product, evaluation)],
       status: normalizeDataStatus(product.aiVideoStatus ?? 'estimated'),
     },
     {
@@ -362,15 +371,18 @@ export function ResearchReportDrawer({
   };
 
   const handleExportSingleCsv = () => {
-    const evalMap = new Map([[product.id, evaluation]]);
-    const csv = buildProductsExportCsv([product], {
+    const exportProduct = effectiveAiAnalysis
+      ? { ...product, aiAnalysis: effectiveAiAnalysis }
+      : product;
+    const evalMap = new Map([[exportProduct.id, evaluation]]);
+    const csv = buildProductsExportCsv([exportProduct], {
       salesWeightPct,
       evaluations: evalMap,
       researchDate: effectiveDateIso,
-      exportTitle: `SiamPick Report - ${product.name}`,
+      exportTitle: `SiamPick Report - ${exportProduct.name}`,
       language,
     });
-    const safeId = getCanonicalProductId(product).replace(/[^a-zA-Z0-9_-]/g, '');
+    const safeId = getCanonicalProductId(exportProduct).replace(/[^a-zA-Z0-9_-]/g, '');
     triggerFileDownload(
       csv,
       `siampick-report-${safeId || 'product'}.csv`,
@@ -379,15 +391,18 @@ export function ResearchReportDrawer({
   };
 
   const handleExportSingleJson = () => {
-    const evalMap = new Map([[product.id, evaluation]]);
-    const json = buildProductsExportJson([product], {
+    const exportProduct = effectiveAiAnalysis
+      ? { ...product, aiAnalysis: effectiveAiAnalysis }
+      : product;
+    const evalMap = new Map([[exportProduct.id, evaluation]]);
+    const json = buildProductsExportJson([exportProduct], {
       salesWeightPct,
       evaluations: evalMap,
       researchDate: effectiveDateIso,
-      exportTitle: `SiamPick Report - ${product.name}`,
+      exportTitle: `SiamPick Report - ${exportProduct.name}`,
       language,
     });
-    const safeId = getCanonicalProductId(product).replace(/[^a-zA-Z0-9_-]/g, '');
+    const safeId = getCanonicalProductId(exportProduct).replace(/[^a-zA-Z0-9_-]/g, '');
     triggerFileDownload(
       json,
       `siampick-report-${safeId || 'product'}.json`,

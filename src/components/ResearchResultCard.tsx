@@ -19,7 +19,10 @@ import {
 } from '../types/product';
 import { formatThb } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
-import { deriveProductDecisionSummary } from '../utils/productAnalytics';
+import {
+  deriveProductDecisionSummary,
+  getEffectiveAiSuitabilityBand,
+} from '../utils/productAnalytics';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 
@@ -145,15 +148,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
         ? 'text-zinc-900'
         : 'text-amber-700';
 
-  const aiFactor = evaluation.criteria.find((c) => c.key === 'aiContentSuitability');
-  const aiDisplay =
-    aiFactor && aiFactor.normalizedScore !== null
-      ? aiFactor.normalizedScore >= 76
-        ? t.aiVideoLabels.High
-        : aiFactor.normalizedScore >= 58
-          ? t.aiVideoLabels.Good
-          : t.aiVideoLabels.Moderate
-      : t.aiVideoLabels[product.aiVideoSuitability];
+  const aiDisplay = t.aiVideoLabels[getEffectiveAiSuitabilityBand(product, evaluation)];
 
   return (
     <article

@@ -161,8 +161,8 @@ export function getScoreTier(score: number, confidenceLevel: ConfidenceLevel): S
 
 export function getCanonicalProductId(product: ResearchProduct): string {
   const kaloId = product.kalodataMetrics?.productId?.trim();
-  if (kaloId) return kaloId;
-  return product.id.replace(/^kalodata-th-/i, '').trim() || product.id;
+  if (kaloId) return kaloId.replace(/^(?:kalodata-th-|kd[_-])/i, '').trim() || kaloId;
+  return product.id.replace(/^(?:kalodata-th-|kd[_-])/i, '').trim() || product.id;
 }
 
 function clampScore(value: number): number {

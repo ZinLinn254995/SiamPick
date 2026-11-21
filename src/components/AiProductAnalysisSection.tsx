@@ -101,6 +101,7 @@ export function AiProductAnalysisSection({
   } | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+  const inFlightRef = useRef(false);
   const onAnalysisReadyRef = useRef(onAnalysisReady);
   onAnalysisReadyRef.current = onAnalysisReady;
 
@@ -110,6 +111,7 @@ export function AiProductAnalysisSection({
   useEffect(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    inFlightRef.current = false;
     setIsAnalyzing(false);
     setConfirmOpen(false);
     setCacheWarning(null);
@@ -151,7 +153,8 @@ export function AiProductAnalysisSection({
   };
 
   const handleConfirmRunGemini = async () => {
-    if (isAnalyzing) return;
+    if (inFlightRef.current || isAnalyzing) return;
+    inFlightRef.current = true;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -269,6 +272,7 @@ export function AiProductAnalysisSection({
         abortRef.current = null;
         setIsAnalyzing(false);
       }
+      inFlightRef.current = false;
     }
   };
 

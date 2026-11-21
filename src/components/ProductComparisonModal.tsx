@@ -10,7 +10,6 @@ import {
 import {
   ComparisonSelectionItem,
   Language,
-  ResearchProduct,
   SavedProductRecord,
 } from '../types/product';
 import { buildProductComparisonMatrix } from '../utils/productAnalytics';
@@ -30,7 +29,7 @@ interface ProductComparisonModalProps {
   onRemoveItem: (selectionKey: string) => void;
   onAddSavedRecord: (record: SavedProductRecord) => void;
   onClearAll: () => void;
-  onOpenReport: (product: ResearchProduct) => void;
+  onOpenReport: (item: ComparisonSelectionItem) => void;
   onClose: () => void;
   language: Language;
 }
@@ -304,7 +303,7 @@ export function ProductComparisonModal({
 
                           <button
                             type="button"
-                            onClick={() => onOpenReport(p)}
+                            onClick={() => onOpenReport(col.item)}
                             className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 transition-colors cursor-pointer"
                           >
                             <span>{t.cardOpenReport}</span>

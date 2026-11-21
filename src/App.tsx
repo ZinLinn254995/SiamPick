@@ -185,9 +185,7 @@ export default function App() {
   const [sessionMeta, setSessionMeta] = useState<SessionMeta | null>(null);
   const [lastCostSummary, setLastCostSummary] = useState<ResearchCostSummary | null>(null);
   const [balanceRefreshSignal, setBalanceRefreshSignal] = useState<number>(0);
-  const [researchSourceMode, setResearchSourceMode] = useState<
-    'kalodata-openapi' | 'google-search-grounding' | 'live-official-storefronts' | null
-  >(null);
+  const [researchSourceMode, setResearchSourceMode] = useState<'kalodata-openapi' | null>(null);
   const [researchedAt, setResearchedAt] = useState<string | null>(null);
   const [groundingSources, setGroundingSources] = useState<GroundingSourceLink[]>([]);
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
@@ -523,17 +521,14 @@ export default function App() {
         } else if (data && 'quotaPaused' in data && data.quotaPaused) {
           setQuotaStatus({
             paused: true,
-            reason:
-              data.code === 'SEARCH_QUOTA_EXHAUSTED' ? 'search-quota-exhausted' : 'manual',
+            reason: 'manual',
             pausedAt: new Date().toISOString(),
           });
         }
 
-        // When quota is paused, the dedicated Quota Paused banner handles messaging cleanly
+        // When research is paused manually, the dedicated Paused banner handles messaging cleanly
         const isQuotaPauseError =
-          data &&
-          'code' in data &&
-          (data.code === 'SEARCH_QUOTA_EXHAUSTED' || data.code === 'RESEARCH_PAUSED');
+          data && 'code' in data && data.code === 'RESEARCH_PAUSED';
 
         if (!isQuotaPauseError) {
           const messageEn =
@@ -666,18 +661,30 @@ export default function App() {
   };
 
   const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
+    const targetCanonicalId = analysis.canonicalProductId;
+    const matchesProduct = (item: ResearchProduct) =>
+      item.id === productId ||
+      (Boolean(targetCanonicalId) && getCanonicalProductId(item) === targetCanonicalId);
+
     setLiveResults((prev) =>
-      prev.map((item) => (item.id === productId ? { ...item, aiAnalysis: analysis } : item))
+      prev.map((item) => (matchesProduct(item) ? { ...item, aiAnalysis: analysis } : item))
     );
     setSavedRecords((prev) =>
       prev.map((rec) =>
-        rec.id === productId
+        rec.id === productId || matchesProduct(rec.product)
           ? { ...rec, product: { ...rec.product, aiAnalysis: analysis } }
           : rec
       )
     );
+    setCompareItems((prev) =>
+      prev.map((item) =>
+        matchesProduct(item.product)
+          ? { ...item, product: { ...item.product, aiAnalysis: analysis } }
+          : item
+      )
+    );
     setActiveReport((prev) =>
-      prev && prev.product.id === productId
+      prev && matchesProduct(prev.product)
         ? { ...prev, product: { ...prev.product, aiAnalysis: analysis } }
         : prev
     );
@@ -1176,7 +1183,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Honest Live Research Paused Banner (Google Search Quota Exhausted or Manual Pause) */}
+              {/* Manual Research Paused Banner */}
               {!isHunting && quotaStatus.paused && (
                 <div
                   role="status"
@@ -1189,20 +1196,11 @@ export default function App() {
                     />
                     <div className="space-y-1.5 text-xs sm:text-sm">
                       <h3 className="font-semibold text-zinc-950">
-                        {quotaStatus.reason === 'search-quota-exhausted'
-                          ? t.quotaPausedTitle
-                          : t.manualPausedTitle}
+                        {t.manualPausedTitle}
                       </h3>
                       <p className="text-zinc-600 leading-relaxed">
-                        {quotaStatus.reason === 'search-quota-exhausted'
-                          ? t.quotaPausedDesc
-                          : t.manualPausedDesc}
+                        {t.manualPausedDesc}
                       </p>
-                      {quotaStatus.reason === 'search-quota-exhausted' && (
-                        <p className="text-xs text-zinc-500 leading-relaxed">
-                          {t.quotaResetUnknownNote}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -1222,7 +1220,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Live Google Search Grounding Sources Summary & Quality-Over-Quantity Readout */}
+              {/* Kalodata OpenAPI Verified Sources Summary & Quality-Over-Quantity Readout */}
               {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
                 <div className="mt-4 bg-white border border-zinc-200/90 rounded-xl overflow-hidden">
                   <button
@@ -1234,11 +1232,7 @@ export default function App() {
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs min-w-0">
                       <Globe className="w-4 h-4 text-emerald-700 shrink-0" aria-hidden="true" />
                       <span className="font-semibold text-zinc-900 whitespace-nowrap">
-                        {researchSourceMode === 'kalodata-openapi'
-                          ? t.kalodataSourceBarLabel
-                          : researchSourceMode === 'live-official-storefronts'
-                            ? t.liveStorefrontBarLabel
-                            : t.groundingBarLabel}
+                        {t.kalodataSourceBarLabel}
                       </span>
                       <span className="text-zinc-400" aria-hidden="true">
                         ·
@@ -1268,7 +1262,7 @@ export default function App() {
                     </span>
                   </button>
 
-                  {researchSourceMode === 'kalodata-openapi' && (
+                  {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) && (
                     <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600 space-y-1.5">
                       <p>{t.kalodataSourceNote}</p>
                       {lastCostSummary && (
@@ -1309,12 +1303,6 @@ export default function App() {
                           </span>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {researchSourceMode === 'live-official-storefronts' && (
-                    <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 border-t border-zinc-100 text-xs text-zinc-600">
-                      {t.liveStorefrontNote}
                     </div>
                   )}
 
@@ -1622,9 +1610,26 @@ export default function App() {
           setCompareItems([]);
           setComparisonModalOpen(false);
         }}
-        onOpenReport={(prod) => {
+        onOpenReport={(item) => {
           setComparisonModalOpen(false);
-          handleOpenResultReport(prod);
+          if (item.source === 'saved') {
+            const matchedSaved = savedRecords.find((r) => r.id === item.product.id);
+            if (matchedSaved) {
+              handleOpenSavedReport(matchedSaved);
+              return;
+            }
+          }
+          if (item.source === 'history') {
+            const comparisonPeers = compareItems.map((c) => c.product);
+            handleOpenHistoryReport(
+              item.product,
+              item.researchDate ?? item.product.researchedAt ?? new Date().toISOString(),
+              undefined,
+              comparisonPeers
+            );
+            return;
+          }
+          handleOpenResultReport(item.product);
         }}
         onClose={() => setComparisonModalOpen(false)}
         language={language}
