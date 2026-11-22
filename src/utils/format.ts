@@ -22,27 +22,23 @@ export interface TikTokProductLinkInput {
 }
 
 const TIKTOK_NUMERIC_ID_REGEX = /^\d{8,24}$/;
+const CANONICAL_PDP_PATH_REGEX = /^\/th\/pdp\/([^/?#]+)\/(\d{8,24})(?:\/|$)/i;
+const SLUGLESS_OR_LEGACY_PDP_REGEX =
+  /^\/(?:th\/pdp\/(\d{8,24})|shop\/(?:th\/)?pdp(?:\/[^/?#]+)?\/(\d{8,24})|view\/product\/(\d{8,24}))(?:\/|$)/i;
 
-/**
- * Resolves the direct TikTok Shop Thailand Product Detail Page (PDP) URL.
- * Uses `https://shop.tiktok.com/th/pdp/{numericId}` which resolves directly
- * to the product page on both Mobile & Desktop (unlike `/view/product/` which
- * redirects to the TikTok home feed or security check).
- * Returns null if no valid numeric TikTok Shop product ID exists.
- */
-export function getTikTokShopProductUrl(
+const resolvedCanonicalUrlCache = new Map<string, string>();
+
+export function extractCanonicalTikTokNumericId(
   product: TikTokProductLinkInput | null | undefined
 ): string | null {
   if (!product) return null;
 
-  // 1. Prefer canonical numeric TikTok Shop product ID -> direct TH PDP URL
   const rawId = (product.kalodataMetrics?.productId ?? product.id ?? '').trim();
   const cleanNumericId = rawId.replace(/^(kalodata-th-|kd[_-])/i, '').trim();
   if (TIKTOK_NUMERIC_ID_REGEX.test(cleanNumericId)) {
-    return `https://shop.tiktok.com/th/pdp/${cleanNumericId}`;
+    return cleanNumericId;
   }
 
-  // 2. Fallback: extract numeric ID or direct /pdp/ URL from product.sources
   if (Array.isArray(product.sources)) {
     for (const src of product.sources) {
       if (!isSafeHttpUrl(src.url)) continue;
@@ -55,12 +51,102 @@ export function getTikTokShopProductUrl(
           host === 'www.tiktok.com' ||
           host === 'tiktok.com'
         ) {
-          const idMatch = parsed.pathname.match(/\/(?:th\/pdp(?:\/[^/]+)?|shop\/(?:th\/)?pdp(?:\/[^/]+)?|view\/product)\/(\d{8,24})(?:\/|$)/i);
-          if (idMatch?.[1]) {
-            return `https://shop.tiktok.com/th/pdp/${idMatch[1]}`;
+          const canonicalMatch = parsed.pathname.match(CANONICAL_PDP_PATH_REGEX);
+          if (canonicalMatch?.[2]) return canonicalMatch[2];
+          const legacyMatch = parsed.pathname.match(SLUGLESS_OR_LEGACY_PDP_REGEX);
+          const foundId = legacyMatch?.[1] ?? legacyMatch?.[2] ?? legacyMatch?.[3];
+          if (foundId && TIKTOK_NUMERIC_ID_REGEX.test(foundId)) {
+            return foundId;
           }
-          if (parsed.pathname.includes('/pdp/')) {
-            return parsed.toString();
+        }
+      } catch {
+        // Ignore invalid source URL
+      }
+    }
+  }
+
+  return null;
+}
+
+export function isLegacyOrSluglessTikTokUrl(rawUrl: string | null | undefined): boolean {
+  if (!isSafeHttpUrl(rawUrl)) return false;
+  try {
+    const parsed = new URL(rawUrl.trim());
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host !== 'shop.tiktok.com' &&
+      host !== 'shop-th.tiktok.com' &&
+      host !== 'www.tiktok.com' &&
+      host !== 'tiktok.com'
+    ) {
+      return false;
+    }
+    return SLUGLESS_OR_LEGACY_PDP_REGEX.test(parsed.pathname);
+  } catch {
+    return false;
+  }
+}
+
+export function hasResolvedCanonicalTikTokSlug(
+  product: TikTokProductLinkInput | null | undefined
+): boolean {
+  const numericId = extractCanonicalTikTokNumericId(product);
+  if (!numericId) return false;
+  if (resolvedCanonicalUrlCache.has(numericId)) {
+    const cached = resolvedCanonicalUrlCache.get(numericId)!;
+    const match = cached.match(/\/th\/pdp\/([^/?#]+)\/(\d{8,24})/i);
+    if (match?.[1] && match[1].toLowerCase() !== 'product') return true;
+  }
+  if (!Array.isArray(product?.sources)) return false;
+  for (const src of product.sources) {
+    if (!isSafeHttpUrl(src.url)) continue;
+    try {
+      const parsed = new URL(src.url.trim());
+      if (parsed.hostname.toLowerCase() !== 'shop.tiktok.com') continue;
+      const match = parsed.pathname.match(CANONICAL_PDP_PATH_REGEX);
+      if (match?.[1] && match[2] === numericId && match[1].toLowerCase() !== 'product' && !/^\d+$/.test(match[1])) {
+        return true;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  return false;
+}
+
+/**
+ * Resolves the direct TikTok Shop Thailand Product Detail Page (PDP) URL.
+ * Always emits the 2-segment `/th/pdp/{slug}/{numericId}` path (using the resolved
+ * canonical slug when available, or `/th/pdp/product/{numericId}` as fallback) so
+ * Android App Links and desktop browsers land directly on the PDP instead of hitting
+ * slugless `/th/pdp/{id}` redirects or `/view/product/` Security Check pages.
+ */
+export function getTikTokShopProductUrl(
+  product: TikTokProductLinkInput | null | undefined
+): string | null {
+  if (!product) return null;
+
+  const numericId = extractCanonicalTikTokNumericId(product);
+
+  if (numericId && resolvedCanonicalUrlCache.has(numericId)) {
+    return resolvedCanonicalUrlCache.get(numericId)!;
+  }
+
+  // 1. Prefer an already-canonical slugged `/th/pdp/{slug}/{id}` URL from product.sources
+  if (Array.isArray(product.sources)) {
+    for (const src of product.sources) {
+      if (!isSafeHttpUrl(src.url)) continue;
+      try {
+        const parsed = new URL(src.url.trim());
+        const host = parsed.hostname.toLowerCase();
+        if (host === 'shop.tiktok.com' || host === 'shop-th.tiktok.com') {
+          const match = parsed.pathname.match(CANONICAL_PDP_PATH_REGEX);
+          if (match?.[1] && match?.[2] && !/^\d+$/.test(match[1])) {
+            const normalized = `https://shop.tiktok.com/th/pdp/${match[1]}/${match[2]}`;
+            if (match[1].toLowerCase() !== 'product') {
+              resolvedCanonicalUrlCache.set(match[2], normalized);
+            }
+            return normalized;
           }
         }
       } catch {
@@ -69,5 +155,62 @@ export function getTikTokShopProductUrl(
     }
   }
 
+  // 2. Fallback to the direct 2-segment TH PDP URL (`/th/pdp/product/{numericId}`)
+  if (numericId) {
+    return `https://shop.tiktok.com/th/pdp/product/${numericId}`;
+  }
+
   return null;
 }
+
+export async function fetchResolvedTikTokProductUrl(
+  productId: string,
+  signal?: AbortSignal
+): Promise<string | null> {
+  const cleanId = productId.trim().replace(/^(kalodata-th-|kd[_-])/i, '').trim();
+  if (!TIKTOK_NUMERIC_ID_REGEX.test(cleanId)) return null;
+
+  const cached = resolvedCanonicalUrlCache.get(cleanId);
+  if (cached) {
+    const match = cached.match(/\/th\/pdp\/([^/?#]+)\/(\d{8,24})/i);
+    if (match?.[1] && match[1].toLowerCase() !== 'product') {
+      return cached;
+    }
+  }
+
+  try {
+    const res = await fetch(`/api/tiktok-product/${encodeURIComponent(cleanId)}`, {
+      method: 'GET',
+      signal,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok?: boolean; canonicalUrl?: string };
+    if (data?.ok && isSafeHttpUrl(data.canonicalUrl)) {
+      resolvedCanonicalUrlCache.set(cleanId, data.canonicalUrl);
+      return data.canonicalUrl;
+    }
+  } catch {
+    // Ignore abort/network errors cleanly
+  }
+  return null;
+}
+
+export function normalizeTikTokSourceUrl(rawUrl: string): string {
+  if (!isLegacyOrSluglessTikTokUrl(rawUrl)) return rawUrl;
+  return getTikTokShopProductUrl({ id: '', sources: [{ url: rawUrl }] }) ?? rawUrl;
+}
+
+export function getTikTokOpenLauncherUrl(
+  product: TikTokProductLinkInput | null | undefined
+): string | null {
+  const numericId = extractCanonicalTikTokNumericId(product);
+  return numericId ? `/api/tiktok-open/${encodeURIComponent(numericId)}` : null;
+}
+
+export function isAndroidBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /android/i.test(navigator.userAgent ?? '');
+}
+
+
+

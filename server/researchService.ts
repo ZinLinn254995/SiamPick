@@ -27,6 +27,11 @@ import type {
   VideoContentIdea,
 } from '../src/types/product.ts';
 import {
+  buildFallbackTikTokShopUrl,
+  extractNumericTikTokProductId,
+  resolveCanonicalTikTokProductUrlsBatch,
+} from './tiktokLinkService.ts';
+import {
   evaluateProductBatch,
   evaluateProductOpportunity,
 } from '../src/utils/scoring.ts';
@@ -677,9 +682,9 @@ function buildKalodataProductSummary(
   }
 
   const kalodataProductUrl = `https://www.kalodata.com/product/detail?id=${encodeURIComponent(productId)}&region=TH`;
-  const cleanNumericProductId = productId.replace(/^(kalodata-th-|kd[_-])/i, '').trim();
-  const tiktokShopProductUrl = /^\d{8,24}$/.test(cleanNumericProductId)
-    ? `https://shop.tiktok.com/th/pdp/${cleanNumericProductId}`
+  const cleanNumericProductId = extractNumericTikTokProductId(productId) ?? '';
+  const tiktokShopProductUrl = cleanNumericProductId
+    ? buildFallbackTikTokShopUrl(cleanNumericProductId)
     : null;
   const sourceEndpoints = [sourceMode === 'video-rank' ? 'TH Video Rank' : 'TH Product Rank'];
   if (productDetail) sourceEndpoints.push('Product Detail');
@@ -2595,14 +2600,47 @@ export async function runThailandProductResearch(
     })
     .sort((a, b) => b.opportunityScore - a.opportunityScore);
 
+  // Step 6.5: Resolve canonical slugged TikTok Shop Thailand PDP URLs (`https://shop.tiktok.com/th/pdp/{slug}/{id}`)
+  // so Android App Links & desktop open the exact product detail page directly.
+  const numericIdsToResolve = builtProducts
+    .map((p) => extractNumericTikTokProductId(p.kalodataMetrics?.productId ?? p.id))
+    .filter((id): id is string => Boolean(id));
+  if (numericIdsToResolve.length > 0) {
+    const resolvedUrlMap = await resolveCanonicalTikTokProductUrlsBatch(numericIdsToResolve, {
+      concurrency: 6,
+      perItemTimeoutMs: 1800,
+      totalBudgetMs: 2400,
+    });
+    builtProducts = builtProducts.map((product) => {
+      const pid = extractNumericTikTokProductId(product.kalodataMetrics?.productId ?? product.id);
+      const canonicalUrl = pid ? resolvedUrlMap.get(pid) : undefined;
+      if (!canonicalUrl) return product;
+      return {
+        ...product,
+        sources: product.sources.map((src) =>
+          src.sourceType === 'TikTok Shop TH' ||
+          (typeof src.url === 'string' && src.url.includes('shop.tiktok.com/'))
+            ? { ...src, url: canonicalUrl }
+            : src
+        ),
+      };
+    });
+  }
+
   const groundingSources: GroundingSourceLink[] = builtProducts
     .map((product) => {
       const primarySource = product.sources[0];
       if (!primarySource?.url) return null;
+      let domain = 'kalodata.com';
+      try {
+        domain = new URL(primarySource.url).hostname.replace(/^www\./, '');
+      } catch {
+        domain = 'kalodata.com';
+      }
       return {
         title: `${product.name} (${product.shopName})`,
         url: primarySource.url,
-        domain: 'kalodata.com',
+        domain,
       };
     })
     .filter((entry): entry is GroundingSourceLink => entry !== null);

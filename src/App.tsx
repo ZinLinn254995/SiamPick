@@ -66,7 +66,7 @@ import {
   UNIVERSAL_CATEGORIES,
 } from './utils/categoryRegistry';
 import { evaluateProductBatch, getCanonicalProductId } from './utils/scoring';
-import { isSafeHttpUrl } from './utils/format';
+import { isSafeHttpUrl, normalizeTikTokSourceUrl } from './utils/format';
 import {
   computeBestProductSelections,
   DEFAULT_PRODUCT_FILTERS,
@@ -1993,32 +1993,37 @@ export default function App() {
                         </div>
                       )}
                       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                        {groundingSources.map((src, idx) => (
-                          <li
-                            key={`${idx}-${src.url}`}
-                            className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
-                          >
-                            <span className="text-zinc-700 dark:text-zinc-300 truncate">
-                              {src.title}{' '}
-                              <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
-                            </span>
-                            {isSafeHttpUrl(src.url) ? (
-                              <a
-                                href={src.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
-                              >
-                                <span>{t.sourceOpenLink}</span>
-                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                              </a>
-                            ) : (
-                              <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
-                                {t.sourcePendingLink}
+                        {groundingSources.map((src, idx) => {
+                          const resolvedHref = isSafeHttpUrl(src.url)
+                            ? normalizeTikTokSourceUrl(src.url)
+                            : null;
+                          return (
+                            <li
+                              key={`${idx}-${src.url}`}
+                              className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
+                            >
+                              <span className="text-zinc-700 dark:text-zinc-300 truncate">
+                                {src.title}{' '}
+                                <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
                               </span>
-                            )}
-                          </li>
-                        ))}
+                              {resolvedHref ? (
+                                <a
+                                  href={resolvedHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                                >
+                                  <span>{t.sourceOpenLink}</span>
+                                  <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                </a>
+                              ) : (
+                                <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                  {t.sourcePendingLink}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </div>
                   )}

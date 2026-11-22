@@ -52,6 +52,11 @@ import {
   resolveValidImageMime,
 } from './server/imageRetriever.ts';
 import {
+  extractNumericTikTokProductId,
+  renderAndroidTikTokOpenPageHtml,
+  resolveCanonicalTikTokProductUrl,
+} from './server/tiktokLinkService.ts';
+import {
   fetchKalodataCategoryRank,
   fetchKalodataCreditBalance,
   fetchKalodataProductCommentInsight,
@@ -613,6 +618,59 @@ async function startServer() {
       res.send(buffer);
     } catch {
       res.status(502).end();
+    }
+  });
+
+  app.get('/api/tiktok-product/:productId', async (req, res) => {
+    const cleanId = extractNumericTikTokProductId(req.params.productId);
+    if (!cleanId) {
+      res.status(400).json({
+        ok: false,
+        code: 'INVALID_PRODUCT_ID',
+        error: 'Valid numeric TikTok Shop product ID (8-24 digits) is required.',
+      });
+      return;
+    }
+
+    try {
+      const resolved = await resolveCanonicalTikTokProductUrl(cleanId);
+      res.setHeader(
+        'Cache-Control',
+        resolved.slugResolved ? 'public, max-age=3600' : 'no-store'
+      );
+      res.status(200).json({ ok: true, ...resolved });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        code: 'TIKTOK_LINK_RESOLVE_ERROR',
+        error: sanitizeServerError(error, 'Could not resolve TikTok Shop product link.'),
+      });
+    }
+  });
+
+  app.get('/api/tiktok-open/:productId', async (req, res) => {
+    const cleanId = extractNumericTikTokProductId(req.params.productId);
+    if (!cleanId) {
+      res.status(400).type('text/plain').send('Invalid TikTok Shop product ID.');
+      return;
+    }
+
+    try {
+      const resolved = await resolveCanonicalTikTokProductUrl(cleanId);
+      const userAgent = req.get('user-agent') ?? '';
+      if (!/android/i.test(userAgent)) {
+        res.redirect(302, resolved.canonicalUrl);
+        return;
+      }
+
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+      );
+      res.status(200).type('html').send(renderAndroidTikTokOpenPageHtml(resolved));
+    } catch {
+      res.redirect(302, `https://shop.tiktok.com/th/pdp/product/${cleanId}`);
     }
   });
 

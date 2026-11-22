@@ -29,7 +29,17 @@ import {
   ScoreTier,
   VerificationState,
 } from '../types/product';
-import { formatThb, getTikTokShopProductUrl, isSafeHttpUrl } from '../utils/format';
+import {
+  extractCanonicalTikTokNumericId,
+  fetchResolvedTikTokProductUrl,
+  formatThb,
+  getTikTokOpenLauncherUrl,
+  getTikTokShopProductUrl,
+  hasResolvedCanonicalTikTokSlug,
+  isAndroidBrowser,
+  isLegacyOrSluglessTikTokUrl,
+  isSafeHttpUrl,
+} from '../utils/format';
 import { DEFAULT_SPENDING_LIMIT_CREDITS } from '../utils/kalodataPricing';
 import {
   evaluateProductOpportunity,
@@ -126,12 +136,35 @@ export function ResearchReportDrawer({
   language,
 }: ResearchReportDrawerProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedTikTokLink, setCopiedTikTokLink] = useState(false);
   const [activeAiAnalysis, setActiveAiAnalysis] = useState<AiProductAnalysis | null>(null);
+  const [resolvedTikTokUrl, setResolvedTikTokUrl] = useState<string | null>(() =>
+    getTikTokShopProductUrl(product)
+  );
+  const isAndroid = isAndroidBrowser();
 
   useEffect(() => {
     setCopied(false);
+    setCopiedTikTokLink(false);
     setActiveAiAnalysis(null);
   }, [product?.id]);
+
+  useEffect(() => {
+    const syncUrl = getTikTokShopProductUrl(product);
+    setResolvedTikTokUrl(syncUrl);
+
+    if (!product) return;
+    const numericId = extractCanonicalTikTokNumericId(product);
+    if (!numericId || hasResolvedCanonicalTikTokSlug(product)) return;
+
+    const controller = new AbortController();
+    fetchResolvedTikTokProductUrl(numericId, controller.signal).then((canonicalUrl) => {
+      if (canonicalUrl && !controller.signal.aborted) {
+        setResolvedTikTokUrl(canonicalUrl);
+      }
+    });
+    return () => controller.abort();
+  }, [product?.id, product?.kalodataMetrics?.productId]);
 
   useEffect(() => {
     if (!product) return;
@@ -346,7 +379,8 @@ export function ResearchReportDrawer({
     effectiveAiAnalysis
   );
   const km = product.kalodataMetrics;
-  const tiktokShopUrl = getTikTokShopProductUrl(product);
+  const tiktokOpenUrl = getTikTokOpenLauncherUrl(product);
+  const tiktokShopUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
   const myanmarInfo = product.myanmarLanguage ?? detectMyanmarLanguageForProduct(product);
   const lastUpdatedIso = km?.lastEnrichedAt ?? effectiveDateIso;
   const formattedLastUpdated = lastUpdatedIso
@@ -571,6 +605,41 @@ export function ResearchReportDrawer({
                       </span>
                       <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                     </a>
+                    {isAndroid && tiktokOpenUrl && (
+                      <a
+                        href={tiktokOpenUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        <span>
+                          {isMy ? 'TikTok App ဖြင့် တိုက်ရိုက်ဖွင့်ရန်' : 'Open in TikTok App'}
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(tiktokShopUrl);
+                          setCopiedTikTokLink(true);
+                          setTimeout(() => setCopiedTikTokLink(false), 1600);
+                        } catch {
+                          // Ignore clipboard errors in restricted contexts
+                        }
+                      }}
+                      title={isMy ? 'TikTok Shop လင့်ခ်ကူးယူရန်' : 'Copy TikTok Shop link'}
+                      aria-label={isMy ? 'TikTok Shop လင့်ခ်ကူးယူရန်' : 'Copy TikTok Shop link'}
+                      className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      {copiedTikTokLink ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'လင့်ခ်ကူး' : 'Copy')}</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -1594,8 +1663,8 @@ export function ResearchReportDrawer({
                   !product.sources.some(
                     (s) =>
                       s.url === tiktokShopUrl ||
-                      (typeof s.url === 'string' &&
-                        s.url.includes('shop.tiktok.com/view/product/'))
+                      isLegacyOrSluglessTikTokUrl(s.url) ||
+                      (typeof s.url === 'string' && s.url.includes('shop.tiktok.com/th/pdp/'))
                   ) && (
                     <li className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 py-2 border-b border-zinc-100 dark:border-zinc-800/70 text-xs">
                       <div className="text-zinc-700 dark:text-zinc-300 min-w-0">
@@ -1625,7 +1694,9 @@ export function ResearchReportDrawer({
                   const resolvedSourceUrl =
                     tiktokShopUrl &&
                     typeof src.url === 'string' &&
-                    src.url.includes('shop.tiktok.com/view/product/')
+                    (isLegacyOrSluglessTikTokUrl(src.url) ||
+                      src.sourceType === 'TikTok Shop TH' ||
+                      src.url.includes('shop.tiktok.com/th/pdp/'))
                       ? tiktokShopUrl
                       : src.url;
                   return (

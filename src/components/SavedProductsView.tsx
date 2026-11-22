@@ -19,7 +19,12 @@ import {
   SavedProductRecord,
   ScoreTier,
 } from '../types/product';
-import { formatThb, isSafeHttpUrl } from '../utils/format';
+import {
+  formatThb,
+  getTikTokShopProductUrl,
+  isLegacyOrSluglessTikTokUrl,
+  isSafeHttpUrl,
+} from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
 import {
   buildProductsExportCsv,
@@ -524,31 +529,37 @@ export function SavedProductsView({
                               <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.savedNoSources}</p>
                             ) : (
                               <ul className="space-y-1">
-                                {record.sources.map((src, idx) => (
-                                  <li
-                                    key={`${idx}-${src.url ?? src.labelEn}`}
-                                    className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-400"
-                                  >
-                                    <span className="truncate max-w-xl">
-                                      {isMy ? src.labelMy : src.labelEn}
-                                    </span>
-                                    {src.verified && isSafeHttpUrl(src.url) ? (
-                                      <a
-                                        href={src.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
-                                      >
-                                        <span>{t.sourceOpenLink}</span>
-                                        <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                                      </a>
-                                    ) : (
-                                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
-                                        {t.sourcePendingLink}
+                                {record.sources.map((src, idx) => {
+                                  const resolvedUrl =
+                                    isLegacyOrSluglessTikTokUrl(src.url)
+                                      ? (getTikTokShopProductUrl(record) ?? src.url)
+                                      : src.url;
+                                  return (
+                                    <li
+                                      key={`${idx}-${resolvedUrl ?? src.labelEn}`}
+                                      className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-400"
+                                    >
+                                      <span className="truncate max-w-xl">
+                                        {isMy ? src.labelMy : src.labelEn}
                                       </span>
-                                    )}
-                                  </li>
-                                ))}
+                                      {src.verified && isSafeHttpUrl(resolvedUrl) ? (
+                                        <a
+                                          href={resolvedUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                                        >
+                                          <span>{t.sourceOpenLink}</span>
+                                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                        </a>
+                                      ) : (
+                                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                          {t.sourcePendingLink}
+                                        </span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
                               </ul>
                             )}
                           </div>

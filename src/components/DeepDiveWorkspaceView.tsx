@@ -51,7 +51,15 @@ import {
 } from '../utils/deepDiveReportBuilder';
 import { triggerFileDownload } from '../utils/exportReports';
 import { getCategoryLabel } from '../utils/categoryRegistry';
-import { formatThb, getTikTokShopProductUrl } from '../utils/format';
+import {
+  extractCanonicalTikTokNumericId,
+  fetchResolvedTikTokProductUrl,
+  formatThb,
+  getTikTokOpenLauncherUrl,
+  getTikTokShopProductUrl,
+  hasResolvedCanonicalTikTokSlug,
+  isAndroidBrowser,
+} from '../utils/format';
 import {
   DEFAULT_SPENDING_LIMIT_CREDITS,
   formatCredits,
@@ -608,7 +616,12 @@ export function DeepDiveWorkspaceView({
   const [inspectedHistoryId, setInspectedHistoryId] = useState<string | null>(null);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
   const [copiedReportNotice, setCopiedReportNotice] = useState<boolean>(false);
+  const [copiedTikTokLink, setCopiedTikTokLink] = useState<boolean>(false);
+  const [resolvedTikTokUrl, setResolvedTikTokUrl] = useState<string | null>(() =>
+    getTikTokShopProductUrl(product)
+  );
   const finalReportRef = useRef<HTMLElement | null>(null);
+  const isAndroid = isAndroidBrowser();
 
   // Cancel stale confirmation & snapshot inspection if product changes
   useEffect(() => {
@@ -616,7 +629,24 @@ export function DeepDiveWorkspaceView({
     setInspectedHistoryId(null);
     setExpandedHistoryIds([]);
     setCopiedReportNotice(false);
+    setCopiedTikTokLink(false);
   }, [canonicalProductId]);
+
+  useEffect(() => {
+    const syncUrl = getTikTokShopProductUrl(product);
+    setResolvedTikTokUrl(syncUrl);
+
+    const numericId = extractCanonicalTikTokNumericId(product);
+    if (!numericId || hasResolvedCanonicalTikTokSlug(product)) return;
+
+    const controller = new AbortController();
+    fetchResolvedTikTokProductUrl(numericId, controller.signal).then((canonicalUrl) => {
+      if (canonicalUrl && !controller.signal.aborted) {
+        setResolvedTikTokUrl(canonicalUrl);
+      }
+    });
+    return () => controller.abort();
+  }, [canonicalProductId, product?.id, product?.kalodataMetrics?.productId]);
 
   const evaluation =
     providedEvaluation ??
@@ -1003,20 +1033,58 @@ export function DeepDiveWorkspaceView({
               </dl>
 
               {(() => {
-                const tiktokUrl = getTikTokShopProductUrl(product);
+                const tiktokOpenUrl = getTikTokOpenLauncherUrl(product);
+                const tiktokUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
                 if (!tiktokUrl) return null;
                 return (
-                  <a
-                    href={tiktokUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <span>
-                      {isMy ? 'TikTok Shop တွင် ကြည့်ရန်' : 'Open on TikTok Shop'}
-                    </span>
-                    <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={tiktokUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <span>
+                        {isMy ? 'TikTok Shop တွင် ကြည့်ရန်' : 'Open on TikTok Shop'}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    </a>
+                    {isAndroid && tiktokOpenUrl && (
+                      <a
+                        href={tiktokOpenUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <span>
+                          {isMy ? 'TikTok App ဖြင့် ဖွင့်ရန်' : 'Open in TikTok App'}
+                        </span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(tiktokUrl);
+                          setCopiedTikTokLink(true);
+                          setTimeout(() => setCopiedTikTokLink(false), 1600);
+                        } catch {
+                          // Ignore clipboard errors
+                        }
+                      }}
+                      title={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
+                      aria-label={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
+                      className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      {copiedTikTokLink ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'ကူးရန်' : 'Copy')}</span>
+                    </button>
+                  </div>
                 );
               })()}
             </div>
