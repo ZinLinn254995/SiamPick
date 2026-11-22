@@ -21,6 +21,10 @@ import { evaluateProductOpportunity } from './src/utils/scoring.ts';
 import { isValidProductCategory, UNIVERSAL_CATEGORIES } from './src/utils/categoryRegistry.ts';
 import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
 import { generateDeepDiveAiStrategy } from './server/deepDiveAiService.ts';
+import {
+  DeepDiveVideoCreativeApiError,
+  generateDeepDiveVideoCreativeBlueprint,
+} from './server/deepDiveVideoCreativeService.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
 import {
   importTikTokProductFromLink,
@@ -29,11 +33,21 @@ import {
   type LinkImportWorkspaceIds,
 } from './server/linkImportService.ts';
 import {
+  SameProductApiError,
+  searchSameProductEarlyMoverLinks,
+  suggestSameProductKeywords,
+} from './server/sameProductService.ts';
+import {
   BudgetStorageUnavailableError,
   getDefaultBudgetLedger,
   resolveAuthoritativeBudgetScope,
 } from './server/budgetLedgerService.ts';
-import type { DeepDiveAnalysisId, DeepDiveCompletedModuleDigest } from './src/types/deepDive.ts';
+import type {
+  DeepDiveAnalysisId,
+  DeepDiveCompletedModuleDigest,
+  DeepDiveVideoCreativeOptions,
+} from './src/types/deepDive.ts';
+import { normalizeDeepDiveVideoCreativeOptions } from './src/utils/deepDiveRegistry.ts';
 import {
   clampDeepDiveCount,
   clampMyanmarReviewScanLimit,
@@ -1065,6 +1079,151 @@ async function startServer() {
     }
   });
 
+  // Deep Dive Module #09: AI Ad Video Creative Studio (0 cr default, optional +0.1 cr Kalodata video/rank + separate Gemini AI billing)
+  app.post('/api/deep-dive/video-creative', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = req.body as Record<string, unknown> | undefined;
+      const rawProduct =
+        body?.product && typeof body.product === 'object'
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid product object (id, name, category) is required for AI Ad Video Creative Studio.',
+          errorMy: 'AI Ad Video Creative Studio အတွက် မှန်ကန်သော Product အချက်အလက် လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      if (body?.userConfirmedPaidExecution !== true) {
+        res.status(400).json({
+          ok: false,
+          code: 'CONFIRMATION_REQUIRED',
+          error:
+            'Explicit user confirmation is required before running AI Ad Video Creative Studio. No API call was made.',
+          errorMy:
+            'AI Ad Video Creative Studio မလုပ်ဆောင်မီ အသုံးပြုသူ၏ အတည်ပြုချက် လိုအပ်ပါသည်။ API မခေါ်ဆိုထားပါ။',
+        });
+        return;
+      }
+
+      const rawOptions =
+        body?.options && typeof body.options === 'object' && !Array.isArray(body.options)
+          ? (body.options as Record<string, unknown>)
+          : {};
+
+      const validIds = new Set<DeepDiveAnalysisId>([
+        'product-intelligence',
+        'sales-market-intelligence',
+        'affiliate-profit-analysis',
+        'creator-competition-analysis',
+        'video-intelligence',
+        'customer-review-intelligence',
+        'market-competitor-comparison',
+      ]);
+
+      const completedModules: DeepDiveCompletedModuleDigest[] = Array.isArray(body?.completedModules)
+        ? body.completedModules
+            .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+            .filter(
+              (item) =>
+                typeof item.analysisId === 'string' &&
+                validIds.has(item.analysisId as DeepDiveAnalysisId)
+            )
+            .slice(0, 7)
+            .map((item) => ({
+              analysisId: item.analysisId as DeepDiveAnalysisId,
+              outcome: item.outcome === 'unavailable' ? 'unavailable' : 'completed',
+              dataStatus:
+                item.dataStatus === 'verified' ||
+                item.dataStatus === 'estimated' ||
+                item.dataStatus === 'unverified' ||
+                item.dataStatus === 'unavailable'
+                  ? item.dataStatus
+                  : 'unverified',
+              headlineEn: typeof item.headlineEn === 'string' ? item.headlineEn.slice(0, 240) : '',
+              summaryEn: typeof item.summaryEn === 'string' ? item.summaryEn.slice(0, 500) : '',
+              metrics: Array.isArray(item.metrics)
+                ? item.metrics
+                    .filter((m): m is Record<string, unknown> => Boolean(m) && typeof m === 'object')
+                    .slice(0, 12)
+                    .map((m) => ({
+                      label: typeof m.label === 'string' ? m.label.slice(0, 80) : '',
+                      value: typeof m.value === 'string' ? m.value.slice(0, 120) : '',
+                      status:
+                        m.status === 'verified' ||
+                        m.status === 'estimated' ||
+                        m.status === 'unverified' ||
+                        m.status === 'unavailable'
+                          ? m.status
+                          : 'unverified',
+                    }))
+                : [],
+              unavailableNotes: Array.isArray(item.unavailableNotes)
+                ? item.unavailableNotes
+                    .filter((n): n is string => typeof n === 'string' && n.trim().length > 0)
+                    .map((n) => n.trim().slice(0, 220))
+                    .slice(0, 5)
+                : [],
+            }))
+        : [];
+
+      const rawLimit =
+        typeof body?.spendingLimitCredits === 'number' && Number.isFinite(body.spendingLimitCredits)
+          ? Math.max(
+              MIN_SPENDING_LIMIT_CREDITS,
+              Math.min(MAX_SPENDING_LIMIT_CREDITS, body.spendingLimitCredits)
+            )
+          : DEFAULT_SPENDING_LIMIT_CREDITS;
+
+      const product = rawProduct as unknown as ResearchProduct;
+      const result = await generateDeepDiveVideoCreativeBlueprint({
+        product,
+        options: normalizeDeepDiveVideoCreativeOptions(
+          rawOptions as Partial<DeepDiveVideoCreativeOptions>
+        ),
+        completedModules,
+        spendingLimitCredits: rawLimit,
+        userConfirmedPaidExecution: true,
+        forceRefresh: body?.forceRefresh === true,
+        idempotencyKey: typeof body?.idempotencyKey === 'string' ? body.idempotencyKey : undefined,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof DeepDiveVideoCreativeApiError) {
+        res.status(error.status).json({
+          ok: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+          ...(error.budgetSnapshot ? { budgetSnapshot: error.budgetSnapshot } : {}),
+        });
+        return;
+      }
+      res.status(500).json({
+        ok: false,
+        code: 'VIDEO_CREATIVE_INTERNAL_ERROR',
+        error: sanitizeServerError(
+          error,
+          'Unexpected server error while running AI Ad Video Creative Studio.'
+        ),
+        errorMy: 'AI Ad Video Creative Studio လုပ်ဆောင်ရာတွင် Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
   const sanitizeWorkspaceIds = (raw: unknown): LinkImportWorkspaceIds | undefined => {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
     const obj = raw as Record<string, unknown>;
@@ -1239,6 +1398,167 @@ async function startServer() {
         code: 'KALODATA_API_ERROR',
         error: sanitizeServerError(error, 'Unexpected server error while importing TikTok Shop product link.'),
         errorMy: 'TikTok Shop Product Link ထည့်သွင်းစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
+  // Same-Product Early-Mover Link Hunter: 0-Kalodata-Credit Core Keyword Suggestions
+  app.post('/api/same-product/keywords', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawProduct =
+        body.product && typeof body.product === 'object' && !Array.isArray(body.product)
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid product object (id, name, category) is required for keyword suggestions.',
+          errorMy: 'Keyword အကြံပြုရန် မှန်ကန်သော Product အချက်အလက် လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      const result = await suggestSameProductKeywords(rawProduct as unknown as ResearchProduct, {
+        useGemini: body.useGemini !== false,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        code: 'KEYWORD_SUGGESTION_ERROR',
+        error: sanitizeServerError(error, 'Unexpected error generating Same-Product keywords.'),
+        errorMy: 'Same-Product Keyword ထုတ်ယူစဉ် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
+  // Same-Product Early-Mover Link Hunter: Exact Same Product + Different Shop + Gemini Vision Check
+  app.post('/api/same-product/search', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawProduct =
+        body.product && typeof body.product === 'object' && !Array.isArray(body.product)
+          ? (body.product as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid product object (id, name, category) is required for Same-Product search.',
+          errorMy: 'Same-Product ရှာဖွေရန် မှန်ကန်သော Product အချက်အလက် (id, name, category) လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      const keyword =
+        typeof body.keyword === 'string' ? body.keyword.trim().slice(0, 80) : undefined;
+      const priceTolerancePct =
+        typeof body.priceTolerancePct === 'number' && Number.isFinite(body.priceTolerancePct)
+          ? Math.max(15, Math.min(80, Math.round(body.priceTolerancePct)))
+          : 35;
+
+      let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+      if (
+        body.resolvedCategoryIdMap &&
+        typeof body.resolvedCategoryIdMap === 'object' &&
+        !Array.isArray(body.resolvedCategoryIdMap)
+      ) {
+        const sanitizedMap: Partial<Record<ProductCategory, string>> = {};
+        for (const [slug, id] of Object.entries(
+          body.resolvedCategoryIdMap as Record<string, unknown>
+        )) {
+          if (
+            isValidProductCategory(slug) &&
+            typeof id === 'string' &&
+            isValidKalodataId(id.trim())
+          ) {
+            sanitizedMap[slug] = id.trim();
+          }
+        }
+        if (Object.keys(sanitizedMap).length > 0) {
+          resolvedCategoryIdMap = sanitizedMap;
+        }
+      }
+
+      const idempotencyKey =
+        typeof body.idempotencyKey === 'string' &&
+        /^[A-Za-z0-9:_-]{4,140}$/.test(body.idempotencyKey.trim())
+          ? body.idempotencyKey.trim()
+          : undefined;
+
+      const result = await searchSameProductEarlyMoverLinks({
+        product: rawProduct as unknown as ResearchProduct,
+        keyword,
+        priceTolerancePct,
+        includeCloseVariants: body.includeCloseVariants !== false,
+        includeZeroSales: body.includeZeroSales === true,
+        enableVisualVerification: body.enableVisualVerification !== false,
+        useCategoryFilter: body.useCategoryFilter !== false,
+        spendingLimitCredits: clampLinkSpendingLimit(body.spendingLimitCredits),
+        userConfirmedPaidExecution: body.userConfirmedPaidExecution === true,
+        forceRefresh: body.forceRefresh === true,
+        idempotencyKey,
+        resolvedCategoryIdMap,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof SameProductApiError) {
+        res.status(error.status).json({
+          ok: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+          quotaPaused: error.code === 'RESEARCH_PAUSED',
+          ...(error.budgetSnapshot ? { budgetSnapshot: error.budgetSnapshot } : {}),
+        });
+        return;
+      }
+
+      if (error instanceof BudgetStorageUnavailableError) {
+        res.status(503).json({
+          ok: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+        });
+        return;
+      }
+
+      const safeErrSummary = sanitizeServerError(
+        error,
+        'Unexpected server error during Same-Product search.'
+      );
+      console.error('[same-product/search] unhandled error:', safeErrSummary);
+
+      res.status(500).json({
+        ok: false,
+        code: 'SAME_PRODUCT_INTERNAL_ERROR',
+        error: safeErrSummary,
+        errorMy: 'Same-Product ရှာဖွေစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
       });
     }
   });

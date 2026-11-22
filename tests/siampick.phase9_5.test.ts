@@ -457,9 +457,12 @@ test('Phase 9.5.2: All 8 Deep Dive modules execute end-to-end, separate Local vs
   const enrichCalls: DeepDiveEnrichRequestPayload[] = [];
   let aiCalls = 0;
 
+  const phase95Ids = ALL_DEEP_DIVE_ANALYSIS_IDS.filter(
+    (id) => id !== 'ad-video-creative-blueprint'
+  );
   const outcome = await runDeepDiveModules({
     product: fastProd,
-    analysisIds: [...ALL_DEEP_DIVE_ANALYSIS_IDS],
+    analysisIds: phase95Ids,
     peerProducts: [fastProd, peerProd],
     spendingLimitCredits: 2.0,
     requireExplicitConfirmation: true,
@@ -525,7 +528,7 @@ test('Phase 9.5.2: All 8 Deep Dive modules execute end-to-end, separate Local vs
   assert.equal(outcome.slots['ai-strategic-recommendation']?.result?.creditsUsed, 0);
   assert.equal(outcome.slots['ai-strategic-recommendation']?.result?.aiApiCallsMade, 1);
 
-  for (const id of ALL_DEEP_DIVE_ANALYSIS_IDS) {
+  for (const id of phase95Ids) {
     if (id !== 'ai-strategic-recommendation') {
       assert.equal(
         outcome.slots[id]?.result?.isAiInterpretation,
@@ -1074,7 +1077,7 @@ test('Phase 9.5.6: History hydration, 8-section Final Report, exports, and Produ
     salesWeightPct: 50,
     generatedAt: '2026-11-21T12:16:00.000Z',
   });
-  assert.equal(report.sections.length, 8);
+  assert.equal(report.sections.length, 9);
   assert.equal(report.aiVerdict, null);
   assert.ok(buildDeepDiveReportMarkdown(report, 'en').includes('Deep Dive Final Report'));
   assert.ok(buildDeepDiveReportMarkdown(report, 'my').includes('Deep Dive စုစည်းအစီရင်ခံစာ'));

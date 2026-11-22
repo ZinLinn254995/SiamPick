@@ -498,19 +498,23 @@ return { tostring(spentNow), tostring(uncertainNow), tostring(activeNow), cfg or
 // ============================================================================
 
 export class PersistentBudgetLedger {
-  private readonly backend: BudgetStorageBackend;
+  private backend: BudgetStorageBackend;
+  private readonly requireDistributed: boolean;
   private readonly hardCapCredits: number;
   private readonly nowMsFn: () => number;
   private readonly fetchFn: typeof fetch;
   private readonly upstashUrl: string | null = null;
   private readonly upstashToken: string | null = null;
-  private readonly sqlitePath: string | null = null;
+  private sqlitePath: string | null = null;
   private db: DatabaseSync | null = null;
+  private upstashEverSucceeded = false;
 
   constructor(options?: BudgetLedgerOptions) {
     this.hardCapCredits = resolveHardCapCredits(options?.hardCapCredits);
     this.nowMsFn = options?.nowMsFn ?? (() => Date.now());
     this.fetchFn = options?.fetchFn ?? globalThis.fetch.bind(globalThis);
+    this.requireDistributed =
+      options?.requireDistributedStore === true || isServerlessMultiInstanceEnv();
 
     if (options?.forceDisabled || process.env.SIAMPICK_BUDGET_STORE_DISABLED === 'true') {
       throw new BudgetStorageUnavailableError(
@@ -519,18 +523,35 @@ export class PersistentBudgetLedger {
       );
     }
 
-    const upstashUrl = (
+    const stripOuterQuotes = (raw: string): string => {
+      const trimmed = raw.trim();
+      if (
+        trimmed.length >= 2 &&
+        ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+          (trimmed.startsWith("'") && trimmed.endsWith("'")))
+      ) {
+        return trimmed.slice(1, -1).trim();
+      }
+      return trimmed;
+    };
+
+    const upstashUrl = stripOuterQuotes(
       options?.upstashRestUrl ??
-      process.env.UPSTASH_REDIS_REST_URL ??
-      process.env.KV_REST_API_URL ??
-      ''
-    ).trim();
-    const upstashToken = (
+        process.env.UPSTASH_REDIS_REST_URL ??
+        process.env.KV_REST_API_URL ??
+        ''
+    );
+    const upstashToken = stripOuterQuotes(
       options?.upstashRestToken ??
-      process.env.UPSTASH_REDIS_REST_TOKEN ??
-      process.env.KV_REST_API_TOKEN ??
-      ''
-    ).trim();
+        process.env.UPSTASH_REDIS_REST_TOKEN ??
+        process.env.KV_REST_API_TOKEN ??
+        ''
+    ).replace(/^Bearer\s+/i, '').trim();
+
+    const rawSqlitePath =
+      options?.sqlitePath ??
+      process.env.SIAMPICK_BUDGET_DB_PATH ??
+      path.join(process.cwd(), '.data', 'siampick-budget.sqlite');
 
     if (upstashUrl && upstashToken) {
       let parsedUrl: URL;
@@ -550,22 +571,22 @@ export class PersistentBudgetLedger {
       this.backend = 'upstash-rest';
       this.upstashUrl = upstashUrl.replace(/\/+$/, '');
       this.upstashToken = upstashToken;
+      if (!this.requireDistributed) {
+        try {
+          this.sqlitePath = validateSafeSqlitePath(rawSqlitePath);
+        } catch {
+          this.sqlitePath = null;
+        }
+      }
       return;
     }
 
-    const requireDistributed =
-      options?.requireDistributedStore === true || isServerlessMultiInstanceEnv();
-    if (requireDistributed) {
+    if (this.requireDistributed) {
       throw new BudgetStorageUnavailableError(
         'Multi-instance serverless runtime detected without distributed persistent budget storage. Configure UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (or Vercel KV KV_REST_API_URL + KV_REST_API_TOKEN). Paid APIs are blocked fail-closed (no unsafe in-memory fallback).',
         'Serverless Multi-instance ပတ်ဝန်းကျင်တွင် Distributed Persistent Budget Storage (Upstash Redis / Vercel KV) မချိတ်ဆက်ထားသဖြင့် Paid API များကို Fail-Closed ပိတ်ထားပါသည်။ In-memory Map ဖြင့် အစားမထိုးပါ။'
       );
     }
-
-    const rawSqlitePath =
-      options?.sqlitePath ??
-      process.env.SIAMPICK_BUDGET_DB_PATH ??
-      path.join(process.cwd(), '.data', 'siampick-budget.sqlite');
 
     this.sqlitePath = validateSafeSqlitePath(rawSqlitePath);
     this.backend = 'sqlite-wal';
@@ -824,6 +845,30 @@ export class PersistentBudgetLedger {
     };
   }
 
+  private trySwitchToPersistentSqliteOnInitialAuthReject(error: unknown): boolean {
+    if (
+      this.backend !== 'upstash-rest' ||
+      this.requireDistributed ||
+      this.upstashEverSucceeded ||
+      !this.sqlitePath
+    ) {
+      return false;
+    }
+    const authRejected =
+      error instanceof BudgetStorageUnavailableError &&
+      (error as BudgetStorageUnavailableError & { initialUpstashAuthRejected?: boolean })
+        .initialUpstashAuthRejected === true;
+    if (!authRejected) {
+      return false;
+    }
+    this.initSqlite(this.sqlitePath);
+    this.backend = 'sqlite-wal';
+    console.warn(
+      '[budget-ledger] Upstash REST returned HTTP 401/403 on single-instance host; switched to persistent local SQLite WAL ledger.'
+    );
+    return true;
+  }
+
   private async runUpstashCommand(command: Array<string | number>): Promise<unknown> {
     if (!this.upstashUrl || !this.upstashToken) {
       throw new BudgetStorageUnavailableError(
@@ -841,6 +886,16 @@ export class PersistentBudgetLedger {
         signal: AbortSignal.timeout(UPSTASH_TIMEOUT_MS),
       });
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          const authErr = new BudgetStorageUnavailableError(
+            `Distributed budget storage rejected credentials (HTTP ${response.status}). Check UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN in Settings > Secrets (or remove them in single-instance preview to use local SQLite). Paid APIs are blocked fail-closed (0 credits charged).`,
+            `Upstash Redis Budget Storage ချိတ်ဆက်မှု ခွင့်ပြုချက်မရပါ (HTTP ${response.status})။ ဘေးကင်းစေရန် Paid API ကို ပိတ်ထားပါသည် (0 cr သာ)။ Settings > Secrets တွင် UPSTASH_REDIS_REST_URL နှင့် UPSTASH_REDIS_REST_TOKEN ကို မှန်ကန်အောင် ပြန်စစ်ပါ (သို့မဟုတ် Single-instance Preview အတွက် ၎င်းတို့ကို ဖယ်ရှားပါက Local SQLite ကို အလိုအလျောက် သုံးပါမည်)။`
+          ) as BudgetStorageUnavailableError & { initialUpstashAuthRejected?: boolean };
+          if (!this.upstashEverSucceeded) {
+            authErr.initialUpstashAuthRejected = true;
+          }
+          throw authErr;
+        }
         throw new BudgetStorageUnavailableError(
           `Distributed budget storage returned HTTP ${response.status}. Paid APIs are blocked fail-closed.`
         );
@@ -854,6 +909,7 @@ export class PersistentBudgetLedger {
           `Distributed budget storage error: ${payload?.error ?? 'invalid response'}. Paid APIs are blocked fail-closed.`
         );
       }
+      this.upstashEverSucceeded = true;
       return payload.result;
     } catch (error) {
       if (error instanceof BudgetStorageUnavailableError) throw error;
@@ -887,15 +943,23 @@ export class PersistentBudgetLedger {
     }
 
     const k = this.upstashKeys(scopeKey);
-    const res = (await this.runUpstashCommand([
-      'EVAL',
-      LUA_GET_SNAPSHOT,
-      2,
-      k.scopeKeyRedis,
-      k.activeSetKey,
-      k.resPrefix,
-      String(nowMs),
-    ])) as string[];
+    let res: string[];
+    try {
+      res = (await this.runUpstashCommand([
+        'EVAL',
+        LUA_GET_SNAPSHOT,
+        2,
+        k.scopeKeyRedis,
+        k.activeSetKey,
+        k.resPrefix,
+        String(nowMs),
+      ])) as string[];
+    } catch (error) {
+      if (this.trySwitchToPersistentSqliteOnInitialAuthReject(error)) {
+        return this.getScopeSnapshot(scopeKey, requestedLimitCredits, nowMs);
+      }
+      throw error;
+    }
 
     const spent = roundCredits3(Number(res?.[0] ?? 0));
     const uncertain = roundCredits3(Number(res?.[1] ?? 0));
@@ -933,17 +997,25 @@ export class PersistentBudgetLedger {
     }
 
     const k = this.upstashKeys(scopeKey);
-    const res = (await this.runUpstashCommand([
-      'EVAL',
-      LUA_SET_LIMIT,
-      2,
-      k.scopeKeyRedis,
-      k.activeSetKey,
-      k.resPrefix,
-      String(nowMs),
-      String(clamped),
-      String(SCOPE_TTL_SECONDS),
-    ])) as string[];
+    let res: string[];
+    try {
+      res = (await this.runUpstashCommand([
+        'EVAL',
+        LUA_SET_LIMIT,
+        2,
+        k.scopeKeyRedis,
+        k.activeSetKey,
+        k.resPrefix,
+        String(nowMs),
+        String(clamped),
+        String(SCOPE_TTL_SECONDS),
+      ])) as string[];
+    } catch (error) {
+      if (this.trySwitchToPersistentSqliteOnInitialAuthReject(error)) {
+        return this.setConfiguredSpendingLimit(scopeKey, limitCredits, nowMs);
+      }
+      throw error;
+    }
 
     return this.buildSnapshot(
       scopeKey,
@@ -1092,27 +1164,35 @@ export class PersistentBudgetLedger {
           )
         : 0;
 
-    const res = (await this.runUpstashCommand([
-      'EVAL',
-      LUA_RESERVE,
-      4,
-      k.scopeKeyRedis,
-      k.activeSetKey,
-      `${k.idemPrefix}${idempotencyKey}`,
-      `${k.resPrefix}${reservationId}`,
-      k.resPrefix,
-      String(nowMs),
-      String(reserveCredits),
-      String(requestedLimitVal),
-      String(this.hardCapCredits),
-      String(DEFAULT_SPENDING_LIMIT_CREDITS),
-      reservationId,
-      runId ?? '',
-      operation,
-      String(expiresAtMs),
-      String(SCOPE_TTL_SECONDS),
-      idempotencyKey,
-    ])) as string[];
+    let res: string[];
+    try {
+      res = (await this.runUpstashCommand([
+        'EVAL',
+        LUA_RESERVE,
+        4,
+        k.scopeKeyRedis,
+        k.activeSetKey,
+        `${k.idemPrefix}${idempotencyKey}`,
+        `${k.resPrefix}${reservationId}`,
+        k.resPrefix,
+        String(nowMs),
+        String(reserveCredits),
+        String(requestedLimitVal),
+        String(this.hardCapCredits),
+        String(DEFAULT_SPENDING_LIMIT_CREDITS),
+        reservationId,
+        runId ?? '',
+        operation,
+        String(expiresAtMs),
+        String(SCOPE_TTL_SECONDS),
+        idempotencyKey,
+      ])) as string[];
+    } catch (error) {
+      if (this.trySwitchToPersistentSqliteOnInitialAuthReject(error)) {
+        return this.atomicReserveBudget({ ...params, nowMs });
+      }
+      throw error;
+    }
 
     const code = res?.[0] ?? '';
     const returnedResId = res?.[1] ?? '';

@@ -141,8 +141,8 @@ function makeProductForMode(mode: ResearchMode, id: string): ResearchProduct {
   };
 }
 
-test('Phase 9.1 Registry: Defines all 8 independent Deep Dive options with unique IDs and all 6 bilingual Progressive Disclosure fields', () => {
-  assert.equal(DEEP_DIVE_ANALYSIS_OPTIONS.length, 8);
+test('Phase 9.1 Registry: Defines all 9 independent Deep Dive options with unique IDs and all 6 bilingual Progressive Disclosure fields', () => {
+  assert.equal(DEEP_DIVE_ANALYSIS_OPTIONS.length, 9);
   const expectedIds: DeepDiveAnalysisId[] = [
     'product-intelligence',
     'sales-market-intelligence',
@@ -152,11 +152,12 @@ test('Phase 9.1 Registry: Defines all 8 independent Deep Dive options with uniqu
     'customer-review-intelligence',
     'market-competitor-comparison',
     'ai-strategic-recommendation',
+    'ad-video-creative-blueprint',
   ];
   assert.deepEqual(ALL_DEEP_DIVE_ANALYSIS_IDS, expectedIds);
 
   const uniqueIds = new Set(DEEP_DIVE_ANALYSIS_OPTIONS.map((o) => o.id));
-  assert.equal(uniqueIds.size, 8);
+  assert.equal(uniqueIds.size, 9);
 
   for (const option of DEEP_DIVE_ANALYSIS_OPTIONS) {
     assert.ok(option.nameEn.trim().length > 0);
@@ -254,9 +255,9 @@ test('Phase 9.1 Manual Selection & Progressive Disclosure: Select/Clear All, ind
   assert.deepEqual(state.expandedIds, ['customer-review-intelligence']);
   assert.deepEqual(state.selectedIds, ['product-intelligence', 'video-intelligence']);
 
-  // Select All -> all 8 selected, expansion state preserved
+  // Select All -> all 9 selected, expansion state preserved
   state = selectAllDeepDiveOptions(state);
-  assert.equal(state.selectedIds.length, 8);
+  assert.equal(state.selectedIds.length, 9);
   assert.deepEqual(state.selectedIds, [...ALL_DEEP_DIVE_ANALYSIS_IDS]);
   assert.deepEqual(state.expandedIds, ['customer-review-intelligence']);
   assert.equal(canRunDeepDiveSelection(state), true);

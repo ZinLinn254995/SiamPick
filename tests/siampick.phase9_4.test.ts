@@ -470,8 +470,8 @@ test('Phase 9.4.4: Final Report compiles all 8 sections honestly (never hiding/f
     generatedAt: '2026-11-21T12:01:00.000Z',
   });
 
-  // All 8 mandatory domains MUST always be present
-  assert.equal(partialReport.sections.length, 8);
+  // All 9 mandatory domains MUST always be present
+  assert.equal(partialReport.sections.length, 9);
   assert.deepEqual(
     partialReport.sections.map((s) => s.id),
     [
@@ -483,11 +483,12 @@ test('Phase 9.4.4: Final Report compiles all 8 sections honestly (never hiding/f
       'customer-reviews',
       'risks',
       'ai-recommendations',
+      'video-creative-blueprint',
     ]
   );
 
   assert.equal(partialReport.completedModulesCount, 1);
-  assert.equal(partialReport.notRunModulesCount, 7);
+  assert.equal(partialReport.notRunModulesCount, 8);
   assert.equal(partialReport.aiVerdict, null, 'Must never fabricate AI verdict when #8 not run');
 
   const unrunReviewSec = partialReport.sections.find((s) => s.id === 'customer-reviews');
@@ -580,13 +581,14 @@ test('Phase 9.4.4: Final Report compiles all 8 sections honestly (never hiding/f
   assert.ok(mdEn.includes('Deep Dive Final Report'));
   assert.ok(mdEn.includes('1. Product Overview'));
   assert.ok(mdEn.includes('6. Customer Reviews (Opt-in)'));
-  assert.ok(mdEn.includes('8. AI Recommendations (Separate AI Interpretation)'));
+  assert.ok(mdEn.includes('8. AI Business Recommendation (Go / No-Go)'));
+  assert.ok(mdEn.includes('9. Ad Video Creative & SEO Blueprint (AI Studio)'));
   assert.ok(mdEn.includes('priority-test'));
 
   const mdMy = buildDeepDiveReportMarkdown(fullReport, 'my');
   assert.ok(mdMy.includes('Deep Dive စုစည်းအစီရင်ခံစာ'));
   assert.ok(mdMy.includes('၁။ Product အကျဉ်းချုပ်'));
-  assert.ok(mdMy.includes('၈။ AI ဗျူဟာအကြံပြုချက်'));
+  assert.ok(mdMy.includes('၈။ AI စီးပွားရေးဆုံးဖြတ်ချက်'));
 
   // JSON export is valid & scrubs sensitive keys
   const jsonStr = buildDeepDiveReportJson(fullReport);
@@ -594,7 +596,7 @@ test('Phase 9.4.4: Final Report compiles all 8 sections honestly (never hiding/f
   assert.equal(parsed.reportType, 'deep-dive-final-report');
   assert.equal(parsed.canonicalProductId, '1749400000030');
   assert.equal(Array.isArray(parsed.sections), true);
-  assert.equal((parsed.sections as unknown[]).length, 8);
+  assert.equal((parsed.sections as unknown[]).length, 9);
   assert.equal(jsonStr.includes('KALODATA_API_KEY'), false);
   assert.equal(jsonStr.includes('UPSTASH_REDIS'), false);
 });

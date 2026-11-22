@@ -465,10 +465,13 @@ test('Phase 9.2 Audit #1: All 8 Deep Dive Analyses execute cleanly with accurate
   let capturedAiProduct: ResearchProduct | null = null;
   const enrichCalls: DeepDiveEnrichRequestPayload[] = [];
 
+  const phase92Ids = ALL_DEEP_DIVE_ANALYSIS_IDS.filter(
+    (id) => id !== 'ad-video-creative-blueprint'
+  );
   const outcome = await runDeepDiveModules({
     product,
     peerProducts: [product, peer1, peer2],
-    analysisIds: ALL_DEEP_DIVE_ANALYSIS_IDS,
+    analysisIds: phase92Ids,
     deps: {
       getCacheFn: memCache.getCacheFn,
       saveCacheFn: memCache.saveCacheFn,
@@ -510,7 +513,7 @@ test('Phase 9.2 Audit #1: All 8 Deep Dive Analyses execute cleanly with accurate
   // All 8 modules must succeed with 0 failures
   assert.equal(outcome.failedIds.length, 0);
   assert.equal(outcome.completedIds.length, 8);
-  for (const id of ALL_DEEP_DIVE_ANALYSIS_IDS) {
+  for (const id of phase92Ids) {
     assert.equal(outcome.slots[id]?.status, 'completed', `Module ${id} should complete`);
     assert.ok(outcome.slots[id]?.result, `Module ${id} should have structured result`);
   }
@@ -1082,7 +1085,7 @@ test('Phase 9.2 Audit #8: Strict error isolation — failures in #6 or #8 never 
   const outcome = await runDeepDiveModules({
     product,
     peerProducts: [product, peer],
-    analysisIds: ALL_DEEP_DIVE_ANALYSIS_IDS,
+    analysisIds: ALL_DEEP_DIVE_ANALYSIS_IDS.filter((id) => id !== 'ad-video-creative-blueprint'),
     deps: {
       getCacheFn: createMemoryCacheStore().getCacheFn,
       saveCacheFn: () => {},

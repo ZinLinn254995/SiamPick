@@ -31,6 +31,7 @@ const VALID_ANALYSIS_IDS = new Set<DeepDiveAnalysisId>([
   'customer-review-intelligence',
   'market-competitor-comparison',
   'ai-strategic-recommendation',
+  'ad-video-creative-blueprint',
 ]);
 
 function getStorage(): Storage | null {

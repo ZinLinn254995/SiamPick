@@ -1,18 +1,618 @@
 import type {
+  DeepDiveAiVideoToolStyle,
   DeepDiveAnalysisDefinition,
   DeepDiveAnalysisId,
   DeepDiveAnalysisSlotState,
   DeepDiveOriginView,
   DeepDiveSourceContext,
+  DeepDiveVideoCreativeOptions,
+  DeepDiveVideoCtaStyle,
+  DeepDiveVideoFramework,
+  DeepDiveVideoProductionStyle,
+  DeepDiveVideoScriptLanguage,
+  DeepDiveVideoSellingFocus,
+  DeepDiveVideoTargetAudience,
+  DeepDiveVideoTargetDuration,
+  DeepDiveVideoTone,
   DeepDiveWorkspaceState,
 } from '../types/deepDive';
 import type { ResearchMode, ResearchProduct } from '../types/product';
 import { getCanonicalProductId } from './scoring';
 
+export const MAX_VIDEO_CREATIVE_SUGGESTION_CHARS = 600;
+
+export const DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS: DeepDiveVideoCreativeOptions = {
+  includeCompetitorVideos: false,
+  scriptLanguage: 'th-with-my',
+  videoStyle: 'ugc-face',
+  duration: '30s',
+  tone: 'friendly-bestie',
+  framework: 'auto',
+  targetAudience: 'auto',
+  sellingFocuses: [],
+  ctaStyle: 'urgent-basket',
+  aiVideoTool: 'general-9-16',
+};
+
+const VALID_SCRIPT_LANGUAGES = new Set<DeepDiveVideoScriptLanguage>([
+  'th-with-my',
+  'my',
+  'my-th-mix',
+  'th-with-en',
+]);
+const VALID_PRODUCTION_STYLES = new Set<DeepDiveVideoProductionStyle>([
+  'ugc-face',
+  'faceless-hands',
+  'ai-video',
+  'unboxing-first-try',
+  'voiceover-broll',
+  'before-after-demo',
+  'greenscreen-reaction',
+]);
+const VALID_TARGET_DURATIONS = new Set<DeepDiveVideoTargetDuration>([
+  '7-12s',
+  '15s',
+  '30s',
+  '45-60s',
+  '60-90s',
+]);
+const VALID_TONES = new Set<DeepDiveVideoTone>([
+  'friendly-bestie',
+  'urgent-deal',
+  'expert-honest',
+  'funny-relatable',
+  'luxury-aesthetic',
+]);
+const VALID_FRAMEWORKS = new Set<DeepDiveVideoFramework>([
+  'auto',
+  'pas',
+  'hook-demo-proof-cta',
+  'storytelling',
+  'objection-killer',
+  'bundle-math',
+]);
+const VALID_AUDIENCES = new Set<DeepDiveVideoTargetAudience>([
+  'auto',
+  'budget-hunters',
+  'office-students',
+  'moms-household',
+  'beauty-selfcare',
+  'myanmar-in-th',
+]);
+const VALID_SELLING_FOCUSES = new Set<DeepDiveVideoSellingFocus>([
+  'price-bundle',
+  'reviews-proof',
+  'fast-convenience',
+  'quality-ingredients',
+  'daily-gift',
+]);
+const VALID_CTA_STYLES = new Set<DeepDiveVideoCtaStyle>([
+  'soft-recommend',
+  'urgent-basket',
+  'comment-engagement',
+]);
+const VALID_AI_VIDEO_TOOLS = new Set<DeepDiveAiVideoToolStyle>([
+  'general-9-16',
+  'veo-kling-cinematic',
+  'heygen-avatar',
+  'image-to-video',
+]);
+
+export function normalizeDeepDiveVideoCreativeOptions(
+  raw?: Partial<DeepDiveVideoCreativeOptions> | null
+): DeepDiveVideoCreativeOptions {
+  const scriptLanguage: DeepDiveVideoScriptLanguage =
+    raw?.scriptLanguage && VALID_SCRIPT_LANGUAGES.has(raw.scriptLanguage)
+      ? raw.scriptLanguage
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.scriptLanguage;
+
+  const videoStyle: DeepDiveVideoProductionStyle =
+    raw?.videoStyle && VALID_PRODUCTION_STYLES.has(raw.videoStyle)
+      ? raw.videoStyle
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.videoStyle;
+
+  const duration: DeepDiveVideoTargetDuration =
+    raw?.duration && VALID_TARGET_DURATIONS.has(raw.duration)
+      ? raw.duration
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.duration;
+
+  const tone: DeepDiveVideoTone =
+    raw?.tone && VALID_TONES.has(raw.tone)
+      ? raw.tone
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.tone!;
+
+  const framework: DeepDiveVideoFramework =
+    raw?.framework && VALID_FRAMEWORKS.has(raw.framework)
+      ? raw.framework
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.framework!;
+
+  const targetAudience: DeepDiveVideoTargetAudience =
+    raw?.targetAudience && VALID_AUDIENCES.has(raw.targetAudience)
+      ? raw.targetAudience
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.targetAudience!;
+
+  const sellingFocuses: DeepDiveVideoSellingFocus[] = Array.isArray(raw?.sellingFocuses)
+    ? Array.from(
+        new Set(
+          raw.sellingFocuses.filter(
+            (item): item is DeepDiveVideoSellingFocus =>
+              typeof item === 'string' && VALID_SELLING_FOCUSES.has(item as DeepDiveVideoSellingFocus)
+          )
+        )
+      ).slice(0, 5)
+    : [];
+
+  const ctaStyle: DeepDiveVideoCtaStyle =
+    raw?.ctaStyle && VALID_CTA_STYLES.has(raw.ctaStyle)
+      ? raw.ctaStyle
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.ctaStyle!;
+
+  const aiVideoTool: DeepDiveAiVideoToolStyle =
+    raw?.aiVideoTool && VALID_AI_VIDEO_TOOLS.has(raw.aiVideoTool)
+      ? raw.aiVideoTool
+      : DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS.aiVideoTool!;
+
+  const customSuggestion =
+    typeof raw?.customSuggestion === 'string' && raw.customSuggestion.trim().length > 0
+      ? raw.customSuggestion.trim().slice(0, MAX_VIDEO_CREATIVE_SUGGESTION_CHARS)
+      : undefined;
+
+  const customKeyword =
+    typeof raw?.customKeyword === 'string' && raw.customKeyword.trim().length > 0
+      ? raw.customKeyword.trim().slice(0, 80)
+      : undefined;
+
+  return {
+    includeCompetitorVideos: raw?.includeCompetitorVideos === true,
+    scriptLanguage,
+    videoStyle,
+    duration,
+    tone,
+    framework,
+    targetAudience,
+    sellingFocuses,
+    ctaStyle,
+    aiVideoTool,
+    ...(customSuggestion ? { customSuggestion } : {}),
+    ...(customKeyword ? { customKeyword } : {}),
+  };
+}
+
+export const VIDEO_CREATIVE_LANGUAGE_LABELS: Record<
+  DeepDiveVideoScriptLanguage,
+  { en: string; my: string }
+> = {
+  'th-with-my': { en: 'TH + MY', my: 'ထိုင်း + မြန်မာပြန်' },
+  my: { en: 'MY Only', my: 'မြန်မာသီးသန့်' },
+  'my-th-mix': { en: 'MY + TH Mix', my: 'မြန်မာ + ထိုင်းရော' },
+  'th-with-en': { en: 'TH + EN', my: 'ထိုင်း + English' },
+};
+
+export const VIDEO_CREATIVE_STYLE_LABELS: Record<
+  DeepDiveVideoProductionStyle,
+  { en: string; my: string }
+> = {
+  'ugc-face': { en: 'UGC', my: 'UGC (မျက်နှာပြ)' },
+  'faceless-hands': { en: 'Hands-Only', my: 'Hands-Only (မျက်နှာမပြ)' },
+  'ai-video': { en: 'AI Video', my: 'AI Video (Prompt ပါ)' },
+  'unboxing-first-try': { en: 'Unboxing / First Try', my: 'ပါဆယ်ဖောက် / စမ်းသုံးပြ' },
+  'voiceover-broll': { en: 'Voiceover + B-Roll', my: 'Voiceover + B-Roll' },
+  'before-after-demo': { en: 'Before/After Demo', my: 'လက်တွေ့စမ်းပြ (Demo)' },
+  'greenscreen-reaction': { en: 'Green Screen', my: 'Green Screen / Reaction' },
+};
+
+export const VIDEO_CREATIVE_TONE_LABELS: Record<
+  DeepDiveVideoTone,
+  { en: string; my: string }
+> = {
+  'friendly-bestie': { en: 'Friendly Bestie', my: 'သူငယ်ချင်းလိုညွှန်း' },
+  'urgent-deal': { en: 'Urgent Deal', my: 'ဈေးတန်အမြန်ဝယ်' },
+  'expert-honest': { en: 'Honest Review', my: 'ပွင့်လင်း Review' },
+  'funny-relatable': { en: 'Funny / Relatable', my: 'ဟာသနှော' },
+  'luxury-aesthetic': { en: 'Luxury / ASMR', my: 'သပ်ရပ် Premium' },
+};
+
+export const VIDEO_CREATIVE_FRAMEWORK_LABELS: Record<
+  DeepDiveVideoFramework,
+  { en: string; my: string }
+> = {
+  auto: { en: 'Auto (AI Picks)', my: 'Auto (AI ရွေး)' },
+  pas: { en: 'PAS (Problem-Solution)', my: 'PAS (ပြဿနာ→ဖြေရှင်း)' },
+  'hook-demo-proof-cta': { en: 'Hook-Demo-Proof-CTA', my: 'Hook→Demo→Proof→CTA' },
+  storytelling: { en: 'Storytelling / Vlog', my: 'Storytelling / Vlog' },
+  'objection-killer': { en: 'Objection Killer', my: 'သံသယရှင်းရောင်းနည်း' },
+  'bundle-math': { en: 'Price / Bundle Math', my: 'ဈေးတန်တွက်ပြနည်း' },
+};
+
+export const VIDEO_CREATIVE_AUDIENCE_LABELS: Record<
+  DeepDiveVideoTargetAudience,
+  { en: string; my: string }
+> = {
+  auto: { en: 'Auto (By Product)', my: 'Auto (Product အလိုက်)' },
+  'budget-hunters': { en: 'Promo / Value Hunters', my: 'ဈေးတန်/Promo ရှာသူ' },
+  'office-students': { en: 'Office & Students', my: 'ရုံးဝန်ထမ်း/ကျောင်းသား' },
+  'moms-household': { en: 'Moms & Household', my: 'အိမ်ရှင်မ/မိသားစု' },
+  'beauty-selfcare': { en: 'Beauty & Self-Care', my: 'အလှအပ/ကျန်းမာရေး' },
+  'myanmar-in-th': { en: 'Myanmar in Thailand', my: 'ထိုင်းရောက်မြန်မာများ' },
+};
+
+export const VIDEO_CREATIVE_FOCUS_LABELS: Record<
+  DeepDiveVideoSellingFocus,
+  { en: string; my: string }
+> = {
+  'price-bundle': { en: 'Price / Bundle', my: 'ဈေးတန်/Bundle' },
+  'reviews-proof': { en: 'Reviews & Sales Proof', my: 'ရောင်းအား/Review များ' },
+  'fast-convenience': { en: 'Fast & Easy Use', my: 'အသုံးပြုရလွယ်မြန်' },
+  'quality-ingredients': { en: 'Quality & Ingredients', my: 'အရည်အသွေး/ပါဝင်ပစ္စည်း' },
+  'daily-gift': { en: 'Daily Essential / Gift', my: 'နေ့စဉ်သုံး/လက်ဆောင်' },
+};
+
+export const VIDEO_CREATIVE_CTA_LABELS: Record<
+  DeepDiveVideoCtaStyle,
+  { en: string; my: string }
+> = {
+  'soft-recommend': { en: 'Soft Recommend', my: 'Soft ညွှန်းပုံ' },
+  'urgent-basket': { en: 'Urgent Yellow Basket', my: 'တောင်းဝါအမြန်နှိပ်ခိုင်း' },
+  'comment-engagement': { en: 'Comment + Basket', my: 'Comment မေးခွန်း + တောင်းဝါ' },
+};
+
+export const VIDEO_CREATIVE_AI_TOOL_LABELS: Record<
+  DeepDiveAiVideoToolStyle,
+  { en: string; my: string }
+> = {
+  'general-9-16': { en: 'General 9:16', my: 'General 9:16' },
+  'veo-kling-cinematic': { en: 'Veo / Kling Cinematic', my: 'Veo / Kling Cinematic' },
+  'heygen-avatar': { en: 'HeyGen / AI Avatar', my: 'HeyGen / AI Avatar' },
+  'image-to-video': { en: 'Image-to-Video Shot', my: 'Image-to-Video Product Shot' },
+};
+
+export type SmartVideoCreativeTemplateId =
+  | 'best-fit'
+  | 'easy-faceless'
+  | 'ai-creator'
+  | 'myanmar-in-th';
+
+export interface SmartVideoCreativeTemplate {
+  id: SmartVideoCreativeTemplateId;
+  isRecommended?: boolean;
+  titleEn: string;
+  titleMy: string;
+  specEn: string;
+  specMy: string;
+  reasonEn: string;
+  reasonMy: string;
+  patch: Partial<DeepDiveVideoCreativeOptions>;
+}
+
 /**
- * Canonical registry of the 8 independent Deep Dive analysis modules (Phase 9.1 Foundation).
- * All 8 modules have independent identities, concise default summaries, and full 6-part
- * Progressive Disclosure documentation in both English and Burmese.
+ * 100% deterministic, 0-credit local template recommender for Module #09.
+ * Reads ONLY verified fields already present on the selected ResearchProduct
+ * (category, title signals, price, reviews/sales) to suggest 4 ready-to-click
+ * creative setting combinations without ever calling external APIs or inventing metrics.
+ */
+export function buildSmartVideoCreativeTemplates(
+  product?: ResearchProduct | null
+): SmartVideoCreativeTemplate[] {
+  const titleRaw = product
+    ? [product.name, product.nameMy, product.subCategory, product.subCategoryMy]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+  const category = product?.category ?? null;
+  const price =
+    typeof product?.kalodataMetrics?.unitPriceThb === 'number' &&
+    product.kalodataMetrics.unitPriceThb > 0
+      ? product.kalodataMetrics.unitPriceThb
+      : typeof product?.priceThb === 'number' && product.priceThb > 0
+        ? product.priceThb
+        : null;
+  const reviewCount =
+    product?.kalodataMetrics?.productReviewCount ?? product?.reviewCount ?? null;
+  const salesVolume = product?.kalodataMetrics?.salesVolume ?? null;
+
+  const hasBundleSignal =
+    /1\s*แถม\s*\d|2\s*แถม\s*\d|ซื้อ\s*\d\s*แถม|แถมฟรี|เซต|แพ็ค|แพ็ก|\bset\b|\bbundle\b|\bpack\b|1\s*get\s*\d|buy\s*\d\s*get/i.test(
+      titleRaw
+    );
+  const isBudgetPrice = price !== null && price <= 200;
+  const hasHighReviews = typeof reviewCount === 'number' && reviewCount >= 500;
+  const hasHighSales = typeof salesVolume === 'number' && salesVolume >= 1000;
+
+  const isSkincareOrBeauty =
+    category === 'cosmetics-beauty' ||
+    /cream|serum|sunscreen|spf|cleanser|toner|mask|lotion|lip|tint|makeup|skincare|ครีม|เซรั่ม|กันแดด|ลิป|โฟมล้างหน้า|มาส์ก/i.test(
+      titleRaw
+    );
+  const isSupplementOrHealth =
+    category === 'health-personal-care' ||
+    /vitamin|collagen|supplement|probiotic|fiber|วิตามิน|คอลลาเจน|อาหารเสริม|ไฟเบอร์/i.test(
+      titleRaw
+    );
+  const isHomeOrGadget =
+    category === 'home-living' ||
+    category === 'kitchen' ||
+    category === 'electronics' ||
+    category === 'automotive' ||
+    category === 'pet-supplies';
+  const isFoodOrSnack = category === 'food-beverages';
+  const isFashionOrGift =
+    category === 'womens-fashion' ||
+    category === 'jewelry-accessories' ||
+    category === 'baby-kids' ||
+    category === 'toys-hobbies';
+
+  const priceTag = price !== null ? `฿${Math.round(price).toLocaleString('en-US')}` : null;
+
+  let bestFit: SmartVideoCreativeTemplate;
+
+  if (hasBundleSignal) {
+    const focuses: DeepDiveVideoSellingFocus[] =
+      hasHighReviews || hasHighSales ? ['price-bundle', 'reviews-proof'] : ['price-bundle'];
+    const audience: DeepDiveVideoTargetAudience =
+      isSupplementOrHealth || isSkincareOrBeauty ? 'beauty-selfcare' : 'budget-hunters';
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'Bundle Deal + Value Math',
+      titleMy: 'Bundle ဈေးတန်တွက်ပြ + Review',
+      specEn: 'UGC · 30s · Urgent Deal · Bundle Math',
+      specMy: 'UGC · 30s · ဈေးတန်အမြန်ဝယ် · ဈေးတန်တွက်ပြ',
+      reasonEn: priceTag
+        ? `Bundle promo at ${priceTag}${hasHighReviews ? ` with ${reviewCount!.toLocaleString('en-US')} reviews` : ''} — breaking down unit value converts fastest.`
+        : 'Bundle promo detected — breaking down price per unit in 30s converts fastest.',
+      reasonMy: priceTag
+        ? `Bundle ပရိုမိုးရှင်းပါပြီး ဈေး ${priceTag}${hasHighReviews ? ` · Review ${reviewCount!.toLocaleString('en-US')} ခုရှိ၍` : ' ဖြစ်၍'} တစ်ခုကျသင့်ငွေ တွက်ပြရောင်းနည်း အသင့်တော်ဆုံး။`
+        : 'Bundle ပရိုမိုးရှင်းပါဝင်၍ တစ်ခုကျသင့်ငွေ တွက်ပြရောင်းနည်းက အသင့်တော်ဆုံး။',
+      patch: {
+        videoStyle: 'ugc-face',
+        duration: '30s',
+        tone: 'urgent-deal',
+        framework: 'bundle-math',
+        targetAudience: audience,
+        sellingFocuses: focuses,
+        ctaStyle: 'urgent-basket',
+      },
+    };
+  } else if (isSkincareOrBeauty) {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'Texture Demo + Honest Review',
+      titleMy: 'လက်တွေ့စမ်းပြ + ပွင့်လင်း Review',
+      specEn: 'Before/After Demo · 30s · Honest Review',
+      specMy: 'လက်တွေ့စမ်းပြ · 30s · ပွင့်လင်း Review',
+      reasonEn:
+        'Skincare & beauty buyers trust close-up texture demos with honest, policy-safe recommendations.',
+      reasonMy:
+        'အလှအပ/Skincare ဖြစ်၍ လက်တွေ့ Texture စမ်းပြပြီး ပွင့်လင်းစွာညွှန်းပုံက ယုံကြည်မှုအရဆုံး။',
+      patch: {
+        videoStyle: 'before-after-demo',
+        duration: '30s',
+        tone: 'expert-honest',
+        framework: 'hook-demo-proof-cta',
+        targetAudience: 'beauty-selfcare',
+        sellingFocuses: hasHighReviews
+          ? ['quality-ingredients', 'reviews-proof']
+          : ['quality-ingredients', 'fast-convenience'],
+        ctaStyle: 'soft-recommend',
+      },
+    };
+  } else if (isSupplementOrHealth) {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'Routine + Objection Killer',
+      titleMy: 'နေ့စဉ်သုံး + သံသယရှင်း Review',
+      specEn: 'UGC · 30s · Honest Review · Objection Killer',
+      specMy: 'UGC · 30s · ပွင့်လင်း Review · သံသယရှင်း',
+      reasonEn:
+        'Health & supplement items sell safely by answering buyer doubts with daily-routine framing.',
+      reasonMy:
+        'ကျန်းမာရေး/ဖြည့်စွက်စာ ဖြစ်၍ ဝယ်သူသံသယရှင်းပြီး နေ့စဉ်သုံးပြပုံက Policy ဘေးကင်းပြီး ရောင်းကောင်းသည်။',
+      patch: {
+        videoStyle: 'ugc-face',
+        duration: '30s',
+        tone: 'expert-honest',
+        framework: 'objection-killer',
+        targetAudience: 'beauty-selfcare',
+        sellingFocuses: hasHighReviews
+          ? ['reviews-proof', 'quality-ingredients']
+          : ['quality-ingredients', 'daily-gift'],
+        ctaStyle: 'urgent-basket',
+      },
+    };
+  } else if (isHomeOrGadget) {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'Problem → Solution Demo',
+      titleMy: 'ပြဿနာ→ဖြေရှင်း 15s Demo',
+      specEn: 'Hands-Only · 15s · PAS Framework',
+      specMy: 'Hands-Only · 15s · PAS ပြဿနာ→ဖြေရှင်း',
+      reasonEn:
+        'Home, kitchen & gadget products convert quickest via visual 15s problem-to-solution demos.',
+      reasonMy:
+        'အိမ်သုံး/Gadget ဖြစ်၍ ပြဿနာပြပြီး ၁၅ စက္ကန့်အတွင်း လက်တွေ့ဖြေရှင်းပြပုံက ဝယ်လိုအားအမြန်ဆုံး။',
+      patch: {
+        videoStyle: 'faceless-hands',
+        duration: '15s',
+        tone: 'friendly-bestie',
+        framework: 'pas',
+        targetAudience:
+          category === 'home-living' || category === 'kitchen' ? 'moms-household' : 'auto',
+        sellingFocuses: isBudgetPrice
+          ? ['fast-convenience', 'price-bundle']
+          : ['fast-convenience', 'quality-ingredients'],
+        ctaStyle: 'urgent-basket',
+      },
+    };
+  } else if (isFoodOrSnack) {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'First-Bite Unboxing',
+      titleMy: 'ပါဆယ်ဖောက် စားပြ/သောက်ပြ',
+      specEn: 'Unboxing · 15s · Relatable · Comment CTA',
+      specMy: 'ပါဆယ်ဖောက် · 15s · ဟာသနှော · Comment CTA',
+      reasonEn:
+        'Food & beverage items gain fast reach with real first-taste reactions and comment prompts.',
+      reasonMy:
+        'အစားအသောက် ဖြစ်၍ ဖောက်စားပြ Reaction နှင့် Comment မေးခွန်းတွဲရိုက်ပုံက Viral ဖြစ်လွယ်သည်။',
+      patch: {
+        videoStyle: 'unboxing-first-try',
+        duration: '15s',
+        tone: 'funny-relatable',
+        framework: 'hook-demo-proof-cta',
+        targetAudience: 'budget-hunters',
+        sellingFocuses: hasHighReviews
+          ? ['price-bundle', 'reviews-proof']
+          : ['price-bundle', 'daily-gift'],
+        ctaStyle: 'comment-engagement',
+      },
+    };
+  } else if (isFashionOrGift) {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'Unboxing & Real-Fit Showcase',
+      titleMy: 'ပါဆယ်ဖောက် အပြင်ပုံစံပြ',
+      specEn: 'Unboxing · 15s · Friendly Bestie',
+      specMy: 'ပါဆယ်ဖောက် · 15s · သူငယ်ချင်းလိုညွှန်း',
+      reasonEn:
+        'Fashion & gift items convert well when viewers see true texture, fit, and real unboxing.',
+      reasonMy:
+        'ဖက်ရှင်/လက်ဆောင်ပစ္စည်း ဖြစ်၍ ပါဆယ်ဖောက်ပြီး အပြင်ပုံစံအတိအကျပြပေးခြင်းက တောင်းဝါနှိပ်နှုန်းကောင်းသည်။',
+      patch: {
+        videoStyle: 'unboxing-first-try',
+        duration: '15s',
+        tone: 'friendly-bestie',
+        framework: 'hook-demo-proof-cta',
+        targetAudience: category === 'baby-kids' ? 'moms-household' : 'auto',
+        sellingFocuses: isBudgetPrice
+          ? ['price-bundle', 'daily-gift']
+          : ['quality-ingredients', 'daily-gift'],
+        ctaStyle: 'urgent-basket',
+      },
+    };
+  } else {
+    bestFit = {
+      id: 'best-fit',
+      isRecommended: true,
+      titleEn: 'High-Conversion 30s UGC',
+      titleMy: 'ရောင်းကောင်း 30s UGC ပုံစံ',
+      specEn: `UGC · 30s · ${isBudgetPrice ? 'Urgent Deal' : 'Friendly Bestie'} · Hook→Demo`,
+      specMy: `UGC · 30s · ${isBudgetPrice ? 'ဈေးတန်အမြန်ဝယ်' : 'သူငယ်ချင်းလိုညွှန်း'} · Hook→Demo`,
+      reasonEn:
+        'Proven all-round TikTok Shop affiliate structure balancing fast hook, clear demo, and yellow basket CTA.',
+      reasonMy:
+        'TikTok Shop တွင် ယေဘုယျ ရောင်းအားအမြန်ဆုံး Hook→Demo→Proof→CTA 30s ပုံစံ။',
+      patch: {
+        videoStyle: 'ugc-face',
+        duration: '30s',
+        tone: isBudgetPrice ? 'urgent-deal' : 'friendly-bestie',
+        framework: 'hook-demo-proof-cta',
+        targetAudience: isBudgetPrice ? 'budget-hunters' : 'auto',
+        sellingFocuses: hasHighReviews
+          ? ['reviews-proof', 'price-bundle']
+          : ['fast-convenience'],
+        ctaStyle: 'urgent-basket',
+      },
+    };
+  }
+
+  const easyFaceless: SmartVideoCreativeTemplate = {
+    id: 'easy-faceless',
+    titleEn: 'Quick Hands-Only (No Face)',
+    titleMy: 'မျက်နှာမပြ အမြန်ရိုက် (15s)',
+    specEn: 'Hands-Only · 15s · Friendly · Basket CTA',
+    specMy: 'Hands-Only · 15s · သူငယ်ချင်းလို · တောင်းဝါ',
+    reasonEn: 'Film alone with 1 phone showing only hands & product — easiest 15s edit.',
+    reasonMy: 'မျက်နှာမပြဘဲ ဖုန်း ၁ လုံးတည်း လက်နဲ့ကိုင်ပြ အမြန်ရိုက်တင်လိုသူများအတွက်။',
+    patch: {
+      videoStyle: 'faceless-hands',
+      duration: '15s',
+      tone: 'friendly-bestie',
+      framework: 'hook-demo-proof-cta',
+      targetAudience: 'auto',
+      sellingFocuses: isBudgetPrice ? ['fast-convenience', 'price-bundle'] : ['fast-convenience'],
+      ctaStyle: 'urgent-basket',
+    },
+  };
+
+  const aiCreator: SmartVideoCreativeTemplate = {
+    id: 'ai-creator',
+    titleEn: 'AI Video Creator Pack',
+    titleMy: 'AI Video ဖန်တီးမည် (Prompt ပါ)',
+    specEn: 'AI Video · 15s · Veo / Kling Cinematic',
+    specMy: 'AI Video · 15s · Veo / Kling Prompt',
+    reasonEn: 'Ready-to-paste 9:16 Veo/Kling prompts per scene — no camera filming required.',
+    reasonMy: 'ကိုယ်တိုင်မရိုက်ဘဲ Veo / Kling AI Video Prompt များဖြင့် ကြော်ငြာဖန်တီးရန်။',
+    patch: {
+      videoStyle: 'ai-video',
+      duration: '15s',
+      tone: isBudgetPrice ? 'urgent-deal' : 'luxury-aesthetic',
+      framework: 'pas',
+      targetAudience: 'auto',
+      sellingFocuses: hasBundleSignal ? ['price-bundle'] : ['quality-ingredients'],
+      ctaStyle: 'urgent-basket',
+      aiVideoTool: 'veo-kling-cinematic',
+    },
+  };
+
+  const myanmarInTh: SmartVideoCreativeTemplate = {
+    id: 'myanmar-in-th',
+    titleEn: 'Myanmar Shoppers in Thailand',
+    titleMy: 'ထိုင်းရောက်မြန်မာဝယ်သူ ပစ်မှတ်',
+    specEn: 'MY+TH Mix · UGC · 30s · Myanmar in TH',
+    specMy: 'မြန်မာ+ထိုင်းရော · UGC · 30s · ထိုင်းရောက်မြန်မာ',
+    reasonEn: 'Warm Myanmar + Thai mix tailored directly for Myanmar buyers living in Thailand.',
+    reasonMy: 'ထိုင်းရောက်မြန်မာဝယ်သူများအတွက် မြန်မာ+ထိုင်းရော ရင်းရင်းနှီးနှီးညွှန်းရောင်းပုံ။',
+    patch: {
+      scriptLanguage: 'my-th-mix',
+      videoStyle: 'ugc-face',
+      duration: '30s',
+      tone: 'friendly-bestie',
+      framework: hasBundleSignal ? 'bundle-math' : 'storytelling',
+      targetAudience: 'myanmar-in-th',
+      sellingFocuses:
+        hasBundleSignal || isBudgetPrice
+          ? ['price-bundle', 'reviews-proof']
+          : ['reviews-proof', 'fast-convenience'],
+      ctaStyle: 'urgent-basket',
+    },
+  };
+
+  return [bestFit, easyFaceless, aiCreator, myanmarInTh];
+}
+
+export function isSmartVideoCreativeTemplateActive(
+  options: DeepDiveVideoCreativeOptions,
+  template: SmartVideoCreativeTemplate
+): boolean {
+  const norm = normalizeDeepDiveVideoCreativeOptions(options);
+  const p = template.patch;
+  if (p.scriptLanguage !== undefined && norm.scriptLanguage !== p.scriptLanguage) return false;
+  if (p.videoStyle !== undefined && norm.videoStyle !== p.videoStyle) return false;
+  if (p.duration !== undefined && norm.duration !== p.duration) return false;
+  if (p.tone !== undefined && norm.tone !== p.tone) return false;
+  if (p.framework !== undefined && norm.framework !== p.framework) return false;
+  if (p.targetAudience !== undefined && norm.targetAudience !== p.targetAudience) return false;
+  if (p.ctaStyle !== undefined && norm.ctaStyle !== p.ctaStyle) return false;
+  if (p.aiVideoTool !== undefined && norm.aiVideoTool !== p.aiVideoTool) return false;
+  if (p.sellingFocuses !== undefined) {
+    const a = [...(norm.sellingFocuses ?? [])].sort();
+    const b = [...p.sellingFocuses].sort();
+    if (a.length !== b.length || a.some((val, i) => val !== b[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Canonical registry of the 9 independent Deep Dive analysis modules.
+ * Strict separation of responsibilities:
+ * - #01–#07: Verified market metrics & peer comparisons
+ * - #08: AI Strategic Recommendation (Business Go / No-Go Decision ONLY)
+ * - #09: AI Ad Video Creative Studio (Competitor Video Study + Script + SEO Execution ONLY)
  */
 export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] = [
   {
@@ -331,40 +931,40 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
   {
     id: 'ai-strategic-recommendation',
     order: 8,
-    nameEn: 'AI Strategic Recommendation',
-    nameMy: 'AI Strategic Recommendation (AI ဗျူဟာအကြံပြုချက်)',
-    shortDescriptionEn: 'Synthesize verified data into opportunity score context, risks, audience, video ideas, and go/no-go advice.',
-    shortDescriptionMy: 'ရရှိထားသော Data များကို ပေါင်းစပ်ပြီး Opportunity Score၊ Risks၊ Target Audience၊ Video Ideas နှင့် လုပ်သင့်/မလုပ်သင့် အကြံပြုရန်။',
+    nameEn: 'AI Strategic Recommendation (Go / No-Go)',
+    nameMy: 'AI Strategic Recommendation (လုပ်သင့်/မလုပ်သင့် ဗျူဟာဆုံးဖြတ်ချက်)',
+    shortDescriptionEn:
+      'Pure business decision: synthesize verified data into Go/No-Go verdict, strengths, risks, target buyer psychology, and channel strategy.',
+    shortDescriptionMy:
+      'လုပ်သင့်/မလုပ်သင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့် — Data များပေါင်းစပ်ပြီး Verdict၊ အားသာချက်/အန္တရာယ်၊ ပစ်မှတ်ဝယ်သူနှင့် ဈေးကွက်ဗျူဟာ သုံးသပ်ရန်။',
     whatItDoesEn:
-      'Synthesizes all available verified product and Deep Dive findings into a practical affiliate go-to-market plan with clear go/no-go guidance.',
+      'Synthesizes verified product metrics and completed Deep Dive data (#01–#07) strictly into a business Go/No-Go decision, target buyer profile, risk audit, and promotion channel strategy. (For video scripts, titles, hashtags, and competitor video teardowns, use Module #09.)',
     whatItDoesMy:
-      'ရရှိထားသော တကယ့် Product Data နှင့် Deep Dive အချက်အလက်များကို ပေါင်းစပ်၍ လက်တွေ့အသုံးချနိုင်မည့် Affiliate Marketing ဗျူဟာနှင့် လုပ်သင့်/မလုပ်သင့် အကြံပြုချက် ထုတ်ပေးပါသည်။',
+      'ရရှိထားသော တကယ့် Product Data နှင့် Deep Dive (#01–#07) ရလဒ်များကို ပေါင်းစပ်ပြီး ဤ Product ကို ကြော်ငြာသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက်၊ ပစ်မှတ်ဝယ်သူ၊ အန္တရာယ်နှင့် ဈေးကွက်ဗျူဟာကို သီးသန့်သုံးသပ်ပေးပါသည်။ (Video Script၊ Title နှင့် Hashtag များအတွက် Module #09 ကို အသုံးပြုပါ။)',
     whatItChecksEn: [
       'Product Opportunity Score Context',
-      'Product Strengths / Weaknesses',
-      'Potential Risks',
-      'Target Audience',
-      'Video Content Ideas',
-      'Affiliate Marketing Strategy',
-      'Go / No-Go Recommendation',
+      'Data-Backed Strengths & Weaknesses',
+      'Competition, Margin & Compliance Risks',
+      'Target Buyer Profile & Buying Psychology',
+      'Affiliate Channel & Go-to-Market Strategy',
+      'Go / No-Go Verdict & Next Action',
     ],
     whatItChecksMy: [
-      'Product Opportunity Score',
-      'Product အားသာချက် / အားနည်းချက်',
-      'Potential Risks (ဖြစ်နိုင်ခြေရှိသော အန္တရာယ်များ)',
-      'Target Audience (ပစ်မှတ်ဝယ်သူအုပ်စု)',
-      'Video Content Ideas (ဗီဒီယိုအကြံဉာဏ်များ)',
-      'Affiliate Marketing Strategy (Affiliate ဗျူဟာ)',
-      'လုပ်သင့်၊ မလုပ်သင့် အကြံပြုချက်',
+      'Product Opportunity Score သုံးသပ်ချက်',
+      'Data အခြေခံ အားသာချက် / အားနည်းချက်',
+      'ပြိုင်ဆိုင်မှု၊ အမြတ်နှင့် Compliance အန္တရာယ်များ',
+      'ပစ်မှတ်ဝယ်သူအုပ်စုနှင့် ဝယ်ယူမှုစိတ်ပညာ',
+      'Affiliate Channel နှင့် ဈေးကွက်ဝင်ရောက်ဗျူဟာ',
+      'လုပ်သင့် / မလုပ်သင့် ဆုံးဖြတ်ချက် (Go / No-Go)',
     ],
     expectedOutcomeEn:
-      'An actionable affiliate launch strategy grounded strictly in verified metrics—never fabricated assumptions.',
+      'A crisp, unbiased business Go/No-Go recommendation grounded strictly in verified metrics—without diluting into generic video ideas.',
     expectedOutcomeMy:
-      'Affiliate လုပ်ငန်းအတွက် လက်တွေ့အသုံးချနိုင်မည့် ရှင်းလင်းသော Strategy နှင့် ဆုံးဖြတ်ချက်အကြံပြုချက် ရရှိမည်ဖြစ်သည်။',
+      'ဤ Product ကို အချိန်နှင့်ငွေ ရင်းနှီးပြီး ကြော်ငြာသင့်/မသင့် တိကျရှင်းလင်းသော စီးပွားရေးဆုံးဖြတ်ချက် ရရှိမည်ဖြစ်သည်။',
     requiredDataSourcesEn:
-      'Verified product metrics + results from completed Deep Dive modules + server-side Gemini AI synthesis endpoint.',
+      'Verified product metrics + results from completed Deep Dive modules (#01–#07) + server-side Gemini AI synthesis endpoint.',
     requiredDataSourcesMy:
-      'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive ရလဒ်များ + Server-side Gemini AI Endpoint။',
+      'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive (#01–#07) ရလဒ်များ + Server-side Gemini AI Endpoint။',
     estimatedCostNoteEn:
       '0 Kalodata credits (reuses already-fetched data), PLUS 1 server-side Gemini AI API call (billed separately by Google Gemini API — NOT free). Output is clearly labeled as AI Interpretation.',
     estimatedCostNoteMy:
@@ -374,6 +974,55 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
       'AI strictly NEVER fabricates missing metrics. Whenever inputs (e.g., reviews, videos, or creator shares) are incomplete, AI explicitly explains those data limitations and lowers confidence accordingly.',
     missingDataBehaviorMy:
       'AI သည် မရှိသော Data ကို လုံးဝ ဖန်တီးမပြပါ။ အချက်အလက်မပြည့်စုံပါက ထိုအပေါ်အခြေခံ၍ ကန့်သတ်ချက်များကို ပွင့်လင်းရှင်းလင်းစွာ ရှင်းပြပေးပါမည်။',
+  },
+  {
+    id: 'ad-video-creative-blueprint',
+    order: 9,
+    nameEn: 'AI Ad Video Creative Studio',
+    nameMy: 'AI Ad Video Creative Studio (ကြော်ငြာ Video ဖန်တီးမှုနှင့် SEO)',
+    shortDescriptionEn:
+      'Ad video production blueprint: study winning competitor videos, generate 3 concepts, 5 hooks, timed shooting script, SEO titles/keywords/hashtags & policy guard.',
+    shortDescriptionMy:
+      'ကြော်ငြာ Video ဖန်တီးရန် သီးသန့် — အခြားသူများ၏ ရောင်းကောင်း Video လေ့လာချက်၊ Concept ၃ မျိုး၊ 3-Sec Hook ၅ ခု၊ အချိန်အတိအကျ Script၊ Title/Keyword/Hashtag နှင့် Policy သတိပေးချက်များ။',
+    whatItDoesEn:
+      'Turns your chosen product (and optional real top-selling Thailand TikTok Shop competitor videos) into a ready-to-shoot ad video production pack: competitor teardown, 3 winning concepts, 5 scroll-stopping 3-second hooks, scene-by-scene shooting script, TikTok SEO titles/keywords/hashtags, and ad compliance guard.',
+    whatItDoesMy:
+      'ရွေးချယ်ထားသော Product နှင့် (ရွေးချယ်ပါက) ထိုင်း TikTok Shop ရှိ ရောင်းအားအကောင်းဆုံး ပြိုင်ဘက် Video များကို လေ့လာပြီး ချက်ချင်းရိုက်ကူးတင်နိုင်မည့် Concept ၃ မျိုး၊ 3-Sec Hook ၅ ခု၊ Scene အလိုက် Script၊ Title/Keywords/Hashtags နှင့် Policy စည်းကမ်းသတိပေးချက်များ ထုတ်ပေးပါသည်။',
+    whatItChecksEn: [
+      'Optional Competitor Top-Selling Video Scan (+0.1 cr, 24h cached)',
+      'Winning Competitor Patterns & Creative Differentiation Gap',
+      '3 Distinct Ad Video Concepts / Formats',
+      '5 Scroll-Stopping 3-Second Hooks (Spoken + Visual Action)',
+      'Scene-by-Scene Timed Script + On-Screen Text + Camera/AI Prompts',
+      'TikTok SEO Pack (3 Title Styles, Search Keywords, Curated Hashtags)',
+      'TikTok Shop Category Compliance & Banned-Claim Guard',
+    ],
+    whatItChecksMy: [
+      'ရောင်းအားအကောင်းဆုံး ပြိုင်ဘက် Video များ စစ်ဆေးလေ့လာမှု (ရွေးချယ်မှ +0.1 cr · 24h Cache)',
+      'အခြားသူများ အောင်မြင်နေသည့် Pattern နှင့် ကိုယ်ဖောက်ထွက်နိုင်မည့် Creative Gap',
+      'ကြော်ငြာ Video Concept / ပုံစံ ၃ မျိုး',
+      'ပထမ ၃ စက္ကန့်အတွင်း ဆွဲဆောင်မည့် 3-Second Hook ၅ ခု (စကား + ရိုက်ကွက်)',
+      'စက္ကန့်အလိုက် Scene-by-Scene Script + စာတန်းထိုး + ရိုက်ကွက်/AI Prompt',
+      'TikTok SEO Pack (Title ၃ ပုံစံ၊ Search Keywords၊ ခွဲခြားထားသော Hashtags)',
+      'TikTok Shop ကြော်ငြာစည်းကမ်းနှင့် ရှောင်ရမည့်စကားလုံး သတိပေးချက်',
+    ],
+    expectedOutcomeEn:
+      'A complete, copy-ready ad video production & TikTok SEO blueprint tailored to your chosen language (Thai+Burmese or Burmese), shooting style (UGC / Hands-Only / AI Video), and video length.',
+    expectedOutcomeMy:
+      'ကိုယ်ရွေးထားသော ဘာသာစကား (ထိုင်း+မြန်မာ သို့မဟုတ် မြန်မာ)၊ ရိုက်ကူးပုံစံ (UGC / Hands-Only / AI Video) နှင့် အချိန်အတိုင်း ချက်ချင်းကူးယူရိုက်တင်နိုင်မည့် ကြော်ငြာ Video Blueprint အပြည့်အစုံ ရရှိမည်ဖြစ်သည်။',
+    requiredDataSourcesEn:
+      'Product details & thumbnail + completed Deep Dive buyer/review insights + server-side Gemini AI + optional Kalodata Video Rank API (0.1 cr only when Competitor Video Scan toggle is ON and uncached).',
+    requiredDataSourcesMy:
+      'Product အချက်အလက်နှင့် ပုံ + Deep Dive ဝယ်သူ/Review အချက်အလက်များ + Server-side Gemini AI + (Toggle ဖွင့်မှသာ) Kalodata Video Rank API (0.1 cr · 24h Cache)။',
+    estimatedCostNoteEn:
+      'Default: 0 Kalodata credits + 1 server-side Gemini AI call (separate Gemini billing). Optional Competitor Video Scan toggle adds +0.1 Kalodata credit (24h cached -> 0 cr on repeat).',
+    estimatedCostNoteMy:
+      'မူလ: Kalodata 0 cr + Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။ ပြိုင်ဘက် Video များပါ စစ်ဆေးလိုပါက Toggle ဖွင့်မှ +0.1 Kalodata cr (24h Cache) ကုန်ကျပါမည်။',
+    costSensitivity: 'low',
+    missingDataBehaviorEn:
+      'When Competitor Video Scan is OFF (or if Kalodata returns 0 matching videos), Gemini NEVER fabricates fake TikTok video links or views—it explicitly states no competitor videos were scanned and builds the creative blueprint strictly from verified product & review data.',
+    missingDataBehaviorMy:
+      'ပြိုင်ဘက် Video စစ်ဆေးမှု Toggle ပိတ်ထားလျှင် (သို့မဟုတ် ကိုက်ညီသော Video မတွေ့လျှင်) AI သည် TikTok Video Link နှင့် Views အတုများ လုံးဝ မဖန်တီးဘဲ ရှိပြီးသား Product/Review Data များဖြင့်သာ Script နှင့် SEO ဖန်တီးပေးပါမည်။',
   },
 ];
 
@@ -408,8 +1057,8 @@ export function createInitialDeepDiveSlots(): Record<
 /**
  * Initial per-product Deep Dive workspace state:
  * - Zero options pre-selected (strict manual opt-in)
- * - All 8 Progressive Disclosure panels collapsed by default
- * - 8 strictly isolated per-analysis execution slots
+ * - All 9 Progressive Disclosure panels collapsed by default
+ * - 9 strictly isolated per-analysis execution slots
  */
 export function createInitialDeepDiveWorkspaceState(): DeepDiveWorkspaceState {
   return {
@@ -419,6 +1068,7 @@ export function createInitialDeepDiveWorkspaceState(): DeepDiveWorkspaceState {
     lastAttemptedRunIds: [],
     lastAttemptedRunAt: null,
     totalCreditsUsedInSession: 0,
+    videoCreativeOptions: { ...DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS },
   };
 }
 

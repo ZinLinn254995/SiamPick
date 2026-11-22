@@ -572,8 +572,8 @@ export function buildDeepDiveFinalReport(params: {
     buildRisksSection(product, evaluation, slots),
     buildSectionFromSingleModule({
       id: 'ai-recommendations',
-      titleEn: '8. AI Recommendations (Separate AI Interpretation)',
-      titleMy: '၈။ AI ဗျူဟာအကြံပြုချက် (AI Recommendations)',
+      titleEn: '8. AI Business Recommendation (Go / No-Go)',
+      titleMy: '၈။ AI စီးပွားရေးဆုံးဖြတ်ချက် (Go / No-Go)',
       analysisId: 'ai-strategic-recommendation',
       slots,
       isAiInterpretation: true,
@@ -581,6 +581,18 @@ export function buildDeepDiveFinalReport(params: {
         'AI Strategic Recommendation (#8) has not been run yet (0 Kalodata cr · requires 1 separate server-side Gemini AI API call). No AI verdict is fabricated.',
       notRunNoteMy:
         'AI Strategic Recommendation (#8) ကို မ Run ရသေးပါ (0 Kalodata cr · သီးခြား Server-side Gemini AI API ၁ ကြိမ်လိုအပ်)။ AI အကြံပြုချက်ကို အတုအယောင် ဖန်တီးမပြပါ။',
+    }),
+    buildSectionFromSingleModule({
+      id: 'video-creative-blueprint',
+      titleEn: '9. Ad Video Creative & SEO Blueprint (AI Studio)',
+      titleMy: '၉။ ကြော်ငြာ Video ဖန်တီးမှုနှင့် SEO Blueprint (AI Studio)',
+      analysisId: 'ad-video-creative-blueprint',
+      slots,
+      isAiInterpretation: true,
+      notRunNoteEn:
+        'AI Ad Video Creative Studio (#9) has not been run yet (0 Kalodata cr default or +0.1 cr with Competitor Video Scan · 1 Gemini AI call). No scripts or competitor videos are fabricated.',
+      notRunNoteMy:
+        'AI Ad Video Creative Studio (#9) ကို မ Run ရသေးပါ (မူလ 0 Kalodata cr သို့မဟုတ် ပြိုင်ဘက် Video စစ်ဆေးပါက +0.1 cr · Gemini AI ၁ ကြိမ်)။ Script နှင့် ပြိုင်ဘက် Video များကို အတုအယောင် ဖန်တီးမပြပါ။',
     }),
   ];
 

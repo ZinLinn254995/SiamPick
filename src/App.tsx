@@ -139,6 +139,7 @@ import type {
   DeepDiveOriginView,
   DeepDiveServerBudgetSnapshot,
   DeepDiveSourceContext,
+  DeepDiveVideoCreativeOptions,
   DeepDiveWorkspaceState,
 } from './types/deepDive';
 import {
@@ -1284,6 +1285,7 @@ export default function App() {
         analysisIds: runnableIds,
         peerProducts: peers,
         existingSlots: currentSnapshot.slots,
+        videoCreativeOptions: currentSnapshot.videoCreativeOptions,
         spendingLimitCredits,
         sessionCreditsAlreadySpent: authoritativeSpentBeforeRun,
         liveBalanceCredits: creditBalance.status?.balance ?? null,
@@ -1403,6 +1405,21 @@ export default function App() {
   ) => {
     if (!deepDiveTarget) return;
     void executeDeepDiveForTarget(deepDiveTarget, [id], forceRefresh, userConfirmedPaidExecution);
+  };
+
+  const handleDeepDiveUpdateVideoCreativeOptions = (next: DeepDiveVideoCreativeOptions) => {
+    if (!deepDiveTarget) return;
+    const key = deepDiveTarget.canonicalProductId;
+    setDeepDiveStatesByProduct((prev) => {
+      const current = prev[key] ?? createInitialDeepDiveWorkspaceState();
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          videoCreativeOptions: next,
+        },
+      };
+    });
   };
 
   const handleAiAnalysisSaved = (productId: string, analysis: AiProductAnalysis) => {
@@ -1921,6 +1938,7 @@ export default function App() {
             onSelectAll={handleDeepDiveSelectAll}
             onClearAll={handleDeepDiveClearAll}
             onToggleExpand={handleDeepDiveToggleExpand}
+            onUpdateVideoCreativeOptions={handleDeepDiveUpdateVideoCreativeOptions}
             onRunSelected={handleDeepDiveRunSelected}
             onRunSingle={handleDeepDiveRunSingle}
             historyRecords={deepDiveHistoryByProduct[deepDiveTarget.canonicalProductId] ?? []}
@@ -2855,6 +2873,14 @@ export default function App() {
         onClose={() => setActiveReport(null)}
         onAiAnalysisSaved={handleAiAnalysisSaved}
         onProductEnriched={handleProductEnriched}
+        savedProductIds={savedIdSet}
+        onSaveExternalProduct={(candidateProduct) =>
+          handleSaveProductFromArchive(
+            candidateProduct,
+            candidateProduct.researchedAt ?? new Date().toISOString()
+          )
+        }
+        onCreditsSpent={() => setBalanceRefreshSignal((prev) => prev + 1)}
         language={language}
       />
 

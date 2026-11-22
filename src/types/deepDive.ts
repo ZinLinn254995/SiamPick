@@ -18,7 +18,8 @@ export type DeepDiveAnalysisId =
   | 'video-intelligence'
   | 'customer-review-intelligence'
   | 'market-competitor-comparison'
-  | 'ai-strategic-recommendation';
+  | 'ai-strategic-recommendation'
+  | 'ad-video-creative-blueprint';
 
 export type DeepDiveCostSensitivity = 'low' | 'moderate' | 'high';
 
@@ -131,15 +132,174 @@ export interface DeepDiveAiMeta {
   tokenUsage?: DeepDiveGeminiTokenUsage | null;
 }
 
+export type DeepDiveVideoScriptLanguage = 'th-with-my' | 'my' | 'my-th-mix' | 'th-with-en';
+export type DeepDiveVideoProductionStyle =
+  | 'ugc-face'
+  | 'faceless-hands'
+  | 'ai-video'
+  | 'unboxing-first-try'
+  | 'voiceover-broll'
+  | 'before-after-demo'
+  | 'greenscreen-reaction';
+export type DeepDiveVideoTargetDuration = '7-12s' | '15s' | '30s' | '45-60s' | '60-90s';
+export type DeepDiveVideoTone =
+  | 'friendly-bestie'
+  | 'urgent-deal'
+  | 'expert-honest'
+  | 'funny-relatable'
+  | 'luxury-aesthetic';
+export type DeepDiveVideoFramework =
+  | 'auto'
+  | 'pas'
+  | 'hook-demo-proof-cta'
+  | 'storytelling'
+  | 'objection-killer'
+  | 'bundle-math';
+export type DeepDiveVideoTargetAudience =
+  | 'auto'
+  | 'budget-hunters'
+  | 'office-students'
+  | 'moms-household'
+  | 'beauty-selfcare'
+  | 'myanmar-in-th';
+export type DeepDiveVideoSellingFocus =
+  | 'price-bundle'
+  | 'reviews-proof'
+  | 'fast-convenience'
+  | 'quality-ingredients'
+  | 'daily-gift';
+export type DeepDiveVideoCtaStyle = 'soft-recommend' | 'urgent-basket' | 'comment-engagement';
+export type DeepDiveAiVideoToolStyle =
+  | 'general-9-16'
+  | 'veo-kling-cinematic'
+  | 'heygen-avatar'
+  | 'image-to-video';
+
+export interface DeepDiveVideoCreativeOptions {
+  /** Default false (0 Kalodata cr). When true, fetches top-selling TH TikTok Shop videos via Kalodata video/rank (+0.1 cr, 24h cached). */
+  includeCompetitorVideos: boolean;
+  scriptLanguage: DeepDiveVideoScriptLanguage;
+  videoStyle: DeepDiveVideoProductionStyle;
+  duration: DeepDiveVideoTargetDuration;
+  tone?: DeepDiveVideoTone;
+  framework?: DeepDiveVideoFramework;
+  targetAudience?: DeepDiveVideoTargetAudience;
+  sellingFocuses?: DeepDiveVideoSellingFocus[];
+  ctaStyle?: DeepDiveVideoCtaStyle;
+  /** Only used when videoStyle === 'ai-video' to tailor English visual prompts for a specific AI video tool. */
+  aiVideoTool?: DeepDiveAiVideoToolStyle;
+  /** Optional free-text creative instructions written by the user in any language (up to 600 chars). */
+  customSuggestion?: string;
+  customKeyword?: string;
+}
+
+export interface DeepDiveCompetitorVideoSample {
+  videoId: string;
+  caption: string;
+  hashtags: string[];
+  creatorName: string | null;
+  creatorHandle: string | null;
+  videoUrl: string;
+  revenueThb: number | null;
+  salesVolume: number | null;
+  views: number | null;
+  durationSec: number | null;
+  publishDate: string | null;
+}
+
+export interface DeepDiveVideoConcept {
+  id: string;
+  titleEn: string;
+  titleMy: string;
+  formatLabel: string;
+  angleSummaryEn: string;
+  angleSummaryMy: string;
+  whyItConvertsEn: string;
+  whyItConvertsMy: string;
+}
+
+export interface DeepDiveVideoHook {
+  id: string;
+  hookText: string;
+  meaningMy: string;
+  onScreenText?: string | null;
+  visualActionEn: string;
+  visualActionMy: string;
+  hookType: string;
+  aiVideoPromptEn?: string | null;
+}
+
+export interface DeepDiveScriptScene {
+  sceneNumber: number;
+  timeRange: string;
+  phaseLabel: string;
+  voiceover: string;
+  voiceoverMy: string;
+  onScreenText: string;
+  shotDirectionEn: string;
+  shotDirectionMy: string;
+  aiVideoPromptEn?: string | null;
+}
+
+export interface DeepDiveVideoSeoTitle {
+  style: 'search-seo' | 'curiosity-hook' | 'direct-sell';
+  labelEn: string;
+  labelMy: string;
+  titleText: string;
+  meaningMy: string;
+}
+
+export interface DeepDiveVideoSeoPack {
+  titles: DeepDiveVideoSeoTitle[];
+  searchKeywords: string[];
+  hashtagsBroad: string[];
+  hashtagsNiche: string[];
+  hashtagsBuyerIntent: string[];
+  captionTemplate: string;
+}
+
+export interface DeepDivePolicyGuardItem {
+  riskyClaim: string;
+  reasonEn: string;
+  reasonMy: string;
+  safeAlternative: string;
+}
+
+export interface DeepDiveVideoCreativeBlueprint {
+  optionsUsed: DeepDiveVideoCreativeOptions;
+  competitorScanStatus: 'scanned' | 'skipped-zero-credit' | 'no-videos-found';
+  competitorKeywordUsed: string | null;
+  competitorVideos: DeepDiveCompetitorVideoSample[];
+  competitorTeardownSummaryEn: string;
+  competitorTeardownSummaryMy: string;
+  winningPatternsEn: string[];
+  winningPatternsMy: string[];
+  creativeGapEn: string;
+  creativeGapMy: string;
+  concepts: DeepDiveVideoConcept[];
+  hooks: DeepDiveVideoHook[];
+  scriptTitle: string;
+  scriptScenes: DeepDiveScriptScene[];
+  seoPack: DeepDiveVideoSeoPack;
+  policyGuards: DeepDivePolicyGuardItem[];
+  dataLimitationsEn: string[];
+  dataLimitationsMy: string[];
+  modelUsed: string;
+  usedProductImage: boolean;
+  modulesReferenced: DeepDiveAnalysisId[];
+  generatedAt: string;
+  tokenUsage?: DeepDiveGeminiTokenUsage | null;
+}
+
 /**
  * Isolated per-module structured output produced by Phase 9.2 Execution Engine.
- * Strictly separates verified market metrics from AI Strategic Interpretation.
+ * Strictly separates verified market metrics from AI Strategic Interpretation & AI Creative Blueprints.
  */
 export interface DeepDiveModuleResult {
   analysisId: DeepDiveAnalysisId;
   outcome: 'completed' | 'unavailable';
   dataStatus: DataStatus;
-  /** Strictly true ONLY for ai-strategic-recommendation; false for all market data modules */
+  /** Strictly true ONLY for AI interpretation/creative modules (#8 and #9); false for all market data modules (#1-#7) */
   isAiInterpretation: boolean;
   headlineEn: string;
   headlineMy: string;
@@ -149,6 +309,7 @@ export interface DeepDiveModuleResult {
   sections: DeepDiveResultSection[];
   competitorRows?: DeepDiveCompetitorComparisonRow[];
   videoItems?: DeepDiveVideoItem[];
+  videoCreative?: DeepDiveVideoCreativeBlueprint | null;
   unavailableNotesEn: string[];
   unavailableNotesMy: string[];
   dataSourcesEn: string[];
@@ -205,6 +366,7 @@ export interface DeepDiveWorkspaceState {
   lastAttemptedRunAt: string | null;
   totalCreditsUsedInSession?: number;
   lastRunSummary?: DeepDiveRunCostSummary | null;
+  videoCreativeOptions?: DeepDiveVideoCreativeOptions;
 }
 
 /**
@@ -235,7 +397,13 @@ export type DeepDiveModuleCostKind =
 export interface DeepDiveModuleCostEstimate {
   analysisId: DeepDiveAnalysisId;
   costKind: DeepDiveModuleCostKind;
-  requiredApiLayer: 'productDetail' | 'shopDetail' | 'reviewInsights' | 'gemini-ai' | 'none';
+  requiredApiLayer:
+    | 'productDetail'
+    | 'shopDetail'
+    | 'reviewInsights'
+    | 'videoRank'
+    | 'gemini-ai'
+    | 'none';
   apiLabelEn: string;
   apiLabelMy: string;
   dataUsedEn: string;
@@ -254,7 +422,7 @@ export interface DeepDiveModuleCostEstimate {
 export interface DeepDiveExecutionCostEstimate {
   canonicalProductId: string;
   analysisIds: DeepDiveAnalysisId[];
-  deduplicatedLayers: ('productDetail' | 'shopDetail' | 'reviewInsights')[];
+  deduplicatedLayers: ('productDetail' | 'shopDetail' | 'reviewInsights' | 'videoRank')[];
   plannedKalodataApiCalls: number;
   plannedGeminiCalls: number;
   hasSeparateAiBilling: boolean;
@@ -378,7 +546,8 @@ export type DeepDiveFinalReportSectionId =
   | 'video-insights'
   | 'customer-reviews'
   | 'risks'
-  | 'ai-recommendations';
+  | 'ai-recommendations'
+  | 'video-creative-blueprint';
 
 export type DeepDiveReportSectionAvailability =
   | 'available'

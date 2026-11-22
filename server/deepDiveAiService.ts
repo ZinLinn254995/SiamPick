@@ -86,8 +86,6 @@ const DEEP_DIVE_STRATEGY_SCHEMA = {
     risksMy: { type: Type.ARRAY, items: { type: Type.STRING } },
     targetAudienceEn: { type: Type.STRING },
     targetAudienceMy: { type: Type.STRING },
-    videoIdeasEn: { type: Type.ARRAY, items: { type: Type.STRING } },
-    videoIdeasMy: { type: Type.ARRAY, items: { type: Type.STRING } },
     affiliateStrategyEn: { type: Type.STRING },
     affiliateStrategyMy: { type: Type.STRING },
     goNoGoReasonEn: { type: Type.STRING },
@@ -109,8 +107,6 @@ const DEEP_DIVE_STRATEGY_SCHEMA = {
     'risksMy',
     'targetAudienceEn',
     'targetAudienceMy',
-    'videoIdeasEn',
-    'videoIdeasMy',
     'affiliateStrategyEn',
     'affiliateStrategyMy',
     'goNoGoReasonEn',
@@ -120,13 +116,17 @@ const DEEP_DIVE_STRATEGY_SCHEMA = {
   ],
 };
 
-const SYSTEM_INSTRUCTION = `You are a senior Thailand TikTok Shop Affiliate Strategist generating an AI Strategic Recommendation for SiamPick Deep Dive Analysis.
+const SYSTEM_INSTRUCTION = `You are a senior Thailand TikTok Shop Affiliate Business Strategist generating Module #08 (AI Strategic Recommendation — Go/No-Go Decision) for SiamPick Deep Dive Analysis.
+
+STRICT SCOPE BOUNDARY (BUSINESS DECISION ONLY):
+- Focus 100% on whether an affiliate SHOULD or SHOULD NOT promote this product: commercial viability, margin/commission economics, demand momentum, competition/saturation risk, target buyer psychology, and go-to-market channel strategy (Video vs Live vs Showcase).
+- DO NOT write video scripts, 3-second hooks, ad titles, captions, or hashtags — creative video production belongs exclusively to Module #09 (AI Ad Video Creative Studio).
 
 ABSOLUTE INTEGRITY RULES:
-1. STRICT GROUNDING ONLY: Use ONLY the provided verified Product Data, 7-Factor Opportunity Evaluation, and completed Deep Dive module findings.
+1. STRICT GROUNDING ONLY: Use ONLY the provided verified Product Data, 7-Factor Opportunity Evaluation, and completed Deep Dive module findings (#01–#07).
 2. NEVER FABRICATE MISSING METRICS: NEVER invent sales numbers, daily trends, creator lists, video engagement rates, customer ratings, review counts, or Thai FDA numbers.
 3. EXPLICIT DATA LIMITATIONS: If any data point (such as Daily/Weekly Trends, Top Creators, Linked Video Engagement, or Customer Reviews) is missing or marked Unavailable in the input, explicitly acknowledge that gap in dataLimitationsEn/My and calibrate your verdict conservatively.
-4. AI INTERPRETATION CLARITY: Your output is strictly an AI strategic interpretation built on top of verified market data — state clear, practical next steps for a Thailand TikTok Shop affiliate.
+4. AI INTERPRETATION CLARITY: Your output is strictly an AI strategic business decision built on top of verified market data — state clear, practical next steps for a Thailand TikTok Shop affiliate.
 5. CRISP BILINGUAL OUTPUT: Provide clear English (*En) and natural Burmese (*My) for every field. Return valid JSON matching the exact schema.`;
 
 export interface DeepDiveAiStrategyPayload {
@@ -143,8 +143,10 @@ export interface DeepDiveAiStrategyPayload {
   risksMy: string[];
   targetAudienceEn: string;
   targetAudienceMy: string;
-  videoIdeasEn: string[];
-  videoIdeasMy: string[];
+  /** @deprecated Removed from Module #08 in favor of dedicated Module #09 (AI Ad Video Creative Studio). */
+  videoIdeasEn?: string[];
+  /** @deprecated Removed from Module #08 in favor of dedicated Module #09 (AI Ad Video Creative Studio). */
+  videoIdeasMy?: string[];
   affiliateStrategyEn: string;
   affiliateStrategyMy: string;
   goNoGoReasonEn: string;
@@ -236,19 +238,19 @@ export function buildDeepDiveAiPrompt(
     })),
   };
 
-  return `Synthesize an actionable Thailand TikTok Shop affiliate Deep Dive strategic recommendation strictly from the verified JSON below.
+  return `Synthesize an actionable Thailand TikTok Shop affiliate Deep Dive BUSINESS GO / NO-GO strategic recommendation strictly from the verified JSON below.
+Do NOT include video scripts, hooks, captions, or hashtags (those belong to Module #09). Focus purely on commercial viability, buyer psychology, risk audit, and go-to-market channel strategy for ${categoryDef.labelEn}.
 
 REQUIRED OUTPUT FIELDS (crisp English *En and natural Burmese *My):
 - verdict: one of "priority-test" | "test-with-caution" | "monitor" | "skip"
-- headlineEn / headlineMy: 1 crisp headline summarizing the go/no-go decision
-- summaryEn / summaryMy: 2 concise sentences tying together verified metrics and completed Deep Dive modules
-- strengthsEn / strengthsMy (2-4 concise items strictly supported by input)
-- weaknessesEn / weaknessesMy (2-4 concise items strictly supported by input)
+- headlineEn / headlineMy: 1 crisp headline summarizing the business go/no-go decision
+- summaryEn / summaryMy: 2 concise sentences tying together verified metrics and completed Deep Dive modules (#01–#07)
+- strengthsEn / strengthsMy (2-4 concise commercial/data strengths strictly supported by input)
+- weaknessesEn / weaknessesMy (2-4 concise commercial/margin/competition weaknesses strictly supported by input)
 - risksEn / risksMy (2-4 concrete affiliate/product/compliance/saturation/missing-data risks)
-- targetAudienceEn / targetAudienceMy: practical Thailand TikTok Shop buyer profile (explicitly framed as AI strategic inference)
-- videoIdeasEn / videoIdeasMy (3 short, concrete TikTok video hooks/concepts suited to ${categoryDef.labelEn})
-- affiliateStrategyEn / affiliateStrategyMy: concise go-to-market promotion strategy
-- goNoGoReasonEn / goNoGoReasonMy: clear go / no-go rationale with concrete next step
+- targetAudienceEn / targetAudienceMy: practical Thailand TikTok Shop buyer profile & buying motivation (explicitly framed as AI strategic inference)
+- affiliateStrategyEn / affiliateStrategyMy: concise go-to-market channel & positioning strategy (e.g., Video vs Live channel focus, pricing/bundle positioning, testing budget discipline)
+- goNoGoReasonEn / goNoGoReasonMy: clear go / no-go business rationale with concrete next step
 - dataLimitationsEn / dataLimitationsMy (1-4 items explicitly listing every missing or unavailable data source from the input)
 
 Verified Input JSON:
@@ -292,8 +294,6 @@ export function validateDeepDiveStrategyJson(
   const risksMy = cleanStringArray(obj.risksMy, 4);
   const targetAudienceEn = cleanString(obj.targetAudienceEn);
   const targetAudienceMy = cleanString(obj.targetAudienceMy);
-  const videoIdeasEn = cleanStringArray(obj.videoIdeasEn, 4);
-  const videoIdeasMy = cleanStringArray(obj.videoIdeasMy, 4);
   const affiliateStrategyEn = cleanString(obj.affiliateStrategyEn);
   const affiliateStrategyMy = cleanString(obj.affiliateStrategyMy);
   const goNoGoReasonEn = cleanString(obj.goNoGoReasonEn);
@@ -312,8 +312,6 @@ export function validateDeepDiveStrategyJson(
     risksMy.length === 0 ||
     !targetAudienceEn ||
     !targetAudienceMy ||
-    videoIdeasEn.length === 0 ||
-    videoIdeasMy.length === 0 ||
     !affiliateStrategyEn ||
     !affiliateStrategyMy ||
     !goNoGoReasonEn ||
@@ -336,8 +334,6 @@ export function validateDeepDiveStrategyJson(
     risksMy,
     targetAudienceEn,
     targetAudienceMy,
-    videoIdeasEn,
-    videoIdeasMy,
     affiliateStrategyEn,
     affiliateStrategyMy,
     goNoGoReasonEn,
@@ -415,7 +411,9 @@ export async function generateDeepDiveAiStrategy(params: {
       salesWeightPct: params.salesWeightPct ?? 50,
     });
   const completedModules = (params.completedModules ?? []).filter(
-    (m) => m.analysisId !== 'ai-strategic-recommendation'
+    (m) =>
+      m.analysisId !== 'ai-strategic-recommendation' &&
+      m.analysisId !== 'ad-video-creative-blueprint'
   );
   const modulesSynthesized = completedModules.map((m) => m.analysisId);
 

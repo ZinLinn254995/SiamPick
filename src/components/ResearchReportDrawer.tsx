@@ -63,6 +63,7 @@ import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { AiProductAnalysisSection } from './AiProductAnalysisSection';
 import { DataEnrichmentSection } from './DataEnrichmentSection';
+import { SameProductHunterSection } from './SameProductHunterSection';
 import { InfoPopover } from './InfoPopover';
 
 interface ResearchReportDrawerProps {
@@ -83,6 +84,9 @@ interface ResearchReportDrawerProps {
     shopDetail: KalodataShopEnrichmentRecord | null,
     summary: ProductEnrichmentExecutionSummary | null
   ) => void;
+  savedProductIds?: ReadonlySet<string>;
+  onSaveExternalProduct?: (candidateProduct: ResearchProduct) => void;
+  onCreditsSpent?: () => void;
   language: Language;
 }
 
@@ -132,6 +136,9 @@ export function ResearchReportDrawer({
   onClose,
   onAiAnalysisSaved,
   onProductEnriched,
+  savedProductIds,
+  onSaveExternalProduct,
+  onCreditsSpent,
   language,
 }: ResearchReportDrawerProps) {
   const [copied, setCopied] = useState(false);
@@ -502,6 +509,7 @@ export function ResearchReportDrawer({
                 { id: 'rep-decision', label: t.reportTabDecision },
                 { id: 'rep-market-data', label: t.reportTabMarketData },
                 { id: 'rep-enrichment', label: t.enrichJumpLabel },
+                { id: 'rep-same-product', label: isMy ? 'ဆိုင်တူ Link ရှာ' : 'Same Product' },
                 { id: 'rep-score', label: t.scoringJumpLabel },
                 { id: 'rep-ai-analysis', label: t.aiJumpLabel },
                 { id: 'rep-reviews', label: t.reportJumpReviews },
@@ -1079,6 +1087,18 @@ export function ResearchReportDrawer({
             spendingLimitCredits={spendingLimitCredits}
             language={language}
             onProductEnriched={onProductEnriched}
+          />
+
+          {/* 5b. Exact Same Product · Early-Mover Shop Links */}
+          <SameProductHunterSection
+            product={product}
+            spendingLimitCredits={spendingLimitCredits}
+            salesWeightPct={salesWeightPct}
+            language={language}
+            savedProductIds={savedProductIds}
+            onSaveCandidate={onSaveExternalProduct}
+            onOpenDeepDive={onOpenDeepDive}
+            onCreditsSpent={onCreditsSpent}
           />
 
           {/* 6. Phase 2: 7-Factor 100-Point Product Scoring Engine Breakdown & Explanations */}

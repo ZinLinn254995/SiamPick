@@ -23,16 +23,25 @@ import type {
   DeepDiveResultSection,
   DeepDiveRunCostSummary,
   DeepDiveServerBudgetSnapshot,
+  DeepDiveVideoCreativeBlueprint,
+  DeepDiveVideoCreativeOptions,
   DeepDiveVideoItem,
 } from '../types/deepDive.ts';
 import {
   DEFAULT_SPENDING_LIMIT_CREDITS,
   KALODATA_COMMENT_INSIGHT_CREDIT,
+  KALODATA_CREDITS_PER_100_ROWS,
   KALODATA_PRODUCT_DETAIL_CREDIT,
   KALODATA_USD_PER_CREDIT,
   MAX_SPENDING_LIMIT_CREDITS,
   MIN_SPENDING_LIMIT_CREDITS,
 } from './kalodataPricing.ts';
+import {
+  DEFAULT_DEEP_DIVE_VIDEO_CREATIVE_OPTIONS,
+  normalizeDeepDiveVideoCreativeOptions,
+  VIDEO_CREATIVE_LANGUAGE_LABELS,
+  VIDEO_CREATIVE_STYLE_LABELS,
+} from './deepDiveRegistry.ts';
 import {
   getProductEnrichmentCoverage,
   isValidKalodataId,
@@ -123,8 +132,8 @@ export interface DeepDiveAiApiStrategyData {
   risksMy: string[];
   targetAudienceEn: string;
   targetAudienceMy: string;
-  videoIdeasEn: string[];
-  videoIdeasMy: string[];
+  videoIdeasEn?: string[];
+  videoIdeasMy?: string[];
   affiliateStrategyEn: string;
   affiliateStrategyMy: string;
   goNoGoReasonEn: string;
@@ -140,6 +149,20 @@ export interface DeepDiveAiApiStrategyData {
 export interface DeepDiveAiApiResponse {
   ok: boolean;
   strategy?: DeepDiveAiApiStrategyData;
+  code?: string;
+  error?: string;
+  errorMy?: string;
+}
+
+export interface DeepDiveVideoCreativeApiResponse {
+  ok: boolean;
+  blueprint?: DeepDiveVideoCreativeBlueprint;
+  kalodataApiCallsMade?: number;
+  kalodataCreditsUsed?: number;
+  reusedCompetitorCache?: boolean;
+  aiApiCallsMade?: number;
+  liveBalanceAfter?: number | null;
+  budgetSnapshot?: DeepDiveServerBudgetSnapshot | null;
   code?: string;
   error?: string;
   errorMy?: string;
@@ -162,6 +185,15 @@ export interface DeepDiveExecutionDependencies {
     requireExplicitConfirmation?: boolean;
     userConfirmedPaidExecution?: boolean;
   }) => Promise<DeepDiveAiApiResponse>;
+  runVideoCreativeFn?: (payload: {
+    product: ResearchProduct;
+    options: DeepDiveVideoCreativeOptions;
+    completedModules: DeepDiveCompletedModuleDigest[];
+    spendingLimitCredits: number;
+    userConfirmedPaidExecution?: boolean;
+    forceRefresh?: boolean;
+    idempotencyKey?: string;
+  }) => Promise<DeepDiveVideoCreativeApiResponse>;
   getCacheFn?: (product: ResearchProduct) => DeepDiveCacheSnapshot;
   saveCacheFn?: (params: {
     productDetail?: KalodataProductDetailEnrichmentRecord | null;
@@ -173,6 +205,7 @@ export interface DeepDiveExecutionDependencies {
 
 const DEEP_DIVE_ENRICH_TIMEOUT_MS = 45_000;
 const DEEP_DIVE_AI_TIMEOUT_MS = 65_000;
+const DEEP_DIVE_VIDEO_CREATIVE_TIMEOUT_MS = 90_000;
 
 function isAbortOrTimeoutError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
@@ -377,6 +410,84 @@ async function defaultRunAiStrategyFn(payload: {
   }
 }
 
+async function defaultRunVideoCreativeFn(payload: {
+  product: ResearchProduct;
+  options: DeepDiveVideoCreativeOptions;
+  completedModules: DeepDiveCompletedModuleDigest[];
+  spendingLimitCredits: number;
+  userConfirmedPaidExecution?: boolean;
+  forceRefresh?: boolean;
+  idempotencyKey?: string;
+}): Promise<DeepDiveVideoCreativeApiResponse> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timedOut = false;
+  const timer =
+    controller !== null
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, DEEP_DIVE_VIDEO_CREATIVE_TIMEOUT_MS)
+      : null;
+
+  try {
+    const response = await fetch('/api/deep-dive/video-creative', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      ...(controller ? { signal: controller.signal } : {}),
+    });
+    const json = (await response.json().catch(() => null)) as DeepDiveVideoCreativeApiResponse | null;
+    if (!response.ok || !json || !json.ok) {
+      const fallback = buildFriendlyHttpError(
+        response.status,
+        'AI Ad Video Creative Studio',
+        'AI Ad Video Creative Studio',
+        Boolean(json)
+      );
+      return {
+        ok: false,
+        code: json?.code ?? fallback.code,
+        error: json?.error ?? fallback.error,
+        errorMy: json?.errorMy ?? fallback.errorMy,
+        budgetSnapshot: json?.budgetSnapshot ?? null,
+      };
+    }
+    return json;
+  } catch (err) {
+    if (timedOut || isAbortOrTimeoutError(err)) {
+      return {
+        ok: false,
+        code: 'TIMEOUT',
+        error:
+          'AI Ad Video Creative Studio timed out. Other Deep Dive modules remain intact — retry when ready.',
+        errorMy:
+          'AI Ad Video Creative Studio အချိန်ကျော်လွန်သွားပါသည်။ အခြား Deep Dive Module များ မပျက်စီးပါ — ပြန်လည်စမ်းသပ်နိုင်ပါသည်။',
+      };
+    }
+    if (isNetworkFailureError(err)) {
+      return {
+        ok: false,
+        code: 'NETWORK_ERROR',
+        error:
+          'Network connection failed while calling AI Ad Video Creative Studio. Check your connection and retry.',
+        errorMy:
+          'AI Ad Video Creative Studio ခေါ်ဆိုစဉ် အင်တာနက်ချိတ်ဆက်မှု ပြတ်တောက်သွားပါသည်။ ပြန်လည်စမ်းသပ်ပါ။',
+      };
+    }
+    return {
+      ok: false,
+      code: 'VIDEO_CREATIVE_ERROR',
+      error:
+        err instanceof Error && err.message
+          ? err.message
+          : 'Unexpected error while running AI Ad Video Creative Studio.',
+      errorMy: 'AI Ad Video Creative Studio လုပ်ဆောင်ရာတွင် မမျှော်လင့်သော အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+    };
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
 /**
  * Checks whether a given Deep Dive module requires `product/detail` (0.1 cr)
  * if the needed fields are missing on the current product.
@@ -450,8 +561,13 @@ function getModuleDataUsageLabels(
       };
     case 'ai-strategic-recommendation':
       return {
-        en: 'Verified product data + completed Deep Dive module results',
-        my: 'အတည်ပြုပြီး Product Data + ပြီးစီးထားသော Deep Dive ရလဒ်များ',
+        en: 'Verified product data + completed Deep Dive (#01–#07) business synthesis',
+        my: 'အတည်ပြုပြီး Product Data + Deep Dive (#01–#07) စီးပွားရေးဆုံးဖြတ်ချက်',
+      };
+    case 'ad-video-creative-blueprint':
+      return {
+        en: 'Product profile, buyer insights & optional top-selling TH competitor videos -> Script + TikTok SEO',
+        my: 'Product အချက်အလက်၊ ဝယ်သူအမြင်နှင့် (ရွေးချယ်ပါက) ပြိုင်ဘက် Video များ -> Script + TikTok SEO',
       };
   }
 }
@@ -462,6 +578,7 @@ function getModuleDataUsageLabels(
  * - Accounts for existing product fields + client enrichment cache (0 cr).
  * - Deduplicates shared `product/detail` calls across multiple selected modules (0 extra cr).
  * - Marks Review Insight strictly opt-in (`1.0 cr` ONLY when selected and uncached).
+ * - Module #09 defaults to 0 Kalodata credits + 1 Gemini call, or +0.1 cr when Competitor Video Scan is enabled.
  * - Strictly separates Kalodata Credits from separate Google Gemini AI API billing (NEVER free).
  */
 export function estimateDeepDiveExecutionCost(
@@ -470,15 +587,17 @@ export function estimateDeepDiveExecutionCost(
   options?: {
     cacheSnapshot?: DeepDiveCacheSnapshot | null;
     forceRefresh?: boolean;
+    videoCreativeOptions?: Partial<DeepDiveVideoCreativeOptions> | null;
   }
 ): DeepDiveExecutionCostEstimate {
   const canonicalProductId = getCanonicalProductId(product);
   const coverage = getProductEnrichmentCoverage(product);
   const cached = options?.cacheSnapshot ?? getCachedEnrichmentForProduct(product);
   const forceRefresh = options?.forceRefresh === true;
+  const includeCompetitorVideoScan = options?.videoCreativeOptions?.includeCompetitorVideos === true;
 
   const uniqueIds = Array.from(new Set(analysisIds));
-  const plannedLayers = new Set<'productDetail' | 'shopDetail' | 'reviewInsights'>();
+  const plannedLayers = new Set<'productDetail' | 'shopDetail' | 'reviewInsights' | 'videoRank'>();
   const modules: DeepDiveModuleCostEstimate[] = [];
   let plannedGeminiCalls = 0;
 
@@ -524,6 +643,51 @@ export function estimateDeepDiveExecutionCost(
         noteMy:
           'Kalodata Credit 0 cr — Server-side Gemini AI API Call ၁ ကြိမ် (ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး · Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။',
       });
+      continue;
+    }
+
+    if (id === 'ad-video-creative-blueprint') {
+      plannedGeminiCalls += 1;
+      if (includeCompetitorVideoScan) {
+        const alreadyCounted = plannedLayers.has('videoRank');
+        plannedLayers.add('videoRank');
+        const credits = alreadyCounted ? 0 : KALODATA_CREDITS_PER_100_ROWS;
+        modules.push({
+          analysisId: id,
+          costKind: 'verified-api',
+          requiredApiLayer: 'videoRank',
+          apiLabelEn: `Kalodata Video Rank (${KALODATA_CREDITS_PER_100_ROWS} cr · 24h Cache) + Gemini AI`,
+          apiLabelMy: `Kalodata Video Rank (${KALODATA_CREDITS_PER_100_ROWS} cr · 24h Cache) + Gemini AI`,
+          dataUsedEn: dataUsed.en,
+          dataUsedMy: dataUsed.my,
+          plannedKalodataApiCalls: alreadyCounted ? 0 : 1,
+          estimatedCredits: credits,
+          estimatedUsd: roundUsd(credits * KALODATA_USD_PER_CREDIT),
+          separateAiBilling: true,
+          reusesExistingOrCache: false,
+          noteEn: `Optional Competitor Video Scan (+${KALODATA_CREDITS_PER_100_ROWS} Kalodata cr if uncached, 0 cr on 24h cache hit) PLUS 1 server-side Gemini AI call (separate Gemini billing).`,
+          noteMy: `ပြိုင်ဘက် Video စစ်ဆေးမှု (+${KALODATA_CREDITS_PER_100_ROWS} Kalodata cr · 24h Cache ရှိပါက 0 cr) နှင့် Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။`,
+        });
+      } else {
+        modules.push({
+          analysisId: id,
+          costKind: 'ai-no-kalodata-credits',
+          requiredApiLayer: 'gemini-ai',
+          apiLabelEn: 'Server-Side Gemini AI Studio (0 Kalodata cr)',
+          apiLabelMy: 'Server-Side Gemini AI Studio (0 Kalodata cr)',
+          dataUsedEn: dataUsed.en,
+          dataUsedMy: dataUsed.my,
+          plannedKalodataApiCalls: 0,
+          estimatedCredits: 0,
+          estimatedUsd: 0,
+          separateAiBilling: true,
+          reusesExistingOrCache: true,
+          noteEn:
+            '0 Kalodata credits (Competitor Video Scan OFF) — uses 1 server-side Gemini AI API call (separate Google Gemini API billing).',
+          noteMy:
+            'Kalodata Credit 0 cr (ပြိုင်ဘက် Video စစ်ဆေးမှု ပိတ်ထားသည်) — Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။',
+        });
+      }
       continue;
     }
 
@@ -839,6 +1003,7 @@ function createBatchSession(
   const deps: Required<DeepDiveExecutionDependencies> = {
     enrichProductFn: options.deps?.enrichProductFn ?? defaultEnrichProductFn,
     runAiStrategyFn: options.deps?.runAiStrategyFn ?? defaultRunAiStrategyFn,
+    runVideoCreativeFn: options.deps?.runVideoCreativeFn ?? defaultRunVideoCreativeFn,
     getCacheFn: options.deps?.getCacheFn ?? getCachedEnrichmentForProduct,
     saveCacheFn: options.deps?.saveCacheFn ?? saveEnrichmentToCache,
     nowIsoFn: options.deps?.nowIsoFn ?? (() => new Date().toISOString()),
@@ -2470,19 +2635,11 @@ async function executeAiStrategicRecommendation(
     },
     {
       id: 'ai-strategy-gonogo',
-      titleEn: 'Affiliate Strategy & Go / No-Go Rationale',
-      titleMy: 'Affiliate ဗျူဟာနှင့် လုပ်သင့်/မလုပ်သင့် အကြောင်းပြချက်',
+      titleEn: 'Affiliate Channel Strategy & Go / No-Go Rationale',
+      titleMy: 'Affiliate ဈေးကွက်ဗျူဟာနှင့် လုပ်သင့်/မလုပ်သင့် အကြောင်းပြချက်',
       status: 'estimated',
       bulletsEn: [s.affiliateStrategyEn, s.goNoGoReasonEn],
       bulletsMy: [s.affiliateStrategyMy, s.goNoGoReasonMy],
-    },
-    {
-      id: 'ai-video-ideas',
-      titleEn: 'Video Content Ideas (AI Creative)',
-      titleMy: 'Video ဖန်တီးရန် အကြံဉာဏ်များ',
-      status: 'estimated',
-      bulletsEn: s.videoIdeasEn,
-      bulletsMy: s.videoIdeasMy,
     },
     {
       id: 'ai-risks',
@@ -2508,12 +2665,12 @@ async function executeAiStrategicRecommendation(
     unavailableNotesEn: s.dataLimitationsEn,
     unavailableNotesMy: s.dataLimitationsMy,
     dataSourcesEn: [
-      `Gemini AI Interpretation (${s.modelUsed} · 1 Gemini API call · separate AI billing)`,
-      'Verified Product Data + Completed Deep Dive Modules (0 Kalodata cr)',
+      `Gemini AI Business Decision (${s.modelUsed} · 1 Gemini API call · separate AI billing)`,
+      'Verified Product Data + Completed Deep Dive Modules #01–#07 (0 Kalodata cr)',
     ],
     dataSourcesMy: [
-      `Gemini AI Interpretation (${s.modelUsed} · Gemini API ၁ ကြိမ် · AI API စရိတ် သီးခြားရှိသည်)`,
-      'အတည်ပြုပြီး Product Data + Deep Dive ရလဒ်များ (0 Kalodata cr)',
+      `Gemini AI စီးပွားရေးဆုံးဖြတ်ချက် (${s.modelUsed} · Gemini API ၁ ကြိမ် · AI API စရိတ် သီးခြားရှိသည်)`,
+      'အတည်ပြုပြီး Product Data + Deep Dive (#01–#07) ရလဒ်များ (0 Kalodata cr)',
     ],
     apiCallsMade: 0,
     aiApiCallsMade: 1,
@@ -2530,11 +2687,205 @@ async function executeAiStrategicRecommendation(
   };
 }
 
+// ---------------------------------------------------------------------------
+// 9. AI Ad Video Creative Studio (0 cr default or +0.1 cr Video Rank + Gemini AI)
+// ---------------------------------------------------------------------------
+async function executeAdVideoCreativeBlueprint(
+  session: DeepDiveBatchSession,
+  completedModules: DeepDiveCompletedModuleDigest[],
+  rawOptions: Partial<DeepDiveVideoCreativeOptions> | null | undefined,
+  forceRefresh: boolean
+): Promise<DeepDiveModuleResult> {
+  const completedAt = session.deps.nowIsoFn();
+  const options: DeepDiveVideoCreativeOptions = normalizeDeepDiveVideoCreativeOptions(rawOptions);
+
+  const res = await session.deps.runVideoCreativeFn({
+    product: session.workingProduct,
+    options,
+    completedModules,
+    spendingLimitCredits: session.spendingLimitCredits,
+    userConfirmedPaidExecution: session.userConfirmedPaidExecution,
+    forceRefresh,
+    idempotencyKey: `${session.runId}:video-creative`,
+  });
+
+  if (res.budgetSnapshot) {
+    session.latestBudgetSnapshot = res.budgetSnapshot;
+  }
+  if (typeof res.liveBalanceAfter === 'number' && Number.isFinite(res.liveBalanceAfter)) {
+    session.latestBalanceAfter = res.liveBalanceAfter;
+  }
+
+  if (!res.ok || !res.blueprint) {
+    throw new ModuleExecutionError(
+      res.code ?? 'VIDEO_CREATIVE_FAILED',
+      res.error ?? 'AI Ad Video Creative Studio failed.',
+      res.errorMy ?? 'AI Ad Video Creative Studio လုပ်ဆောင်မှု မအောင်မြင်ပါ။'
+    );
+  }
+
+  const bp = res.blueprint;
+  const kalodataCalls = res.kalodataApiCallsMade ?? 0;
+  const kalodataCredits = roundCredits(res.kalodataCreditsUsed ?? 0);
+  const reusedCache = res.reusedCompetitorCache === true;
+
+  const langLabelEn =
+    VIDEO_CREATIVE_LANGUAGE_LABELS[bp.optionsUsed.scriptLanguage]?.en ?? bp.optionsUsed.scriptLanguage;
+  const langLabelMy =
+    VIDEO_CREATIVE_LANGUAGE_LABELS[bp.optionsUsed.scriptLanguage]?.my ?? bp.optionsUsed.scriptLanguage;
+  const styleLabelEn =
+    VIDEO_CREATIVE_STYLE_LABELS[bp.optionsUsed.videoStyle]?.en ?? bp.optionsUsed.videoStyle;
+  const styleLabelMy =
+    VIDEO_CREATIVE_STYLE_LABELS[bp.optionsUsed.videoStyle]?.my ?? bp.optionsUsed.videoStyle;
+
+  const scanStatusEn =
+    bp.competitorScanStatus === 'scanned'
+      ? `${bp.competitorVideos.length} top TH video(s) studied`
+      : bp.competitorScanStatus === 'no-videos-found'
+        ? '0 matching videos returned'
+        : 'Skipped (0 cr mode)';
+  const scanStatusMy =
+    bp.competitorScanStatus === 'scanned'
+      ? `ပြိုင်ဘက် Video ${bp.competitorVideos.length} ခု လေ့လာပြီး`
+      : bp.competitorScanStatus === 'no-videos-found'
+        ? 'ကိုက်ညီသော Video 0 ခုသာ တွေ့ရှိ'
+        : 'မစစ်ဆေးထားပါ (0 cr Mode)';
+
+  const metrics: DeepDiveMetricRow[] = [
+    {
+      key: 'competitorScan',
+      labelEn: 'Competitor Video Study',
+      labelMy: 'ပြိုင်ဘက် Video လေ့လာမှု',
+      valueEn: scanStatusEn,
+      valueMy: scanStatusMy,
+      status: bp.competitorScanStatus === 'scanned' ? 'verified' : 'unavailable',
+    },
+    {
+      key: 'creativePack',
+      labelEn: 'Creative Pack Output',
+      labelMy: 'ထုတ်ပေးထားသော Creative Pack',
+      valueEn: `${bp.concepts.length} Concepts · ${bp.hooks.length} Hooks · ${bp.scriptScenes.length} Scenes`,
+      valueMy: `Concept ${bp.concepts.length} · Hook ${bp.hooks.length} · Scene ${bp.scriptScenes.length}`,
+      status: 'estimated',
+    },
+    {
+      key: 'productionSpec',
+      labelEn: 'Format & Language',
+      labelMy: 'ပုံစံနှင့် ဘာသာစကား',
+      valueEn: `${styleLabelEn} · ${bp.optionsUsed.duration} · ${langLabelEn}`,
+      valueMy: `${styleLabelMy} · ${bp.optionsUsed.duration} · ${langLabelMy}`,
+      status: 'verified',
+    },
+    {
+      key: 'seoAndCompliance',
+      labelEn: 'SEO & Policy Guard',
+      labelMy: 'SEO နှင့် စည်းကမ်းကာကွယ်ချက်',
+      valueEn: `${bp.seoPack.titles.length} Titles · ${bp.seoPack.searchKeywords.length} Keywords · ${bp.policyGuards.length} Guards`,
+      valueMy: `Title ${bp.seoPack.titles.length} · Keyword ${bp.seoPack.searchKeywords.length} · Guard ${bp.policyGuards.length}`,
+      status: 'estimated',
+    },
+  ];
+
+  // Compact report sections for Final Report & Markdown Export (UI renders rich interactive DeepDiveVideoCreativePanel)
+  const sections: DeepDiveResultSection[] = [
+    {
+      id: 'vc-concepts-hooks',
+      titleEn: 'Top Concepts & 3-Second Hooks',
+      titleMy: 'ကြော်ငြာ Video Concept နှင့် 3-Second Hooks',
+      status: 'estimated',
+      bulletsEn: [
+        ...bp.concepts.slice(0, 3).map((c) => `[${c.formatLabel}] ${c.titleEn}: ${c.angleSummaryEn}`),
+        ...bp.hooks.slice(0, 3).map((h) => `Hook (${h.hookType}): “${h.hookText}”`),
+      ],
+      bulletsMy: [
+        ...bp.concepts.slice(0, 3).map((c) => `[${c.formatLabel}] ${c.titleMy}: ${c.angleSummaryMy}`),
+        ...bp.hooks.slice(0, 3).map((h) => `Hook (${h.hookType}): “${h.hookText}” — ${h.meaningMy}`),
+      ],
+    },
+    {
+      id: 'vc-seo-pack',
+      titleEn: 'TikTok SEO Titles, Keywords & Hashtags',
+      titleMy: 'TikTok SEO Title၊ Keywords နှင့် Hashtags',
+      status: 'estimated',
+      bulletsEn: [
+        ...bp.seoPack.titles.map((t) => `${t.labelEn}: ${t.titleText}`),
+        `Keywords: ${bp.seoPack.searchKeywords.join(', ')}`,
+        `Hashtags: ${[
+          ...bp.seoPack.hashtagsBroad,
+          ...bp.seoPack.hashtagsNiche,
+          ...bp.seoPack.hashtagsBuyerIntent,
+        ].join(' ')}`,
+      ],
+      bulletsMy: [
+        ...bp.seoPack.titles.map((t) => `${t.labelMy}: ${t.titleText}`),
+        `Keywords: ${bp.seoPack.searchKeywords.join(', ')}`,
+        `Hashtags: ${[
+          ...bp.seoPack.hashtagsBroad,
+          ...bp.seoPack.hashtagsNiche,
+          ...bp.seoPack.hashtagsBuyerIntent,
+        ].join(' ')}`,
+      ],
+    },
+  ];
+
+  const dataSourcesEn = [
+    `Gemini AI Creative Studio (${bp.modelUsed} · 1 Gemini API call · separate AI billing)`,
+    ...(bp.competitorScanStatus === 'scanned'
+      ? [
+          reusedCache
+            ? 'Kalodata Video Rank API (24h cached · 0 cr)'
+            : `Kalodata Video Rank API (${kalodataCredits} cr)`,
+        ]
+      : ['Verified Product Data + Deep Dive Buyer Insights (0 Kalodata cr)']),
+  ];
+  const dataSourcesMy = [
+    `Gemini AI Creative Studio (${bp.modelUsed} · Gemini API ၁ ကြိမ် · AI စရိတ် သီးခြားရှိ)`,
+    ...(bp.competitorScanStatus === 'scanned'
+      ? [
+          reusedCache
+            ? 'Kalodata Video Rank API (24h Cache · 0 cr)'
+            : `Kalodata Video Rank API (${kalodataCredits} cr)`,
+        ]
+      : ['အတည်ပြုပြီး Product Data + Deep Dive ဝယ်သူအမြင်များ (0 Kalodata cr)']),
+  ];
+
+  return {
+    analysisId: 'ad-video-creative-blueprint',
+    outcome: 'completed',
+    dataStatus: 'estimated',
+    isAiInterpretation: true,
+    headlineEn: `${bp.scriptTitle} (${bp.optionsUsed.duration} · ${styleLabelEn})`,
+    headlineMy: `${bp.scriptTitle} (${bp.optionsUsed.duration} · ${styleLabelMy})`,
+    summaryEn: bp.competitorTeardownSummaryEn,
+    summaryMy: bp.competitorTeardownSummaryMy,
+    metrics,
+    sections,
+    videoCreative: bp,
+    unavailableNotesEn: bp.dataLimitationsEn,
+    unavailableNotesMy: bp.dataLimitationsMy,
+    dataSourcesEn,
+    dataSourcesMy,
+    apiCallsMade: kalodataCalls,
+    aiApiCallsMade: res.aiApiCallsMade ?? 1,
+    creditsUsed: kalodataCredits,
+    reusedFromCache: reusedCache,
+    completedAt: bp.generatedAt || completedAt,
+    aiMeta: {
+      modelUsed: bp.modelUsed,
+      source: 'gemini',
+      verdict: 'priority-test',
+      modulesSynthesized: bp.modulesReferenced,
+      tokenUsage: bp.tokenUsage ?? null,
+    },
+  };
+}
+
 export interface RunDeepDiveModulesParams {
   product: ResearchProduct;
   analysisIds: readonly DeepDiveAnalysisId[];
   peerProducts?: readonly ResearchProduct[];
   existingSlots?: Partial<Record<DeepDiveAnalysisId, DeepDiveAnalysisSlotState>>;
+  videoCreativeOptions?: Partial<DeepDiveVideoCreativeOptions> | null;
   runId?: string;
   spendingLimitCredits?: number;
   sessionCreditsAlreadySpent?: number;
@@ -2698,6 +3049,7 @@ export async function runDeepDiveModules(
   const preEstimate = estimateDeepDiveExecutionCost(params.product, uniqueIds, {
     cacheSnapshot: session.deps.getCacheFn(params.product),
     forceRefresh,
+    videoCreativeOptions: params.videoCreativeOptions,
   });
   const budgetGuard = evaluateDeepDiveBudgetGuard(preEstimate, {
     spendingLimitCredits: session.spendingLimitCredits,
@@ -2765,9 +3117,12 @@ export async function runDeepDiveModules(
     params.onSlotUpdate?.(id, runningSlot);
   }
 
-  // Split: run data modules (#1–#7) first, then AI Strategic Recommendation (#8) last
-  const dataModuleIds = uniqueIds.filter((id) => id !== 'ai-strategic-recommendation');
-  const includesAi = uniqueIds.includes('ai-strategic-recommendation');
+  // Split: run data modules (#1–#7) first, then AI Business Strategy (#8) & AI Video Studio (#9)
+  const dataModuleIds = uniqueIds.filter(
+    (id) => id !== 'ai-strategic-recommendation' && id !== 'ad-video-creative-blueprint'
+  );
+  const includesAiStrategy = uniqueIds.includes('ai-strategic-recommendation');
+  const includesVideoCreative = uniqueIds.includes('ad-video-creative-blueprint');
 
   const runDataModule = async (id: DeepDiveAnalysisId): Promise<void> => {
     try {
@@ -2830,49 +3185,136 @@ export async function runDeepDiveModules(
   // Run data modules concurrently with shared in-flight layer deduplication + isolated error handling
   await Promise.all(dataModuleIds.map((id) => runDataModule(id)));
 
-  // Now run AI Strategic Recommendation (#8) with all verified completed module digests
-  if (includesAi) {
+  // Helper to collect verified #01–#07 module digests for AI modules (#08 and #09)
+  const buildVerifiedDataDigests = (): DeepDiveCompletedModuleDigest[] => {
     const mergedResultsMap = new Map<DeepDiveAnalysisId, DeepDiveModuleResult>();
+    const isDataMod = (modId: DeepDiveAnalysisId) =>
+      modId !== 'ai-strategic-recommendation' && modId !== 'ad-video-creative-blueprint';
+
     if (params.existingSlots) {
       for (const [key, slot] of Object.entries(params.existingSlots)) {
         const modId = key as DeepDiveAnalysisId;
-        if (modId !== 'ai-strategic-recommendation' && slot?.result) {
+        if (isDataMod(modId) && slot?.result) {
           mergedResultsMap.set(modId, slot.result);
         }
       }
     }
     for (const [key, slot] of Object.entries(outputSlots)) {
       const modId = key as DeepDiveAnalysisId;
-      if (modId !== 'ai-strategic-recommendation' && slot?.result) {
+      if (isDataMod(modId) && slot?.result) {
         mergedResultsMap.set(modId, slot.result);
       }
     }
+    return Array.from(mergedResultsMap.values()).map(buildCompletedModuleDigest);
+  };
 
-    const completedDigests = Array.from(mergedResultsMap.values()).map(
-      buildCompletedModuleDigest
-    );
+  const mergeTokenUsage = (
+    current: DeepDiveGeminiTokenUsage | null,
+    incoming: DeepDiveGeminiTokenUsage | null | undefined
+  ): DeepDiveGeminiTokenUsage | null => {
+    if (!incoming) return current;
+    if (!current) return incoming;
+    const promptTokens =
+      current.promptTokens !== null || incoming.promptTokens !== null
+        ? (current.promptTokens ?? 0) + (incoming.promptTokens ?? 0)
+        : null;
+    const outputTokens =
+      current.outputTokens !== null || incoming.outputTokens !== null
+        ? (current.outputTokens ?? 0) + (incoming.outputTokens ?? 0)
+        : null;
+    const totalTokens =
+      current.totalTokens !== null || incoming.totalTokens !== null
+        ? (current.totalTokens ?? 0) + (incoming.totalTokens ?? 0)
+        : null;
+    return {
+      promptTokens,
+      outputTokens,
+      totalTokens,
+      pricingStatus: 'unavailable',
+      costNoteEn:
+        totalTokens !== null
+          ? `Gemini API cost: Estimated / Unavailable (${totalTokens.toLocaleString('en-US')} total tokens used; separate Gemini billing).`
+          : incoming.costNoteEn,
+      costNoteMy:
+        totalTokens !== null
+          ? `Gemini API ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး (စုစုပေါင်း Token ${totalTokens.toLocaleString('en-US')} · Gemini စရိတ် သီးခြားရှိ)။`
+          : incoming.costNoteMy,
+    };
+  };
 
-    try {
-      const aiResult = await executeAiStrategicRecommendation(session, completedDigests);
-      actualGeminiCalls += aiResult.aiApiCallsMade ?? 1;
-      geminiTokenUsage = aiResult.aiMeta?.tokenUsage ?? null;
-      const slot = toSlotStateFromResult(aiResult);
-      outputSlots['ai-strategic-recommendation'] = slot;
-      completedIds.push('ai-strategic-recommendation');
-      params.onSlotUpdate?.('ai-strategic-recommendation', slot);
-    } catch (err) {
-      const previousResult =
-        params.existingSlots?.['ai-strategic-recommendation']?.result ?? null;
-      const slot = toSlotStateFromError(
-        'ai-strategic-recommendation',
-        err,
-        session.deps.nowIsoFn(),
-        previousResult
+  // Run Module #08 (Business Go/No-Go) and Module #09 (Ad Video Creative Studio) independently
+  if (includesAiStrategy || includesVideoCreative) {
+    const completedDigests = buildVerifiedDataDigests();
+
+    const aiTasks: Promise<void>[] = [];
+
+    if (includesAiStrategy) {
+      aiTasks.push(
+        (async () => {
+          try {
+            const aiResult = await executeAiStrategicRecommendation(session, completedDigests);
+            actualGeminiCalls += aiResult.aiApiCallsMade ?? 1;
+            geminiTokenUsage = mergeTokenUsage(geminiTokenUsage, aiResult.aiMeta?.tokenUsage);
+            const slot = toSlotStateFromResult(aiResult);
+            outputSlots['ai-strategic-recommendation'] = slot;
+            completedIds.push('ai-strategic-recommendation');
+            params.onSlotUpdate?.('ai-strategic-recommendation', slot);
+          } catch (err) {
+            const previousResult =
+              params.existingSlots?.['ai-strategic-recommendation']?.result ?? null;
+            const slot = toSlotStateFromError(
+              'ai-strategic-recommendation',
+              err,
+              session.deps.nowIsoFn(),
+              previousResult
+            );
+            outputSlots['ai-strategic-recommendation'] = slot;
+            failedIds.push('ai-strategic-recommendation');
+            params.onSlotUpdate?.('ai-strategic-recommendation', slot);
+          }
+        })()
       );
-      outputSlots['ai-strategic-recommendation'] = slot;
-      failedIds.push('ai-strategic-recommendation');
-      params.onSlotUpdate?.('ai-strategic-recommendation', slot);
     }
+
+    if (includesVideoCreative) {
+      aiTasks.push(
+        (async () => {
+          try {
+            const vcResult = await executeAdVideoCreativeBlueprint(
+              session,
+              completedDigests,
+              params.videoCreativeOptions,
+              forceRefresh
+            );
+            totalKalodataApiCalls += vcResult.apiCallsMade;
+            totalCreditsUsed = roundCredits(totalCreditsUsed + vcResult.creditsUsed);
+            if (vcResult.apiCallsMade === 0 && vcResult.reusedFromCache) {
+              cacheOrLocalReuseCount += 1;
+            }
+            actualGeminiCalls += vcResult.aiApiCallsMade ?? 1;
+            geminiTokenUsage = mergeTokenUsage(geminiTokenUsage, vcResult.aiMeta?.tokenUsage);
+            const slot = toSlotStateFromResult(vcResult);
+            outputSlots['ad-video-creative-blueprint'] = slot;
+            completedIds.push('ad-video-creative-blueprint');
+            params.onSlotUpdate?.('ad-video-creative-blueprint', slot);
+          } catch (err) {
+            const previousResult =
+              params.existingSlots?.['ad-video-creative-blueprint']?.result ?? null;
+            const slot = toSlotStateFromError(
+              'ad-video-creative-blueprint',
+              err,
+              session.deps.nowIsoFn(),
+              previousResult
+            );
+            outputSlots['ad-video-creative-blueprint'] = slot;
+            failedIds.push('ad-video-creative-blueprint');
+            params.onSlotUpdate?.('ad-video-creative-blueprint', slot);
+          }
+        })()
+      );
+    }
+
+    await Promise.all(aiTasks);
   }
 
   const authoritativeSnapshot = session.latestBudgetSnapshot;
