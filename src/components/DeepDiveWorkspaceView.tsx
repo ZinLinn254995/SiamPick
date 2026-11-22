@@ -945,7 +945,11 @@ export function DeepDiveWorkspaceView({
       {/* Workspace Title */}
       <section className="space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 leading-[1.2]">
+          <h1
+            className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+              isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
+            }`}
+          >
             {copy.heading}
           </h1>
           <InfoPopover
@@ -1099,7 +1103,7 @@ export function DeepDiveWorkspaceView({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 max-w-full">
               <button
                 type="button"
                 onClick={onSelectAll}
@@ -1526,7 +1530,7 @@ export function DeepDiveWorkspaceView({
               type="button"
               onClick={() => onToggleOption('customer-review-intelligence')}
               disabled={isAnyRunning}
-              className="inline-flex items-center justify-center gap-1 min-h-[34px] px-3 py-1 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center justify-center gap-1 min-h-[34px] max-w-full px-3 py-1 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
             >
               <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>
@@ -1591,7 +1595,7 @@ export function DeepDiveWorkspaceView({
                 onClick={() =>
                   handleSpendingLimitUpdate(selectedBudgetGuard.recommendedMinimumLimit)
                 }
-                className="inline-flex items-center justify-center min-h-[34px] px-3 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center justify-center min-h-[34px] max-w-full px-3 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
               >
                 {isMy
                   ? `Limit ကို ${formatCredits(selectedBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
@@ -1789,7 +1793,7 @@ export function DeepDiveWorkspaceView({
                     onClick={() =>
                       handleSpendingLimitUpdate(pendingBudgetGuard.recommendedMinimumLimit)
                     }
-                    className="inline-flex items-center justify-center min-h-[32px] px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    className="inline-flex items-center justify-center min-h-[32px] max-w-full px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
                   >
                     {isMy
                       ? `Limit ကို ${formatCredits(pendingBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
@@ -1848,7 +1852,7 @@ export function DeepDiveWorkspaceView({
                 selectedBudgetGuard.exceedsLiveBalance ||
                 paidBlockedByBudgetStorage
               }
-              className="inline-flex items-center justify-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-2 min-h-[42px] max-w-full px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0 w-full sm:w-auto"
             >
               {isAnyRunning ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
@@ -2054,7 +2058,7 @@ export function DeepDiveWorkspaceView({
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-1.5 max-w-full">
                 {hasAnyRunOutput && (
                   <>
                     <button

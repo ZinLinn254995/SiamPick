@@ -435,12 +435,14 @@ export function ProductLinkImportPanel({
       className="mt-6 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 transition-colors"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1 max-w-3xl">
-          <div className="flex items-center gap-2">
+        <div className="space-y-1 max-w-3xl min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <Link2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0" aria-hidden="true" />
             <h2
               id="link-import-heading"
-              className="font-display text-sm sm:text-base font-semibold tracking-tight text-zinc-950 dark:text-zinc-50"
+              className={`font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 ${
+                isMy ? 'tracking-normal leading-[1.35]' : 'tracking-tight leading-[1.25]'
+              }`}
             >
               {t.linkImportHeading}
             </h2>
@@ -460,9 +462,9 @@ export function ProductLinkImportPanel({
           <button
             type="button"
             onClick={onViewSingleHistory}
-            className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug sm:shrink-0"
           >
-            <History className="w-3.5 h-3.5" aria-hidden="true" />
+            <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>
               {t.linkImportViewInSingleHistoryBtn} ({singleHistoryCount})
             </span>
@@ -642,21 +644,21 @@ export function ProductLinkImportPanel({
                   </span>
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 max-w-full">
                 <button
                   type="button"
                   onClick={() => {
                     onOpenExistingAsSingleResult(existingWorkspaceProduct, inspectResult);
                     setInspectResult(null);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] max-w-full px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                 >
                   <span>{t.linkImportViewExistingBtn}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenReport(existingWorkspaceProduct)}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] max-w-full px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                 >
                   <span>{t.linkImportOpenReportBtn}</span>
                 </button>
@@ -674,16 +676,16 @@ export function ProductLinkImportPanel({
                 type="button"
                 disabled={isImporting}
                 onClick={() => void handleExecuteImport({ confirmed: false, forceRefresh: false })}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[38px] max-w-full px-4 py-2 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg disabled:opacity-50 cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
               >
                 {isImporting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
                     <span>{t.linkImportImportingLabel}</span>
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                    <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                     <span>{t.linkImportImportCachedBtn}</span>
                   </>
                 )}
@@ -772,11 +774,11 @@ export function ProductLinkImportPanel({
                   type="button"
                   disabled={!canExecutePaidImport}
                   onClick={() => void handleExecuteImport({ confirmed: true, forceRefresh: false })}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[38px] max-w-full px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
                 >
                   {isImporting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
                       <span>{t.linkImportImportingLabel}</span>
                     </>
                   ) : (

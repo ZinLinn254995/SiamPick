@@ -234,7 +234,7 @@ export function ProductFilterBar({
           </button>
 
           {!exportDisabled && (
-            <div className="inline-flex items-center gap-1.5">
+            <div className="inline-flex flex-wrap items-center gap-1.5 max-w-full">
               <button
                 type="button"
                 onClick={onExportCsv}

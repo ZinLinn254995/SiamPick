@@ -704,7 +704,9 @@ export function ResearchHistoryView({
               <div className="flex flex-wrap items-baseline gap-2">
                 <h1
                   id="archive-detail-heading"
-                  className="font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50"
+                  className={`font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                    isMy ? 'tracking-normal leading-[1.3]' : 'leading-[1.25]'
+                  }`}
                 >
                   {formatResearchDateTime(selectedRecord.researchedAt, language)}
                 </h1>
@@ -716,14 +718,14 @@ export function ResearchHistoryView({
 
             {/* Score View Mode Switch (Original Session Scores vs Interactive Strategy Slider) */}
             <div
-              className="inline-flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start shrink-0"
+              className="inline-flex flex-wrap max-w-full items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start"
               role="group"
               aria-label="Score view mode"
             >
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('original')}
-                className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                className={`min-h-[34px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'original'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -734,7 +736,7 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('live')}
-                className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                className={`min-h-[34px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'live'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -797,11 +799,11 @@ export function ResearchHistoryView({
 
         {/* Interactive Strategy Slider Bar (Recalculates Archived Scores & Re-Sorts Instantly without mutating archive) */}
         {selectedRecord.products.length > 0 && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
                 <SlidersHorizontal
-                  className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400"
+                  className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
                   aria-hidden="true"
                 />
                 <span>{t.strategyLabel}</span>
@@ -817,7 +819,7 @@ export function ResearchHistoryView({
                   key={preset.id}
                   type="button"
                   onClick={() => handleArchiveSelectPreset(preset.id)}
-                  className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                  className={`min-h-[32px] max-w-full px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                     effectiveArchiveStrategyPreset === preset.id
                       ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                       : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -828,7 +830,7 @@ export function ResearchHistoryView({
               ))}
             </div>
 
-            <div className="w-full lg:w-72 space-y-1 shrink-0">
+            <div className="w-full xl:w-72 space-y-1 shrink-0">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="text-zinc-500 dark:text-zinc-400">
                   {t.commissionWeight}{' '}
@@ -866,7 +868,7 @@ export function ResearchHistoryView({
                   className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
                   aria-hidden="true"
                 />
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                   {t.kalodataSourceBarLabel}
                 </span>
                 <InfoPopover
@@ -1153,16 +1155,18 @@ export function ResearchHistoryView({
           <span>{t.savedViewBackBtn}</span>
         </button>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="min-w-0 flex-1 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
                 id="history-view-heading"
-                className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50"
+                className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                  isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
+                }`}
               >
                 {t.historyViewTitle}
               </h1>
-              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
                 ({activeTab === 'single' ? singleRecords.length : records.length})
               </span>
               <InfoPopover
@@ -1182,7 +1186,7 @@ export function ResearchHistoryView({
 
           {/* Sub-Tabs: Batch Research | Single Product History | Compare Sessions */}
           <div
-            className="inline-flex flex-wrap items-center p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg self-start md:self-auto shrink-0"
+            className="inline-flex flex-wrap max-w-full items-center gap-1 p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg self-start xl:self-auto"
             role="tablist"
             aria-label={t.historyViewTitle}
           >
@@ -1194,13 +1198,13 @@ export function ResearchHistoryView({
                 setActiveTab('records');
                 onTabChange?.('records');
               }}
-              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                 activeTab === 'records'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
-              <History className="w-3.5 h-3.5" aria-hidden="true" />
+              <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>
                 {t.historyTabRecords} ({records.length})
               </span>
@@ -1214,13 +1218,13 @@ export function ResearchHistoryView({
                 setActiveTab('single');
                 onTabChange?.('single');
               }}
-              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                 activeTab === 'single'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
-              <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <Link2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>
                 {t.historyTabSingle} ({singleRecords.length})
               </span>
@@ -1234,13 +1238,13 @@ export function ResearchHistoryView({
                 setActiveTab('compare');
                 onTabChange?.('compare');
               }}
-              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                 activeTab === 'compare'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
-              <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+              <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{t.historyTabCompare}</span>
             </button>
           </div>
@@ -1473,7 +1477,7 @@ export function ResearchHistoryView({
                         key={rec.id}
                         className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <input
                               type="checkbox"
@@ -1596,25 +1600,25 @@ export function ResearchHistoryView({
                           </div>
 
                           {/* Row Actions */}
-                          <div className="flex flex-wrap items-center gap-2 shrink-0 pl-7 lg:pl-0">
+                          <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:justify-end xl:max-w-[430px]">
                             <button
                               type="button"
                               onClick={() =>
                                 onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
                               }
-                              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                              className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                             >
                               <span>{t.singleHistoryOpenReportBtn}</span>
-                              <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             </button>
 
                             {onOpenDeepDive && (
                               <button
                                 type="button"
                                 onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
-                                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                                className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                               >
-                                <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                                <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>{t.singleHistoryDeepDiveBtn}</span>
                               </button>
                             )}
@@ -1830,7 +1834,7 @@ export function ResearchHistoryView({
                     key={rec.id}
                     className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
                   >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                       <div className="flex items-start gap-3 min-w-0">
                         <input
                           type="checkbox"
@@ -1887,7 +1891,7 @@ export function ResearchHistoryView({
                       </div>
 
                       {/* Row Actions */}
-                      <div className="flex flex-wrap items-center gap-2 shrink-0 pl-7 lg:pl-0">
+                      <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:shrink-0">
                         <button
                           type="button"
                           onClick={() => openArchiveRecord(rec)}

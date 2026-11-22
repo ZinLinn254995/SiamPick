@@ -1952,7 +1952,13 @@ export default function App() {
             {/* Focused Editorial Header */}
             <section className="max-w-3xl">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 leading-[1.18] text-balance">
+                <h1
+                  className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 text-balance ${
+                    language === 'my'
+                      ? 'tracking-normal leading-[1.35]'
+                      : 'tracking-tight leading-[1.18]'
+                  }`}
+                >
                   {t.heroTitle}
                 </h1>
                 <InfoPopover
@@ -2067,7 +2073,9 @@ export default function App() {
                 <div className="flex items-baseline gap-2.5">
                   <h2
                     id="results-section-heading"
-                    className="font-display text-xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50"
+                    className={`font-display text-xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                      language === 'my' ? 'tracking-normal leading-[1.3]' : 'tracking-tight'
+                    }`}
                   >
                     {t.resultsSectionHeading}
                   </h2>
@@ -2093,10 +2101,10 @@ export default function App() {
 
               {/* Live Strategy Slider Bar (Recalculates Scores & Re-Sorts Results Instantly) */}
               {!isHunting && liveResults.length > 0 && (
-                <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
                       <span>{t.strategyLabel}</span>
                     </span>
                     {(
@@ -2110,7 +2118,7 @@ export default function App() {
                         key={preset.id}
                         type="button"
                         onClick={() => handleSelectStrategyPreset(preset.id)}
-                        className={`min-h-[32px] px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                        className={`min-h-[32px] max-w-full px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                           strategyPreset === preset.id
                             ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                             : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -2121,7 +2129,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="w-full lg:w-72 space-y-1 shrink-0">
+                  <div className="w-full xl:w-72 space-y-1 shrink-0">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-zinc-500 dark:text-zinc-400">
                         {t.commissionWeight}{' '}
@@ -2193,7 +2201,7 @@ export default function App() {
                   <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
                       <Globe className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                      <span className="font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
                         {t.kalodataSourceBarLabel}
                       </span>
                       <InfoPopover
@@ -2746,7 +2754,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 max-w-full">
               <button
                 type="button"
                 onClick={() => setCompareItems([])}

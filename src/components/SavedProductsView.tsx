@@ -214,16 +214,18 @@ export function SavedProductsView({
           <span>{t.savedViewBackBtn}</span>
         </button>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="min-w-0 flex-1 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
                 id="saved-products-heading"
-                className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50"
+                className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                  isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
+                }`}
               >
                 {t.savedViewTitle}
               </h1>
-              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
                 ({records.length})
               </span>
               <InfoPopover
@@ -241,7 +243,7 @@ export function SavedProductsView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 max-w-full">
             {onOpenBackupRestore && (
               <button
                 type="button"
@@ -602,10 +604,10 @@ export function SavedProductsView({
                             <button
                               type="button"
                               onClick={() => onOpenReport(record)}
-                              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+                              className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                             >
                               <span>{t.cardOpenReport}</span>
-                              <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
+                              <ArrowUpRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                             </button>
 
                             {onToggleCompareRecord && (
@@ -613,13 +615,13 @@ export function SavedProductsView({
                                 type="button"
                                 onClick={() => onToggleCompareRecord(record)}
                                 aria-pressed={comparedKeys?.has(`saved:${record.id}`) ?? false}
-                                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                                className={`inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug ${
                                   comparedKeys?.has(`saved:${record.id}`)
                                     ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-500 hover:bg-emerald-800 dark:hover:bg-emerald-500'
                                     : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
                                 }`}
                               >
-                                <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                                <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>
                                   {comparedKeys?.has(`saved:${record.id}`)
                                     ? t.compareSelectedBtn
@@ -632,9 +634,9 @@ export function SavedProductsView({
                           <button
                             type="button"
                             onClick={() => onDelete(record.id)}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3.5 py-2 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                           >
-                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             <span>{t.savedDeleteBtn}</span>
                           </button>
                         </div>

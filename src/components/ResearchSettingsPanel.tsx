@@ -490,7 +490,7 @@ export function ResearchSettingsPanel({
           {t.settingsHeading}
         </h2>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           {!isHunting &&
             (quotaStatus.paused ? (
               <button
@@ -578,9 +578,9 @@ export function ResearchSettingsPanel({
         const totalWeight = SCORING_FACTOR_ORDER.reduce((sum, key) => sum + liveWeights[key], 0);
         return (
           <div className="pb-5 border-b border-zinc-100 dark:border-zinc-800/70 space-y-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
               <div
-                className="flex flex-wrap items-center gap-2"
+                className="flex flex-wrap items-center gap-2 min-w-0"
                 role="group"
                 aria-label={t.strategyLabel}
               >
@@ -595,7 +595,7 @@ export function ResearchSettingsPanel({
                     key={preset.id}
                     type="button"
                     onClick={() => onSelectStrategyPreset(preset.id)}
-                    className={`min-h-[38px] px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`min-h-[38px] max-w-full px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                       strategyPreset === preset.id
                         ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                         : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -606,7 +606,7 @@ export function ResearchSettingsPanel({
                 ))}
               </div>
 
-              <div className="w-full lg:max-w-sm space-y-1.5">
+              <div className="w-full xl:max-w-sm space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-600 dark:text-zinc-400">
                     {t.commissionWeight}{' '}
@@ -1298,7 +1298,7 @@ export function ResearchSettingsPanel({
               </span>
             </div>
 
-            <div className="inline-flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start sm:self-auto">
+            <div className="inline-flex flex-wrap max-w-full items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start sm:self-auto">
               {MYANMAR_VIDEO_PAGE_PRESETS.map((preset) => (
                 <button
                   key={preset}
@@ -1360,10 +1360,10 @@ export function ResearchSettingsPanel({
           </div>
 
           {/* User Spending Limit Control */}
-          <div className="flex items-center justify-between md:justify-end gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5 md:shrink-0">
             <label
               htmlFor="spending-limit-input"
-              className="text-xs font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap"
+              className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
             >
               {t.spendingLimitLabel}
             </label>
@@ -1517,17 +1517,17 @@ export function ResearchSettingsPanel({
           type="button"
           onClick={() => setConfirmOpen(true)}
           disabled={!canRequestStart}
-          className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-2.5 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-nowrap shrink-0 w-full sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2"
+          className="inline-flex items-center justify-center gap-2 min-h-[44px] max-w-full px-6 py-2.5 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-normal text-center leading-snug sm:shrink-0 w-full sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2"
         >
           {isHunting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
               <span>{t.huntingInProgress}</span>
             </>
           ) : (
             <>
               <span>{quotaStatus.paused ? t.resumeAndStartBtn : t.startHuntingBtn}</span>
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
             </>
           )}
         </button>
