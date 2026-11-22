@@ -229,16 +229,16 @@ export function BestProductsStrip({
   return (
     <section
       aria-label={t.bestSelectionHeading}
-      className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden"
+      className="mt-4 sp-card overflow-hidden"
     >
       {/* Header Row */}
-      <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
             aria-expanded={expanded}
-            className="text-left font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors cursor-pointer truncate min-h-[40px] flex items-center"
+            className="text-left font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors cursor-pointer truncate min-h-[40px] flex items-center"
           >
             {t.bestSelectionHeading}
           </button>
@@ -253,7 +253,7 @@ export function BestProductsStrip({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
-          className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap rounded-lg"
+          className="sp-btn-ghost shrink-0"
         >
           <span>{expanded ? t.bestSelectionHide : t.bestSelectionShow}</span>
           {expanded ? (
@@ -265,7 +265,7 @@ export function BestProductsStrip({
       </div>
 
       {expanded && (
-        <div className="border-t border-zinc-100 dark:border-zinc-800/80 p-4 sm:p-5 space-y-4">
+        <div className="border-t border-zinc-100 dark:border-zinc-800/80 p-3.5 sm:p-5 space-y-4">
           {/* Large Winner Cards (One per distinct multi-award winner, sorted by most awards first) */}
           {largeWinners.length > 0 && (
             <div className="space-y-4">
@@ -342,11 +342,11 @@ export function BestProductsStrip({
                 return (
                   <article
                     key={group.productKey}
-                    className="bg-zinc-50/70 dark:bg-zinc-950/50 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4"
+                    className="sp-surface-muted p-3.5 sm:p-5 space-y-3.5"
                   >
                     {/* Award Badges Row */}
                     <div
-                      className="flex flex-wrap items-center gap-2"
+                      className="flex flex-wrap items-center gap-1.5"
                       aria-label={t.bestSelectionHeading}
                     >
                       {awards.map((award) => {
@@ -357,7 +357,7 @@ export function BestProductsStrip({
                           <span
                             key={award.category}
                             title={t.bestSelectionCategories[award.category]}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap ${meta.badgeClass}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border whitespace-nowrap ${meta.badgeClass}`}
                           >
                             <Icon className={`w-3.5 h-3.5 shrink-0 ${meta.iconClass}`} aria-hidden="true" />
                             <span>{shortLabel}</span>
@@ -366,14 +366,14 @@ export function BestProductsStrip({
                       })}
                     </div>
 
-                    {/* Product Thumbnail + Name + Overall ScoreRing */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                    {/* Product Thumbnail + Name + Overall ScoreRing (stays inline on mobile) */}
+                    <div className="flex items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         <button
                           type="button"
                           onClick={() => onOpenReport(product)}
                           aria-label={displayName}
-                          className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+                          className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                         >
                           {imageConfig.canRender && imageConfig.src ? (
                             <ProductImage
@@ -383,29 +383,30 @@ export function BestProductsStrip({
                               alt={product.name}
                               title={displayName}
                               unavailableLabel={t.cardImageUnverified}
+                              compact
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <ImageOff
-                                className="w-5 h-5 text-zinc-400 dark:text-zinc-500"
+                                className="w-5 h-5 text-zinc-500 dark:text-zinc-400"
                                 aria-hidden="true"
                               />
                             </div>
                           )}
                         </button>
 
-                        <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="min-w-0 flex-1 space-y-1">
                           <button
                             type="button"
                             onClick={() => onOpenReport(product)}
                             className="text-left cursor-pointer group/winner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-sm"
                           >
-                            <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/winner:underline">
+                            <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/winner:underline">
                               {displayName}
                             </h3>
                           </button>
 
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
+                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
                             {product.priceThb !== null && (
                               <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                                 {formatThb(product.priceThb)}
@@ -417,7 +418,7 @@ export function BestProductsStrip({
                               </span>
                             )}
                             {product.shopName && (
-                              <span className="font-sans truncate max-w-[200px]">
+                              <span className="font-sans truncate max-w-[160px] sm:max-w-[200px]">
                                 {product.shopName}
                               </span>
                             )}
@@ -425,23 +426,28 @@ export function BestProductsStrip({
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-center gap-1 self-start sm:self-center shrink-0">
-                        <ScoreRing
-                          value={overallScore}
-                          max={100}
-                          size={88}
-                          label={t.bestStatOverallScore}
-                        />
+                      <div className="flex flex-col items-center gap-0.5 shrink-0">
+                        <div className="sm:hidden">
+                          <ScoreRing value={overallScore} max={100} size={60} />
+                        </div>
+                        <div className="hidden sm:block">
+                          <ScoreRing
+                            value={overallScore}
+                            max={100}
+                            size={80}
+                            label={t.bestStatOverallScore}
+                          />
+                        </div>
                         {scoreRank !== null && totalResultsCount > 0 && (
-                          <span className="font-mono text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                          <span className="font-mono text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                             #{scoreRank} / {totalResultsCount}
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* 4 Visual StatCards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* 4 Visual StatCards (compact 2x2 on mobile, 4-col on lg+) */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                       <StatCard
                         label={t.bestStatSales}
                         value={salesValue}
@@ -480,14 +486,14 @@ export function BestProductsStrip({
                       />
                     </div>
 
-                    {/* Two 44px Action Buttons */}
-                    <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    {/* Two 40px Action Buttons (side-by-side even on mobile) */}
+                    <div className="pt-0.5 grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => onOpenReport(product)}
-                        className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-[13px] font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap sm:flex-1"
+                        className="sp-btn-primary text-xs sm:text-[13px] font-semibold min-w-0"
                       >
-                        <span>{t.cardOpenReport}</span>
+                        <span className="truncate">{t.cardOpenReport}</span>
                         <ArrowUpRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                       </button>
 
@@ -495,14 +501,14 @@ export function BestProductsStrip({
                         type="button"
                         onClick={() => onToggleCompare(product)}
                         aria-pressed={isSelectedForCompare}
-                        className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-[13px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap sm:flex-1 ${
+                        className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs sm:text-[13px] font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                           isSelectedForCompare
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                             : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
                         }`}
                       >
                         <GitCompareArrows className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>
+                        <span className="truncate">
                           {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
                         </span>
                       </button>
@@ -516,7 +522,7 @@ export function BestProductsStrip({
           {/* Compact Cards Below for Products Winning Only One Award */}
           {compactWinners.length > 0 && (
             <div className="space-y-2.5">
-              <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+              <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                 {t.bestOtherCategoryWinners}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -537,13 +543,13 @@ export function BestProductsStrip({
                   return (
                     <article
                       key={group.productKey}
-                      className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 flex flex-col justify-between gap-3"
+                      className="sp-surface-muted p-3.5 flex flex-col justify-between gap-3"
                     >
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span
                             title={t.bestSelectionCategories[award.category]}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border whitespace-nowrap ${meta.badgeClass}`}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border whitespace-nowrap ${meta.badgeClass}`}
                           >
                             <Icon
                               className={`w-3.5 h-3.5 shrink-0 ${meta.iconClass}`}
@@ -578,11 +584,12 @@ export function BestProductsStrip({
                                 alt={product.name}
                                 title={displayName}
                                 unavailableLabel={t.cardImageUnverified}
+                                compact
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <ImageOff
-                                  className="w-4 h-4 text-zinc-400 dark:text-zinc-500"
+                                  className="w-4 h-4 text-zinc-500 dark:text-zinc-400"
                                   aria-hidden="true"
                                 />
                               </div>
@@ -604,7 +611,7 @@ export function BestProductsStrip({
                           <div className="flex flex-col items-center gap-0.5 shrink-0">
                             <ScoreRing value={evaluation.totalScore} max={100} size={52} />
                             {scoreRank !== null && totalResultsCount > 0 && (
-                              <span className="font-mono text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                              <span className="font-mono text-xs font-semibold tabular-nums text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                                 #{scoreRank} / {totalResultsCount}
                               </span>
                             )}
@@ -612,13 +619,13 @@ export function BestProductsStrip({
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 flex items-center gap-2">
+                      <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-700/60 grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => onOpenReport(product)}
-                          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap flex-1"
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap min-w-0"
                         >
-                          <span>{t.cardOpenReport}</span>
+                          <span className="truncate">{t.cardOpenReport}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         </button>
 
@@ -626,14 +633,14 @@ export function BestProductsStrip({
                           type="button"
                           onClick={() => onToggleCompare(product)}
                           aria-pressed={isSelectedForCompare}
-                          className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap flex-1 ${
+                          className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap min-w-0 ${
                             isSelectedForCompare
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
                           }`}
                         >
                           <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>
+                          <span className="truncate">
                             {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
                           </span>
                         </button>
@@ -647,14 +654,14 @@ export function BestProductsStrip({
 
           {/* Honest Insufficient-Data Categories (Only shown when some categories had no eligible winner) */}
           {insufficientItems.length > 0 && (
-            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {insufficientItems.map((item) => {
                 const meta = AWARD_BADGE_META[item.category];
                 const Icon = meta.Icon;
                 return (
                   <div
                     key={item.category}
-                    className="flex items-start gap-2.5 p-3 rounded-lg bg-zinc-50/70 dark:bg-zinc-950/40 border border-zinc-200/70 dark:border-zinc-800/80 text-xs"
+                    className="flex items-start gap-2.5 p-3 sp-surface-muted text-xs"
                   >
                     <AlertCircle
                       className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
@@ -668,7 +675,7 @@ export function BestProductsStrip({
                           · {t.bestInsufficientBadge}
                         </span>
                       </div>
-                      <p className="text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                         {isMy
                           ? item.insufficientReasonMy ?? item.reasonMy
                           : item.insufficientReasonEn ?? item.reasonEn}

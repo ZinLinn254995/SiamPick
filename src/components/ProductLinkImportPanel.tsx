@@ -41,11 +41,12 @@ import {
 } from '../utils/format';
 import { formatCredits, KALODATA_PRODUCT_DETAIL_CREDIT } from '../utils/kalodataPricing';
 import { evaluateProductOpportunity } from '../utils/scoring';
+import { deriveProductDecisionSummary } from '../utils/productAnalytics';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
-import { StateMessage } from './visual';
+import { ScoreRing, StateMessage, StatusDot, VerdictBadge } from './visual';
 
 interface ProductLinkImportPanelProps {
   language: Language;
@@ -86,11 +87,11 @@ function tryExtractQuickProductId(rawInput: string): string | null {
   return match?.[1] ?? null;
 }
 
-function formatCompactNumber(val: number | null | undefined, isMy: boolean): string {
+function formatCompactNumber(val: number | null | undefined): string {
   if (typeof val !== 'number' || !Number.isFinite(val)) {
-    return isMy ? 'Unavailable' : 'Unavailable';
+    return '—';
   }
-  return val.toLocaleString();
+  return val.toLocaleString('en-US');
 }
 
 function formatDataSourceLabel(source: SingleLinkResearchSource, isMy: boolean): string {
@@ -416,11 +417,11 @@ export function ProductLinkImportPanel({
   return (
     <section
       aria-labelledby="link-import-heading"
-      className="mt-6 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 transition-colors"
+      className="mt-4 sp-card p-4 sm:p-5"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2.5">
         <div className="space-y-1 max-w-3xl min-w-0">
-          <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <Link2 className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0" aria-hidden="true" />
             <h2
               id="link-import-heading"
@@ -446,7 +447,7 @@ export function ProductLinkImportPanel({
           <button
             type="button"
             onClick={onViewSingleHistory}
-            className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug sm:shrink-0"
+            className="sp-btn-secondary w-full sm:w-auto sm:shrink-0"
           >
             <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>
@@ -462,7 +463,7 @@ export function ProductLinkImportPanel({
           e.preventDefault();
           void handleInspectLink();
         }}
-        className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5"
+        className="mt-3.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
       >
         <div className="relative flex-1 min-w-0">
           <input
@@ -471,15 +472,15 @@ export function ProductLinkImportPanel({
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder={t.linkImportInputPlaceholder}
             aria-label={t.linkImportHeading}
-            className="w-full min-h-[42px] pl-3.5 pr-20 py-2 text-xs sm:text-sm bg-zinc-50/70 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950/15 dark:focus:ring-zinc-100/20 focus:border-zinc-400 dark:focus:border-zinc-600 font-mono"
+            className="w-full min-h-[42px] pl-3.5 pr-24 py-2 text-xs sm:text-sm bg-zinc-50/70 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/15 dark:focus:ring-zinc-100/20 focus:border-zinc-500 dark:focus:border-zinc-500 font-mono"
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {rawInput.trim().length > 0 ? (
               <button
                 type="button"
                 onClick={handleClear}
                 aria-label={t.linkImportClearBtn}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
+                className="inline-flex items-center gap-1 min-h-[32px] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md cursor-pointer"
               >
                 <X className="w-3 h-3" aria-hidden="true" />
                 <span>{t.linkImportClearBtn}</span>
@@ -488,7 +489,7 @@ export function ProductLinkImportPanel({
               <button
                 type="button"
                 onClick={handlePasteClipboard}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
+                className="inline-flex items-center gap-1 min-h-[32px] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md cursor-pointer"
               >
                 <ClipboardPaste className="w-3 h-3" aria-hidden="true" />
                 <span>{t.linkImportPasteBtn}</span>
@@ -500,11 +501,11 @@ export function ProductLinkImportPanel({
         <button
           type="submit"
           disabled={isInspecting || isImporting}
-          className="inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-xl transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap shrink-0"
+          className="sp-btn-primary min-h-[42px] w-full sm:w-auto sm:shrink-0"
         >
           {isInspecting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               <span>{t.linkImportCheckingLabel}</span>
             </>
           ) : (
@@ -517,7 +518,7 @@ export function ProductLinkImportPanel({
       </form>
 
       {clipboardNotice && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
           {t.linkImportClipboardUnavailableNote}
         </p>
       )}
@@ -548,72 +549,70 @@ export function ProductLinkImportPanel({
           importError.my
         )}
 
-      {/* Identified Product Inspection & Confirmation Card */}
+      {/* Identified Product Inspection & Confirmation Band (Flat, Single-Surface) */}
       {inspectResult?.ok && inspectResult.productId && (
-        <div className="mt-4 p-4 sm:p-5 bg-zinc-50/70 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                <span>{t.linkImportReadyTitle}</span>
-              </div>
-
-              {inspectResult.previewTitle && (
-                <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
-                  {inspectResult.previewTitle}
-                </p>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 pt-1 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-zinc-500 dark:text-zinc-400">{t.linkImportProductIdLabel}:</span>
-                  <span className="font-mono font-medium text-zinc-950 dark:text-zinc-50 tabular-nums">
-                    {inspectResult.productId}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Database className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                  <span className="font-mono text-zinc-800 dark:text-zinc-200 tabular-nums">
-                    {inspectResult.requiresPaidApiCall
-                      ? t.linkImportCostPaidLabel
-                      : t.linkImportCostZeroLabel}
-                  </span>
-                </div>
-              </div>
-
-              {inspectResult.canonicalUrl && isSafeHttpUrl(inspectResult.canonicalUrl) && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400 pt-0.5">
-                  <span>{t.linkImportCanonicalUrlLabel}:</span>
-                  <a
-                    href={inspectResult.canonicalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-mono text-zinc-800 dark:text-zinc-200 hover:underline break-all"
-                  >
-                    <span>{inspectResult.canonicalUrl}</span>
-                    <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
-                  </a>
-                </div>
-              )}
-
-              {inspectResult.redirectHops.length > 1 && (
-                <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
-                  {t.linkImportRedirectChainLabel}: {inspectResult.redirectHops.length} hop(s)
-                </p>
-              )}
+        <div className="mt-4 sp-surface-muted p-4 space-y-3.5">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+              <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+              <span>{t.linkImportReadyTitle}</span>
             </div>
+
+            {inspectResult.previewTitle && (
+              <p className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                {inspectResult.previewTitle}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-0.5 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-zinc-600 dark:text-zinc-400">{t.linkImportProductIdLabel}:</span>
+                <span className="font-mono font-medium text-zinc-950 dark:text-zinc-50 tabular-nums">
+                  {inspectResult.productId}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                <span className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+                  {inspectResult.requiresPaidApiCall
+                    ? t.linkImportCostPaidLabel
+                    : t.linkImportCostZeroLabel}
+                </span>
+              </div>
+            </div>
+
+            {inspectResult.canonicalUrl && isSafeHttpUrl(inspectResult.canonicalUrl) && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400 pt-0.5">
+                <span>{t.linkImportCanonicalUrlLabel}:</span>
+                <a
+                  href={inspectResult.canonicalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-mono text-zinc-900 dark:text-zinc-200 hover:underline break-all"
+                >
+                  <span>{inspectResult.canonicalUrl}</span>
+                  <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
+                </a>
+              </div>
+            )}
+
+            {inspectResult.redirectHops.length > 1 && (
+              <p className="text-xs font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
+                {t.linkImportRedirectChainLabel}: {inspectResult.redirectHops.length} hop(s)
+              </p>
+            )}
           </div>
 
           {/* Case A: Already Available Locally (0 cr) */}
           {inspectResult.alreadyInWorkspace && existingWorkspaceProduct && (
-            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1 text-xs">
                 <div className="font-semibold text-zinc-950 dark:text-zinc-50">
                   {t.linkImportDuplicateTitle}
                 </div>
                 <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
                   {t.linkImportDuplicateDesc}{' '}
-                  <span className="font-mono text-zinc-800 dark:text-zinc-200">
+                  <span className="font-mono text-zinc-900 dark:text-zinc-200">
                     (
                     {inspectResult.alreadyInWorkspaceSources
                       .map((src) =>
@@ -628,21 +627,21 @@ export function ProductLinkImportPanel({
                   </span>
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 max-w-full">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     onOpenExistingAsSingleResult(existingWorkspaceProduct, inspectResult);
                     setInspectResult(null);
                   }}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] max-w-full px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                  className="sp-btn-primary"
                 >
                   <span>{t.linkImportViewExistingBtn}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenReport(existingWorkspaceProduct)}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] max-w-full px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                  className="sp-btn-secondary"
                 >
                   <span>{t.linkImportOpenReportBtn}</span>
                 </button>
@@ -652,19 +651,19 @@ export function ProductLinkImportPanel({
 
           {/* Case B: Cached in Server or Browser (0 cr) */}
           {canImportFromCache && (
-            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-emerald-200/90 dark:border-emerald-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <p className="text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed">
+            <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-700/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
                 {t.linkImportCacheNotice}
               </p>
               <button
                 type="button"
                 disabled={isImporting}
                 onClick={() => void handleExecuteImport({ confirmed: false, forceRefresh: false })}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[38px] max-w-full px-4 py-2 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg disabled:opacity-50 cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg disabled:opacity-50 cursor-pointer whitespace-nowrap sm:shrink-0"
               >
                 {isImporting ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                     <span>{t.linkImportImportingLabel}</span>
                   </>
                 ) : (
@@ -679,7 +678,7 @@ export function ProductLinkImportPanel({
 
           {/* Case C: Uncached — Explicit Paid Confirmation Gate (0.1 cr) */}
           {inspectResult.requiresPaidApiCall && !inspectResult.alreadyInWorkspace && (
-            <div className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-3">
+            <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-700/70 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="space-y-0.5">
                   <div className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -703,12 +702,12 @@ export function ProductLinkImportPanel({
               </div>
 
               {effectivePaused && (
-                <div className="p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950 dark:text-amber-100">
+                <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/70 rounded-lg flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950 dark:text-amber-100">
                   <span>{t.linkImportPausedBannerTitle}</span>
                   <button
                     type="button"
                     onClick={() => void onResumeResearch()}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-md cursor-pointer"
+                    className="sp-btn-primary"
                   >
                     <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{t.btnResumeAndRetry}</span>
@@ -736,8 +735,8 @@ export function ProductLinkImportPanel({
                 </p>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                <label className="inline-flex items-center gap-2 text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer select-none">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-zinc-200/70 dark:border-zinc-700/60">
+                <label className="inline-flex items-center gap-2.5 min-h-[40px] text-xs text-zinc-800 dark:text-zinc-200 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={userConfirmedPaid}
@@ -749,7 +748,7 @@ export function ProductLinkImportPanel({
                       isBalanceInsufficient ||
                       isImporting
                     }
-                    className="w-4 h-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-950 focus:ring-zinc-950 cursor-pointer"
+                    className="w-4 h-4 rounded-sm border-zinc-300 dark:border-zinc-600 accent-zinc-950 dark:accent-zinc-100 cursor-pointer shrink-0"
                   />
                   <span>{t.linkImportConfirmCheckboxLabel}</span>
                 </label>
@@ -758,11 +757,11 @@ export function ProductLinkImportPanel({
                   type="button"
                   disabled={!canExecutePaidImport}
                   onClick={() => void handleExecuteImport({ confirmed: true, forceRefresh: false })}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[38px] max-w-full px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
+                  className="sp-btn-primary w-full sm:w-auto sm:shrink-0"
                 >
                   {isImporting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                      <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                       <span>{t.linkImportImportingLabel}</span>
                     </>
                   ) : (
@@ -775,15 +774,15 @@ export function ProductLinkImportPanel({
         </div>
       )}
 
-      {/* Unified Single Product Link Research Result (No Separate Workspace, Strictly Isolated from Batch Results) */}
+      {/* Unified Single Product Link Research Result (Matches SiamPick Visual Language) */}
       {activeSingleResult && activeSingleEvaluation && (
         <div
           role="region"
           aria-label={t.linkImportSuccessTitle}
-          className="mt-4 border border-emerald-200/90 dark:border-emerald-800/70 bg-emerald-50/35 dark:bg-emerald-950/15 rounded-xl p-4 sm:p-5 space-y-4"
+          className="mt-4 border border-emerald-200/90 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/15 rounded-xl p-4 space-y-3.5"
         >
           {/* Status Header */}
-          <div className="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-emerald-200/70 dark:border-emerald-800/50">
+          <div className="flex items-start justify-between gap-2 pb-3 border-b border-emerald-200/70 dark:border-emerald-800/50">
             <div className="flex items-start gap-2 min-w-0">
               <CheckCircle2
                 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5"
@@ -808,7 +807,7 @@ export function ProductLinkImportPanel({
               type="button"
               onClick={onClearActiveSingleResult}
               aria-label={t.confirmCancelBtn}
-              className="p-1.5 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 rounded-md cursor-pointer shrink-0"
+              className="w-9 h-9 -mt-1 -mr-1 inline-flex items-center justify-center text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer shrink-0"
             >
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -819,12 +818,13 @@ export function ProductLinkImportPanel({
             const p = activeSingleResult.product;
             const imgConfig = resolveProductImageDisplayConfig(p);
             const saved = isSavedProduct(p);
+            const decisionSummary = deriveProductDecisionSummary(p, activeSingleEvaluation);
             const commissionRate =
               p.commissionVerified && typeof p.commissionRate === 'number'
                 ? `${p.commissionRate.toFixed(1)}%`
                 : typeof p.kalodataMetrics?.commissionRatePct === 'number'
                   ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
-                  : 'Unavailable';
+                  : '—';
             const missingNotes = isMy ? p.missingDataMy : p.missingDataEn;
             const derivedTiktokUrl = getTikTokShopProductUrl(p);
             const tiktokHref =
@@ -832,9 +832,9 @@ export function ProductLinkImportPanel({
               (isSafeHttpUrl(derivedTiktokUrl) ? derivedTiktokUrl : null);
 
             return (
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row items-start gap-4">
-                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
+              <div className="space-y-3.5">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
                     {imgConfig.canRender && imgConfig.src ? (
                       <ProductImage
                         src={imgConfig.src}
@@ -847,90 +847,99 @@ export function ProductLinkImportPanel({
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                        <ImageOff className="w-5 h-5 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                       </div>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono text-zinc-500 dark:text-zinc-400">
-                      <span className="font-sans font-medium text-zinc-700 dark:text-zinc-300">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">
                         {getCategoryLabel(p.category, language, { short: true })}
                       </span>
                       <span aria-hidden="true">·</span>
-                      <span className="tabular-nums">ID: {activeSingleResult.canonicalProductId}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{formatResearchDateTime(activeSingleResult.researchedAt, language)}</span>
+                      <span className="font-mono tabular-nums">{formatDataSourceLabel(activeSingleResult.dataSource, isMy)}</span>
+                      <span aria-hidden="true" className="hidden sm:inline">·</span>
+                      <span className="hidden sm:inline font-mono tabular-nums">
+                        {formatResearchDateTime(activeSingleResult.researchedAt, language)}
+                      </span>
                     </div>
 
-                    <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
+                    <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
                       {isMy ? p.nameMy : p.name}
                     </h3>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                      <span>
-                        {t.linkImportShopLabel}:{' '}
-                        <strong className="font-medium text-zinc-900 dark:text-zinc-100">
-                          {p.shopName || 'Unavailable'}
-                        </strong>
-                      </span>
-                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">·</span>
-                      <span>
-                        {t.linkImportSourceHeading}:{' '}
-                        <strong className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
-                          {formatDataSourceLabel(activeSingleResult.dataSource, isMy)}
-                        </strong>
-                      </span>
-                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">·</span>
-                      <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
-                        {activeSingleEvaluation.verifiedCount} verified · {activeSingleEvaluation.unavailableCount} unavailable
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <VerdictBadge verdict={decisionSummary.verdict} language={language} size="sm" />
+                      <span className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        <StatusDot
+                          status={
+                            activeSingleEvaluation.confidenceLevel === 'High'
+                              ? 'verified'
+                              : activeSingleEvaluation.confidenceLevel === 'Medium'
+                                ? 'estimated'
+                                : 'unverified'
+                          }
+                          language={language}
+                        />
+                        <span className="truncate max-w-[180px]">
+                          {p.shopName || t.dataStatusLabels.unavailable}
+                        </span>
                       </span>
                     </div>
+                  </div>
+
+                  <div className="shrink-0">
+                    <ScoreRing
+                      value={activeSingleEvaluation.totalScore}
+                      size={52}
+                      tone={
+                        decisionSummary.verdict === 'recommended'
+                          ? 'emerald'
+                          : decisionSummary.verdict === 'not-recommended'
+                            ? 'red'
+                            : decisionSummary.verdict === 'need-more-data'
+                              ? 'zinc'
+                              : 'amber'
+                      }
+                    />
                   </div>
                 </div>
 
                 {/* Key Metrics Strip */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/50 text-xs">
                   <div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportPriceLabel}
                     </div>
-                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : 'Unavailable'}
+                    <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : '—'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportSalesLabel}
                     </div>
-                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {formatCompactNumber(p.kalodataMetrics?.salesVolume, isMy)}
+                    <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {formatCompactNumber(p.kalodataMetrics?.salesVolume)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportRevenueLabel}
                     </div>
-                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                    <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                       {typeof p.kalodataMetrics?.revenueThb === 'number'
                         ? formatThb(p.kalodataMetrics.revenueThb)
-                        : 'Unavailable'}
+                        : '—'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportCommissionLabel}
                     </div>
-                    <div className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
+                    <div className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
                       {commissionRate}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {t.linkImportScoreLabel}
-                    </div>
-                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {activeSingleEvaluation.totalScore}/100 ({activeSingleEvaluation.confidenceLevel})
                     </div>
                   </div>
                 </div>
@@ -946,11 +955,11 @@ export function ProductLinkImportPanel({
                 )}
 
                 {/* Unified Product Actions */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => onOpenReport(p)}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="col-span-2 sm:col-span-1 sp-btn-primary"
                   >
                     <span>{t.linkImportOpenReportBtn}</span>
                     <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -959,7 +968,7 @@ export function ProductLinkImportPanel({
                   <button
                     type="button"
                     onClick={() => onOpenDeepDive(p)}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <Layers className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{t.linkImportDeepDiveBtn}</span>
@@ -968,7 +977,7 @@ export function ProductLinkImportPanel({
                   <button
                     type="button"
                     onClick={() => onToggleSave(p)}
-                    className={`inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                       saved
                         ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                         : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
@@ -984,10 +993,10 @@ export function ProductLinkImportPanel({
                   <button
                     type="button"
                     onClick={onViewSingleHistory}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="sp-btn-secondary"
                   >
                     <History className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>{t.linkImportViewInSingleHistoryBtn}</span>
+                    <span className="truncate">{t.linkImportViewInSingleHistoryBtn}</span>
                   </button>
 
                   {tiktokHref && (
@@ -995,10 +1004,10 @@ export function ProductLinkImportPanel({
                       href={tiktokHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 underline-offset-2 hover:underline whitespace-nowrap"
+                      className="sp-btn-ghost"
                     >
                       <span>{t.linkImportOpenTikTokBtn}</span>
-                      <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                      <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
                     </a>
                   )}
                 </div>

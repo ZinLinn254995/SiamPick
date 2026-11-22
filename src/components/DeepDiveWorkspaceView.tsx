@@ -407,7 +407,7 @@ function ModuleResultPanel({
           className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-60"
         >
           <RotateCw
-            className={`w-3.5 h-3.5 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
+            className={`w-3.5 h-3.5 shrink-0 ${isVisuallyRunning ? 'animate-spin motion-reduce:animate-none' : ''}`}
             aria-hidden="true"
           />
           <span>{isMy ? 'ထပ်စမ်းမည်' : 'Retry'}</span>
@@ -438,11 +438,11 @@ function ModuleResultPanel({
         }`}
       >
         {/* Collapsible Result Summary Bar + Unmistakable Re-run Feedback */}
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
+        <div className="px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-zinc-500 dark:text-zinc-400">
             {isVisuallyRunning ? (
               <span className="inline-flex items-center gap-1.5 font-semibold text-sky-700 dark:text-sky-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                 <span>{isMy ? 'ပြန် Run နေသည်...' : 'Re-running module...'}</span>
               </span>
             ) : isRecentlyUpdated ? (
@@ -491,7 +491,7 @@ function ModuleResultPanel({
             onClick={onToggleCollapse}
             aria-expanded={!isCollapsed}
             aria-controls={`deep-dive-result-body-${slot.analysisId}`}
-            className="inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap"
           >
             <span>
               {isCollapsed
@@ -512,13 +512,13 @@ function ModuleResultPanel({
 
         {/* Compact 1-Line Preview When Result Is Collapsed */}
         {isCollapsed ? (
-          <div className="px-4 pb-3 pt-0.5 text-xs text-zinc-600 dark:text-zinc-400 truncate">
+          <div className="px-3.5 sm:px-4 pb-3 pt-0.5 text-xs text-zinc-600 dark:text-zinc-400 truncate">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{headline}</span>
           </div>
         ) : (
           <div
             id={`deep-dive-result-body-${slot.analysisId}`}
-            className={`px-4 pb-4 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/70 space-y-3.5 text-xs transition-opacity duration-200 ${
+            className={`px-3.5 sm:px-4 pb-4 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/70 space-y-3.5 text-xs transition-opacity duration-200 ${
               isVisuallyRunning ? 'opacity-60' : 'opacity-100'
             }`}
           >
@@ -631,7 +631,7 @@ function ModuleResultPanel({
           <div className="font-semibold text-zinc-900 dark:text-zinc-100">
             {isMy ? 'အတည်ပြုပြီး ချိတ်ဆက် မြန်မာ Video များ' : 'Verified Matched Myanmar Videos'}
           </div>
-          <div className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-900">
+          <div className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70 border border-zinc-200/70 dark:border-zinc-800/80 rounded-lg overflow-hidden sp-surface-muted">
             {result.videoItems.map((vid) => (
               <div key={vid.videoId} className="p-2.5 space-y-1">
                 <div className="flex items-start justify-between gap-2">
@@ -748,15 +748,15 @@ function ModuleResultPanel({
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
               onClick={() => onRerun(false)}
               disabled={isVisuallyRunning}
-              className="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
+              className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-md font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 disabled:opacity-45 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
             >
               <RotateCw
-                className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin text-sky-600 dark:text-sky-400' : ''}`}
+                className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin motion-reduce:animate-none text-sky-600 dark:text-sky-400' : ''}`}
                 aria-hidden="true"
               />
               <span>
@@ -775,10 +775,10 @@ function ModuleResultPanel({
                 type="button"
                 onClick={() => onRerun(true)}
                 disabled={isVisuallyRunning}
-                className="inline-flex items-center gap-1 font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
+                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-md font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 disabled:opacity-45 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
               >
                 <RefreshCw
-                  className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
+                  className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin motion-reduce:animate-none' : ''}`}
                   aria-hidden="true"
                 />
                 <span>{isMy ? 'Data အသစ်ယူမည်' : 'Refresh Live'}</span>
@@ -1676,17 +1676,17 @@ export function DeepDiveWorkspaceView({
       };
 
   return (
-    <div className="space-y-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+    <div className="space-y-5 sm:space-y-6 pb-[calc(9.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       {/* Persistent polite live region announcing Deep Dive module run start/finish/error with exact HH:MM:SS */}
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {liveRunAnnouncement}
       </div>
       {/* Top Navigation & Heading Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1"
+          className="sp-btn-ghost -ml-2 text-xs sm:text-sm"
         >
           <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>{backLabelOverride ?? backLabel}</span>
@@ -1695,7 +1695,7 @@ export function DeepDiveWorkspaceView({
         <button
           type="button"
           onClick={onOpenProductDetail}
-          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1 whitespace-nowrap"
+          className="sp-btn-ghost -mr-2 text-xs text-zinc-700 dark:text-zinc-300"
         >
           <span>{copy.openDetailBtn}</span>
           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1719,7 +1719,7 @@ export function DeepDiveWorkspaceView({
             content={copy.infoBody}
           />
         </div>
-        <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
           {copy.subheading}
         </p>
       </section>
@@ -1727,10 +1727,10 @@ export function DeepDiveWorkspaceView({
       {/* Connected Read-Only Product Context Card */}
       <section
         aria-label={displayName}
-        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5"
+        className="sp-card p-3.5 sm:p-5 space-y-3"
       >
-        <div className="flex flex-col sm:flex-row items-start gap-4">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0">
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0">
             {imageConfig.canRender && imageConfig.src ? (
               <ProductImage
                 src={imageConfig.src}
@@ -1739,6 +1739,7 @@ export function DeepDiveWorkspaceView({
                 alt={product.name}
                 title={displayName}
                 unavailableLabel={t.cardImageUnverified}
+                compact
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -1747,106 +1748,104 @@ export function DeepDiveWorkspaceView({
             )}
           </div>
 
-          <div className="min-w-0 flex-1 space-y-2.5">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>{categoryLabel}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                  {copy.originModeLabel}: {originModeLabel}
-                </span>
-                <span aria-hidden="true">·</span>
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              <span>{categoryLabel}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                {copy.originModeLabel}: {originModeLabel}
+              </span>
+              <span aria-hidden="true" className="hidden sm:inline">·</span>
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-full">
+                {copy.productIdLabel}: {canonicalProductId}
+              </span>
+              {originalProductId !== canonicalProductId && (
                 <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                  {copy.productIdLabel}: {canonicalProductId}
+                  ({originalProductId})
                 </span>
-                {originalProductId !== canonicalProductId && (
-                  <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
-                    ({originalProductId})
-                  </span>
-                )}
-              </div>
-
-              <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
-                {displayName}
-              </h2>
+              )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
-              <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div>
-                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
-                  <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                    {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {copy.commissionLabel}
-                  </dt>
-                  <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
-                    {product.commissionRate !== null
-                      ? `${product.commissionRate}%`
-                      : t.dataStatusLabels.unavailable}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
-                  <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                    {evaluation.totalScore}/100
-                  </dd>
-                </div>
-              </dl>
-
-              {(() => {
-                const tiktokUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
-                if (!tiktokUrl) return null;
-                return (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={tiktokUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <span>
-                        {isMy ? 'TikTok Shop တွင် ကြည့်ရန်' : 'Open on TikTok Shop'}
-                      </span>
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(tiktokUrl);
-                          setCopiedTikTokLink(true);
-                          setTimeout(() => setCopiedTikTokLink(false), 1600);
-                        } catch {
-                          // Ignore clipboard errors
-                        }
-                      }}
-                      title={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
-                      aria-label={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
-                      className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                    >
-                      {copiedTikTokLink ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      )}
-                      <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'ကူးရန်' : 'Copy')}</span>
-                    </button>
-                  </div>
-                );
-              })()}
-            </div>
+            <h2 className="font-display text-sm sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 sm:line-clamp-none">
+              {displayName}
+            </h2>
           </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
+          <dl className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
+            <div>
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
+              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+                {copy.commissionLabel}
+              </dt>
+              <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
+                {product.commissionRate !== null
+                  ? `${product.commissionRate}%`
+                  : t.dataStatusLabels.unavailable}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
+              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                {evaluation.totalScore}/100
+              </dd>
+            </div>
+          </dl>
+
+          {(() => {
+            const tiktokUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
+            if (!tiktokUrl) return null;
+            return (
+              <div className="flex items-center gap-2">
+                <a
+                  href={tiktokUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="sp-btn-secondary flex-1 sm:flex-initial"
+                >
+                  <span className="truncate">
+                    {isMy ? 'TikTok Shop တွင် ကြည့်ရန်' : 'Open on TikTok Shop'}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                </a>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(tiktokUrl);
+                      setCopiedTikTokLink(true);
+                      setTimeout(() => setCopiedTikTokLink(false), 1600);
+                    } catch {
+                      // Ignore clipboard errors
+                    }
+                  }}
+                  title={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
+                  aria-label={isMy ? 'လင့်ခ်ကူးယူရန်' : 'Copy link'}
+                  className="sp-btn-secondary px-3 shrink-0"
+                >
+                  {copiedTikTokLink ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'ကူးရန်' : 'Copy')}</span>
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </section>
 
       {/* Manual Selection Controls, 01–09 Quick-Jump Bar & Result Collapse Controls */}
-      <section aria-labelledby="deep-dive-selection-heading" className="space-y-4">
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <section aria-labelledby="deep-dive-selection-heading" className="space-y-3.5 sm:space-y-4">
+        <div className="sp-card p-3.5 sm:p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
             <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Layers className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
@@ -1867,13 +1866,13 @@ export function DeepDiveWorkspaceView({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 max-w-full">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full">
               {cardsWithResultIds.length > 0 && (
                 <button
                   type="button"
                   data-testid="deep-dive-toggle-all-results"
                   onClick={handleToggleAllResultsCollapse}
-                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+                  className="sp-btn-secondary px-3"
                 >
                   {allResultsCollapsed ? (
                     <ChevronsUpDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1895,7 +1894,7 @@ export function DeepDiveWorkspaceView({
                 type="button"
                 onClick={onSelectAll}
                 disabled={allSelected || isAnyRunning}
-                className="min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                className="sp-btn-secondary px-3"
               >
                 {copy.selectAllBtn}
               </button>
@@ -1903,14 +1902,14 @@ export function DeepDiveWorkspaceView({
                 type="button"
                 onClick={onClearAll}
                 disabled={selectedCount === 0 || isAnyRunning}
-                className="min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap"
+                className="sp-btn-secondary px-3"
               >
                 {copy.clearAllBtn}
               </button>
             </div>
           </div>
 
-          {/* 01–09 Quick-Jump Strip: See Selected / Completed / Running / Error at a Glance */}
+          {/* 01–09 Quick-Jump Strip: Swipeable single row on mobile, compact grid on sm+ */}
           <div
             data-testid="deep-dive-quick-jump-bar"
             className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2"
@@ -1930,7 +1929,7 @@ export function DeepDiveWorkspaceView({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-1.5">
+            <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-1.5 overflow-x-auto no-scrollbar sm:overflow-visible -mx-0.5 px-0.5 pb-0.5 sm:mx-0 sm:px-0 sm:pb-0">
               {DEEP_DIVE_ANALYSIS_OPTIONS.map((opt) => {
                 const isOptSelected = workspaceState.selectedIds.includes(opt.id);
                 const optSlot = workspaceState.slots[opt.id];
@@ -1950,7 +1949,7 @@ export function DeepDiveWorkspaceView({
                     onClick={() => handleJumpToCard(opt.id)}
                     title={`0${opt.order}. ${optLabel}`}
                     aria-label={`Jump to 0${opt.order}. ${optLabel}`}
-                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer min-w-0 ${
+                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer shrink-0 sm:shrink sm:min-w-0 whitespace-nowrap ${
                       isOptSelected
                         ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                         : isOptCompleted
@@ -1966,7 +1965,7 @@ export function DeepDiveWorkspaceView({
                     </span>
                     <span className="truncate">{shortChipName}</span>
                     {isOptRunning ? (
-                      <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
+                      <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                     ) : isOptError ? (
                       <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
                     ) : isOptCompleted ? (
@@ -2081,7 +2080,7 @@ export function DeepDiveWorkspaceView({
                 }`}
               >
                 {/* Default Compact Visible Area */}
-                <div className="p-4 space-y-2.5">
+                <div className="p-3.5 sm:p-4 space-y-2.5">
                   {/* Compact Headline Row (Key Number / Verdict Chip + StatusDot, always visible even when collapsed) */}
                   {(() => {
                     const hl = getModuleHeadlineSummary(slot, language);
@@ -2121,7 +2120,7 @@ export function DeepDiveWorkspaceView({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                             0{option.order}.
                           </span>
                           <span className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
@@ -2153,7 +2152,7 @@ export function DeepDiveWorkspaceView({
                         className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${
                           isSelected
                             ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-zinc-400 dark:text-zinc-500'
+                            : 'text-zinc-500 dark:text-zinc-400'
                         }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />}
@@ -2172,7 +2171,7 @@ export function DeepDiveWorkspaceView({
                         }`}
                       >
                         {isVisuallyRunning ? (
-                          <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
+                          <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                         ) : isRecentlyUpdated ? (
                           <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
                         ) : null}
@@ -2214,14 +2213,14 @@ export function DeepDiveWorkspaceView({
                         type="button"
                         onClick={() => handleRequestSingleRun(option.id, false)}
                         disabled={isVisuallyRunning}
-                        className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${
+                        className={`inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${
                           isRecentlyUpdated
                             ? 'text-emerald-900 dark:text-emerald-100 bg-emerald-100 dark:bg-emerald-950/70'
                             : 'text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                         }`}
                       >
                         {isVisuallyRunning ? (
-                          <Loader2 className="w-3 h-3 animate-spin shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+                          <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
                         ) : isRecentlyUpdated ? (
                           <Check className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                         ) : hasRunResult ? (
@@ -2248,7 +2247,7 @@ export function DeepDiveWorkspaceView({
                         onClick={() => onToggleExpand(option.id)}
                         aria-expanded={isExpanded}
                         aria-controls={`deep-dive-details-${option.id}`}
-                        className="inline-flex items-center gap-1 min-h-[30px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer whitespace-nowrap"
+                        className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <span>{isExpanded ? copy.detailsCollapse : copy.detailsExpand}</span>
                         {isExpanded ? (
@@ -2265,7 +2264,7 @@ export function DeepDiveWorkspaceView({
                 {isExpanded && (
                   <div
                     id={`deep-dive-details-${option.id}`}
-                    className="px-4 pb-4 pt-3.5 border-t border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-800/40 space-y-3 text-xs"
+                    className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-800/40 space-y-3 text-xs"
                   >
                     <div>
                       <div className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -2371,7 +2370,7 @@ export function DeepDiveWorkspaceView({
         <section
           aria-label="Last Deep Dive Run Summary"
           data-testid="deep-dive-post-run-summary"
-          className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-2.5 text-xs"
+          className="sp-card p-3.5 sm:p-5 space-y-2.5 text-xs"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -2502,7 +2501,7 @@ export function DeepDiveWorkspaceView({
             ref={finalReportRef}
             data-testid="deep-dive-final-report"
             aria-labelledby="deep-dive-final-report-heading"
-            className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4"
+            className="sp-card p-3.5 sm:p-5 space-y-4"
           >
             {/* Report Header & Export Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2558,7 +2557,7 @@ export function DeepDiveWorkspaceView({
                     <button
                       type="button"
                       onClick={() => void handleCopyFinalReport()}
-                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="sp-btn-secondary px-3"
                     >
                       {copiedReportNotice ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
@@ -2578,7 +2577,7 @@ export function DeepDiveWorkspaceView({
                     <button
                       type="button"
                       onClick={handleExportMarkdown}
-                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="sp-btn-secondary px-3"
                     >
                       <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>Markdown</span>
@@ -2586,7 +2585,7 @@ export function DeepDiveWorkspaceView({
                     <button
                       type="button"
                       onClick={handleExportJson}
-                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="sp-btn-secondary px-3"
                     >
                       <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>JSON</span>
@@ -2604,7 +2603,7 @@ export function DeepDiveWorkspaceView({
                   }}
                   aria-expanded={isReportExpanded}
                   aria-controls="deep-dive-final-report-body"
-                  className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  className="inline-flex items-center gap-1 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <span>
                     {isReportExpanded
@@ -2641,7 +2640,7 @@ export function DeepDiveWorkspaceView({
                 <button
                   type="button"
                   onClick={() => setInspectedHistoryId(null)}
-                  className="inline-flex items-center justify-center min-h-[30px] px-2.5 py-1 text-xs font-medium text-sky-900 dark:text-sky-100 bg-sky-100/80 dark:bg-sky-950/60 hover:bg-sky-200/80 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center justify-center min-h-[36px] px-3 py-1.5 text-xs font-medium text-sky-900 dark:text-sky-100 bg-sky-100/80 dark:bg-sky-950/60 hover:bg-sky-200/80 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   {isMy ? 'လက်ရှိရလဒ်သို့ ပြန်သွားမည်' : 'Return to Latest'}
                 </button>
@@ -2762,7 +2761,7 @@ export function DeepDiveWorkspaceView({
                                 type="button"
                                 onClick={() => handleRequestSingleRun(primaryRunId, false)}
                                 disabled={isAnyRunning}
-                                className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 <Play className="w-3 h-3 shrink-0" aria-hidden="true" />
                                 <span>{isMy ? 'Run မည်' : 'Run'}</span>
@@ -2855,7 +2854,7 @@ export function DeepDiveWorkspaceView({
       <section
         data-testid="deep-dive-analysis-history"
         aria-labelledby="deep-dive-history-heading"
-        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3"
+        className="sp-card p-3.5 sm:p-5 space-y-3"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5 min-w-0">
@@ -2890,7 +2889,7 @@ export function DeepDiveWorkspaceView({
             onClick={() => setShowHistorySection((prev) => !prev)}
             aria-expanded={showHistorySection}
             aria-controls="deep-dive-history-list"
-            className="inline-flex items-center gap-1 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-auto"
+            className="sp-btn-secondary shrink-0 self-start sm:self-auto"
           >
             <span>
               {showHistorySection
@@ -3032,7 +3031,7 @@ export function DeepDiveWorkspaceView({
                                 });
                               }
                             }}
-                            className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
+                            className={`inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                               isInspected
                                 ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                                 : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
@@ -3059,7 +3058,7 @@ export function DeepDiveWorkspaceView({
                               )
                             }
                             aria-expanded={isExpandedRec}
-                            className="inline-flex items-center gap-1 min-h-[30px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-md cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                           >
                             <span>{isExpandedRec ? (isMy ? 'ပိတ်' : 'Hide') : isMy ? 'အသေးစိတ်' : 'Details'}</span>
                             {isExpandedRec ? (
@@ -3079,7 +3078,7 @@ export function DeepDiveWorkspaceView({
                                 onDeleteHistoryRecord(rec.id);
                               }}
                               aria-label={isMy ? 'မှတ်တမ်းဖျက်မည်' : 'Delete history entry'}
-                              className="inline-flex items-center justify-center min-h-[30px] min-w-[30px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-md transition-colors cursor-pointer"
+                              className="inline-flex items-center justify-center min-h-[36px] min-w-[36px] text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             </button>
@@ -3135,63 +3134,69 @@ export function DeepDiveWorkspaceView({
         )}
       </section>
 
-      {/* Non-blocking Floating Run Feedback Toast + Sticky Bottom Action Bar (Option A) */}
-      <div className="sticky bottom-[env(safe-area-inset-bottom)] z-30 pb-2 sm:pb-3 space-y-2 pointer-events-none">
+      {/* Non-blocking Floating Run Feedback Toast + Full-Width Docked Mobile / Floating Desktop Run Bar */}
+      <div className="fixed inset-x-0 bottom-0 z-[35] sm:sticky sm:inset-x-auto sm:bottom-3 pointer-events-none sm:space-y-2">
         {runFeedbackToast && (
-          <div
-            role="status"
-            aria-live="polite"
-            data-testid="deep-dive-run-toast"
-            className={`pointer-events-auto mx-auto max-w-2xl flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border shadow-md backdrop-blur-md text-xs transition-all ${
-              runFeedbackToast.tone === 'error'
-                ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-                : 'bg-zinc-950/95 dark:bg-zinc-100/95 border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950'
-            }`}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              {runFeedbackToast.tone === 'error' ? (
-                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" aria-hidden="true" />
-              )}
-              <div className="min-w-0 truncate">
-                <span className="font-semibold">{runFeedbackToast.title}</span>
-                {runFeedbackToast.detail && (
-                  <span
-                    className={`ml-2 font-mono text-xs tabular-nums ${
-                      runFeedbackToast.tone === 'error'
-                        ? 'text-rose-700 dark:text-rose-300'
-                        : 'text-zinc-300 dark:text-zinc-600'
-                    }`}
-                  >
-                    {runFeedbackToast.detail}
-                  </span>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setRunFeedbackToast(null)}
-              aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
-              className="w-10 h-10 -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+          <div className="px-3 pb-2 sm:px-0 sm:pb-0">
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="deep-dive-run-toast"
+              className={`pointer-events-auto mx-auto max-w-2xl flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border shadow-md backdrop-blur-md text-xs transition-all ${
+                runFeedbackToast.tone === 'error'
+                  ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                  : 'bg-zinc-950/95 dark:bg-zinc-100/95 border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950'
+              }`}
             >
-              <X className="w-4 h-4" aria-hidden="true" />
-            </button>
+              <div className="flex items-center gap-2 min-w-0">
+                {runFeedbackToast.tone === 'error' ? (
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" aria-hidden="true" />
+                )}
+                <div className="min-w-0 truncate">
+                  <span className="font-semibold">{runFeedbackToast.title}</span>
+                  {runFeedbackToast.detail && (
+                    <span
+                      className={`ml-2 font-mono text-xs tabular-nums ${
+                        runFeedbackToast.tone === 'error'
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-zinc-300 dark:text-zinc-600'
+                      }`}
+                    >
+                      {runFeedbackToast.detail}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRunFeedbackToast(null)}
+                aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
+                className="w-10 h-10 -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Sticky Bottom Action Bar: Always Visible Selection, Live Cost & Direct Run */}
+        {/* Docked Mobile Bottom Bar / Floating Desktop Action Bar: Unclipped Selection Chips, Live Cost & Direct Run */}
         <div
           data-testid="deep-dive-sticky-bar"
           role="region"
           aria-label={isMy ? 'Deep Dive အမြန် Run ဘား' : 'Deep Dive sticky action bar'}
-          className="pointer-events-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-300/90 dark:border-zinc-700/90 rounded-xl shadow-lg px-3.5 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5"
+          className="pointer-events-auto bg-white/97 dark:bg-zinc-900/97 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-6px_20px_rgba(0,0,0,0.4)] px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:rounded-xl sm:border sm:border-zinc-300/90 sm:dark:border-zinc-700/90 sm:shadow-lg sm:px-3.5 sm:py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2.5"
         >
-          {/* Left Zone: Selected Module Numbers (Click × to Deselect) + Live Cost */}
-          <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-auto">
+          {/* Row 1 (Mobile) / Left Zone (Desktop): Unclipped Selected Module Chips + Live Cost */}
+          <div
+            className={`${
+              selectedCount > 0 ? 'flex' : 'hidden sm:flex'
+            } items-center justify-between sm:justify-start gap-2 min-w-0 sm:flex-1`}
+          >
             {selectedCount > 0 ? (
               <>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
                   {workspaceState.selectedIds
                     .map((id) => getDeepDiveOptionById(id))
                     .filter((opt): opt is NonNullable<typeof opt> => Boolean(opt))
@@ -3207,7 +3212,7 @@ export function DeepDiveWorkspaceView({
                             ? `0${opt.order}. ${opt.nameMy} ဖြုတ်မည်`
                             : `Remove 0${opt.order}. ${opt.nameEn}`
                         }
-                        className="inline-flex items-center gap-1 min-h-[40px] sm:min-h-[32px] px-2.5 sm:px-2 py-1 text-xs font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 min-h-[32px] px-2 py-1 text-xs font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <span>0{opt.order}</span>
                         <X className="w-3 h-3 opacity-75" aria-hidden="true" />
@@ -3215,7 +3220,7 @@ export function DeepDiveWorkspaceView({
                     ))}
                 </div>
 
-                <span className="text-zinc-300 dark:text-zinc-700 shrink-0" aria-hidden="true">
+                <span className="hidden sm:inline text-zinc-300 dark:text-zinc-700 shrink-0" aria-hidden="true">
                   ·
                 </span>
 
@@ -3254,20 +3259,15 @@ export function DeepDiveWorkspaceView({
               </>
             ) : (
               <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                <span className="sm:hidden font-mono tabular-nums">
-                  {isMy ? '0/9 ရွေးထား' : '0/9 selected'}
-                </span>
-                <span className="hidden sm:inline">
-                  {isMy
-                    ? 'Analysis (01–09) ရွေးချယ်ပါ သို့မဟုတ် ကတ်တစ်ခုချင်းမှ Run နှိပ်ပါ'
-                    : 'Select modules (01–09) or click Run on any card'}
-                </span>
+                {isMy
+                  ? 'Analysis (01–09) ရွေးချယ်ပါ သို့မဟုတ် ကတ်တစ်ခုချင်းမှ Run နှိပ်ပါ'
+                  : 'Select modules (01–09) or click Run on any card'}
               </p>
             )}
           </div>
 
-          {/* Right Zone: Budget Button, Clear & Primary Run CTA */}
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {/* Row 2 (Mobile) / Right Zone (Desktop): Budget Button, Clear & Primary Run CTA */}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto sm:shrink-0">
             <button
               type="button"
               data-testid="deep-dive-open-budget-modal-btn"
@@ -3298,10 +3298,10 @@ export function DeepDiveWorkspaceView({
               data-testid="deep-dive-sticky-run-btn"
               onClick={handleRequestBatchRun}
               disabled={!canRun || isAnyRunning}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 sm:px-4 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="sp-btn-primary flex-1 sm:flex-initial px-3.5 sm:px-4 text-xs"
             >
               {isAnyRunning ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
               ) : (
                 <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               )}
@@ -3348,7 +3348,7 @@ export function DeepDiveWorkspaceView({
 
           return (
             <div
-              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-[2px]"
+              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-[2px]"
               onClick={closeModal}
             >
               <div
@@ -3359,15 +3359,15 @@ export function DeepDiveWorkspaceView({
                 aria-labelledby="deep-dive-checkout-modal-title"
                 data-testid="deep-dive-pre-run-confirmation"
                 onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-xl max-h-[85vh] sm:max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs focus:outline-none"
+                className="w-full sm:max-w-xl max-h-[90dvh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs focus:outline-none"
               >
                 {/* Mobile Bottom-Sheet Drag Handle Indicator */}
                 <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0" aria-hidden="true">
-                  <span className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                  <span className="sp-sheet-handle" />
                 </div>
 
                 {/* Modal Header */}
-                <div className="px-5 py-3.5 sm:py-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-start justify-between gap-3 shrink-0">
+                <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-start justify-between gap-3 shrink-0">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <ShieldCheck
                       className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5"
@@ -3409,9 +3409,9 @@ export function DeepDiveWorkspaceView({
                 </div>
 
                 {/* Modal Scrollable Body */}
-                <div className="flex-1 min-h-0 px-5 py-4 overflow-y-auto space-y-4">
+                <div className="flex-1 min-h-0 px-4 sm:px-5 py-3.5 sm:py-4 overflow-y-auto space-y-4">
                   {/* Cost & Billing Summary Grid (Strictly Separating Kalodata Credits vs Gemini AI Billing) */}
-                  <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-50/90 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-3.5">
+                  <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 sp-surface-muted border border-zinc-200/70 dark:border-zinc-800 rounded-xl p-3.5">
                     <div className="space-y-0.5">
                       <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                         {isMy ? 'Kalodata Credits' : 'Kalodata Credits'}
@@ -3498,7 +3498,7 @@ export function DeepDiveWorkspaceView({
                               <div className="min-w-0">
                                 <div className="font-medium text-zinc-950 dark:text-zinc-50 truncate">
                                   {def ? (
-                                    <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 mr-1.5">
+                                    <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 mr-1.5">
                                       0{def.order}.
                                     </span>
                                   ) : null}
@@ -3519,7 +3519,7 @@ export function DeepDiveWorkspaceView({
                                     onClick={() => onToggleOption(item.analysisId)}
                                     disabled={isAnyRunning}
                                     aria-label={isMy ? `${label} ဖြုတ်မည်` : `Remove ${label}`}
-                                    className="inline-flex items-center justify-center min-h-[26px] min-w-[26px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
+                                    className="inline-flex items-center justify-center min-h-[36px] min-w-[36px] text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                                   >
                                     <X className="w-3.5 h-3.5" aria-hidden="true" />
                                   </button>
@@ -3688,11 +3688,11 @@ export function DeepDiveWorkspaceView({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-5 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] sm:pb-3.5 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 shrink-0">
+                <div className="px-4 sm:px-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3.5 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    className="sp-btn-secondary"
                   >
                     {isConfirmationMode
                       ? isMy
@@ -3712,7 +3712,7 @@ export function DeepDiveWorkspaceView({
                         !modalBudgetGuard.canProceedWithoutLimitChange ||
                         modalBlockedByStorage
                       }
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="sp-btn-primary text-xs"
                     >
                       <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>{isMy ? 'အတည်ပြုပြီး Run မည်' : 'Confirm & Run'}</span>
@@ -3729,7 +3729,7 @@ export function DeepDiveWorkspaceView({
                         !modalBudgetGuard.canProceedWithoutLimitChange ||
                         modalBlockedByStorage
                       }
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      className="sp-btn-primary text-xs"
                     >
                       <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                       <span>

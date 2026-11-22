@@ -431,7 +431,7 @@ export function SameProductHunterSection({
       </div>
 
       {/* Controls Container (Flat single-elevation surface) */}
-      <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-3.5">
+      <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3.5">
         {/* Editable Core Keyword Input + AI Keyword Button */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -445,10 +445,10 @@ export function SameProductHunterSection({
               type="button"
               onClick={handleSuggestKeywords}
               disabled={loadingKeywords || isSearching}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1 min-h-[32px] py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               {loadingKeywords ? (
-                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : (
                 <Sparkles className="w-3 h-3" aria-hidden="true" />
               )}
@@ -470,16 +470,16 @@ export function SameProductHunterSection({
                   ? 'ဥပမာ — ထိုင်း/အင်္ဂလိပ် ပစ္စည်းအမည် အဓိကစကားလုံး'
                   : 'Enter core Thai or English product keyword'
               }
-              className="flex-1 min-h-[38px] px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/15 dark:focus:ring-zinc-100/20"
+              className="flex-1 min-h-[40px] px-3 py-2 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/15 dark:focus:ring-zinc-100/20"
             />
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
               disabled={isSearching || keyword.trim().length < 2}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-4 py-1.5 text-xs font-semibold rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="sp-btn-primary !px-4 text-xs disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               {isSearching ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
               ) : (
                 <Search className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               )}
@@ -498,7 +498,7 @@ export function SameProductHunterSection({
           {/* Clickable Keyword Suggestions (functional filter buttons) */}
           {suggestedKeywords.length > 1 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400">
                 {isMy ? 'အကြံပြု:' : 'Try:'}
               </span>
               {suggestedKeywords.map((kw) => {
@@ -508,10 +508,10 @@ export function SameProductHunterSection({
                     key={kw}
                     type="button"
                     onClick={() => setKeyword(kw)}
-                    className={`px-2 py-0.5 text-xs rounded-md transition-colors cursor-pointer max-w-[200px] truncate ${
+                    className={`inline-flex items-center min-h-[32px] px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer max-w-[200px] truncate ${
                       isSelected
                         ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 font-medium'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:text-zinc-950 dark:hover:text-zinc-50'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:text-zinc-950 dark:hover:text-zinc-50'
                     }`}
                   >
                     {kw}
@@ -526,20 +526,17 @@ export function SameProductHunterSection({
         <div className="pt-3 border-t border-zinc-200/70 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Price Band Segmented Control */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+            <span className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
               {isMy ? 'ဈေးကွာဟချက်:' : 'Price band:'}
             </span>
-            <div className="inline-flex items-center p-0.5 rounded-lg bg-zinc-200/70 dark:bg-zinc-800">
+            <div className="sp-segmented">
               {PRICE_TOLERANCE_OPTIONS.map((pct) => (
                 <button
                   key={pct}
                   type="button"
+                  data-active={priceTolerancePct === pct ? 'true' : 'false'}
                   onClick={() => setPriceTolerancePct(pct)}
-                  className={`px-2 py-1 text-xs font-mono tabular-nums rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                    priceTolerancePct === pct
-                      ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 font-semibold shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                  }`}
+                  className="sp-segmented-item !min-h-[32px] !py-1 !px-2.5 font-mono tabular-nums whitespace-nowrap"
                 >
                   ±{pct}%
                 </button>
@@ -622,14 +619,14 @@ export function SameProductHunterSection({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(false)}
-                className="min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer"
+                className="sp-btn-secondary !px-3.5 text-xs"
               >
                 {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
               </button>
               <button
                 type="button"
                 onClick={() => handleRunSearch(false)}
-                className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+                className="sp-btn-primary !px-3.5 text-xs whitespace-nowrap"
               >
                 <Check className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{isMy ? 'အတည်ပြုပြီး ရှာမည် (0.1 cr)' : 'Confirm & Search (0.1 cr)'}</span>
@@ -668,7 +665,7 @@ export function SameProductHunterSection({
             <div
               key={idx}
               aria-hidden="true"
-              className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 animate-pulse flex items-start gap-3"
+              className="sp-card p-3.5 animate-pulse motion-reduce:animate-none flex items-start gap-3"
             >
               <div className="w-16 h-16 rounded-lg bg-zinc-200 dark:bg-zinc-800 shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
@@ -732,7 +729,7 @@ export function SameProductHunterSection({
             <button
               type="button"
               onClick={() => handleRunSearch(true)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1 min-h-[32px] py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
               title={isMy ? 'အသစ်ပြန်ရှာမည် (0.1 cr)' : 'Refresh live search (0.1 cr)'}
             >
               <RefreshCw className="w-3 h-3" aria-hidden="true" />
@@ -763,7 +760,7 @@ export function SameProductHunterSection({
             />
           ) : (
             /* Matched Same-Product Candidate List */
-            <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800 border border-zinc-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden">
+            <div className="sp-card divide-y divide-zinc-200/80 dark:divide-zinc-800 overflow-hidden">
               {visibleCandidates.map((cand) => {
                 const isSaved = savedProductIds?.has(cand.researchProduct.id) ?? false;
                 const isStage2Open = activeStage2ConfirmId === cand.productId;
@@ -809,19 +806,20 @@ export function SameProductHunterSection({
                                 alt={product.name}
                                 title={product.name}
                                 unavailableLabel="—"
+                                compact
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">
+                              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
                                 —
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-center text-zinc-400 dark:text-zinc-500">
+                          <div className="text-xs text-center text-zinc-500 dark:text-zinc-400">
                             {isMy ? 'မူလပုံ' : 'Original'}
                           </div>
                         </div>
 
-                        <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 pb-4">
+                        <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 pb-4">
                           vs
                         </span>
 
@@ -835,14 +833,15 @@ export function SameProductHunterSection({
                                 alt={cand.title}
                                 title={cand.title}
                                 unavailableLabel="—"
+                                compact
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-400">
+                              <div className="w-full h-full flex items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
                                 —
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-center font-medium text-zinc-600 dark:text-zinc-300">
+                          <div className="text-xs text-center font-medium text-zinc-700 dark:text-zinc-300">
                             {isMy ? 'ဆိုင်အသစ်' : 'Found'}
                           </div>
                         </div>
@@ -958,7 +957,7 @@ export function SameProductHunterSection({
                               {isMy ? 'ဦး' : 'creators'}
                             </span>
                           ) : (
-                            <span className="font-sans text-xs font-normal text-zinc-400 dark:text-zinc-500">
+                            <span className="font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
                               {isMy ? 'မစစ်ရသေး' : 'Unchecked'}
                             </span>
                           )}
@@ -1010,11 +1009,11 @@ export function SameProductHunterSection({
                             </label>
                           )}
                         </div>
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => setActiveStage2ConfirmId(null)}
-                            className="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                            className="sp-btn-secondary !px-3 text-xs"
                           >
                             {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
                           </button>
@@ -1022,12 +1021,12 @@ export function SameProductHunterSection({
                             type="button"
                             onClick={() => handleVerifyCandidateStage2(cand)}
                             disabled={isStage2Loading}
-                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-md bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                            className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 whitespace-nowrap"
                           >
                             {isStage2Loading ? (
-                              <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
                             ) : (
-                              <Check className="w-3 h-3" aria-hidden="true" />
+                              <Check className="w-3.5 h-3.5" aria-hidden="true" />
                             )}
                             <span>
                               {isMy
@@ -1050,7 +1049,7 @@ export function SameProductHunterSection({
                           href={cand.tiktokShopUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white transition-colors whitespace-nowrap"
+                          className="sp-btn-primary !px-3 text-xs whitespace-nowrap"
                         >
                           <span>{isMy ? 'TikTok Shop ဖွင့်ရန်' : 'Open TikTok Link'}</span>
                           <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1068,7 +1067,7 @@ export function SameProductHunterSection({
                             // Ignore clipboard restriction
                           }
                         }}
-                        className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer whitespace-nowrap"
+                        className="sp-btn-secondary !px-3 text-xs whitespace-nowrap"
                       >
                         {copiedCandidateId === cand.productId ? (
                           <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -1094,7 +1093,7 @@ export function SameProductHunterSection({
                             setActiveStage2ConfirmId(isStage2Open ? null : cand.productId);
                           }}
                           disabled={Boolean(stage2LoadingId)}
-                          className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+                          className="sp-btn-secondary !px-3 text-xs disabled:opacity-50 whitespace-nowrap"
                         >
                           <Users className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>
@@ -1107,9 +1106,9 @@ export function SameProductHunterSection({
                         <button
                           type="button"
                           onClick={() => onSaveCandidate(cand.researchProduct)}
-                          className={`inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                             isSaved
-                              ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-600'
+                              ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-700 hover:bg-emerald-800 dark:hover:bg-emerald-600'
                               : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                           }`}
                         >
@@ -1133,7 +1132,7 @@ export function SameProductHunterSection({
                         <button
                           type="button"
                           onClick={() => onOpenDeepDive(cand.researchProduct)}
-                          className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer whitespace-nowrap"
+                          className="sp-btn-secondary !px-3 text-xs whitespace-nowrap"
                         >
                           <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>Deep Dive</span>

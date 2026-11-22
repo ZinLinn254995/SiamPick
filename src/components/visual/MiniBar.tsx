@@ -7,6 +7,7 @@ export interface MiniBarProps {
   label?: string;
   weightPct?: number;
   valueText?: string;
+  hideValue?: boolean;
   className?: string;
 }
 
@@ -39,6 +40,7 @@ export function MiniBar({
   label,
   weightPct,
   valueText,
+  hideValue = false,
   className = '',
 }: MiniBarProps) {
   const safeMax = max > 0 ? max : 100;
@@ -85,13 +87,15 @@ export function MiniBar({
         />
       </div>
 
-      <span
-        className={`w-9 text-right font-mono text-xs font-semibold tabular-nums shrink-0 ${
-          isAvailable ? VALUE_CLASSES[tone] : 'text-zinc-600 dark:text-zinc-400'
-        }`}
-      >
-        {formattedValue}
-      </span>
+      {!hideValue && (
+        <span
+          className={`min-w-[2.25rem] text-right font-mono text-xs font-semibold tabular-nums shrink-0 ${
+            isAvailable ? VALUE_CLASSES[tone] : 'text-zinc-600 dark:text-zinc-400'
+          }`}
+        >
+          {formattedValue}
+        </span>
+      )}
     </div>
   );
 }

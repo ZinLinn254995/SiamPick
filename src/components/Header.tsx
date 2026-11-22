@@ -24,9 +24,9 @@ interface HeaderProps {
 
 function formatCompactHeaderBalance(balance: number): string {
   if (Number.isInteger(balance)) {
-    return balance.toLocaleString();
+    return balance.toLocaleString('en-US');
   }
-  return balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return balance.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
 export function Header({
@@ -77,10 +77,10 @@ export function Header({
   const languageToggleLabel = isMy ? 'Switch to English' : 'မြန်မာဘာသာသို့ ပြောင်းရန်';
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-200/80 dark:border-zinc-800/80 overflow-x-clip transition-colors">
-      <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2.5 sm:gap-5">
+    <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/85 dark:border-zinc-800/85 overflow-x-clip transition-colors">
+      <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-[52px] sm:h-[60px] flex items-center justify-between gap-2 sm:gap-5">
         {/* Zone 1: Brand Wordmark + Quiet Unboxed Credit Balance */}
-        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <a
             href="#top"
             onClick={(e) => {
@@ -114,7 +114,7 @@ export function Header({
                 />
                 <span
                   aria-hidden="true"
-                  className="h-3.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
+                  className="h-3.5 w-11 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
                 />
                 <span className="sr-only">{t.creditsLoadingLabel}</span>
               </span>
@@ -133,10 +133,10 @@ export function Header({
                 </span>
                 {hasNumericBalance && (
                   <>
-                    <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 xl:hidden">
+                    <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 xl:hidden">
                       {unitShort}
                     </span>
-                    <span className="hidden xl:inline font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="hidden xl:inline font-mono text-xs text-zinc-600 dark:text-zinc-400">
                       {unitFull}
                     </span>
                   </>
@@ -180,23 +180,23 @@ export function Header({
             }`}
           >
             <span>{t.navHistory}</span>
-            <span className="font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+            <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
               ({historyCount})
             </span>
           </button>
         </nav>
 
         {/* Zone 3: Quiet Ghost Utility Controls + Desktop Primary Saved Action (Mobile uses bottom tab bar) */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
           {/* Compact Single-Button Language Toggle (Ghost style — no heavy box) */}
           <button
             type="button"
             onClick={() => onChangeLanguage(isMy ? 'en' : 'my')}
             title={languageToggleLabel}
             aria-label={languageToggleLabel}
-            className="inline-flex items-center justify-center gap-1 min-h-[40px] min-w-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            className="inline-flex items-center justify-center gap-1 min-h-[40px] min-w-[40px] px-2 sm:px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
           >
-            <Globe className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
+            <Globe className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
             <span>{isMy ? 'မြန်မာ' : 'EN'}</span>
           </button>
 
@@ -207,7 +207,7 @@ export function Header({
             aria-pressed={isDark}
             aria-label={themeToggleLabel}
             title={themeToggleLabel}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
           >
             {isDark ? (
               <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
@@ -223,10 +223,10 @@ export function Header({
               onClick={onOpenBackupModal}
               title={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
               aria-label={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] min-w-[40px] px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
             >
               <HardDrive className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-              <span className="hidden xl:inline">{isMy ? 'Backup' : 'Backup'}</span>
+              <span className="hidden xl:inline">Backup</span>
             </button>
           )}
 
@@ -244,7 +244,7 @@ export function Header({
             aria-label={`${t.shortlistBtn} (${shortlistCount})`}
             className={`hidden md:inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 text-[13px] font-medium rounded-lg active:scale-[0.99] transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
               activeView === 'saved'
-                ? 'bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500'
+                ? 'bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600'
                 : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
             }`}
           >
@@ -253,7 +253,7 @@ export function Header({
               aria-hidden="true"
             />
             <span>{t.shortlistBtn}</span>
-            <span className="font-mono tabular-nums opacity-80">({shortlistCount})</span>
+            <span className="font-mono tabular-nums opacity-85">({shortlistCount})</span>
           </button>
         </div>
       </div>

@@ -479,24 +479,24 @@ export function ResearchSettingsPanel({
   return (
     <section
       aria-labelledby="research-settings-heading"
-      className="mt-8 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-5 sm:p-6 space-y-6"
+      className="mt-5 sm:mt-6 sp-card p-4 sm:p-6 space-y-5"
     >
       {/* Header Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2
           id="research-settings-heading"
-          className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50"
+          className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
         >
           {t.settingsHeading}
         </h2>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <div className="flex flex-wrap items-center gap-1">
           {!isHunting &&
             (quotaStatus.paused ? (
               <button
                 type="button"
                 onClick={onResumeResearch}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.btnResumeResearch}</span>
@@ -505,7 +505,7 @@ export function ResearchSettingsPanel({
               <button
                 type="button"
                 onClick={onPauseResearch}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <PauseCircle className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.btnPauseResearch}</span>
@@ -515,7 +515,12 @@ export function ResearchSettingsPanel({
           <button
             type="button"
             onClick={onToggleFineTune}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+            aria-expanded={showFineTune}
+            className={`inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              showFineTune
+                ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
+                : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
+            }`}
           >
             <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{t.weightFineTune}</span>
@@ -523,12 +528,12 @@ export function ResearchSettingsPanel({
         </div>
       </div>
 
-      {/* Fixed Specifications Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/70">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
-            <span>{t.settingMarketLabel}</span>
+      {/* Compact Specifications Summary Band */}
+      <div className="sp-surface-muted px-3.5 py-2.5 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
+        <div className="min-w-0">
+          <div className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <Lock className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+            <span className="truncate">{t.settingMarketLabel}</span>
             <InfoPopover
               variant="info"
               label={t.settingMarketLabel}
@@ -536,23 +541,23 @@ export function ResearchSettingsPanel({
               content={t.settingFixedNote}
             />
           </div>
-          <div className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
             {t.settingMarketValue}
           </div>
         </div>
 
-        <div className="space-y-1">
-          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t.settingPriceLabel}</div>
-          <div className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+        <div className="min-w-0">
+          <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate">{t.settingPriceLabel}</div>
+          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
             {t.settingPriceValue}{' '}
-            <span className="font-mono text-xs font-normal text-zinc-400 dark:text-zinc-500 tabular-nums">
-              (THB ฿)
+            <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums">
+              (฿)
             </span>
           </div>
         </div>
 
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <div className="col-span-2 sm:col-span-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200/70 dark:border-zinc-700/60 min-w-0">
+          <div className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
             <span>{t.strategyLabel}</span>
             <InfoPopover
               variant="help"
@@ -561,9 +566,9 @@ export function ResearchSettingsPanel({
               content={t.settingStrategyValue}
             />
           </div>
-          <div className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
             {strategySummary}{' '}
-            <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums">
+            <span className="font-mono text-xs font-normal text-zinc-600 dark:text-zinc-400 tabular-nums">
               ({salesWeightPct}/{100 - salesWeightPct})
             </span>
           </div>
@@ -577,8 +582,8 @@ export function ResearchSettingsPanel({
         const liveWeights = computeStrategyWeights(salesWeightPct, previewCategory);
         const totalWeight = SCORING_FACTOR_ORDER.reduce((sum, key) => sum + liveWeights[key], 0);
         return (
-          <div className="pb-5 border-b border-zinc-100 dark:border-zinc-800/70 space-y-4">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800/80 space-y-4">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
               <div
                 className="flex flex-wrap items-center gap-2 min-w-0"
                 role="group"
@@ -595,7 +600,7 @@ export function ResearchSettingsPanel({
                     key={preset.id}
                     type="button"
                     onClick={() => onSelectStrategyPreset(preset.id)}
-                    className={`min-h-[38px] max-w-full px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                    className={`min-h-[40px] max-w-full px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                       strategyPreset === preset.id
                         ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                         : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -610,13 +615,13 @@ export function ResearchSettingsPanel({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-600 dark:text-zinc-400">
                     {t.commissionWeight}{' '}
-                    <span className="font-mono font-medium tabular-nums text-emerald-700 dark:text-emerald-400">
+                    <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
                       {100 - salesWeightPct}%
                     </span>
                   </span>
                   <span className="text-zinc-600 dark:text-zinc-400">
                     {t.salesWeight}{' '}
-                    <span className="font-mono font-medium tabular-nums text-zinc-950 dark:text-zinc-50">
+                    <span className="font-mono font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">
                       {salesWeightPct}%
                     </span>
                   </span>
@@ -635,8 +640,8 @@ export function ResearchSettingsPanel({
             </div>
 
             {/* Live 7-Factor Weight Breakdown (Always Sums to 100) */}
-            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
-              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
+              <div className="flex items-center justify-between text-xs">
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">{t.scoringStrategyActiveLabel}</span>
                 <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                   {t.scoringTotalWeightLabel}: {totalWeight}/100
@@ -646,14 +651,16 @@ export function ResearchSettingsPanel({
                 {SCORING_FACTOR_ORDER.map((key) => (
                   <div
                     key={key}
-                    className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70"
+                    className="sp-surface-muted px-2.5 py-2"
                   >
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate" title={t.factorLabels[key]}>
-                      {t.factorLabels[key]}
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate" title={t.factorLabels[key]}>
+                      {t.factorShortLabels[key]}
                     </div>
                     <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                       {liveWeights[key]}
-                      <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500"> pts</span>
+                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                        {isMy ? ' မှတ်' : ' pts'}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -668,8 +675,8 @@ export function ResearchSettingsPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.settingCategoryLabel}</span>
-              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settingCategoryLabel}</span>
+              <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
                 ({selectedCategories.length} {t.selectedCategoriesCountLabel})
               </span>
               <InfoPopover
@@ -688,12 +695,12 @@ export function ResearchSettingsPanel({
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <div className="flex flex-wrap items-center gap-1 text-xs">
             {!allReadySelected && (
               <button
                 type="button"
                 onClick={onSelectAllVerifiedCategories}
-                className="font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
+                className="inline-flex items-center min-h-[36px] px-2 rounded-lg font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
               >
                 {t.selectAllVerifiedAction} ({catalogCounts.supported})
               </button>
@@ -702,7 +709,7 @@ export function ResearchSettingsPanel({
               <button
                 type="button"
                 onClick={onClearAllCategories}
-                className="font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
+                className="inline-flex items-center min-h-[36px] px-2 rounded-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
               >
                 {t.clearAllCategoriesAction}
               </button>
@@ -711,7 +718,7 @@ export function ResearchSettingsPanel({
               <button
                 type="button"
                 onClick={() => setShowAllCategories((prev) => !prev)}
-                className="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 min-h-[36px] px-2 rounded-lg font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
               >
                 <span>{extraCategoriesToggleLabel}</span>
                 {showAllCategories ? (
@@ -725,12 +732,12 @@ export function ResearchSettingsPanel({
               type="button"
               onClick={() => setSyncConfirmMode((prev) => (prev === 'l1' ? null : 'l1'))}
               disabled={isSyncingCategories}
-              className="inline-flex items-center gap-1 font-medium text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-300 disabled:opacity-50 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 min-h-[36px] px-2.5 rounded-lg font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-50 transition-colors cursor-pointer"
             >
               {isSyncingCategories ? (
-                <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
               ) : (
-                <RefreshCw className="w-3 h-3" aria-hidden="true" />
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
               )}
               <span>{t.syncCategoriesBtn}</span>
             </button>
@@ -739,7 +746,7 @@ export function ResearchSettingsPanel({
 
         {/* Inline Explicit Confirmation for 0.1-Credit Kalodata Category Sync (L1 or L2) */}
         {syncConfirmMode && (
-          <div className="p-3.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl space-y-2.5 text-xs">
+          <div className="sp-surface-muted p-3.5 border border-zinc-200 dark:border-zinc-700 rounded-xl space-y-2.5 text-xs">
             <div className="font-semibold text-zinc-950 dark:text-zinc-50">
               {syncConfirmMode === 'l1'
                 ? t.syncCategoriesConfirmTitle
@@ -754,14 +761,14 @@ export function ResearchSettingsPanel({
               <button
                 type="button"
                 onClick={() => handleConfirmSyncCategories(syncConfirmMode)}
-                className="min-h-[34px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer"
+                className="sp-btn-primary"
               >
                 {t.syncCategoriesConfirmProceed}
               </button>
               <button
                 type="button"
                 onClick={() => setSyncConfirmMode(null)}
-                className="min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 rounded-lg transition-colors cursor-pointer"
+                className="sp-btn-secondary"
               >
                 {t.confirmCancelBtn}
               </button>
@@ -800,22 +807,22 @@ export function ResearchSettingsPanel({
                 onClick={() => {
                   if (entry.selectable) onToggleCategory(catId);
                 }}
-                className={`min-h-[42px] px-3 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-all ${
+                className={`min-h-[42px] px-3 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-colors ${
                   !entry.selectable
-                    ? 'bg-zinc-50/80 dark:bg-zinc-800/50 text-zinc-400 dark:text-zinc-500 border-zinc-200/70 dark:border-zinc-800/70 cursor-not-allowed'
+                    ? 'bg-zinc-50/80 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 border-zinc-200/70 dark:border-zinc-800/70 cursor-not-allowed'
                     : isSelected
                       ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100 cursor-pointer'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer'
                 }`}
               >
-                <span className="flex items-center gap-2 min-w-0">
+                <span className="flex items-center gap-2.5 min-w-0">
                   <span
                     className={`w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 ${
                       !entry.selectable
-                        ? 'border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800'
+                        ? 'border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800'
                         : isSelected
                           ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 border-white dark:border-zinc-900'
-                          : 'border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900'
+                          : 'border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900'
                     }`}
                     aria-hidden="true"
                   >
@@ -823,19 +830,27 @@ export function ResearchSettingsPanel({
                   </span>
                   <span className="text-xs font-medium truncate">{label}</span>
                 </span>
-                <span
-                  className={`font-mono text-xs tabular-nums shrink-0 ${
-                    !entry.selectable
-                      ? entry.apiSupportStatus === 'unsupported'
-                        ? 'text-red-400'
-                        : 'text-amber-600/80 dark:text-amber-400/80'
-                      : isSelected
+                {!entry.selectable ? (
+                  <span
+                    className={`font-mono text-xs shrink-0 ${
+                      entry.apiSupportStatus === 'unsupported'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-amber-700 dark:text-amber-400'
+                    }`}
+                  >
+                    {statusText}
+                  </span>
+                ) : entry.kalodataId ? (
+                  <span
+                    className={`hidden sm:inline font-mono text-xs tabular-nums shrink-0 ${
+                      isSelected
                         ? 'text-zinc-300 dark:text-zinc-600'
-                        : 'text-zinc-400 dark:text-zinc-500'
-                  }`}
-                >
-                  {entry.kalodataId ? entry.kalodataId : statusText}
-                </span>
+                        : 'text-zinc-500 dark:text-zinc-400'
+                    }`}
+                  >
+                    {entry.kalodataId}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -847,10 +862,10 @@ export function ResearchSettingsPanel({
 
         {/* Optional L2 Subcategory Selector (Always visible when parent L1 category is selected) */}
         {selectedParentL1Ids.length > 0 && (
-          <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
+          <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                <Layers className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+              <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <Layers className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                 <span>{t.subcategorySectionLabel}</span>
                 {selectedSubcategoryIds.length > 0 && (
                   <span className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
@@ -872,12 +887,12 @@ export function ResearchSettingsPanel({
                 />
               </div>
 
-              <div className="flex items-center gap-3 text-xs">
+              <div className="flex items-center gap-1 text-xs">
                 {selectedSubcategoryIds.length > 0 && (
                   <button
                     type="button"
                     onClick={onClearSubcategories}
-                    className="font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                    className="inline-flex items-center min-h-[36px] px-2 rounded-lg font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 cursor-pointer"
                   >
                     {t.subcategoryClearBtn}
                   </button>
@@ -886,7 +901,7 @@ export function ResearchSettingsPanel({
                   type="button"
                   onClick={() => setSyncConfirmMode((prev) => (prev === 'l2' ? null : 'l2'))}
                   disabled={isSyncingCategories}
-                  className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 cursor-pointer"
+                  className="inline-flex items-center min-h-[36px] px-2.5 rounded-lg font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/70 disabled:opacity-50 cursor-pointer"
                 >
                   {t.subcategoryLoadBtn}
                 </button>
@@ -903,7 +918,7 @@ export function ResearchSettingsPanel({
                       type="button"
                       onClick={() => onToggleSubcategory(sub.id)}
                       aria-pressed={active}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+                      className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
                         active
                           ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                           : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
@@ -920,11 +935,11 @@ export function ResearchSettingsPanel({
       </div>
 
       {/* 2. Research Quantity + Multi-Category Query Mode */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
         {/* Research Quantity (Presets 10/20/30 + Custom Input) */}
-        <div className={multipleSelected ? 'lg:col-span-6 space-y-2.5' : 'lg:col-span-12 space-y-2.5'}>
+        <div className={multipleSelected ? 'lg:col-span-6 space-y-2' : 'lg:col-span-12 space-y-2'}>
           <div className="flex items-center gap-1.5">
-            <label htmlFor="custom-quantity-input" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <label htmlFor="custom-quantity-input" className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
               {t.settingQuantityLabel}
             </label>
             <InfoPopover
@@ -937,7 +952,7 @@ export function ResearchSettingsPanel({
 
           <div className="flex flex-wrap sm:flex-nowrap items-stretch gap-2">
             <div
-              className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-full sm:w-auto sm:flex-1 sm:min-w-[200px]"
+              className="grid grid-cols-3 gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-full sm:w-auto sm:flex-1 sm:min-w-[200px]"
               role="group"
               aria-label={t.settingQuantityLabel}
             >
@@ -957,8 +972,8 @@ export function ResearchSettingsPanel({
               ))}
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus-within:border-zinc-900 min-h-[44px] w-full sm:w-40 shrink-0">
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg focus-within:border-zinc-900 dark:focus-within:border-zinc-300 min-h-[44px] w-full sm:w-40 shrink-0">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
                 {t.customQuantityLabel}
               </span>
               <input
@@ -970,7 +985,7 @@ export function ResearchSettingsPanel({
                 value={customQtyDraft}
                 onChange={(e) => handleCustomQtyChange(e.target.value)}
                 onBlur={handleCustomQtyBlur}
-                className="w-full text-right font-mono text-sm font-medium text-zinc-950 dark:text-zinc-50 tabular-nums bg-transparent focus:outline-none"
+                className="w-full text-right font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums bg-transparent focus:outline-none"
               />
             </div>
           </div>
@@ -978,9 +993,9 @@ export function ResearchSettingsPanel({
 
         {/* Combined vs Split Mode (Shown whenever 2+ L1 Categories are selected without L2 override) */}
         {multipleSelected && (
-          <div className="lg:col-span-6 space-y-2.5">
+          <div className="lg:col-span-6 space-y-2">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.multiCategoryModeLabel}</span>
+              <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.multiCategoryModeLabel}</span>
               <InfoPopover
                 variant="help"
                 label={t.multiCategoryModeLabel}
@@ -1000,7 +1015,7 @@ export function ResearchSettingsPanel({
               />
             </div>
             <div
-              className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg"
+              className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg"
               role="radiogroup"
               aria-label={t.multiCategoryModeLabel}
             >
@@ -1022,7 +1037,7 @@ export function ResearchSettingsPanel({
                   role="radio"
                   aria-checked={bothCategoryMode === mode.id}
                   onClick={() => onBothCategoryModeChange(mode.id)}
-                  className={`min-h-[38px] px-3 py-1.5 rounded-md text-center text-xs font-medium transition-all cursor-pointer ${
+                  className={`min-h-[40px] px-2.5 py-1.5 rounded-md text-center text-xs font-medium transition-all cursor-pointer leading-snug ${
                     bothCategoryMode === mode.id
                       ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1036,11 +1051,11 @@ export function ResearchSettingsPanel({
         )}
       </div>
 
-      {/* 3. Research Mode Selector (Clean Cards + Individual Tap-to-Open Info Icons) */}
-      <div className="space-y-2.5">
+      {/* 3. Research Mode Selector (Clean Cards + High-Contrast Light & Dark Active State) */}
+      <div className="space-y-2.5 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.researchModeLabel}</span>
+            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.researchModeLabel}</span>
             <InfoPopover
               variant="help"
               label={t.researchModeLabel}
@@ -1103,7 +1118,7 @@ export function ResearchSettingsPanel({
             return (
               <div
                 key={item.id}
-                className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2 ${
+                className={`p-3 rounded-xl border transition-colors flex flex-col justify-between gap-1.5 ${
                   active
                     ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                     : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
@@ -1135,11 +1150,11 @@ export function ResearchSettingsPanel({
                     className={`font-mono text-xs font-semibold tabular-nums shrink-0 cursor-pointer ${
                       active
                         ? modeExceedsLimit
-                          ? 'text-red-300'
-                          : 'text-emerald-300'
+                          ? 'text-red-300 dark:text-red-700'
+                          : 'text-emerald-300 dark:text-emerald-700'
                         : modeExceedsLimit
                           ? 'text-red-700 dark:text-red-400'
-                          : 'text-zinc-900 dark:text-zinc-100'
+                          : 'text-zinc-950 dark:text-zinc-100'
                     }`}
                   >
                     {formatCredits(item.modePlan.estimatedCredits)} cr
@@ -1150,7 +1165,11 @@ export function ResearchSettingsPanel({
                   type="button"
                   tabIndex={-1}
                   onClick={() => onResearchModeChange(item.id)}
-                  className="text-left font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500 cursor-pointer"
+                  className={`text-left font-mono text-xs tabular-nums cursor-pointer ${
+                    active
+                      ? 'text-zinc-300 dark:text-zinc-600'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
                 >
                   {item.modePlan.plannedApiCalls} {t.plannedCallsLabel} · ≈{' '}
                   {formatUsd(item.modePlan.estimatedUsd)}
@@ -1162,7 +1181,7 @@ export function ResearchSettingsPanel({
 
         {/* Inline Deep Research Cost-Cap Controls (Only visible when Deep Research is selected) */}
         {researchMode === 'deep' && (
-          <div className="p-3.5 bg-zinc-50/90 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+          <div className="sp-surface-muted p-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-1">
                 <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">{t.deepDiveCountLabel}</span>
@@ -1173,17 +1192,17 @@ export function ResearchSettingsPanel({
                   content={t.deepDiveCountHint}
                 />
               </div>
-              <div className="inline-flex items-center gap-1 p-0.5 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg">
+              <div className="inline-flex flex-wrap items-center gap-1 p-0.5 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg">
                 {DEEP_DIVE_PRESETS.filter((preset) => preset <= maxAllowedDeepDive).map(
                   (preset) => (
                     <button
                       key={preset}
                       type="button"
                       onClick={() => onDeepDiveCountChange(preset)}
-                      className={`px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
+                      className={`min-h-[36px] px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
                         effectiveDeepDiveCap === preset
                           ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                          : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50'
                       }`}
                     >
                       Top {preset}
@@ -1203,13 +1222,13 @@ export function ResearchSettingsPanel({
                     }
                   }}
                   aria-label={t.deepDiveCountLabel}
-                  className="w-12 px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                  className="w-12 min-h-[36px] px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 lg:border-l lg:border-zinc-200 dark:lg:border-zinc-800 lg:pl-4">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
+            <div className="flex items-center gap-1.5 lg:border-l lg:border-zinc-200 dark:lg:border-zinc-700 lg:pl-4">
+              <label className="flex items-center gap-2 min-h-[36px] cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={includeReviewInsights}
@@ -1234,18 +1253,18 @@ export function ResearchSettingsPanel({
         )}
       </div>
 
-      {/* 3b. Phase 9: Optional Myanmar Review Product Discovery (Thailand TikTok Shop Only · OFF by Default) */}
-      <div className="px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl space-y-3">
+      {/* 3b. Optional Myanmar Product Discovery (Hairline-divided section — no nested card border) */}
+      <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{t.myanmarFilterLabel}</span>
+            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.myanmarFilterLabel}</span>
             <InfoPopover
               variant="info"
               label={t.myanmarFilterPopoverTitle}
               title={t.myanmarFilterPopoverTitle}
               content={t.myanmarFilterPopoverDesc}
             />
-            <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:inline">
+            <span className="text-xs text-zinc-600 dark:text-zinc-400 hidden sm:inline">
               · {t.myanmarFilterSubLabel}
             </span>
           </div>
@@ -1256,18 +1275,18 @@ export function ResearchSettingsPanel({
             aria-checked={myanmarLanguageOnly}
             aria-label={t.myanmarFilterLabel}
             onClick={() => onMyanmarLanguageOnlyChange(!myanmarLanguageOnly)}
-            className="inline-flex items-center gap-2 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-lg py-0.5"
+            className="inline-flex items-center gap-2 min-h-[40px] pl-2 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-lg"
           >
             <span
               className={`font-mono text-xs font-semibold tabular-nums ${
-                myanmarLanguageOnly ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
+                myanmarLanguageOnly ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'
               }`}
             >
               {myanmarLanguageOnly ? t.myanmarFilterOn : t.myanmarFilterOff}
             </span>
             <span
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                myanmarLanguageOnly ? 'bg-zinc-950 dark:bg-emerald-500' : 'bg-zinc-200 dark:bg-zinc-700'
+                myanmarLanguageOnly ? 'bg-zinc-950 dark:bg-emerald-500' : 'bg-zinc-300 dark:bg-zinc-700'
               }`}
               aria-hidden="true"
             >
@@ -1281,9 +1300,9 @@ export function ResearchSettingsPanel({
         </div>
 
         {myanmarLanguageOnly && (
-          <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="sp-surface-muted p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
                 {t.myanmarVideoScanPagesLabel}
               </span>
               <InfoPopover
@@ -1298,16 +1317,16 @@ export function ResearchSettingsPanel({
               </span>
             </div>
 
-            <div className="inline-flex flex-wrap max-w-full items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start sm:self-auto">
+            <div className="inline-flex flex-wrap max-w-full items-center gap-1 p-0.5 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg self-start sm:self-auto">
               {MYANMAR_VIDEO_PAGE_PRESETS.map((preset) => (
                 <button
                   key={preset}
                   type="button"
                   onClick={() => onMyanmarVideoScanPagesChange(preset)}
-                  className={`px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
+                  className={`min-h-[36px] px-2.5 py-1 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer ${
                     effectiveVideoScanPages === preset
                       ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                      : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50'
                   }`}
                 >
                   {preset}p
@@ -1326,7 +1345,7 @@ export function ResearchSettingsPanel({
                   }
                 }}
                 aria-label={t.myanmarVideoScanPagesLabel}
-                className="w-12 px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                className="w-12 min-h-[36px] px-1.5 py-1 text-right font-mono text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-md tabular-nums focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
               />
             </div>
           </div>
@@ -1334,9 +1353,9 @@ export function ResearchSettingsPanel({
       </div>
 
       {/* 4. Cost Preview & 5. Spending Limit Protection */}
-      <div className="bg-zinc-50/80 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl px-4 py-3.5 space-y-2.5">
+      <div className="sp-surface-muted px-3.5 sm:px-4 py-3 space-y-2.5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
             <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
               <span>{t.estimatedCostLabel}:</span>
@@ -1348,7 +1367,7 @@ export function ResearchSettingsPanel({
             >
               {formatCredits(plan.estimatedCredits)} {t.creditsUnit}
             </span>
-            <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
+            <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
               (≈ {formatUsd(plan.estimatedUsd)} · {plan.plannedApiCalls} {t.plannedCallsLabel})
             </span>
             <InfoPopover
@@ -1360,7 +1379,7 @@ export function ResearchSettingsPanel({
           </div>
 
           {/* User Spending Limit Control */}
-          <div className="flex flex-wrap items-center justify-between md:justify-end gap-2.5 md:shrink-0">
+          <div className="flex items-center justify-between md:justify-end gap-2.5 md:shrink-0">
             <label
               htmlFor="spending-limit-input"
               className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
@@ -1368,10 +1387,10 @@ export function ResearchSettingsPanel({
               {t.spendingLimitLabel}
             </label>
             <div
-              className={`flex items-center gap-1.5 px-2.5 py-1 bg-white dark:bg-zinc-900 border rounded-lg w-28 ${
+              className={`flex items-center gap-1.5 min-h-[40px] px-2.5 py-1 bg-white dark:bg-zinc-900 border rounded-lg w-28 ${
                 exceedsLimit
                   ? 'border-red-400 dark:border-red-700 focus-within:border-red-600'
-                  : 'border-zinc-200 dark:border-zinc-800 focus-within:border-zinc-900'
+                  : 'border-zinc-200 dark:border-zinc-700 focus-within:border-zinc-900 dark:focus-within:border-zinc-300'
               }`}
             >
               <input
@@ -1386,20 +1405,20 @@ export function ResearchSettingsPanel({
                 onBlur={handleLimitBlur}
                 className="w-full text-right font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums bg-transparent focus:outline-none"
               />
-              <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono">cr</span>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">cr</span>
             </div>
           </div>
         </div>
 
         {/* Crisp 1-Line Call Breakdown & Last Actual Cost */}
-        <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+        <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-700/60 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
           <span className="font-sans font-medium text-zinc-800 dark:text-zinc-200">{modeSummary}</span>
           <span aria-hidden="true">·</span>
           <span>{callBreakdownText}</span>
           {lastCostSummary && (
             <>
               <span aria-hidden="true">·</span>
-              <span className="font-sans text-zinc-500 dark:text-zinc-400">
+              <span className="font-sans text-zinc-600 dark:text-zinc-400">
                 {t.actualCostLabel}:{' '}
                 {lastCostSummary.actualCredits !== null ? (
                   <strong className="font-mono text-emerald-700 dark:text-emerald-400">
@@ -1425,7 +1444,7 @@ export function ResearchSettingsPanel({
             <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <div className="font-semibold">{t.spendingLimitExceededTitle}</div>
-              <p className="mt-0.5 text-red-700/90 dark:text-red-400/90 leading-relaxed">
+              <p className="mt-0.5 text-red-700/90 dark:text-red-300/90 leading-relaxed">
                 {t.spendingLimitExceededDesc}
               </p>
             </div>
@@ -1475,11 +1494,11 @@ export function ResearchSettingsPanel({
             )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={() => setConfirmOpen(false)}
-              className="min-h-[38px] px-4 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
+              className="min-h-[40px] px-4 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
             >
               {t.confirmCancelBtn}
             </button>
@@ -1489,7 +1508,7 @@ export function ResearchSettingsPanel({
                 setConfirmOpen(false);
                 onConfirmStartHunting();
               }}
-              className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
             >
               <span>{t.confirmStartBtn}</span>
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1499,10 +1518,10 @@ export function ResearchSettingsPanel({
       )}
 
       {/* Primary Action Footer */}
-      <div className="pt-5 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+      <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
           {modeSummary} · {categorySummary} · {strategySummary} ·{' '}
-          <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
+          <span className="font-mono tabular-nums text-zinc-900 dark:text-zinc-100">
             {quantity} {t.quantityProductsUnit}
           </span>
           {myanmarLanguageOnly && (
@@ -1517,11 +1536,11 @@ export function ResearchSettingsPanel({
           type="button"
           onClick={() => setConfirmOpen(true)}
           disabled={!canRequestStart}
-          className="inline-flex items-center justify-center gap-2 min-h-[44px] max-w-full px-6 py-2.5 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-normal text-center leading-snug sm:shrink-0 w-full sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2"
+          className="sp-btn-primary min-h-[44px] px-6 py-2.5 text-sm whitespace-normal text-center leading-snug sm:shrink-0 w-full sm:w-auto"
         >
           {isHunting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
               <span>{t.huntingInProgress}</span>
             </>
           ) : (

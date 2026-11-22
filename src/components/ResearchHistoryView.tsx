@@ -752,14 +752,14 @@ export function ResearchHistoryView({
     const hasSourcesOrCostBar = archiveSources.length > 0 || archiveCostSummary !== null;
 
     return (
-      <section aria-labelledby="archive-detail-heading" className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section aria-labelledby="archive-detail-heading" className="space-y-4 sm:space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={() => setSelectedRecordId(null)}
-            className="inline-flex items-center gap-1.5 min-h-[40px] text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1.5"
+            className="sp-btn-ghost -ml-2"
           >
-            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{t.historyBackToListBtn}</span>
           </button>
 
@@ -768,9 +768,9 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => handleOpenCompareWith(selectedRecord)}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
+                className="sp-btn-secondary px-3 py-1.5"
               >
-                <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.historyCompareBtn}</span>
               </button>
             )}
@@ -778,9 +778,9 @@ export function ResearchHistoryView({
         </div>
 
         {/* Immutable Archived Snapshot Banner */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-            <div className="space-y-1.5">
+        <div className="sp-card p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3.5 sm:gap-4">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                   {t.historyArchiveBannerTitle}
@@ -816,14 +816,14 @@ export function ResearchHistoryView({
 
             {/* Score View Mode Switch (Original Session Scores vs Interactive Strategy Slider) */}
             <div
-              className="inline-flex flex-wrap max-w-full items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg self-start"
+              className="sp-segmented flex-wrap max-w-full self-start"
               role="group"
               aria-label="Score view mode"
             >
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('original')}
-                className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                className={`sp-segmented-item max-w-full whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'original'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -834,7 +834,7 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('live')}
-                className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                className={`sp-segmented-item max-w-full whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'live'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -897,7 +897,7 @@ export function ResearchHistoryView({
 
         {/* Interactive Strategy Slider Bar (Recalculates Archived Scores & Re-Sorts Instantly without mutating archive) */}
         {selectedRecord.products.length > 0 && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-3.5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          <div className="sp-card px-3.5 sm:px-5 py-3.5 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
                 <SlidersHorizontal
@@ -917,10 +917,10 @@ export function ResearchHistoryView({
                   key={preset.id}
                   type="button"
                   onClick={() => handleArchiveSelectPreset(preset.id)}
-                  className={`min-h-[32px] max-w-full px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                  className={`min-h-[38px] sm:min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                     effectiveArchiveStrategyPreset === preset.id
                       ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
+                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50'
                   }`}
                 >
                   {preset.label}
@@ -959,8 +959,8 @@ export function ResearchHistoryView({
 
         {/* Kalodata OpenAPI Verified Sources & API Call Breakdown Bar (Matches Research Results) */}
         {hasSourcesOrCostBar && (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
-            <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+          <div className="sp-card overflow-hidden">
+            <div className="px-3.5 sm:px-5 py-3 flex items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
                 <Globe
                   className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
@@ -1008,15 +1008,15 @@ export function ResearchHistoryView({
                   type="button"
                   onClick={() => setArchiveGroundingOpen((prev) => !prev)}
                   aria-expanded={archiveGroundingOpen}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
+                  className="sp-btn-ghost min-h-[38px] px-2.5 shrink-0"
                 >
                   <span>
                     {archiveGroundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
                   </span>
                   {archiveGroundingOpen ? (
-                    <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                    <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
                   ) : (
-                    <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                    <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
                   )}
                 </button>
               )}
@@ -1089,7 +1089,7 @@ export function ResearchHistoryView({
                         >
                           <span className="text-zinc-700 dark:text-zinc-300 truncate">
                             {src.title}{' '}
-                            <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
+                            <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
                           </span>
                           {resolvedHref ? (
                             <a
@@ -1102,7 +1102,7 @@ export function ResearchHistoryView({
                               <ExternalLink className="w-3 h-3" aria-hidden="true" />
                             </a>
                           ) : (
-                            <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                            <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
                               {t.sourcePendingLink}
                             </span>
                           )}
@@ -1178,7 +1178,7 @@ export function ResearchHistoryView({
             }}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
             {visibleArchiveProducts.map((product) => {
               const evalResult = selectedArchiveEvaluations.get(product.id);
               const decisionSummary = selectedArchiveDecisions.get(product.id);
@@ -1237,19 +1237,19 @@ export function ResearchHistoryView({
   }
 
   return (
-    <section aria-labelledby="history-view-heading" className="space-y-6">
+    <section aria-labelledby="history-view-heading" className="space-y-5 sm:space-y-6">
       {/* Header & Back Navigation */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         <button
           type="button"
           onClick={onBackToHunting}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1"
+          className="sp-btn-ghost -ml-2"
         >
-          <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+          <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           <span>{t.savedViewBackBtn}</span>
         </button>
 
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-3.5 sm:gap-4 pb-4 sm:pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div className="min-w-0 flex-1 max-w-2xl">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
@@ -1281,7 +1281,7 @@ export function ResearchHistoryView({
           {/* Sub-Tabs: horizontally scrollable with fade edge on mobile */}
           <div className="relative max-w-full min-w-0 self-stretch xl:self-auto">
             <div
-              className="flex max-w-full items-center gap-1 p-1 pr-7 sm:pr-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
+              className="sp-segmented flex max-w-full pr-7 sm:pr-1 overflow-x-auto no-scrollbar"
               role="tablist"
               aria-label={t.historyViewTitle}
             >
@@ -1293,7 +1293,7 @@ export function ResearchHistoryView({
                   setActiveTab('records');
                   onTabChange?.('records');
                 }}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`sp-segmented-item shrink-0 ${
                   activeTab === 'records'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1313,7 +1313,7 @@ export function ResearchHistoryView({
                   setActiveTab('single');
                   onTabChange?.('single');
                 }}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`sp-segmented-item shrink-0 ${
                   activeTab === 'single'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1333,7 +1333,7 @@ export function ResearchHistoryView({
                   setActiveTab('compare');
                   onTabChange?.('compare');
                 }}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`sp-segmented-item shrink-0 ${
                   activeTab === 'compare'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1345,7 +1345,7 @@ export function ResearchHistoryView({
             </div>
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-lg bg-gradient-to-l from-zinc-200/95 dark:from-zinc-800/95 to-transparent sm:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-lg bg-gradient-to-l from-zinc-100/95 dark:from-zinc-800/95 to-transparent sm:hidden"
             />
           </div>
         </div>
@@ -1396,11 +1396,11 @@ export function ResearchHistoryView({
           ) : (
             <>
               {/* Search, Category Filter, Sort & Selective Delete Controls */}
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3">
+              <div className="sp-card p-3.5 sm:p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 sm:gap-3">
                   <div className="sm:col-span-2 lg:col-span-6 relative">
                     <Search
-                      className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                      className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     />
                     <input
@@ -1409,7 +1409,7 @@ export function ResearchHistoryView({
                       onChange={(e) => setSingleSearchQuery(e.target.value)}
                       placeholder={t.singleHistorySearchPlaceholder}
                       aria-label={t.singleHistorySearchPlaceholder}
-                      className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                      className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
                     />
                   </div>
 
@@ -1418,7 +1418,7 @@ export function ResearchHistoryView({
                       value={singleCategoryFilter}
                       onChange={(e) => setSingleCategoryFilter(e.target.value as CategoryFilter)}
                       aria-label={t.settingCategoryLabel}
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                     >
                       <option value="all">{t.categoryAll}</option>
                       {UNIVERSAL_CATEGORIES.map((cat) => (
@@ -1434,7 +1434,7 @@ export function ResearchHistoryView({
                       value={singleSortKey}
                       onChange={(e) => setSingleSortKey(e.target.value as SingleHistorySortKey)}
                       aria-label={t.sortLabel}
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                     >
                       <option value="newest">{t.historySortNewest}</option>
                       <option value="oldest">{t.historySortOldest}</option>
@@ -1454,7 +1454,7 @@ export function ResearchHistoryView({
                       <button
                         type="button"
                         onClick={() => setCheckedSingleIds([])}
-                        className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                        className="sp-btn-ghost px-3"
                       >
                         {t.confirmCancelBtn}
                       </button>
@@ -1463,7 +1463,7 @@ export function ResearchHistoryView({
                         onClick={handleDeleteSelectedSingle}
                         className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         <span>
                           {t.historyDeleteSelectedBtn} ({checkedSingleIds.length})
                         </span>
@@ -1501,7 +1501,7 @@ export function ResearchHistoryView({
                         ? `${p.commissionRate.toFixed(1)}%`
                         : typeof p.kalodataMetrics?.commissionRatePct === 'number'
                           ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
-                          : 'Unavailable';
+                          : t.dataStatusLabels.unavailable;
                     const derivedTiktokUrl = getTikTokShopProductUrl(p);
                     const tiktokHref =
                       rec.canonicalUrl ??
@@ -1510,9 +1510,9 @@ export function ResearchHistoryView({
                     return (
                       <article
                         key={rec.id}
-                        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                        className="sp-card p-3.5 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700"
                       >
-                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4">
+                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3.5 sm:gap-4">
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <input
                               type="checkbox"
@@ -1531,11 +1531,12 @@ export function ResearchHistoryView({
                                   alt={p.name}
                                   title={isMy ? p.nameMy : p.name}
                                   unavailableLabel={t.cardImageUnverified}
+                                  compact
                                   className="w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center">
-                                  <ImageOff className="w-4 h-4 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                                  <ImageOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
                                 </div>
                               )}
                             </div>
@@ -1551,7 +1552,7 @@ export function ResearchHistoryView({
 
                               <h3
                                 title={`${t.historyRecordIdLabel}: ${rec.canonicalProductId}`}
-                                className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug"
+                                className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
                               >
                                 {isMy ? p.nameMy : p.name}
                               </h3>
@@ -1560,7 +1561,7 @@ export function ResearchHistoryView({
                                 <span>
                                   {t.linkImportShopLabel}:{' '}
                                   <strong className="font-medium text-zinc-900 dark:text-zinc-100">
-                                    {p.shopName || 'Unavailable'}
+                                    {p.shopName || t.dataStatusLabels.unavailable}
                                   </strong>
                                 </span>
                                 <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
@@ -1582,40 +1583,43 @@ export function ResearchHistoryView({
                                   ·
                                 </span>
                                 <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
-                                  {evalResult.verifiedCount} verified · {evalResult.unavailableCount} unavailable
+                                  {evalResult.verifiedCount} {t.bestVerifiedUnit} · {evalResult.unavailableCount}{' '}
+                                  {t.dataStatusLabels.unavailable}
                                 </span>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 text-xs">
-                                <div>
+                              <div className="sp-surface-muted p-2.5 sm:p-3 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 mt-1 text-xs">
+                                <div className="min-w-0">
                                   <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                                     {t.linkImportPriceLabel}
                                   </span>
                                   <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : 'Unavailable'}
+                                    {typeof p.priceThb === 'number'
+                                      ? formatThb(p.priceThb)
+                                      : t.dataStatusLabels.unavailable}
                                   </span>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                                     {t.linkImportSalesLabel}
                                   </span>
                                   <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                                     {typeof p.kalodataMetrics?.salesVolume === 'number'
-                                      ? p.kalodataMetrics.salesVolume.toLocaleString()
-                                      : 'Unavailable'}
+                                      ? p.kalodataMetrics.salesVolume.toLocaleString('en-US')
+                                      : t.dataStatusLabels.unavailable}
                                   </span>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                                     {t.linkImportRevenueLabel}
                                   </span>
                                   <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                                     {typeof p.kalodataMetrics?.revenueThb === 'number'
                                       ? formatThb(p.kalodataMetrics.revenueThb)
-                                      : 'Unavailable'}
+                                      : t.dataStatusLabels.unavailable}
                                   </span>
                                 </div>
-                                <div>
+                                <div className="min-w-0">
                                   <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                                     {t.linkImportCommissionLabel}
                                   </span>
@@ -1623,12 +1627,12 @@ export function ResearchHistoryView({
                                     {commission}
                                   </span>
                                 </div>
-                                <div>
+                                <div className="col-span-2 sm:col-span-1 min-w-0">
                                   <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                                     {t.linkImportScoreLabel}
                                   </span>
                                   <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {evalResult.totalScore}/100 ({evalResult.confidenceLevel})
+                                    {evalResult.totalScore}/100 ({t.confidenceLabels[evalResult.confidenceLevel]})
                                   </span>
                                 </div>
                               </div>
@@ -1642,7 +1646,7 @@ export function ResearchHistoryView({
                               onClick={() =>
                                 onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
                               }
-                              className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                              className="sp-btn-primary px-3 py-1.5 text-xs"
                             >
                               <span>{t.singleHistoryOpenReportBtn}</span>
                               <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1652,7 +1656,7 @@ export function ResearchHistoryView({
                               <button
                                 type="button"
                                 onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
-                                className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
                               >
                                 <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>{t.singleHistoryDeepDiveBtn}</span>
@@ -1662,14 +1666,14 @@ export function ResearchHistoryView({
                             <button
                               type="button"
                               onClick={() => onSaveProduct(p, rec.researchedAt)}
-                              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                                 isSaved
                                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
                               }`}
                             >
                               <Bookmark
-                                className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`}
+                                className={`w-3.5 h-3.5 shrink-0 ${isSaved ? 'fill-current' : ''}`}
                                 aria-hidden="true"
                               />
                               <span>{isSaved ? t.linkImportSavedBtn : t.linkImportSaveBtn}</span>
@@ -1680,10 +1684,10 @@ export function ResearchHistoryView({
                                 href={tiktokHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 whitespace-nowrap"
+                                className="sp-btn-ghost px-2.5"
                               >
                                 <span>{t.singleHistoryOpenLinkBtn}</span>
-                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
                               </a>
                             )}
 
@@ -1699,7 +1703,7 @@ export function ResearchHistoryView({
                                 <button
                                   type="button"
                                   onClick={() => setConfirmDeleteSingleId(null)}
-                                  className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer whitespace-nowrap"
+                                  className="sp-btn-ghost px-2.5"
                                 >
                                   {t.confirmCancelBtn}
                                 </button>
@@ -1708,9 +1712,9 @@ export function ResearchHistoryView({
                               <button
                                 type="button"
                                 onClick={() => setConfirmDeleteSingleId(rec.id)}
-                                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                               >
-                                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>{t.historyDeleteBtn}</span>
                               </button>
                             )}
@@ -1737,12 +1741,12 @@ export function ResearchHistoryView({
       ) : (
         <div className="space-y-4">
           {/* Search, Filter, Sort & Selective Delete Controls */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-3">
+          <div className="sp-card p-3.5 sm:p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 sm:gap-3">
               {/* Search */}
               <div className="sm:col-span-2 xl:col-span-4 relative">
                 <Search
-                  className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                   aria-hidden="true"
                 />
                 <input
@@ -1751,7 +1755,7 @@ export function ResearchHistoryView({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={t.historySearchPlaceholder}
                   aria-label={t.historySearchPlaceholder}
-                  className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                  className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
                 />
               </div>
 
@@ -1761,7 +1765,7 @@ export function ResearchHistoryView({
                   value={modeFilter}
                   onChange={(e) => setModeFilter(e.target.value as HistoryModeFilter)}
                   aria-label={t.researchModeLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                 >
                   <option value="all">{t.historyFilterAllModes}</option>
                   <option value="fast">{t.modeFastTitle}</option>
@@ -1776,7 +1780,7 @@ export function ResearchHistoryView({
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
                   aria-label={t.settingCategoryLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                 >
                   <option value="all">{t.categoryAll}</option>
                   {UNIVERSAL_CATEGORIES.map((cat) => (
@@ -1793,7 +1797,7 @@ export function ResearchHistoryView({
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as HistorySortKey)}
                   aria-label={t.sortLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                 >
                   <option value="newest">{t.historySortNewest}</option>
                   <option value="oldest">{t.historySortOldest}</option>
@@ -1813,16 +1817,16 @@ export function ResearchHistoryView({
                   <button
                     type="button"
                     onClick={() => setCheckedIds([])}
-                    className="px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                    className="sp-btn-ghost px-3"
                   >
                     {t.confirmCancelBtn}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeleteSelected}
-                    className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                     <span>
                       {t.historyDeleteSelectedBtn} ({checkedIds.length})
                     </span>
@@ -1895,9 +1899,9 @@ export function ResearchHistoryView({
                 return (
                   <article
                     key={rec.id}
-                    className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                    className="sp-card p-3.5 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700"
                   >
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
                       <div className="flex items-start gap-3 min-w-0 flex-1">
                         <input
                           type="checkbox"
@@ -1913,7 +1917,7 @@ export function ResearchHistoryView({
                               type="button"
                               onClick={() => openArchiveRecord(rec)}
                               title={`${t.historyRecordIdLabel}: ${rec.id}`}
-                              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:underline text-left cursor-pointer leading-snug"
+                              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:underline text-left cursor-pointer leading-snug rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                             >
                               {cardTitle}
                             </button>
@@ -1922,7 +1926,7 @@ export function ResearchHistoryView({
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
                             <span className="inline-flex items-center gap-1">
                               <Calendar
-                                className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0"
+                                className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
                                 aria-hidden="true"
                               />
                               <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
@@ -1943,7 +1947,7 @@ export function ResearchHistoryView({
                                   {formatCredits(rec.actualCredits)} cr
                                 </strong>
                               ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500">
+                                <span className="text-zinc-500 dark:text-zinc-400">
                                   {t.actualCostUnavailable}
                                 </span>
                               )}
@@ -1998,9 +2002,9 @@ export function ResearchHistoryView({
                         <button
                           type="button"
                           onClick={() => openArchiveRecord(rec)}
-                          className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                          className="sp-btn-primary px-3.5 py-2 text-xs"
                         >
-                          <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                          <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>{t.historyViewResultsBtn}</span>
                         </button>
 
@@ -2008,9 +2012,9 @@ export function ResearchHistoryView({
                           <button
                             type="button"
                             onClick={() => handleOpenCompareWith(rec)}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                            className="sp-btn-secondary px-3 py-2"
                           >
-                            <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
+                            <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             <span>{t.historyCompareBtn}</span>
                           </button>
                         )}
@@ -2020,14 +2024,14 @@ export function ResearchHistoryView({
                             <button
                               type="button"
                               onClick={() => handleDeleteSingle(rec.id)}
-                              className="min-h-[40px] px-3 py-2 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                              className="min-h-[40px] px-3 py-2 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                             >
                               {t.historyDeleteConfirmBtn}
                             </button>
                             <button
                               type="button"
                               onClick={() => setConfirmDeleteId(null)}
-                              className="min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer whitespace-nowrap"
+                              className="sp-btn-ghost px-2.5"
                             >
                               {t.confirmCancelBtn}
                             </button>
@@ -2036,9 +2040,9 @@ export function ResearchHistoryView({
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(rec.id)}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                           >
-                            <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             <span>{t.historyDeleteBtn}</span>
                           </button>
                         )}
@@ -2054,7 +2058,7 @@ export function ResearchHistoryView({
 
       {/* Browser Storage Monitor: compact footer line normally; full panel only above 80% usage */}
       {storageStats.usagePct > 80 ? (
-        <div className="bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/70 rounded-xl p-4 space-y-2.5">
+        <div className="bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/70 rounded-xl p-3.5 sm:p-4 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
               <HardDrive className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
@@ -2083,9 +2087,9 @@ export function ResearchHistoryView({
                       records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
                     )
                   }
-                  className="font-sans inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                  className="font-sans sp-btn-secondary px-3 py-1.5"
                 >
-                  <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
+                  <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>Backup / Restore</span>
                 </button>
               )}
@@ -2093,7 +2097,7 @@ export function ResearchHistoryView({
           </div>
           <div className="h-2 w-full bg-zinc-200/80 dark:bg-zinc-800 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${
+              className={`h-full rounded-full transition-all motion-reduce:transition-none ${
                 storageStats.usagePct >= 90 ? 'bg-red-600 dark:bg-red-500' : 'bg-amber-500 dark:bg-amber-400'
               }`}
               style={{ width: `${Math.max(1, Math.min(100, storageStats.usagePct))}%` }}
@@ -2118,9 +2122,9 @@ export function ResearchHistoryView({
                   records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
                 )
               }
-              className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="sp-btn-ghost px-2.5"
             >
-              <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
+              <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Backup / Restore</span>
             </button>
           )}

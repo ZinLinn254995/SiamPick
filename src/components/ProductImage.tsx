@@ -9,6 +9,7 @@ interface ProductImageProps {
   alt: string;
   title: string;
   unavailableLabel?: string;
+  compact?: boolean;
   className?: string;
 }
 
@@ -42,6 +43,7 @@ export function ProductImage({
   productId,
   alt,
   unavailableLabel = 'Verified image unavailable',
+  compact = false,
   className = '',
 }: ProductImageProps) {
   const directFallback = useMemo(
@@ -83,14 +85,21 @@ export function ProductImage({
   if (hasError || !activeSrc) {
     return (
       <div
-        className={`w-full h-full bg-zinc-100/90 dark:bg-zinc-800/80 flex flex-col items-center justify-center p-6 text-center ${className}`}
+        className={`w-full h-full bg-zinc-100/90 dark:bg-zinc-800/80 flex flex-col items-center justify-center overflow-hidden text-center ${
+          compact ? 'p-1.5' : 'p-4 sm:p-5'
+        } ${className}`}
         role="img"
         aria-label={unavailableLabel}
       >
-        <ImageOff className="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2" aria-hidden="true" />
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 max-w-[200px]">
-          {unavailableLabel}
-        </span>
+        <ImageOff
+          className={`${compact ? 'w-4 h-4' : 'w-6 h-6 mb-1.5'} text-zinc-500 dark:text-zinc-400 shrink-0`}
+          aria-hidden="true"
+        />
+        {!compact && (
+          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 max-w-[200px] line-clamp-2">
+            {unavailableLabel}
+          </span>
+        )}
       </div>
     );
   }

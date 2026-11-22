@@ -423,8 +423,9 @@ export default function App() {
     rejectedIds,
   ]);
 
-  // Persist user language preference across refreshes
+  // Persist user language preference across refreshes & sync <html lang> for script-aware typography
   useEffect(() => {
+    document.documentElement.lang = language;
     try {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     } catch {
@@ -1853,13 +1854,15 @@ export default function App() {
         creditBalance={creditBalance}
       />
 
-      <main className="flex-1 w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16 sm:pb-24">
-        {/* Subtle Market Context Line */}
-        <div className="mb-4">
-          <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Thailand · TikTok Shop Affiliate · THB (฿)
-          </p>
-        </div>
+      <main className="flex-1 w-full max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-12 sm:pb-20">
+        {/* Subtle Market Context Line (hidden inside Deep Dive where product header leads) */}
+        {activeView !== 'deep-dive' && (
+          <div className="mb-2.5 sm:mb-3.5">
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Thailand · TikTok Shop Affiliate · THB (฿)
+            </p>
+          </div>
+        )}
 
         {/* Global Local Storage Quota Alert Banner (shown on Hunting/Saved views too) */}
         {activeView !== 'history' && storageAlert && !storageAlert.ok && (
@@ -2355,7 +2358,7 @@ export default function App() {
                             >
                               <span className="text-zinc-700 dark:text-zinc-300 truncate">
                                 {src.title}{' '}
-                                <span className="text-zinc-400 dark:text-zinc-500">({src.domain})</span>
+                                <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
                               </span>
                               {resolvedHref ? (
                                 <a
@@ -2368,7 +2371,7 @@ export default function App() {
                                   <ExternalLink className="w-3 h-3" aria-hidden="true" />
                                 </a>
                               ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
                                   {t.sourcePendingLink}
                                 </span>
                               )}
@@ -2454,31 +2457,31 @@ export default function App() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 font-mono tabular-nums">
-                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                          <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatPagesScanned}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                             {vStats.videoPagesScanned}/{vStats.maxVideoScanPages}
                           </div>
                         </div>
-                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                          <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatVideosScanned}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                             {vStats.totalVideosScanned.toLocaleString('en-US')}
                           </div>
                         </div>
-                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                          <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatMatchedVideos}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                             {vStats.matchedMyanmarVideos}
                           </div>
                         </div>
-                        <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
+                        <div className="px-3 py-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/35">
                           <div className="font-sans text-xs text-emerald-800 dark:text-emerald-300 truncate">
                             {t.myanmarVideoStatCollectedProducts}
                           </div>
@@ -2486,8 +2489,8 @@ export default function App() {
                             {vStats.affiliateProductsVerified}/{vStats.requestedQuantity}
                           </div>
                         </div>
-                        <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                          <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatSkippedNonAff}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
@@ -2713,66 +2716,74 @@ export default function App() {
         )}
       </main>
 
-      {/* Compact Cross-View Comparison Tray Bar (appears only when user selects products to compare) */}
+      {/* Compact Cross-View Comparison Tray Bar (fixed above MobileBottomNav on mobile, floating cleanly on desktop) */}
       {(() => {
         const showMobileBottomNav =
           activeView !== 'deep-dive' &&
           !activeReport &&
           !comparisonModalOpen &&
           !backupModalOpen;
+        const showCompareTray =
+          compareItems.length > 0 &&
+          !comparisonModalOpen &&
+          !activeReport &&
+          activeView !== 'deep-dive';
         return (
           <>
-            {compareItems.length > 0 &&
-              !comparisonModalOpen &&
-              !activeReport &&
-              activeView !== 'deep-dive' && (
+            {showCompareTray && (
               <div
-                className={`sticky z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none ${
+                className={`fixed inset-x-0 z-[35] pointer-events-none px-3.5 sm:px-6 lg:px-8 ${
                   showMobileBottomNav
-                    ? 'bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-3'
-                    : 'bottom-[max(0.75rem,env(safe-area-inset-bottom))]'
+                    ? 'bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-4'
+                    : 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:bottom-4'
                 }`}
               >
-                <div className="pointer-events-auto bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                    <span className="font-medium truncate">
-                      {t.compareBarTitle}:{' '}
-                      <strong className="font-mono tabular-nums">{compareItems.length}</strong>
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 max-w-full">
-                    <button
-                      type="button"
-                      onClick={() => setCompareItems([])}
-                      className="min-h-[40px] px-2.5 py-1.5 text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      {t.compareClearBtn}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setComparisonModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      <span>
-                        {t.compareOpenBtn} ({compareItems.length})
+                <div className="max-w-[1280px] mx-auto">
+                  <div className="pointer-events-auto bg-zinc-950/96 dark:bg-zinc-900/96 backdrop-blur-md border border-zinc-800 dark:border-zinc-700 text-white rounded-xl px-3.5 sm:px-4 py-2 shadow-lg flex items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                      <span className="font-medium truncate">
+                        {t.compareBarTitle}:{' '}
+                        <strong className="font-mono tabular-nums">{compareItems.length}</strong>
                       </span>
-                    </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setCompareItems([])}
+                        className="min-h-[40px] px-2.5 py-1.5 text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        {t.compareClearBtn}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComparisonModalOpen(true)}
+                        className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        <span>
+                          {t.compareOpenBtn} ({compareItems.length})
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Quiet Minimal Footer (extra bottom clearance on mobile only when fixed MobileBottomNav is visible) */}
+            {/* Quiet Minimal Footer (bottom clearance accounts for MobileBottomNav + active Compare Tray) */}
             <footer
-              className={`border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 ${
+              className={`border-t border-zinc-200/85 dark:border-zinc-800/85 bg-white dark:bg-zinc-900 ${
                 showMobileBottomNav
-                  ? 'pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-0'
-                  : 'pb-[env(safe-area-inset-bottom)]'
+                  ? showCompareTray
+                    ? 'pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-20'
+                    : 'pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0'
+                  : showCompareTray
+                    ? 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                    : 'pb-[env(safe-area-inset-bottom)]'
               }`}
             >
-              <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                 <span>{t.footerNote}</span>
                 <span>{t.marketScope}</span>
               </div>

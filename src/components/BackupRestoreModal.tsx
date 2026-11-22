@@ -264,7 +264,7 @@ export function BackupRestoreModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
+      className="fixed inset-0 z-[60] bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="backup-restore-heading"
@@ -273,22 +273,27 @@ export function BackupRestoreModal({
       <div
         ref={modalRef}
         tabIndex={-1}
-        className="w-full max-w-[660px] max-h-[92vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] sm:pb-0 focus:outline-none"
+        className="w-full max-w-[640px] max-h-[88vh] bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Mobile Sheet Grab Handle */}
+        <div className="sm:hidden pt-2.5 pb-1 shrink-0" aria-hidden="true">
+          <div className="sp-sheet-handle" />
+        </div>
+
         {/* Header */}
-        <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between gap-4">
+        <div className="shrink-0 px-4 sm:px-6 pt-2 sm:pt-4 pb-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <HardDrive className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0" aria-hidden="true" />
               <h2
                 id="backup-restore-heading"
-                className="font-display text-lg font-bold text-zinc-950 dark:text-zinc-50"
+                className="font-display text-base sm:text-lg font-bold text-zinc-950 dark:text-zinc-50"
               >
                 {isMy ? 'Backup နှင့် Restore စနစ်' : 'Backup & Restore'}
               </h2>
             </div>
-            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+            <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
               {isMy
                 ? 'သိမ်းထားသော ကုန်ပစ္စည်းများ၊ ရှာဖွေမှု မှတ်တမ်းနှင့် AI/Kalodata ဒေတာများကို Backup ဖိုင် (.json) အဖြစ် သိမ်းဆည်းပြီး အချိန်မရွေး ပြန်လည်ထည့်သွင်းနိုင်ပါသည်။'
                 : 'Save a portable JSON backup of your Saved Products, Research History, Deep Dive analyses, and caches — or restore them cleanly anytime.'}
@@ -306,7 +311,7 @@ export function BackupRestoreModal({
         </div>
 
         {/* Mode Switch Tabs */}
-        <div className="shrink-0 px-5 sm:px-6 pt-3.5 pb-2 border-b border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-900/40">
+        <div className="shrink-0 px-4 sm:px-6 py-2.5 border-b border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-900/50">
           <div
             className="grid grid-cols-2 gap-1 p-1 bg-zinc-200/70 dark:bg-zinc-800 rounded-lg"
             role="tablist"
@@ -344,51 +349,51 @@ export function BackupRestoreModal({
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-5 space-y-5">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
           {activeTab === 'backup' ? (
             <>
-              {/* Current Local Inventory */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {/* Current Local Inventory (single flat surface strip — no nested bordered cards) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/45 overflow-hidden">
+                <div className="px-3.5 py-2.5">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
                     {isMy ? 'သိမ်းထားသော' : 'Saved Products'}
                   </div>
-                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                  <div className="mt-0.5 font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.savedProducts}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="px-3.5 py-2.5 border-l border-zinc-200/80 dark:border-zinc-800 sm:border-l-0">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
                     {isMy ? 'ရှာဖွေမှု မှတ်တမ်း' : 'History Runs'}
                   </div>
-                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                  <div className="mt-0.5 font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.researchHistorySessions}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="px-3.5 py-2.5">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
                     {isMy ? 'Deep Dive' : 'Deep Dives'}
                   </div>
-                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                  <div className="mt-0.5 font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.deepDiveRecords}
                   </div>
                 </div>
 
-                <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="px-3.5 py-2.5 border-l border-zinc-200/80 dark:border-zinc-800 sm:border-l-0">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400">
                     {isMy ? 'သိမ်းထားသည့် Cache' : 'Cached Items'}
                   </div>
-                  <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                  <div className="mt-0.5 font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.cachedEnrichments + localCounts.cachedAiAnalyses}
                   </div>
                 </div>
               </div>
 
               {isLocalCompletelyEmpty && (
-                <div className="p-3.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-between gap-3">
+                <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 text-xs text-zinc-600 dark:text-zinc-400 flex flex-wrap items-center justify-between gap-2">
                   <span>
                     {isMy
                       ? 'လက်ရှိ Browser ထဲတွင် သိမ်းထားသော ကုန်ပစ္စည်းနှင့် မှတ်တမ်း မရှိသေးပါ။'
@@ -397,7 +402,7 @@ export function BackupRestoreModal({
                   <button
                     type="button"
                     onClick={() => setActiveTab('restore')}
-                    className="font-medium text-zinc-950 dark:text-zinc-100 underline hover:no-underline shrink-0 cursor-pointer"
+                    className="inline-flex items-center min-h-[36px] font-medium text-zinc-950 dark:text-zinc-100 underline hover:no-underline shrink-0 cursor-pointer"
                   >
                     {isMy ? 'Restore လုပ်ရန်' : 'Restore a file'}
                   </button>
@@ -413,7 +418,7 @@ export function BackupRestoreModal({
                   {scopeLabels.map((item) => (
                     <label
                       key={item.key}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 cursor-pointer"
+                      className="flex items-center justify-between gap-3 min-h-[44px] px-3.5 py-2 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 cursor-pointer"
                     >
                       <span className="flex items-center gap-2.5 min-w-0">
                         <input
@@ -432,7 +437,7 @@ export function BackupRestoreModal({
                           {item.title}
                         </span>
                       </span>
-                      <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
+                      <span className="font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
                         {item.localCount}
                       </span>
                     </label>
@@ -459,27 +464,6 @@ export function BackupRestoreModal({
                   </div>
                 </div>
               )}
-
-              <div className="pt-1 flex flex-wrap items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                >
-                  {isMy ? 'ပိတ်မည်' : 'Close'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownloadBackup}
-                  disabled={!hasAnyBackupScopeSelected}
-                  className="inline-flex items-center gap-2 min-h-[40px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
-                  <Download className="w-4 h-4" aria-hidden="true" />
-                  <span>
-                    {isMy ? 'Backup ဖိုင် (.json) သိမ်းဆည်းမည်' : 'Download Backup (.json)'}
-                  </span>
-                </button>
-              </div>
             </>
           ) : (
             <>
@@ -497,10 +481,10 @@ export function BackupRestoreModal({
                     const dropped = e.dataTransfer.files?.[0];
                     if (dropped) void processSelectedFile(dropped);
                   }}
-                  className={`rounded-xl border-2 border-dashed p-6 sm:p-8 text-center transition-colors ${
+                  className={`rounded-xl border border-dashed p-5 sm:p-7 text-center transition-colors ${
                     isDragging
                       ? 'border-zinc-950 dark:border-zinc-200 bg-zinc-100/70 dark:bg-zinc-800/70'
-                      : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/50'
+                      : 'border-zinc-300 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/35'
                   }`}
                 >
                   <input
@@ -515,7 +499,7 @@ export function BackupRestoreModal({
                     id="siampick-backup-file-input"
                   />
 
-                  <div className="w-11 h-11 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 inline-flex items-center justify-center mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 inline-flex items-center justify-center mb-2.5">
                     <FileJson className="w-5 h-5" aria-hidden="true" />
                   </div>
                   <div className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -523,7 +507,7 @@ export function BackupRestoreModal({
                       ? 'SiamPick Backup ဖိုင် (.json) ကို ရွေးချယ်ပါ'
                       : 'Select a SiamPick Backup (.json) file'}
                   </div>
-                  <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400 max-w-sm mx-auto leading-relaxed">
                     {isMy
                       ? 'ဖိုင်ကို ဤနေရာသို့ ဆွဲထည့်ပါ သို့မဟုတ် အောက်ပါခလုတ်ဖြင့် ရွေးချယ်ပါ (အများဆုံး 15 MB)။'
                       : 'Drag and drop your backup JSON file here, or browse from your device (max 15 MB).'}
@@ -531,7 +515,7 @@ export function BackupRestoreModal({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="mt-4 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                    className="mt-3.5 sp-btn-primary"
                   >
                     <Upload className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>{isMy ? 'Backup ဖိုင်ရွေးချယ်မည်' : 'Choose Backup File'}</span>
@@ -543,7 +527,7 @@ export function BackupRestoreModal({
               {(fileReadError || (parseResult && !parseResult.ok)) && (
                 <div
                   role="alert"
-                  className="p-4 rounded-xl bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 flex items-start gap-2.5 text-xs text-red-900 dark:text-red-200"
+                  className="p-3.5 rounded-xl bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 flex items-start gap-2.5 text-xs text-red-900 dark:text-red-200"
                 >
                   <AlertCircle
                     className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5"
@@ -571,7 +555,7 @@ export function BackupRestoreModal({
               {/* Validated Backup Preview & Restore Options */}
               {parseResult && parseResult.ok && (
                 <>
-                  <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 space-y-3">
+                  <div className="p-3.5 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/45 space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -583,9 +567,9 @@ export function BackupRestoreModal({
                             {selectedFileName ?? 'siampick-backup.json'}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                           {isMy ? 'Backup ထုတ်ခဲ့သည့်အချိန်:' : 'Exported:'}{' '}
-                          <span className="font-mono">
+                          <span className="font-mono tabular-nums">
                             {formatResearchDateTime(parseResult.preview.exportedAt, language)}
                           </span>{' '}
                           · {formatByteSize(parseResult.preview.estimatedBytes)}
@@ -595,24 +579,24 @@ export function BackupRestoreModal({
                       <button
                         type="button"
                         onClick={resetRestoreSelection}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                        className="inline-flex items-center gap-1 min-h-[36px] px-2 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
                       >
-                        <RotateCcw className="w-3 h-3" aria-hidden="true" />
+                        <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>{isMy ? 'အခြားဖိုင်ရွေးမည်' : 'Change file'}</span>
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-200/70 dark:border-zinc-700/60 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2.5 border-t border-zinc-200/70 dark:border-zinc-700/60 text-xs">
                       <div>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                          Saved Products
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 block">
+                          {isMy ? 'သိမ်းထားသော' : 'Saved Products'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                           {parseResult.preview.counts.savedProducts}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 block">
                           {isMy ? 'ရှာဖွေမှု မှတ်တမ်း' : 'History Runs'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -620,15 +604,15 @@ export function BackupRestoreModal({
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                          Deep Dives
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 block">
+                          {isMy ? 'Deep Dive' : 'Deep Dives'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                           {parseResult.preview.counts.deepDiveRecords}
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 block">
                           {isMy ? 'Cache များ' : 'Cached Items'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -676,7 +660,7 @@ export function BackupRestoreModal({
                                     ? 'ပေါင်းထည့်မည် (Merge · အကြံပြု)'
                                     : 'Merge (Recommended)'}
                                 </div>
-                                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                                   {isMy
                                     ? 'လက်ရှိ သိမ်းထားသောစာရင်းနှင့် မှတ်တမ်းများကို မဖျက်ဘဲ Backup ထဲမှ မရှိသေးသည်များကို ထပ်ပေါင်းပေးမည်။'
                                     : 'Keeps your existing Products & History intact and adds missing items from the backup.'}
@@ -704,7 +688,7 @@ export function BackupRestoreModal({
                                 <div className="font-semibold text-zinc-950 dark:text-zinc-50">
                                   {isMy ? 'အစားထိုးမည် (Replace)' : 'Replace Existing'}
                                 </div>
-                                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                                   {isMy
                                     ? 'ရွေးချယ်ထားသော လက်ရှိဒေတာများကို Backup ဖိုင်ထဲကအတိုင်း အစားထိုးပြောင်းလဲမည်။'
                                     : 'Replaces the selected local sections with the exact contents of this backup.'}
@@ -738,7 +722,7 @@ export function BackupRestoreModal({
                           {scopeLabels.map((item) => (
                             <label
                               key={item.key}
-                              className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 cursor-pointer"
+                              className="flex items-center justify-between gap-3 min-h-[44px] px-3.5 py-2 text-xs bg-white dark:bg-zinc-900 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/40 cursor-pointer"
                             >
                               <span className="flex items-center gap-2.5 min-w-0">
                                 <input
@@ -756,7 +740,7 @@ export function BackupRestoreModal({
                                   {item.title}
                                 </span>
                               </span>
-                              <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
+                              <span className="font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
                                 {item.backupCount ?? '0'}
                               </span>
                             </label>
@@ -770,7 +754,7 @@ export function BackupRestoreModal({
                   {restoreOutcome && (
                     <div
                       role="status"
-                      className={`p-4 rounded-xl border space-y-2 text-xs ${
+                      className={`p-3.5 rounded-xl border space-y-2 text-xs ${
                         restoreOutcome.ok
                           ? 'bg-emerald-50/90 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
                           : 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200'
@@ -837,30 +821,55 @@ export function BackupRestoreModal({
                   )}
                 </>
               )}
+            </>
+          )}
+        </div>
 
-              {/* Footer Actions */}
-              <div className="pt-1 flex flex-wrap items-center justify-end gap-2.5">
+        {/* Pinned Bottom Action Footer (always visible without scrolling) */}
+        <div className="shrink-0 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 sm:px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:py-3.5 flex items-center justify-end gap-2.5">
+          {activeTab === 'backup' ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="sp-btn-secondary"
+              >
+                {isMy ? 'ပိတ်မည်' : 'Close'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
+                disabled={!hasAnyBackupScopeSelected}
+                className="sp-btn-primary flex-1 sm:flex-initial"
+              >
+                <Download className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {isMy ? 'Backup ဖိုင် (.json) သိမ်းဆည်းမည်' : 'Download Backup (.json)'}
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="sp-btn-secondary"
+              >
+                {restoreOutcome ? (isMy ? 'ပြီးပါပြီ' : 'Done') : isMy ? 'ပိတ်မည်' : 'Cancel'}
+              </button>
+              {parseResult?.ok && !restoreOutcome && (
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  onClick={handleApplyRestore}
+                  disabled={!hasAnyRestoreScopeSelected}
+                  className="sp-btn-primary flex-1 sm:flex-initial"
                 >
-                  {restoreOutcome ? (isMy ? 'ပြီးပါပြီ (ပိတ်မည်)' : 'Done') : isMy ? 'ပိတ်မည်' : 'Cancel'}
+                  <Upload className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {isMy ? 'Backup မှ ပြန်လည်ထည့်သွင်းမည်' : 'Restore Backup Now'}
+                  </span>
                 </button>
-                {parseResult?.ok && !restoreOutcome && (
-                  <button
-                    type="button"
-                    onClick={handleApplyRestore}
-                    disabled={!hasAnyRestoreScopeSelected}
-                    className="inline-flex items-center gap-2 min-h-[40px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                  >
-                    <Upload className="w-4 h-4" aria-hidden="true" />
-                    <span>
-                      {isMy ? 'Backup မှ ပြန်လည်ထည့်သွင်းမည်' : 'Restore Backup Now'}
-                    </span>
-                  </button>
-                )}
-              </div>
+              )}
             </>
           )}
         </div>

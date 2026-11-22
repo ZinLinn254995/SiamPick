@@ -246,19 +246,19 @@ export function SavedProductsView({
   };
 
   return (
-    <section aria-labelledby="saved-products-heading" className="space-y-6">
+    <section aria-labelledby="saved-products-heading" className="space-y-5">
       {/* Header & Back Navigation */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <button
           type="button"
           onClick={onBackToHunting}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1"
+          className="sp-btn-ghost -ml-2.5"
         >
           <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
           <span>{t.savedViewBackBtn}</span>
         </button>
 
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-3.5 pb-4 sm:pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div className="min-w-0 flex-1 max-w-2xl">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
@@ -269,7 +269,7 @@ export function SavedProductsView({
               >
                 {t.savedViewTitle}
               </h1>
-              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
+              <span className="font-mono text-sm text-zinc-600 dark:text-zinc-400 tabular-nums shrink-0">
                 ({records.length})
               </span>
               <InfoPopover
@@ -278,7 +278,7 @@ export function SavedProductsView({
                 content={
                   <>
                     <p>{t.savedViewSubtitle}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
                       {t.savedStorageNote}
                     </p>
                   </>
@@ -292,7 +292,7 @@ export function SavedProductsView({
               <button
                 type="button"
                 onClick={() => onOpenBackupRestore(records.length > 0 ? 'backup' : 'restore')}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                className="sp-btn-secondary"
               >
                 <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Backup / Restore</span>
@@ -304,7 +304,7 @@ export function SavedProductsView({
                 <button
                   type="button"
                   onClick={handleCopySummary}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                  className="sp-btn-secondary"
                 >
                   {copied ? (
                     <>
@@ -322,7 +322,7 @@ export function SavedProductsView({
                 <button
                   type="button"
                   onClick={handleExportCsv}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                  className="sp-btn-secondary"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportCsvBtn}</span>
@@ -331,7 +331,7 @@ export function SavedProductsView({
                 <button
                   type="button"
                   onClick={handleExportJson}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+                  className="sp-btn-primary text-xs"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportJsonBtn}</span>
@@ -355,9 +355,9 @@ export function SavedProductsView({
         />
       ) : (
         <>
-          {/* Verdict Filter Chips */}
+          {/* Verdict Filter Chips (single horizontal scroll strip on mobile, wraps on desktop) */}
           <div
-            className="flex flex-wrap items-center gap-2"
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
             role="group"
             aria-label={t.filterDecisionLabel}
           >
@@ -365,10 +365,10 @@ export function SavedProductsView({
               type="button"
               aria-pressed={verdictFilter === 'all'}
               onClick={() => setVerdictFilter('all')}
-              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 verdictFilter === 'all'
                   ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
               }`}
             >
               <span>{t.savedVerdictAll}</span>
@@ -384,7 +384,7 @@ export function SavedProductsView({
                   type="button"
                   aria-pressed={isActive}
                   onClick={() => setVerdictFilter((prev) => (prev === verdict ? 'all' : verdict))}
-                  className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${verdictChipTone(
+                  className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${verdictChipTone(
                     verdict,
                     isActive
                   )}`}
@@ -398,18 +398,18 @@ export function SavedProductsView({
 
           {/* Category Filter, Summary & Sort Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 min-w-0">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 min-w-0">
               {presentCategories.length <= 4 ? (
                 <div className="relative max-w-full min-w-0">
                   <div
-                    className="flex max-w-full items-center p-1 pr-7 sm:pr-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
+                    className="sp-segmented flex max-w-full overflow-x-auto no-scrollbar pr-7 sm:pr-1"
                     role="group"
                     aria-label={t.settingCategoryLabel}
                   >
                     <button
                       type="button"
                       onClick={() => setCategoryFilter('all')}
-                      className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      className={`sp-segmented-item shrink-0 ${
                         categoryFilter === 'all'
                           ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                           : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -422,7 +422,7 @@ export function SavedProductsView({
                         key={catId}
                         type="button"
                         onClick={() => setCategoryFilter(catId)}
-                        className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        className={`sp-segmented-item shrink-0 ${
                           categoryFilter === catId
                             ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                             : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -434,7 +434,7 @@ export function SavedProductsView({
                   </div>
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-200/95 dark:from-zinc-800/95 to-transparent sm:hidden"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-100 dark:from-zinc-800 to-transparent sm:hidden"
                   />
                 </div>
               ) : (
@@ -442,7 +442,7 @@ export function SavedProductsView({
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
                   aria-label={t.settingCategoryLabel}
-                  className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                  className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                 >
                   <option value="all">{t.categoryAll}</option>
                   {presentCategories.map((catId) => (
@@ -453,16 +453,16 @@ export function SavedProductsView({
                 </select>
               )}
 
-              <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+              <span className="text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
                 {t.shortlistAvgScore}:{' '}
                 <strong className="text-zinc-950 dark:text-zinc-50">{avgScore}/100</strong>
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <label
                 htmlFor="saved-sort"
-                className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+                className="text-xs font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap shrink-0"
               >
                 {t.sortLabel}
               </label>
@@ -470,7 +470,7 @@ export function SavedProductsView({
                 id="saved-sort"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
-                className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                className="flex-1 sm:flex-initial sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="newest">{t.savedSortNewest}</option>
                 <option value="score-desc">{t.sortScoreDesc}</option>
@@ -480,7 +480,7 @@ export function SavedProductsView({
             </div>
           </div>
 
-          {/* Saved Product Cards (ResearchResultCard visual look) */}
+          {/* Saved Product Cards (Identical anatomy to ResearchResultCard) */}
           {evaluatedRecords.length === 0 ? (
             <StateMessage
               variant="empty"
@@ -494,7 +494,7 @@ export function SavedProductsView({
               }}
             />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {evaluatedRecords.map(({ record, evaluation, decision }) => {
                 const product = record.product;
                 const displayName = isMy ? product.nameMy : product.name;
@@ -546,13 +546,14 @@ export function SavedProductsView({
                 return (
                   <article
                     key={record.id}
-                    className="group bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:border-zinc-400/80 dark:hover:border-zinc-600 hover:shadow-md dark:hover:shadow-black/40"
+                    className="group sp-card overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-[0_10px_28px_-14px_rgba(9,9,11,0.12)]"
                   >
                     {/* Row 1: Media Thumbnail */}
                     <button
                       type="button"
                       onClick={() => onOpenReport(record)}
-                      className="relative aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 flex items-center justify-center"
+                      aria-label={`${t.cardOpenReport}: ${displayName}`}
+                      className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 flex items-center justify-center"
                     >
                       {imageConfig.canRender && imageConfig.src ? (
                         <ProductImage
@@ -562,26 +563,26 @@ export function SavedProductsView({
                           alt={product.name}
                           title={displayName}
                           unavailableLabel={t.cardImageUnverified}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                         />
                       ) : (
-                        <div className="flex flex-col items-center justify-center p-6 text-center">
+                        <div className="flex flex-col items-center justify-center p-5 text-center">
                           <ImageOff
-                            className="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2"
+                            className="w-6 h-6 text-zinc-500 dark:text-zinc-400 mb-1.5"
                             aria-hidden="true"
                           />
-                          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                             {t.cardImageUnverified}
                           </span>
                         </div>
                       )}
                     </button>
 
-                    <div className="p-4 sm:p-5 flex-1 flex flex-col gap-3.5">
+                    <div className="p-3.5 sm:p-5 flex-1 flex flex-col gap-3">
                       {/* Row 2: Title + ScoreRing */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400 truncate">
                             <span className="truncate">{categoryLabel}</span>
                             <span aria-hidden="true">·</span>
                             <span className="truncate">{product.shopName}</span>
@@ -589,9 +590,9 @@ export function SavedProductsView({
                           <button
                             type="button"
                             onClick={() => onOpenReport(record)}
-                            className="mt-1 text-left w-full cursor-pointer group/title"
+                            className="mt-1 text-left w-full cursor-pointer group/title focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-sm"
                           >
-                            <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/title:text-zinc-700 dark:group-hover/title:text-zinc-300 transition-colors">
+                            <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/title:text-zinc-700 dark:group-hover/title:text-zinc-300 transition-colors min-h-[2.4rem]">
                               {displayName}
                             </h3>
                           </button>
@@ -609,7 +610,7 @@ export function SavedProductsView({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <VerdictBadge verdict={decision.verdict} size="sm" language={language} />
 
-                        <div className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        <div className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                           <span className="inline-flex items-center gap-1 font-mono tabular-nums">
                             <Calendar className="w-3 h-3 shrink-0" aria-hidden="true" />
                             <span>{formattedDate}</span>
@@ -619,7 +620,7 @@ export function SavedProductsView({
                             title={t.savedSourcesLabel}
                             content={
                               record.sources.length === 0 ? (
-                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                <p className="text-xs text-zinc-600 dark:text-zinc-400">
                                   {t.savedNoSources}
                                 </p>
                               ) : (
@@ -647,7 +648,7 @@ export function SavedProductsView({
                                             <ExternalLink className="w-3 h-3" aria-hidden="true" />
                                           </a>
                                         ) : (
-                                          <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                          <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
                                             {t.sourcePendingLink}
                                           </span>
                                         )}
@@ -661,15 +662,17 @@ export function SavedProductsView({
                         </div>
                       </div>
 
-                      {/* Row 4: 2x2 Key Metrics with StatusDot */}
+                      {/* Row 4: 2x2 Key Metrics (label left, StatusDot right — matches ResearchResultCard) */}
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
                         {/* Price */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                              {t.cardPrice}
+                            </span>
                             <StatusDot status={effectivePriceStatus} language={language} size="sm" />
-                            <span className="truncate">{t.cardPrice}</span>
                           </div>
-                          <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
+                          <div className="mt-0.5 font-mono text-[15px] font-bold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
                             {product.priceThb !== null && product.priceThb > 0
                               ? formatThb(product.priceThb)
                               : '—'}
@@ -678,58 +681,73 @@ export function SavedProductsView({
 
                         {/* Commission */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                              {t.cardCommission}
+                            </span>
                             <StatusDot
                               status={effectiveCommissionStatus}
                               language={language}
                               size="sm"
                             />
-                            <span className="truncate">{t.cardCommission}</span>
                           </div>
-                          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums truncate">
-                            {hasVerifiedComm && product.commissionRate !== null ? (
-                              <span className="text-emerald-700 dark:text-emerald-400">
-                                {product.commissionRate}%
-                                {product.estimatedCommissionPerSaleThb !== null && (
-                                  <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400 ml-1">
-                                    (~{formatThb(product.estimatedCommissionPerSaleThb)})
-                                  </span>
-                                )}
+                          <div className="mt-0.5 flex items-baseline gap-1.5 min-w-0">
+                            <span
+                              className={`font-mono text-[15px] font-bold tabular-nums shrink-0 ${
+                                hasVerifiedComm && product.commissionRate !== null
+                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  : 'text-zinc-500 dark:text-zinc-400'
+                              }`}
+                            >
+                              {hasVerifiedComm && product.commissionRate !== null
+                                ? `${product.commissionRate}%`
+                                : '—'}
+                            </span>
+                            {hasVerifiedComm && product.estimatedCommissionPerSaleThb !== null && (
+                              <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums truncate">
+                                {formatThb(product.estimatedCommissionPerSaleThb)}
                               </span>
-                            ) : (
-                              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
                             )}
                           </div>
                         </div>
 
                         {/* Sales */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                              {t.cardSalesLabel}
+                            </span>
                             <StatusDot status={effectiveSalesStatus} language={language} size="sm" />
-                            <span className="truncate">{t.cardSalesLabel}</span>
                           </div>
-                          <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
+                          <div
+                            className={`mt-0.5 font-mono text-[15px] font-bold tabular-nums truncate ${
+                              salesVolume !== null
+                                ? 'text-zinc-950 dark:text-zinc-50'
+                                : 'text-zinc-500 dark:text-zinc-400'
+                            }`}
+                          >
                             {salesVolume !== null ? salesVolume.toLocaleString('en-US') : '—'}
                           </div>
                         </div>
 
                         {/* Competition */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                              {t.cardCompetition}
+                            </span>
                             <StatusDot status={effectiveCompStatus} language={language} size="sm" />
-                            <span className="truncate">{t.cardCompetition}</span>
                           </div>
-                          <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50 truncate">
-                            {creatorNumber !== null ? (
-                              <span className="font-mono tabular-nums">
-                                {creatorNumber.toLocaleString('en-US')}{' '}
-                                <span className="font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                  {t.bestCreatorsUnit}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
-                            )}
+                          <div
+                            className={`mt-0.5 font-mono text-sm font-bold tabular-nums truncate ${
+                              creatorNumber !== null
+                                ? 'text-zinc-950 dark:text-zinc-50'
+                                : 'text-zinc-500 dark:text-zinc-400'
+                            }`}
+                          >
+                            {creatorNumber !== null
+                              ? `${creatorNumber.toLocaleString('en-US')} ${t.bestCreatorsUnit}`
+                              : '—'}
                           </div>
                         </div>
                       </div>
@@ -739,7 +757,7 @@ export function SavedProductsView({
                         <button
                           type="button"
                           onClick={() => onOpenReport(record)}
-                          className="w-full inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                          className="sp-btn-primary w-full text-xs font-semibold"
                         >
                           <span>{t.cardOpenReport}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -751,10 +769,10 @@ export function SavedProductsView({
                               type="button"
                               onClick={() => onToggleCompareRecord(record)}
                               aria-pressed={isCompared}
-                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
+                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                                 isCompared
-                                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-500 hover:bg-emerald-800 dark:hover:bg-emerald-500'
-                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50'
                               }`}
                             >
                               <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -767,7 +785,7 @@ export function SavedProductsView({
                           <button
                             type="button"
                             onClick={() => onDelete(record.id)}
-                            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer ${
+                            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                               onToggleCompareRecord ? '' : 'col-span-2'
                             }`}
                           >

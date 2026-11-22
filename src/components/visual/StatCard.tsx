@@ -69,18 +69,18 @@ export function StatCard({
   const valueStr = String(value);
   const valueSizeClass =
     valueStr.length >= 10
-      ? 'text-lg sm:text-xl'
+      ? 'text-base sm:text-xl'
       : valueStr.length >= 7
-        ? 'text-xl sm:text-2xl'
-        : 'text-2xl sm:text-3xl';
+        ? 'text-lg sm:text-2xl'
+        : 'text-xl sm:text-2xl';
 
   return (
     <div
       aria-label={`${label}: ${value}${unit ? ` ${unit}` : ''}`}
-      className={`min-w-0 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 flex flex-col justify-start gap-1.5 ${className}`}
+      className={`min-w-0 sp-card p-3 sm:p-4 flex flex-col justify-start gap-1.5 ${className}`}
     >
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 truncate">
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
           {label}
         </span>
         {icon && (
@@ -90,14 +90,14 @@ export function StatCard({
         )}
       </div>
 
-      <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
+      <div className="flex items-baseline gap-1 min-w-0 flex-wrap">
         <span
           className={`font-mono ${valueSizeClass} font-bold tabular-nums tracking-tight leading-tight break-words max-w-full ${VALUE_TONE_CLASSES[tone]}`}
         >
           {value}
         </span>
         {unit && (
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+          <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
             {unit}
           </span>
         )}
@@ -120,7 +120,7 @@ export function StatCard({
       )}
 
       {sub && (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug break-words">
+        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-snug break-words">
           {sub}
         </p>
       )}

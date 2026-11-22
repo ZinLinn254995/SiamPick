@@ -64,14 +64,14 @@ function renderPointList(
   markerClass: string
 ) {
   if (!points || points.length === 0) {
-    return <p className="text-xs text-zinc-400 dark:text-zinc-500">{emptyLabel}</p>;
+    return <p className="text-xs text-zinc-500 dark:text-zinc-400">{emptyLabel}</p>;
   }
   return (
     <ul className={`space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 ${markerClass}`}>
       {points.map((pt, idx) => (
         <li key={`${idx}-${pt.point}`}>
           <span>{pt.point}</span>{' '}
-          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
             ({isMy ? `${pt.mentions} ကြိမ်` : `${pt.mentions}x`})
           </span>
         </li>
@@ -502,7 +502,7 @@ export function DataEnrichmentSection({
       </div>
 
       {/* Selective Enrichment Control Panel (Zero Duplicate Calls + Cost Preview + Confirmation Gate) */}
-      <div className="p-4 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/60 border border-zinc-200/90 dark:border-zinc-800 space-y-3.5">
+      <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-1.5">
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.enrichControlsHeading}</span>
@@ -572,7 +572,7 @@ export function DataEnrichmentSection({
                 return (
                   <label
                     key={item.key}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs transition-colors ${
+                    className={`flex items-start gap-2.5 min-h-[48px] p-3 rounded-lg border text-xs transition-colors ${
                       item.present
                         ? 'bg-emerald-50/40 dark:bg-emerald-950/25 border-emerald-200/70 dark:border-emerald-800/50 text-zinc-600 dark:text-zinc-400 cursor-default'
                         : checked
@@ -638,7 +638,7 @@ export function DataEnrichmentSection({
                       <button
                         type="button"
                         onClick={handleApplyCacheOnly}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white bg-emerald-700 dark:bg-emerald-600 hover:bg-emerald-800 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white bg-emerald-700 dark:bg-emerald-700 hover:bg-emerald-800 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer"
                       >
                         <Database className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>{t.enrichApplyCacheBtn}</span>
@@ -648,7 +648,7 @@ export function DataEnrichmentSection({
                         type="button"
                         disabled={plan.exceedsSpendingLimit || plan.plannedApiCalls === 0}
                         onClick={() => setConfirmOpen(true)}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:text-zinc-500 dark:disabled:text-zinc-400 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer"
+                        className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Layers className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>{t.enrichStartBtn}</span>
@@ -690,7 +690,7 @@ export function DataEnrichmentSection({
                   <button
                     type="button"
                     onClick={handleConfirmEnrich}
-                    className="inline-flex items-center gap-1.5 min-h-[36px] px-4 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer"
+                    className="sp-btn-primary !px-4 text-xs"
                   >
                     <span>
                       {t.enrichConfirmProceedBtn} ({formatCredits(plan.estimatedCredits)} {t.creditsUnit})
@@ -699,7 +699,7 @@ export function DataEnrichmentSection({
                   <button
                     type="button"
                     onClick={() => setConfirmOpen(false)}
-                    className="inline-flex items-center min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 rounded-lg transition-colors cursor-pointer"
+                    className="sp-btn-secondary !px-3.5 text-xs"
                   >
                     {t.enrichConfirmCancelBtn}
                   </button>
@@ -710,7 +710,7 @@ export function DataEnrichmentSection({
             {/* Enriching Spinner */}
             {isEnriching && (
               <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
-                <Loader2 className="w-4 h-4 animate-spin text-zinc-900 dark:text-zinc-100 shrink-0" aria-hidden="true" />
+                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none text-zinc-900 dark:text-zinc-100 shrink-0" aria-hidden="true" />
                 <span>{t.enrichRunningLabel}</span>
               </div>
             )}
@@ -787,7 +787,7 @@ export function DataEnrichmentSection({
                 className={`text-right truncate ${
                   row.value
                     ? 'font-mono text-zinc-950 dark:text-zinc-50 tabular-nums font-medium'
-                    : 'text-zinc-400 dark:text-zinc-500'
+                    : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
                 {row.value ?? unavailableText}
@@ -815,7 +815,7 @@ export function DataEnrichmentSection({
             )}
           </div>
           <span
-            className={`text-xs font-medium ${coverage.hasShopDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+            className={`text-xs font-medium ${coverage.hasShopDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}
           >
             {coverage.hasShopDetail ? t.dataStatusLabels.verified : unavailableText}
           </span>
@@ -832,7 +832,7 @@ export function DataEnrichmentSection({
                 className={`text-right truncate ${
                   row.value
                     ? 'font-mono text-zinc-950 dark:text-zinc-50 tabular-nums font-medium'
-                    : 'text-zinc-400 dark:text-zinc-500'
+                    : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
                 {row.value ?? unavailableText}
@@ -867,7 +867,7 @@ export function DataEnrichmentSection({
               </span>
             )}
             <span
-              className={`font-medium ${coverage.hasReviewInsights ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+              className={`font-medium ${coverage.hasReviewInsights ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}
             >
               {coverage.hasReviewInsights ? t.dataStatusLabels.verified : unavailableText}
             </span>
@@ -877,27 +877,27 @@ export function DataEnrichmentSection({
         {coverage.hasReviewInsights && ri && (
           <div className="space-y-3">
             {ri.summary && (
-              <p className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+              <p className="sp-surface-muted p-3.5 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 {ri.summary}
               </p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-3.5">
+              <div className="sp-card p-3.5 space-y-2">
                 <h5 className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">{t.enrichReviewLikes}</h5>
                 {renderPointList(ri.positivePoints, unavailableText, isMy, 'marker:text-emerald-600')}
               </div>
 
-              <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+              <div className="sp-card p-3.5 space-y-2">
                 <h5 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.enrichReviewDislikes}</h5>
                 {renderPointList(ri.painPoints, unavailableText, isMy, 'marker:text-zinc-400')}
               </div>
 
-              <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+              <div className="sp-card p-3.5 space-y-2">
                 <h5 className="text-xs font-semibold text-amber-800 dark:text-amber-300">{t.enrichReviewComplaints}</h5>
                 {renderPointList(ri.frequentComplaints, unavailableText, isMy, 'marker:text-amber-600')}
               </div>
 
-              <div className="p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+              <div className="sp-card p-3.5 space-y-2">
                 <div className="flex items-center gap-1.5">
                   <ShieldAlert className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" aria-hidden="true" />
                   <h5 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
@@ -907,7 +907,7 @@ export function DataEnrichmentSection({
                 {renderPointList(ri.qualityCautions, unavailableText, isMy, 'marker:text-amber-600')}
               </div>
 
-              <div className="md:col-span-2 p-3.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 space-y-2">
+              <div className="md:col-span-2 sp-card p-3.5 space-y-2">
                 <h5 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.enrichReviewBuyerNeeds}</h5>
                 {renderPointList(ri.buyerNeeds, unavailableText, isMy, 'marker:text-zinc-500')}
               </div>

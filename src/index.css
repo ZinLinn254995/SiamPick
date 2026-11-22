@@ -28,12 +28,134 @@
   }
 }
 
+:root {
+  --sp-z-sticky: 30;
+  --sp-z-tray: 35;
+  --sp-z-nav: 40;
+  --sp-z-drawer: 50;
+  --sp-z-modal: 60;
+  --sp-z-popover: 70;
+}
+
+@layer components {
+  /* Single-elevation primary card surface (used across all views for visual consistency) */
+  .sp-card {
+    @apply bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl transition-colors;
+  }
+
+  /* Quiet recessed band inside cards/modals (no heavy nested border clutter) */
+  .sp-surface-muted {
+    @apply bg-zinc-50/90 dark:bg-zinc-800/45 rounded-lg;
+  }
+
+  /* Unified button hierarchy (all >= 40px touch height, consistent radius & focus ring) */
+  .sp-btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white active:scale-[0.99] disabled:opacity-45 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950;
+  }
+
+  .sp-btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+  }
+
+  .sp-btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+  }
+
+  /* Unified segmented control */
+  .sp-segmented {
+    @apply inline-flex items-center gap-1 p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/70 dark:border-zinc-700/60;
+  }
+
+  .sp-segmented-item {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[38px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+  }
+
+  /* Mobile bottom-sheet top grab indicator */
+  .sp-sheet-handle {
+    @apply w-9 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 mx-auto;
+  }
+}
+
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
 .text-balance {
   text-wrap: balance;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Script vertical-metrics protection:
+   Myanmar (ိ/ီ/ံ/ု/ူ/ြ/္) and Thai (ี้/ั้/ุ/ู) diacritics extend beyond Latin ascender/descender
+   boxes and clip under overflow:hidden (.truncate / .line-clamp-*) or tight line-heights.
+   Override Tailwind v4 --text-*--line-height tokens when html[lang="my"] so every text size
+   gets generous vertical room without altering padding/margin utilities. */
+:where(.truncate, .line-clamp-1, .line-clamp-2, .line-clamp-3) {
+  line-height: 1.55;
+}
+
+html[lang="my"] {
+  --text-xs--line-height: 1.78;
+  --text-sm--line-height: 1.75;
+  --text-base--line-height: 1.75;
+  --text-lg--line-height: 1.65;
+  --text-xl--line-height: 1.55;
+  --text-2xl--line-height: 1.48;
+  --text-3xl--line-height: 1.42;
+}
+
+html[lang="my"] body {
+  line-height: 1.75;
+}
+
+html[lang="my"] h1,
+html[lang="my"] h2,
+html[lang="my"] h3,
+html[lang="my"] h4 {
+  line-height: 1.55;
+}
+
+html[lang="my"] button,
+html[lang="my"] a,
+html[lang="my"] label,
+html[lang="my"] input,
+html[lang="my"] select,
+html[lang="my"] textarea,
+html[lang="my"] th,
+html[lang="my"] td {
+  line-height: 1.75;
+}
+
+html[lang="my"] .leading-none:not(.font-mono),
+html[lang="my"] .leading-tight,
+html[lang="my"] .leading-snug,
+html[lang="my"] .leading-normal {
+  line-height: 1.78 !important;
+}
+
+html[lang="my"] .leading-relaxed {
+  line-height: 1.88 !important;
+}
+
+html[lang="my"] .truncate,
+html[lang="my"] .line-clamp-1,
+html[lang="my"] .line-clamp-2,
+html[lang="my"] .line-clamp-3 {
+  line-height: 1.85 !important;
+}
+
+html[lang="my"] .sp-btn-primary,
+html[lang="my"] .sp-btn-secondary,
+html[lang="my"] .sp-btn-ghost,
+html[lang="my"] .sp-segmented-item {
+  line-height: 1.75;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -190,7 +190,7 @@ function MetricDeltaCell({
         : 'bg-zinc-400 dark:bg-zinc-500';
 
   return (
-    <div className="space-y-1.5 min-w-[132px]">
+    <div className="space-y-1.5 min-w-0 lg:min-w-[132px]">
       <div className="flex items-center justify-between gap-2">
         <span
           className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${chipClasses}`}
@@ -348,9 +348,9 @@ export function ResearchComparisonPanel({
   return (
     <div className="space-y-5">
       {/* Selector Bar */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-5 space-y-4">
+      <div className="sp-card p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
               {t.compareHeading}
             </h2>
@@ -360,7 +360,7 @@ export function ResearchComparisonPanel({
           </div>
 
           {periodLabel && (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-200">
+            <div className="sp-surface-muted inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200/70 dark:border-zinc-700/70 text-xs text-zinc-700 dark:text-zinc-200 shrink-0">
               <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
               <span className="text-zinc-500 dark:text-zinc-400">{t.comparePeriodApartLabel}:</span>
               <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -370,7 +370,7 @@ export function ResearchComparisonPanel({
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-4">
           <div className="space-y-1.5">
             <label
               htmlFor="compare-older-select"
@@ -385,7 +385,7 @@ export function ResearchComparisonPanel({
                 setOlderId(e.target.value);
                 setTrendFilter('all');
               }}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-zinc-200/20 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -409,7 +409,7 @@ export function ResearchComparisonPanel({
                 setNewerId(e.target.value);
                 setTrendFilter('all');
               }}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-zinc-200/20 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -442,12 +442,16 @@ export function ResearchComparisonPanel({
         <div className="space-y-4">
           {/* Top Summary: Tappable Improved / Declined / Unchanged Filter Chips + Counts */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.compareHeading}>
+            <div
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full pb-0.5 sm:pb-0 sm:flex-wrap"
+              role="group"
+              aria-label={t.compareHeading}
+            >
               <button
                 type="button"
                 aria-pressed={trendFilter === 'improved'}
                 onClick={() => toggleTrendFilter('improved')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                   trendFilter === 'improved'
                     ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600'
                     : 'bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70'
@@ -462,7 +466,7 @@ export function ResearchComparisonPanel({
                 type="button"
                 aria-pressed={trendFilter === 'declined'}
                 onClick={() => toggleTrendFilter('declined')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                   trendFilter === 'declined'
                     ? 'bg-red-700 dark:bg-red-700 text-white border-red-700 dark:border-red-600'
                     : 'bg-red-50/80 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-100/80 dark:hover:bg-red-950/70'
@@ -477,7 +481,7 @@ export function ResearchComparisonPanel({
                 type="button"
                 aria-pressed={trendFilter === 'unchanged'}
                 onClick={() => toggleTrendFilter('unchanged')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                   trendFilter === 'unchanged'
                     ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                     : 'bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80'
@@ -540,7 +544,7 @@ export function ResearchComparisonPanel({
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden lg:block bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
+              <div className="hidden lg:block sp-card overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -648,7 +652,7 @@ export function ResearchComparisonPanel({
                 {visibleRows.map((row) => (
                   <article
                     key={row.canonicalProductId}
-                    className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3"
+                    className="sp-card p-3.5 sm:p-4 space-y-3"
                   >
                     <button
                       type="button"
@@ -658,22 +662,28 @@ export function ResearchComparisonPanel({
                           comparison.newerRecord.researchedAt
                         )
                       }
-                      className="text-left w-full cursor-pointer"
+                      className="text-left w-full min-h-[40px] flex items-start justify-between gap-2 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                     >
-                      <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
-                        {isMy ? row.nameMy : row.name}
-                      </h3>
-                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                        <span className="font-mono text-zinc-600 dark:text-zinc-400">
-                          ID: {row.canonicalProductId}
-                        </span>
-                        {' · '}
-                        {row.shopName}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover:underline">
+                          {isMy ? row.nameMy : row.name}
+                        </h3>
+                        <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                          <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                            ID: {row.canonicalProductId}
+                          </span>
+                          {' · '}
+                          {row.shopName}
+                        </div>
                       </div>
+                      <ArrowUpRight
+                        className="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-zinc-50 shrink-0 mt-0.5 transition-colors"
+                        aria-hidden="true"
+                      />
                     </button>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
-                      <div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-3.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
+                      <div className="min-w-0">
                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                           {t.compareColSales}
                         </div>
@@ -686,7 +696,7 @@ export function ResearchComparisonPanel({
                           afterLabel={t.compareAfterLabel}
                         />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                           {t.compareColRevenue}
                         </div>
@@ -699,7 +709,7 @@ export function ResearchComparisonPanel({
                           afterLabel={t.compareAfterLabel}
                         />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                           {t.compareColGrowth}
                         </div>
@@ -712,7 +722,7 @@ export function ResearchComparisonPanel({
                           afterLabel={t.compareAfterLabel}
                         />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                           {t.compareColCommission}
                         </div>
@@ -725,9 +735,15 @@ export function ResearchComparisonPanel({
                           afterLabel={t.compareAfterLabel}
                         />
                       </div>
-                      <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
-                          {t.compareColScore}
+                      <div className="col-span-2 min-w-0 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {t.compareColScore}
+                          </span>
+                          <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                            {t.confidenceLabels[row.olderConfidence]} →{' '}
+                            {t.confidenceLabels[row.newerConfidence]}
+                          </span>
                         </div>
                         <MetricDeltaCell
                           metric={row.score}

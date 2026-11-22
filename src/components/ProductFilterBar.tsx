@@ -114,22 +114,22 @@ export function ProductFilterBar({
   };
 
   return (
-    <div className="mt-5 space-y-3">
+    <div className="mt-4 sm:mt-5 space-y-3">
       {/* Primary Controls Row: Category Tabs, Queue Tabs, Sort + Direction, Filters Toggle, Export */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 min-w-0">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 min-w-0">
           {/* Category Quick Switch (Compact — expands cleanly via Filters dropdown when >4 categories) */}
           {quickSwitchCategories.length <= 4 ? (
             <div className="relative max-w-full min-w-0">
               <div
-                className="flex max-w-full items-center p-1 pr-7 sm:pr-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
+                className="sp-segmented flex max-w-full overflow-x-auto no-scrollbar pr-7 sm:pr-1"
                 role="group"
                 aria-label={t.settingCategoryLabel}
               >
                 <button
                   type="button"
                   onClick={() => updateFilter('category', 'all')}
-                  className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  className={`sp-segmented-item shrink-0 ${
                     filters.category === 'all'
                       ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -142,7 +142,7 @@ export function ProductFilterBar({
                     key={catId}
                     type="button"
                     onClick={() => updateFilter('category', catId)}
-                    className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`sp-segmented-item shrink-0 ${
                       filters.category === catId
                         ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -154,7 +154,7 @@ export function ProductFilterBar({
               </div>
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-200/95 dark:from-zinc-800/95 to-transparent sm:hidden"
+                className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-100 dark:from-zinc-800 to-transparent sm:hidden"
               />
             </div>
           ) : (
@@ -162,7 +162,7 @@ export function ProductFilterBar({
               value={filters.category}
               onChange={(e) => updateFilter('category', e.target.value as CategoryFilter)}
               aria-label={t.settingCategoryLabel}
-              className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+              className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               <option value="all">{t.categoryAll}</option>
               {quickSwitchCategories.map((catId) => (
@@ -176,7 +176,7 @@ export function ProductFilterBar({
           {/* Active / Saved / Rejected Queue Switch */}
           <div className="relative max-w-full min-w-0">
             <div
-              className="flex max-w-full items-center gap-4 text-xs font-medium pl-1 pr-7 sm:pr-1 overflow-x-auto"
+              className="flex max-w-full items-center gap-4 text-xs font-medium pl-1 pr-7 sm:pr-1 overflow-x-auto no-scrollbar border-b border-zinc-200/70 dark:border-zinc-800/80 sm:border-b-0"
               role="group"
               aria-label="Review queue"
             >
@@ -193,12 +193,12 @@ export function ProductFilterBar({
                   onClick={() => onChangeDecisionFilter(q.id)}
                   className={`min-h-[40px] py-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                     decisionFilter === q.id
-                      ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100'
-                      : 'text-zinc-500 dark:text-zinc-400 border-transparent hover:text-zinc-900 dark:hover:text-zinc-100'
+                      ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100 font-semibold'
+                      : 'text-zinc-600 dark:text-zinc-400 border-transparent hover:text-zinc-900 dark:hover:text-zinc-100'
                   }`}
                 >
                   {q.label}{' '}
-                  <span className="font-mono tabular-nums text-zinc-400 dark:text-zinc-500">({q.count})</span>
+                  <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">({q.count})</span>
                 </button>
               ))}
             </div>
@@ -209,118 +209,122 @@ export function ProductFilterBar({
           </div>
         </div>
 
-        {/* Right Controls: Sort + Direction + Filters + Single Export Dropdown (1 row from 640px up) */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full xl:w-auto">
-          <label htmlFor="results-sort-field" className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sr-only">
-            {t.sortLabel}
-          </label>
-          <select
-            id="results-sort-field"
-            value={sortField}
-            onChange={(e) => onChangeSortField(e.target.value as ProductSortField)}
-            aria-label={t.sortLabel}
-            className="w-full sm:flex-1 sm:min-w-[160px] xl:flex-initial xl:w-auto min-h-[40px] h-10 px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
-          >
-            {SORT_FIELDS.map((field) => (
-              <option key={field} value={field}>
-                {t.sortFieldLabels[field]}
-              </option>
-            ))}
-          </select>
+        {/* Right Controls: Clean 2-row grid on mobile (Sort+Dir, Filters+Export), 1 row from 640px up */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full xl:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1 xl:flex-initial">
+            <label htmlFor="results-sort-field" className="text-xs font-medium text-zinc-500 dark:text-zinc-400 sr-only">
+              {t.sortLabel}
+            </label>
+            <select
+              id="results-sort-field"
+              value={sortField}
+              onChange={(e) => onChangeSortField(e.target.value as ProductSortField)}
+              aria-label={t.sortLabel}
+              className="flex-1 min-w-0 sm:min-w-[160px] xl:flex-initial xl:w-auto min-h-[40px] h-10 px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+            >
+              {SORT_FIELDS.map((field) => (
+                <option key={field} value={field}>
+                  {t.sortFieldLabels[field]}
+                </option>
+              ))}
+            </select>
 
-          <button
-            type="button"
-            onClick={onToggleSortDirection}
-            aria-label={
-              sortDirection === 'desc' ? t.sortDirHighest : t.sortDirLowest
-            }
-            className="inline-flex items-center justify-center gap-1 min-h-[40px] h-10 px-3 py-2 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {sortDirection === 'desc' ? (
-              <>
-                <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.sortDirHighest}</span>
-              </>
-            ) : (
-              <>
-                <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.sortDirLowest}</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((prev) => !prev)}
-            aria-expanded={filtersOpen}
-            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] h-10 px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-              filtersOpen || activeFilterCount > 0
-                ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
-            }`}
-          >
-            <Filter className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>
-              {t.filtersToggleBtn}
-              {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-            </span>
-          </button>
-
-          {!exportDisabled && (
-            <div ref={exportMenuRef} className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setExportMenuOpen((prev) => !prev)}
-                aria-haspopup="menu"
-                aria-expanded={exportMenuOpen}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] h-10 px-3 py-2 text-xs font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-              >
-                <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.exportDropdownBtn}</span>
-                <ChevronDown className="w-3.5 h-3.5 opacity-75" aria-hidden="true" />
-              </button>
-
-              {exportMenuOpen && (
-                <div
-                  role="menu"
-                  aria-label={t.exportDropdownBtn}
-                  className="absolute right-0 mt-1.5 z-30 min-w-[168px] rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg py-1"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      onExportCsv();
-                    }}
-                    className="w-full flex items-center gap-2 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                    <span>{t.exportCsvBtn}</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setExportMenuOpen(false);
-                      onExportJson();
-                    }}
-                    className="w-full flex items-center gap-2 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left whitespace-nowrap"
-                  >
-                    <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                    <span>{t.exportJsonBtn}</span>
-                  </button>
-                </div>
+            <button
+              type="button"
+              onClick={onToggleSortDirection}
+              aria-label={
+                sortDirection === 'desc' ? t.sortDirHighest : t.sortDirLowest
+              }
+              className="sp-btn-secondary h-10 px-3 shrink-0"
+            >
+              {sortDirection === 'desc' ? (
+                <>
+                  <ArrowDown className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{t.sortDirHighest}</span>
+                </>
+              ) : (
+                <>
+                  <ArrowUp className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{t.sortDirLowest}</span>
+                </>
               )}
-            </div>
-          )}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+              aria-expanded={filtersOpen}
+              className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[40px] h-10 px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                filtersOpen || activeFilterCount > 0
+                  ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>
+                {t.filtersToggleBtn}
+                {activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              </span>
+            </button>
+
+            {!exportDisabled && (
+              <div ref={exportMenuRef} className="relative flex-1 sm:flex-initial shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setExportMenuOpen((prev) => !prev)}
+                  aria-haspopup="menu"
+                  aria-expanded={exportMenuOpen}
+                  className="sp-btn-secondary w-full sm:w-auto h-10 px-3"
+                >
+                  <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{t.exportDropdownBtn}</span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-75" aria-hidden="true" />
+                </button>
+
+                {exportMenuOpen && (
+                  <div
+                    role="menu"
+                    aria-label={t.exportDropdownBtn}
+                    className="absolute right-0 mt-1.5 z-[70] min-w-[168px] rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-lg py-1"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        onExportCsv();
+                      }}
+                      className="w-full flex items-center gap-2 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                      <span>{t.exportCsvBtn}</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setExportMenuOpen(false);
+                        onExportJson();
+                      }}
+                      className="w-full flex items-center gap-2 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left whitespace-nowrap"
+                    >
+                      <Download className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                      <span>{t.exportJsonBtn}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Expandable 9-Criteria Multi-Filter Panel */}
       {filtersOpen && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="sp-card p-3.5 sm:p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {/* 1. Score Range */}
             <label className="block space-y-1 text-xs">
               <span className="font-medium text-zinc-600 dark:text-zinc-400">{t.filterScoreRangeLabel}</span>
@@ -521,7 +525,7 @@ export function ProductFilterBar({
               <button
                 type="button"
                 onClick={() => onChangeFilters({ ...DEFAULT_PRODUCT_FILTERS })}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
+                className="sp-btn-ghost"
               >
                 <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.filtersClearAllBtn}</span>

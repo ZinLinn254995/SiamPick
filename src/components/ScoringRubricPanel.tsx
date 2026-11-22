@@ -20,8 +20,10 @@ export function ScoringRubricPanel({
   language,
 }: ScoringRubricPanelProps) {
   const t = TRANSLATIONS[language];
+  const isMy = language === 'my';
   const rubric = getScoringRubricForStrategy(salesWeightPct);
   const totalPoints = rubric.reduce((sum, item) => sum + item.maxPoints, 0);
+  const maxFactorPoints = Math.max(1, ...rubric.map((item) => item.maxPoints));
   const activePreset = deriveStrategyPresetFromWeight(salesWeightPct);
   const strategyLabel =
     activePreset === 'sales-first'
@@ -29,6 +31,7 @@ export function ScoringRubricPanel({
       : activePreset === 'commission-first'
         ? t.strategyCommission
         : t.strategyBalanced;
+  const pointsUnit = isMy ? 'မှတ်' : 'pts';
 
   const tierTextColor = (tier: ScoreTier) => {
     if (tier === 'priority-test') return 'text-emerald-700 dark:text-emerald-400';
@@ -37,15 +40,15 @@ export function ScoringRubricPanel({
   };
 
   return (
-    <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
+    <div className="mt-4 sp-card overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="w-full px-4 sm:px-5 py-3 flex items-center justify-between gap-4 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
+        className="w-full min-h-[44px] px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
       >
         <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-          <Scale className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
+          <Scale className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
           <div className="min-w-0">
             <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
               {t.scoringPanelTitle}
@@ -53,8 +56,11 @@ export function ScoringRubricPanel({
             <span className="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 mx-2" aria-hidden="true">
               ·
             </span>
-            <span className="block sm:inline text-xs text-zinc-500 dark:text-zinc-400">
-              {strategyLabel} ({totalPoints} pts)
+            <span className="block sm:inline text-xs text-zinc-600 dark:text-zinc-400">
+              {strategyLabel} ·{' '}
+              <span className="font-mono tabular-nums">
+                {totalPoints} {pointsUnit}
+              </span>
             </span>
           </div>
         </div>
@@ -68,12 +74,12 @@ export function ScoringRubricPanel({
       </button>
 
       {isOpen && (
-        <div className="px-4 sm:px-5 pb-5 pt-4 border-t border-zinc-100 dark:border-zinc-800/70 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="px-4 sm:px-5 pb-4 pt-3.5 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* 7 Live Strategy-Weighted Factors (Always Totaling 100 Points) */}
           <div className="lg:col-span-7 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
               <div className="inline-flex items-center gap-1.5">
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                   {t.scoringStrategyActiveLabel}: {strategyLabel}
                 </span>
                 <InfoPopover
@@ -89,30 +95,41 @@ export function ScoringRubricPanel({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-              {rubric.map((spec, idx) => (
-                <div
-                  key={spec.key}
-                  className="flex items-center justify-between gap-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
-                >
-                  <span className="text-zinc-700 dark:text-zinc-300 truncate">
-                    <span className="font-mono text-zinc-400 dark:text-zinc-500 mr-1.5 tabular-nums">
-                      0{idx + 1}.
-                    </span>
-                    {t.factorLabels[spec.key]}
-                  </span>
-                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums shrink-0">
-                    {spec.maxPoints} pts
-                  </span>
-                </div>
-              ))}
+              {rubric.map((spec, idx) => {
+                const barWidthPct = Math.round((spec.maxPoints / maxFactorPoints) * 100);
+                return (
+                  <div
+                    key={spec.key}
+                    className="py-1.5 border-b border-zinc-100 dark:border-zinc-800/70 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-zinc-800 dark:text-zinc-200 truncate" title={t.factorLabels[spec.key]}>
+                        <span className="font-mono text-zinc-500 dark:text-zinc-400 mr-1.5 tabular-nums">
+                          0{idx + 1}.
+                        </span>
+                        {t.factorShortLabels[spec.key]}
+                      </span>
+                      <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums shrink-0">
+                        {spec.maxPoints} {pointsUnit}
+                      </span>
+                    </div>
+                    <div className="h-1 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden" aria-hidden="true">
+                      <div
+                        className="h-full rounded-full bg-zinc-900 dark:bg-zinc-200 transition-[width] duration-200 motion-reduce:transition-none"
+                        style={{ width: `${barWidthPct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* 3 Recommendation Tiers + Info Popover for Disclaimers */}
-          <div className="lg:col-span-5 space-y-2.5 lg:border-l lg:border-zinc-100 dark:lg:border-zinc-800/70 lg:pl-6">
+          <div className="lg:col-span-5 space-y-2.5 lg:border-l lg:border-zinc-100 dark:lg:border-zinc-800/80 lg:pl-6">
             <div className="flex items-center gap-1.5 text-xs pb-1">
-              <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                {language === 'my' ? 'အဆင့်သတ်မှတ်ချက်များ' : 'Score Tiers'}
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                {isMy ? 'အဆင့်သတ်မှတ်ချက်များ' : 'Score Tiers'}
               </span>
               <InfoPopover
                 variant="info"
@@ -130,7 +147,7 @@ export function ScoringRubricPanel({
               {TIER_ORDER.map((tier) => (
                 <div
                   key={tier}
-                  className="flex items-baseline justify-between gap-3 text-xs py-1 border-b border-zinc-100 dark:border-zinc-800/70 last:border-b-0"
+                  className="flex items-baseline justify-between gap-3 text-xs py-1.5 border-b border-zinc-100 dark:border-zinc-800/70 last:border-b-0"
                 >
                   <span className="font-mono font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0">
                     {t.scoringTierRanges[tier]}

@@ -118,8 +118,8 @@ function verificationColorClass(status: VerificationState): string {
 function dataStatusColorClass(status: DataStatus): string {
   if (status === 'verified') return 'text-emerald-700 dark:text-emerald-400';
   if (status === 'estimated') return 'text-amber-700 dark:text-amber-400';
-  if (status === 'unverified') return 'text-zinc-500 dark:text-zinc-400';
-  return 'text-zinc-400 dark:text-zinc-500';
+  if (status === 'unverified') return 'text-zinc-600 dark:text-zinc-400';
+  return 'text-zinc-500 dark:text-zinc-400';
 }
 
 export function ResearchReportDrawer({
@@ -318,7 +318,7 @@ export function ResearchReportDrawer({
       label: t.fieldReviewCount,
       value:
         typeof product.reviewCount === 'number' && product.reviewCount > 0
-          ? `${product.reviewCount.toLocaleString()} ${t.cardReviewsUnit}`
+          ? `${product.reviewCount.toLocaleString('en-US')} ${t.cardReviewsUnit}`
           : '—',
       status: normalizeDataStatus(
         typeof product.reviewCount === 'number' && product.reviewCount > 0
@@ -520,24 +520,24 @@ export function ResearchReportDrawer({
       <div
         ref={drawerPanelRef}
         tabIndex={-1}
-        className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col focus:outline-none"
+        className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-[100dvh] shadow-2xl flex flex-col focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Top Header + Section Jump Navigation */}
         <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="px-5 sm:px-7 h-14 flex items-center justify-between gap-4">
+          <div className="px-4 sm:px-6 h-[52px] sm:h-14 flex items-center justify-between gap-3">
             <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
               {t.reportTitle} · {categoryLabel}
               {formattedResearchDate ? (
-                <span className="font-mono text-zinc-400 dark:text-zinc-500"> · {formattedResearchDate}</span>
+                <span className="font-mono text-zinc-500 dark:text-zinc-400"> · {formattedResearchDate}</span>
               ) : null}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {onOpenDeepDive && (
                 <button
                   type="button"
                   onClick={() => onOpenDeepDive(product)}
-                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="sp-btn-secondary !min-h-[38px] sm:!min-h-[40px] !px-2.5 sm:!px-3 !py-1.5 text-xs whitespace-nowrap shrink-0"
                 >
                   <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>Deep Dive</span>
@@ -547,7 +547,7 @@ export function ResearchReportDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label={t.reportClose}
-                className="w-10 h-10 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -558,7 +558,7 @@ export function ResearchReportDrawer({
           <div className="relative">
             <nav
               aria-label="Report sections"
-              className="px-5 sm:px-7 pr-10 sm:pr-12 flex items-center gap-4 overflow-x-auto snap-x snap-mandatory scroll-pl-5 sm:scroll-pl-7 text-xs font-medium text-zinc-500 dark:text-zinc-400"
+              className="no-scrollbar px-4 sm:px-6 pr-10 sm:pr-12 flex items-center gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory scroll-pl-4 sm:scroll-pl-6 text-xs font-medium text-zinc-600 dark:text-zinc-400"
             >
               {(
                 [
@@ -588,7 +588,7 @@ export function ResearchReportDrawer({
                     className={`snap-start inline-flex items-center min-h-[40px] py-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100 font-semibold'
-                        : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                        : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                     }`}
                   >
                     {item.label}
@@ -634,7 +634,7 @@ export function ResearchReportDrawer({
             }
             setActiveTabId((prev) => (prev === currentId ? prev : currentId));
           }}
-          className="flex-1 overflow-y-auto px-5 sm:px-7 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(4.5rem+env(safe-area-inset-bottom))] space-y-8"
+          className="flex-1 overflow-y-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-[calc(5.25rem+env(safe-area-inset-bottom))] space-y-6 sm:space-y-8"
         >
           {/* 1. Product Dossier Summary Header (3-second scan) */}
           {(() => {
@@ -708,11 +708,11 @@ export function ResearchReportDrawer({
             ].filter((group) => group.items.length > 0);
 
             return (
-              <div id="rep-overview" className="scroll-mt-4 space-y-6">
-                {/* A. Hero Row */}
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-5">
-                  <div className="flex items-start gap-3.5 sm:gap-4 min-w-0 flex-1 w-full">
-                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 border border-zinc-200/80 dark:border-zinc-800">
+              <div id="rep-overview" className="scroll-mt-4 space-y-4 sm:space-y-5">
+                {/* A. Compact Hero Header (Thumbnail + Title + Inline ScoreRing) */}
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="relative w-[72px] h-[72px] sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 border border-zinc-200/80 dark:border-zinc-800">
                       {imageConfig.canRender && imageConfig.src ? (
                         <>
                           <ProductImage
@@ -722,9 +722,10 @@ export function ResearchReportDrawer({
                             alt={product.name}
                             title={displayName}
                             unavailableLabel={t.cardImageUnverified}
+                            compact
                           />
                           {imageSourceNote && (
-                            <div className="absolute bottom-1.5 right-1.5">
+                            <div className="absolute bottom-1 right-1">
                               <InfoPopover
                                 variant="info"
                                 label={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
@@ -736,109 +737,126 @@ export function ResearchReportDrawer({
                           )}
                         </>
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                        <div className="w-full h-full flex items-center justify-center p-1.5 text-center">
                           <ImageOff
-                            className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1"
+                            className="w-5 h-5 text-zinc-400 dark:text-zinc-500"
                             aria-hidden="true"
                           />
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
-                            {t.cardImageUnverified}
-                          </span>
                         </div>
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
                         {categoryLabel} · {subCategory}
                         {product.shopName ? ` · ${product.shopName}` : ''}
                       </div>
 
                       <h2
                         id="research-report-title"
-                        className="font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
+                        className="font-display text-base sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
                       >
                         {displayName}
                       </h2>
 
-                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <div className="hidden sm:flex flex-wrap items-center gap-2 pt-1">
                         <VerdictBadge
                           verdict={decisionSummary.verdict}
-                          size="lg"
+                          size="md"
                           language={language}
-                          className="!whitespace-normal"
                         />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
+                          <span>{t.cardConfidence}:</span>
+                          <strong className={`font-mono font-bold tabular-nums ${confidenceToneClass}`}>
+                            {evaluation.confidencePct}%
+                          </strong>
+                          <span>· {t.confidenceLabels[evaluation.confidenceLevel]}</span>
+                        </span>
                         <StatusLegendPopover language={language} />
                       </div>
+                    </div>
 
-                      {tiktokShopUrl && (
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <a
-                            href={tiktokShopUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors whitespace-nowrap"
-                          >
-                            <span>{t.drawerOpenTikTokShop}</span>
-                            <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          </a>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(tiktokShopUrl);
-                                setCopiedTikTokLink(true);
-                                setTimeout(() => setCopiedTikTokLink(false), 1600);
-                              } catch {
-                                // Ignore clipboard errors in restricted contexts
-                              }
-                            }}
-                            title={t.drawerTikTokLinkAria}
-                            aria-label={t.drawerTikTokLinkAria}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                          >
-                            {copiedTikTokLink ? (
-                              <Check
-                                className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                            )}
-                            <span>
-                              {copiedTikTokLink ? t.drawerCopiedLink : t.drawerCopyTikTokLink}
-                            </span>
-                          </button>
-                        </div>
-                      )}
+                    {/* Inline ScoreRing anchored top-right (compact on mobile, full on sm+) */}
+                    <div className="shrink-0 flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
+                      <div className="sm:hidden">
+                        <ScoreRing
+                          value={evaluation.totalScore}
+                          size={56}
+                          label={t.cardOpportunityScore}
+                        />
+                      </div>
+                      <div className="hidden sm:block">
+                        <ScoreRing
+                          value={evaluation.totalScore}
+                          size={76}
+                          label={t.cardOpportunityScore}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* ScoreRing + Data Confidence */}
-                  <div className="w-full sm:w-auto flex sm:flex-col items-center justify-between sm:justify-start gap-4 sm:gap-2 p-3.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800 shrink-0">
-                    <ScoreRing
-                      value={evaluation.totalScore}
-                      size={88}
-                      label={t.cardOpportunityScore}
+                  {/* Mobile Verdict + Confidence + Status Legend row */}
+                  <div className="flex sm:hidden flex-wrap items-center gap-1.5">
+                    <VerdictBadge
+                      verdict={decisionSummary.verdict}
+                      size="sm"
+                      language={language}
                     />
-                    <div className="text-right sm:text-center">
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {t.cardConfidence}
-                      </div>
-                      <div
-                        className={`font-mono text-lg font-bold tabular-nums leading-tight ${confidenceToneClass}`}
-                      >
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span>{t.cardConfidence}</span>
+                      <strong className={`font-mono font-bold tabular-nums ${confidenceToneClass}`}>
                         {evaluation.confidencePct}%
-                      </div>
-                      <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                        {t.confidenceLabels[evaluation.confidenceLevel]}
-                      </div>
-                    </div>
+                      </strong>
+                      <span>· {t.confidenceLabels[evaluation.confidenceLevel]}</span>
+                    </span>
+                    <StatusLegendPopover language={language} />
                   </div>
+
+                  {/* Direct TikTok Shop CTA + Copy Link on one tight horizontal row */}
+                  {tiktokShopUrl && (
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={tiktokShopUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="sp-btn-primary flex-1 sm:flex-initial !px-3.5 text-xs whitespace-nowrap"
+                      >
+                        <span className="truncate">{t.drawerOpenTikTokShop}</span>
+                        <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(tiktokShopUrl);
+                            setCopiedTikTokLink(true);
+                            setTimeout(() => setCopiedTikTokLink(false), 1600);
+                          } catch {
+                            // Ignore clipboard errors in restricted contexts
+                          }
+                        }}
+                        title={t.drawerTikTokLinkAria}
+                        aria-label={t.drawerTikTokLinkAria}
+                        className="sp-btn-secondary !px-3 text-xs whitespace-nowrap shrink-0"
+                      >
+                        {copiedTikTokLink ? (
+                          <Check
+                            className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {copiedTikTokLink ? t.drawerCopiedLink : t.drawerCopyTikTokLink}
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* B. 4 StatCards */}
-                <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+                {/* B. 4 StatCards (2x2 compact KPI grid on mobile and desktop) */}
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   {/* 1. Price */}
                   <StatCard
                     label={t.cardPrice}
@@ -889,7 +907,7 @@ export function ResearchReportDrawer({
                     label={t.bestStatSales}
                     value={
                       km?.salesVolume !== null && km?.salesVolume !== undefined
-                        ? km.salesVolume.toLocaleString()
+                        ? km.salesVolume.toLocaleString('en-US')
                         : km?.revenueThb !== null && km?.revenueThb !== undefined
                           ? formatThb(km.revenueThb)
                           : t.drawerNoData
@@ -943,7 +961,7 @@ export function ResearchReportDrawer({
                       !competitionUnavailable &&
                       km?.creatorNumber !== null &&
                       km?.creatorNumber !== undefined
-                        ? km.creatorNumber.toLocaleString()
+                        ? km.creatorNumber.toLocaleString('en-US')
                         : !competitionUnavailable
                           ? t.competitionLabels[product.competitionLevel]
                           : t.drawerNoData
@@ -986,12 +1004,12 @@ export function ResearchReportDrawer({
                 </div>
 
                 {/* C. Why this score (MiniBar rows sorted by weight + StatusDot) */}
-                <div className="p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-3">
+                <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.drawerWhyScoreHeading}
                     </h3>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
                       {strategyFocusLabel}
                     </span>
                   </div>
@@ -1046,7 +1064,7 @@ export function ResearchReportDrawer({
                             <h4 className={`text-xs font-semibold ${group.headingClass}`}>
                               {group.heading}
                             </h4>
-                            <span className="font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                            <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                               {group.items.length}
                             </span>
                           </div>
@@ -1087,7 +1105,7 @@ export function ResearchReportDrawer({
                 {/* E. Collapsed "Details" Accordion (AI decision reason & cautions, closed by default) */}
                 <section
                   id="rep-decision"
-                  className="scroll-mt-4 rounded-xl border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 overflow-hidden"
+                  className="scroll-mt-4 sp-surface-muted overflow-hidden"
                 >
                   <button
                     type="button"
@@ -1185,7 +1203,7 @@ export function ResearchReportDrawer({
                   </span>
                 </div>
 
-                <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3 text-xs">
+                <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3 text-xs">
                   {/* Confirmed Myanmar Promotional Videos (Video-First Discovery) */}
                   {isVideoBacked && (
                     <div className="space-y-1.5">
@@ -1332,7 +1350,7 @@ export function ResearchReportDrawer({
                             ? 'text-emerald-700 dark:text-emerald-400'
                             : st.availability === 'checked-no-match'
                               ? 'text-zinc-600 dark:text-zinc-400'
-                              : 'text-zinc-400 dark:text-zinc-500';
+                              : 'text-zinc-500 dark:text-zinc-400';
                         return (
                           <div
                             key={srcKey}
@@ -1381,7 +1399,7 @@ export function ResearchReportDrawer({
               </span>
             </div>
 
-            <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 text-xs">
+            <dl className="sp-card grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-3.5 sm:p-4 text-xs">
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">{isMy ? 'ရောင်းအား' : 'Sales Volume'}</dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -1578,7 +1596,7 @@ export function ResearchReportDrawer({
                   <div key={item.key} className="py-2.5 space-y-1.5">
                     <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
                       <div className="flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 min-w-0">
-                        <span className="font-mono text-zinc-400 dark:text-zinc-500 mr-0.5 tabular-nums shrink-0">
+                        <span className="font-mono text-zinc-500 dark:text-zinc-400 mr-0.5 tabular-nums shrink-0">
                           0{idx + 1}.
                         </span>
                         <span className="truncate">{t.factorLabels[item.key]}</span>
@@ -1643,8 +1661,8 @@ export function ResearchReportDrawer({
             </div>
 
             {/* 4-Box Score Explanation Grid: Strengths, Weaknesses, Risks, Data Confidence */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-emerald-800 dark:text-emerald-300">
                   {t.scoringStrengthsHeading}
                 </h4>
@@ -1655,7 +1673,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                   {t.scoringWeaknessesHeading}
                 </h4>
@@ -1666,7 +1684,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-2">
                 <h4 className="font-display text-xs font-semibold text-amber-800 dark:text-amber-300">
                   {t.scoringRisksHeading}
                 </h4>
@@ -1677,7 +1695,7 @@ export function ResearchReportDrawer({
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-2">
                 <div className="flex items-baseline justify-between gap-2">
                   <h4 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.scoringConfidenceHeading}
@@ -1760,7 +1778,7 @@ export function ResearchReportDrawer({
                 />
               )}
             </div>
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 flex items-baseline gap-8">
+            <div className="sp-surface-muted p-3.5 sm:p-4 flex flex-wrap items-baseline gap-6 sm:gap-8">
               <div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">{t.cardCommission}</div>
                 <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
@@ -1791,7 +1809,7 @@ export function ResearchReportDrawer({
             {(typeof product.customerRating === 'number' ||
               typeof product.reviewCount === 'number' ||
               productQualityEvidence) && (
-              <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-2 text-xs">
+              <div className="sp-surface-muted p-3.5 space-y-2 text-xs">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-zinc-900 dark:text-zinc-100">{t.productQualityHeading}</span>
                   <div className="flex items-center gap-2 font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
@@ -1806,7 +1824,7 @@ export function ResearchReportDrawer({
                     )}
                     {typeof product.reviewCount === 'number' && product.reviewCount > 0 && (
                       <span>
-                        ({product.reviewCount.toLocaleString()} {t.cardReviewsUnit})
+                        ({product.reviewCount.toLocaleString('en-US')} {t.cardReviewsUnit})
                       </span>
                     )}
                   </div>
@@ -1887,7 +1905,7 @@ export function ResearchReportDrawer({
             </ul>
 
             {product.category === 'womens-fashion' && product.fashionReturnRisk && (
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3.5">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3.5">
                 <div className="flex items-center gap-2">
                   <AlertTriangle
                     className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0"
@@ -1943,7 +1961,7 @@ export function ResearchReportDrawer({
             )}
 
             {product.category === 'cosmetics-beauty' && product.cosmeticsComplianceRisk && (
-              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3.5">
+              <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3.5">
                 <div className="flex items-center gap-2">
                   <ShieldAlert
                     className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0"
@@ -2026,7 +2044,7 @@ export function ResearchReportDrawer({
                     key={`${idx}-${idea.titleEn}`}
                     className="py-3 flex items-start gap-3"
                   >
-                    <span className="font-mono text-xs font-medium text-zinc-400 dark:text-zinc-500 pt-0.5 tabular-nums shrink-0">
+                    <span className="font-mono text-xs font-medium text-zinc-500 dark:text-zinc-400 pt-0.5 tabular-nums shrink-0">
                       0{idx + 1}.
                     </span>
                     <div className="space-y-1 min-w-0">
@@ -2092,7 +2110,7 @@ export function ResearchReportDrawer({
                             ? `TikTok Shop Thailand မူရင်း Product စာမျက်နှာ (#${getCanonicalProductId(product)})`
                             : `TikTok Shop Thailand Original Product Page (#${getCanonicalProductId(product)})`}
                         </span>{' '}
-                        <span className="text-zinc-400 dark:text-zinc-500">
+                        <span className="text-zinc-500 dark:text-zinc-400">
                           · TikTok Shop TH
                         </span>
                       </div>
@@ -2127,7 +2145,7 @@ export function ResearchReportDrawer({
                         <span className="font-medium text-zinc-900 dark:text-zinc-100">
                           {isMy ? src.labelMy : src.labelEn}
                         </span>{' '}
-                        <span className="text-zinc-400 dark:text-zinc-500">· {src.sourceType}</span>
+                        <span className="text-zinc-500 dark:text-zinc-400">· {src.sourceType}</span>
                       </div>
 
                       {src.verified && isSafeHttpUrl(resolvedSourceUrl) ? (
@@ -2141,7 +2159,7 @@ export function ResearchReportDrawer({
                           <ExternalLink className="w-3 h-3" aria-hidden="true" />
                         </a>
                       ) : (
-                        <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                        <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
                           {t.sourcePendingLink}
                         </span>
                       )}
@@ -2178,118 +2196,116 @@ export function ResearchReportDrawer({
           </section>
         </div>
 
-        {/* F. Sticky Decision & Export Footer */}
-        <div className="sticky bottom-0 shrink-0 z-10 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-7 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row sm:items-center gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            {/* "..." Overflow menu for Copy / CSV / JSON */}
-            <div ref={actionsMenuRef} className="relative shrink-0">
-              <button
-                type="button"
-                aria-label={t.drawerMoreActions}
-                aria-haspopup="menu"
-                aria-expanded={actionsMenuOpen}
-                onClick={() => setActionsMenuOpen((prev) => !prev)}
-                className="w-11 min-h-[44px] inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
-              </button>
-
-              {actionsMenuOpen && (
-                <div
-                  role="menu"
-                  aria-label={t.drawerMoreActions}
-                  className="absolute bottom-full mb-2 left-0 z-20 min-w-[192px] py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      handleCopyReport();
-                      setActionsMenuOpen(false);
-                    }}
-                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                  >
-                    {copied ? (
-                      <>
-                        <Check
-                          className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span>{t.reportCopied}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                        <span>{t.reportCopy}</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      handleExportSingleCsv();
-                      setActionsMenuOpen(false);
-                    }}
-                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                    <span>{t.exportCsvBtn}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      handleExportSingleJson();
-                      setActionsMenuOpen(false);
-                    }}
-                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                  >
-                    <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-                    <span>{t.exportJsonBtn}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Reject = Secondary */}
+        {/* F. Compact Single-Row Sticky Decision & Export Footer */}
+        <div className="sticky bottom-0 shrink-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] flex items-center gap-2">
+          {/* "..." Overflow menu for Copy / CSV / JSON */}
+          <div ref={actionsMenuRef} className="relative shrink-0">
             <button
               type="button"
-              onClick={() => onReject(product.id)}
-              className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2 text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
-                isRejected
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40'
-              }`}
+              aria-label={t.drawerMoreActions}
+              aria-haspopup="menu"
+              aria-expanded={actionsMenuOpen}
+              onClick={() => setActionsMenuOpen((prev) => !prev)}
+              className="w-10 h-10 sm:w-11 sm:h-11 inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
-              {isRejected ? (
-                <>
-                  <RotateCcw className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{t.btnRestoreProduct}</span>
-                </>
-              ) : (
-                <>
-                  <X className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{t.btnRejectProduct}</span>
-                </>
-              )}
+              <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
             </button>
+
+            {actionsMenuOpen && (
+              <div
+                role="menu"
+                aria-label={t.drawerMoreActions}
+                className="absolute bottom-full mb-2 left-0 z-20 min-w-[196px] py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    handleCopyReport();
+                    setActionsMenuOpen(false);
+                  }}
+                  className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  {copied ? (
+                    <>
+                      <Check
+                        className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
+                        aria-hidden="true"
+                      />
+                      <span>{t.reportCopied}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                      <span>{t.reportCopy}</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    handleExportSingleCsv();
+                    setActionsMenuOpen(false);
+                  }}
+                  className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                  <span>{t.exportCsvBtn}</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    handleExportSingleJson();
+                    setActionsMenuOpen(false);
+                  }}
+                  className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                  <span>{t.exportJsonBtn}</span>
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Save = Primary full-width */}
+          {/* Reject = Compact Secondary */}
+          <button
+            type="button"
+            onClick={() => onReject(product.id)}
+            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[44px] px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+              isRejected
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40'
+            }`}
+          >
+            {isRejected ? (
+              <>
+                <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+                <span>{t.btnRestoreProduct}</span>
+              </>
+            ) : (
+              <>
+                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+                <span>{t.btnRejectProduct}</span>
+              </>
+            )}
+          </button>
+
+          {/* Save = Primary flex-1 */}
           <button
             type="button"
             onClick={() => onSave(product.id)}
-            className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 sm:gap-2 min-h-[40px] sm:min-h-[44px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               isSaved
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white hover:bg-emerald-800 dark:hover:bg-emerald-500'
+                ? 'bg-emerald-700 dark:bg-emerald-700 text-white hover:bg-emerald-800 dark:hover:bg-emerald-600'
                 : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
             }`}
           >
             <Bookmark
-              className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`}
+              className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`}
               aria-hidden="true"
             />
             <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
