@@ -15,6 +15,7 @@ import {
   RotateCcw,
   SearchCheck,
   SlidersHorizontal,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -113,6 +114,8 @@ import { KalodataBalanceBar } from './components/KalodataBalanceBar';
 import { BestProductsStrip } from './components/BestProductsStrip';
 import { ProductFilterBar } from './components/ProductFilterBar';
 import { ProductComparisonModal } from './components/ProductComparisonModal';
+import { BackupRestoreModal, type BackupModalTab } from './components/BackupRestoreModal';
+import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
 import { useTheme } from './hooks/useTheme';
@@ -304,6 +307,8 @@ export default function App() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [compareItems, setCompareItems] = useState<ComparisonSelectionItem[]>([]);
   const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [backupModalTab, setBackupModalTab] = useState<BackupModalTab>('backup');
 
   // Report Drawer & Scoring Guide
   const [activeReport, setActiveReport] = useState<ActiveReportState | null>(null);
@@ -1529,6 +1534,55 @@ export default function App() {
       : huntError.messageEn
     : null;
 
+  const handleOpenBackupModal = (tab: BackupModalTab = 'backup') => {
+    setBackupModalTab(tab);
+    setBackupModalOpen(true);
+  };
+
+  const handleBackupRestoreComplete = (result: BackupRestoreResult) => {
+    setSavedRecords(result.savedRecords);
+    setResearchHistory(result.researchHistory);
+    setDeepDiveHistoryByProduct(result.deepDiveHistoryByProduct);
+    // Reset in-memory Deep Dive session cache so subsequent opens re-hydrate cleanly from restored history
+    setDeepDiveStatesByProduct({});
+
+    if (result.syncedCategories) {
+      handleSyncedCategoryCacheChange(result.syncedCategories);
+    }
+
+    if (result.appliedCounts.latestSessionApplied) {
+      const sess = result.latestResearchSession;
+      if (sess) {
+        setLiveResults(sess.products);
+        setSessionMeta(sess.sessionMeta);
+        setLastCostSummary(sess.lastCostSummary);
+        setResearchSourceMode(sess.researchSourceMode);
+        setResearchedAt(sess.researchedAt);
+        setGroundingSources(sess.groundingSources);
+        setSearchQueries(sess.searchQueries);
+        setActiveHuntConfig(sess.activeHuntConfig);
+        setRejectedIds(sess.rejectedIds);
+      } else {
+        setLiveResults([]);
+        setSessionMeta(null);
+        setLastCostSummary(null);
+        setResearchSourceMode(null);
+        setResearchedAt(null);
+        setGroundingSources([]);
+        setSearchQueries([]);
+        setActiveHuntConfig(null);
+        setRejectedIds([]);
+      }
+      setActiveReport(null);
+    }
+
+    if (result.writeErrors.length > 0) {
+      setStorageAlert(result.writeErrors[0]);
+    } else {
+      setStorageAlert(null);
+    }
+  };
+
   return (
     <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50 transition-colors">
       <Header
@@ -1547,6 +1601,7 @@ export default function App() {
           setActiveView((prev) => (prev === 'saved' ? 'hunting' : 'saved'));
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+        onOpenBackupModal={() => handleOpenBackupModal('backup')}
         language={language}
         onChangeLanguage={setLanguage}
         theme={theme}
@@ -1611,6 +1666,7 @@ export default function App() {
             onToggleCompareRecord={handleToggleCompareSavedRecord}
             onDelete={handleDeleteSaved}
             onOpenReport={handleOpenSavedReport}
+            onOpenBackupRestore={handleOpenBackupModal}
             onBackToHunting={handleGoHome}
             language={language}
           />
@@ -1631,6 +1687,7 @@ export default function App() {
               handleOpenDeepDive(targetProduct, 'history', archiveDate, archiveMode)
             }
             onDeleteRecords={handleDeleteHistoryRecords}
+            onOpenBackupRestore={handleOpenBackupModal}
             onBackToHunting={handleGoHome}
             language={language}
           />
@@ -2361,6 +2418,17 @@ export default function App() {
                           </span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenBackupModal('restore')}
+                        className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 text-zinc-600 dark:text-zinc-400" aria-hidden="true" />
+                        <span>
+                          {language === 'my' ? 'Backup မှ ပြန်ယူမည်' : 'Restore Backup'}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 ) : visibleProducts.length === 0 ? (
@@ -2531,6 +2599,17 @@ export default function App() {
         onAiAnalysisSaved={handleAiAnalysisSaved}
         onProductEnriched={handleProductEnriched}
         language={language}
+      />
+
+      {/* Backup & Restore Modal */}
+      <BackupRestoreModal
+        isOpen={backupModalOpen}
+        initialTab={backupModalTab}
+        onClose={() => setBackupModalOpen(false)}
+        onRestoreComplete={handleBackupRestoreComplete}
+        language={language}
+        savedCount={savedRecords.length}
+        historyCount={researchHistory.length}
       />
     </div>
   );

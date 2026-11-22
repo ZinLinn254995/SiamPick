@@ -290,3 +290,30 @@ export function deleteCachedAiAnalysis(canonicalProductId: string): StorageWrite
   delete cacheMap[canonicalProductId];
   return persistAiAnalysisCacheMap(cacheMap);
 }
+
+const FORBIDDEN_AI_CACHE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function replaceOrMergeAiAnalysisCache(
+  incomingEntries: Record<string, CachedAiAnalysisEntry> | null | undefined,
+  mode: 'merge' | 'replace'
+): StorageWriteResult {
+  const target: Record<string, CachedAiAnalysisEntry> =
+    mode === 'replace' ? {} : loadAiAnalysisCacheMap();
+
+  if (incomingEntries && typeof incomingEntries === 'object') {
+    for (const [key, entry] of Object.entries(incomingEntries)) {
+      if (!key || FORBIDDEN_AI_CACHE_KEYS.has(key) || !isValidEntry(entry)) continue;
+      if (mode === 'merge' && target[key]) {
+        const existingTs = Date.parse(target[key].cachedAt || '') || 0;
+        const incomingTs = Date.parse(entry.cachedAt || '') || 0;
+        if (incomingTs > existingTs) {
+          target[key] = { ...entry };
+        }
+      } else {
+        target[key] = { ...entry };
+      }
+    }
+  }
+
+  return persistAiAnalysisCacheMap(target);
+}

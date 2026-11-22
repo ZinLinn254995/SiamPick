@@ -15,6 +15,7 @@ import {
   Search,
   SlidersHorizontal,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -110,6 +111,7 @@ interface ResearchHistoryViewProps {
     researchMode?: ResearchMode
   ) => void;
   onDeleteRecords: (ids: string[]) => void;
+  onOpenBackupRestore?: (tab: 'backup' | 'restore') => void;
   onBackToHunting: () => void;
   language: Language;
 }
@@ -155,6 +157,7 @@ export function ResearchHistoryView({
   onOpenReport,
   onOpenDeepDive,
   onDeleteRecords,
+  onOpenBackupRestore,
   onBackToHunting,
   language,
 }: ResearchHistoryViewProps) {
@@ -1139,6 +1142,16 @@ export function ResearchHistoryView({
               {formatByteSize(storageStats.totalBytes)} /{' '}
               {formatByteSize(storageStats.estimatedQuotaBytes)} ({storageStats.usagePct}%)
             </span>
+            {onOpenBackupRestore && (
+              <button
+                type="button"
+                onClick={() => onOpenBackupRestore(records.length > 0 ? 'backup' : 'restore')}
+                className="font-sans inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer"
+              >
+                <HardDrive className="w-3 h-3" aria-hidden="true" />
+                <span>Backup / Restore</span>
+              </button>
+            )}
           </div>
         </div>
         <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
@@ -1175,14 +1188,26 @@ export function ResearchHistoryView({
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
             {t.historyEmptyDesc}
           </p>
-          <button
-            type="button"
-            onClick={onBackToHunting}
-            className="mt-6 inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>{t.savedViewBackBtn}</span>
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onBackToHunting}
+              className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              <span>{t.savedViewBackBtn}</span>
+            </button>
+            {onOpenBackupRestore && (
+              <button
+                type="button"
+                onClick={() => onOpenBackupRestore('restore')}
+                className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <Upload className="w-4 h-4" aria-hidden="true" />
+                <span>{isMy ? 'Backup မှ ပြန်ယူမည်' : 'Restore from Backup'}</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

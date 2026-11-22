@@ -9,8 +9,10 @@ import {
   Download,
   ExternalLink,
   GitCompareArrows,
+  HardDrive,
   ImageOff,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import {
   CategoryFilter,
@@ -44,6 +46,7 @@ interface SavedProductsViewProps {
   onToggleCompareRecord?: (record: SavedProductRecord) => void;
   onDelete: (id: string) => void;
   onOpenReport: (record: SavedProductRecord) => void;
+  onOpenBackupRestore?: (tab: 'backup' | 'restore') => void;
   onBackToHunting: () => void;
   language: Language;
 }
@@ -69,6 +72,7 @@ export function SavedProductsView({
   onToggleCompareRecord,
   onDelete,
   onOpenReport,
+  onOpenBackupRestore,
   onBackToHunting,
   language,
 }: SavedProductsViewProps) {
@@ -236,45 +240,58 @@ export function SavedProductsView({
             </div>
           </div>
 
-          {records.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onOpenBackupRestore && (
               <button
                 type="button"
-                onClick={handleCopySummary}
+                onClick={() => onOpenBackupRestore(records.length > 0 ? 'backup' : 'restore')}
                 className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
               >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
-                    <span>{t.reportCopied}</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>{t.shortlistCopySummary}</span>
-                  </>
-                )}
+                <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{isMy ? 'Backup / Restore' : 'Backup / Restore'}</span>
               </button>
+            )}
 
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.exportCsvBtn}</span>
-              </button>
+            {records.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCopySummary}
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                      <span>{t.reportCopied}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{t.shortlistCopySummary}</span>
+                    </>
+                  )}
+                </button>
 
-              <button
-                type="button"
-                onClick={handleExportJson}
-                className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.exportJsonBtn}</span>
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{t.exportCsvBtn}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportJson}
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{t.exportJsonBtn}</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -290,14 +307,26 @@ export function SavedProductsView({
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
             {t.shortlistEmptyDesc}
           </p>
-          <button
-            type="button"
-            onClick={onBackToHunting}
-            className="mt-6 inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>{t.savedViewBackBtn}</span>
-          </button>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onBackToHunting}
+              className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              <span>{t.savedViewBackBtn}</span>
+            </button>
+            {onOpenBackupRestore && (
+              <button
+                type="button"
+                onClick={() => onOpenBackupRestore('restore')}
+                className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <Upload className="w-4 h-4" aria-hidden="true" />
+                <span>{isMy ? 'Backup မှ ပြန်ယူမည်' : 'Restore from Backup'}</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <>

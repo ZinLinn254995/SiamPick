@@ -287,6 +287,33 @@ export function loadAllDeepDiveHistoryByProduct(): Record<string, DeepDiveHistor
   return loadEnvelope().byProduct;
 }
 
+const FORBIDDEN_MAP_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function persistAllDeepDiveHistoryByProduct(
+  byProduct: Record<string, DeepDiveHistoryRecord[]>
+): StorageWriteResult {
+  const sanitized: Record<string, DeepDiveHistoryRecord[]> = {};
+  if (byProduct && typeof byProduct === 'object') {
+    for (const [productId, list] of Object.entries(byProduct)) {
+      if (!productId || FORBIDDEN_MAP_KEYS.has(productId) || !Array.isArray(list)) {
+        continue;
+      }
+      const normalized = list
+        .filter(isValidHistoryRecord)
+        .map(normalizeHistoryRecord)
+        .sort((a, b) => (Date.parse(b.analyzedAt) || 0) - (Date.parse(a.analyzedAt) || 0));
+      if (normalized.length > 0) {
+        sanitized[productId] = normalized;
+      }
+    }
+  }
+  return persistEnvelope({
+    schemaVersion: DEEP_DIVE_HISTORY_SCHEMA_VERSION,
+    updatedAt: new Date().toISOString(),
+    byProduct: sanitized,
+  });
+}
+
 export function loadDeepDiveHistoryForProduct(
   canonicalProductId: string
 ): DeepDiveHistoryRecord[] {

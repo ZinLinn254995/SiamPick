@@ -322,6 +322,39 @@ export function saveEnrichmentToCache(params: {
   return persistEnrichmentCache(cache);
 }
 
+const FORBIDDEN_CACHE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function replaceOrMergeEnrichmentCache(
+  incoming: Partial<EnrichmentCacheEnvelopeV1> | null | undefined,
+  mode: 'merge' | 'replace'
+): StorageWriteResult {
+  const target: EnrichmentCacheEnvelopeV1 =
+    mode === 'replace' ? emptyCache() : loadEnrichmentCache();
+
+  if (incoming && typeof incoming === 'object') {
+    if (incoming.products && typeof incoming.products === 'object') {
+      for (const [k, v] of Object.entries(incoming.products)) {
+        if (!k || FORBIDDEN_CACHE_KEYS.has(k) || !isValidProductDetailRecord(v)) continue;
+        target.products[k] = { ...v };
+      }
+    }
+    if (incoming.shops && typeof incoming.shops === 'object') {
+      for (const [k, v] of Object.entries(incoming.shops)) {
+        if (!k || FORBIDDEN_CACHE_KEYS.has(k) || !isValidShopRecord(v)) continue;
+        target.shops[k] = { ...v };
+      }
+    }
+    if (incoming.reviews && typeof incoming.reviews === 'object') {
+      for (const [k, v] of Object.entries(incoming.reviews)) {
+        if (!k || FORBIDDEN_CACHE_KEYS.has(k) || !isValidReviewRecord(v)) continue;
+        target.reviews[k] = { ...v };
+      }
+    }
+  }
+
+  return persistEnrichmentCache(target);
+}
+
 /**
  * Extracts and caches any Product Detail, Shop Detail, or Review Insight already returned
  * during Balanced or Deep Product Hunting so future products or sessions reuse them at 0 credits.

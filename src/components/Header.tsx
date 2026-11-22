@@ -1,4 +1,4 @@
-import { Bookmark, Coins, Globe, History, Loader2, Moon, Sun } from 'lucide-react';
+import { Bookmark, Coins, Globe, HardDrive, History, Loader2, Moon, Sun } from 'lucide-react';
 import { AppView, CategoryFilter, Language } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
 import type { KalodataBalanceState } from '../hooks/useKalodataBalance';
@@ -14,6 +14,7 @@ interface HeaderProps {
   onToggleHistoryView: () => void;
   shortlistCount: number;
   onToggleSavedView: () => void;
+  onOpenBackupModal?: () => void;
   language: Language;
   onChangeLanguage: (language: Language) => void;
   theme: ThemeMode;
@@ -38,6 +39,7 @@ export function Header({
   onToggleHistoryView,
   shortlistCount,
   onToggleSavedView,
+  onOpenBackupModal,
   language,
   onChangeLanguage,
   theme,
@@ -204,6 +206,20 @@ export function Header({
               <Moon className="w-4 h-4" aria-hidden="true" />
             )}
           </button>
+
+          {/* Quiet Ghost Backup & Restore Trigger */}
+          {onOpenBackupModal && (
+            <button
+              type="button"
+              onClick={onOpenBackupModal}
+              title={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
+              aria-label={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
+              className="inline-flex items-center gap-1.5 min-h-[34px] sm:min-h-[36px] px-2 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+              <span className="hidden xl:inline">{isMy ? 'Backup' : 'Backup'}</span>
+            </button>
+          )}
 
           {/* Mobile-Only Ghost History Button (Tablet md+ has History in center nav) */}
           <button
