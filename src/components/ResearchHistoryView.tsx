@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpRight,
+  Bookmark,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -11,6 +13,9 @@ import {
   Globe,
   HardDrive,
   History,
+  ImageOff,
+  Layers,
+  Link2,
   RotateCcw,
   Search,
   SlidersHorizontal,
@@ -31,6 +36,8 @@ import {
   ResearchHistoryRecord,
   ResearchMode,
   ResearchProduct,
+  SingleLinkResearchSource,
+  SingleProductHistoryRecord,
   SortDirection,
   StorageWriteResult,
   StrategyPreset,
@@ -59,13 +66,19 @@ import {
   triggerFileDownload,
 } from '../utils/exportReports';
 import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
-import { normalizeTikTokSourceUrl } from '../utils/format';
+import {
+  formatThb,
+  getTikTokShopProductUrl,
+  normalizeTikTokSourceUrl,
+  resolveProductImageDisplayConfig,
+} from '../utils/format';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ResearchComparisonPanel } from './ResearchComparisonPanel';
 import { ScoringRubricPanel } from './ScoringRubricPanel';
 import { BestProductsStrip } from './BestProductsStrip';
 import { ProductFilterBar } from './ProductFilterBar';
+import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
 
 const ARCHIVE_STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
@@ -84,8 +97,16 @@ function isSafeHttpUrl(url: string | null | undefined): boolean {
   }
 }
 
+export type HistoryTab = 'records' | 'single' | 'compare';
+type HistoryModeFilter = 'all' | ResearchMode;
+type HistorySortKey = 'newest' | 'oldest' | 'products-desc' | 'cost-desc' | 'cost-asc';
+type SingleHistorySortKey = 'newest' | 'oldest' | 'score-desc' | 'commission-desc' | 'sales-desc';
+
 interface ResearchHistoryViewProps {
   records: ResearchHistoryRecord[];
+  singleRecords: SingleProductHistoryRecord[];
+  initialTab?: HistoryTab;
+  onTabChange?: (tab: HistoryTab) => void;
   savedCount: number;
   currentSalesWeightPct: number;
   storageAlert: StorageWriteResult | null;
@@ -111,14 +132,30 @@ interface ResearchHistoryViewProps {
     researchMode?: ResearchMode
   ) => void;
   onDeleteRecords: (ids: string[]) => void;
+  onDeleteSingleRecords: (ids: string[]) => void;
   onOpenBackupRestore?: (tab: 'backup' | 'restore') => void;
   onBackToHunting: () => void;
   language: Language;
 }
 
-type HistoryTab = 'records' | 'compare';
-type HistoryModeFilter = 'all' | ResearchMode;
-type HistorySortKey = 'newest' | 'oldest' | 'products-desc' | 'cost-desc' | 'cost-asc';
+function singleSourceLabel(source: SingleLinkResearchSource, isMy: boolean): string {
+  switch (source) {
+    case 'kalodata-api':
+      return isMy ? 'Kalodata API (တိုက်ရိုက်)' : 'Kalodata API (Live)';
+    case 'server-cache':
+      return isMy ? 'Server Cache (0 cr)' : 'Server Cache (0 cr)';
+    case 'client-cache':
+      return isMy ? 'Browser Cache (0 cr)' : 'Browser Cache (0 cr)';
+    case 'in-flight-shared':
+      return isMy ? 'Shared Request (0 cr)' : 'Shared Request (0 cr)';
+    case 'existing-local-record':
+      return isMy ? 'Local Record (0 cr)' : 'Local Record (0 cr)';
+    case 'migrated-legacy':
+      return isMy ? 'Migrated Record' : 'Migrated Record';
+    default:
+      return 'Kalodata';
+  }
+}
 
 function modeLabel(mode: ResearchMode, language: Language): string {
   const t = TRANSLATIONS[language];
@@ -146,6 +183,9 @@ function categoriesLabel(record: ResearchHistoryRecord, language: Language): str
 
 export function ResearchHistoryView({
   records,
+  singleRecords,
+  initialTab = 'records',
+  onTabChange,
   savedCount,
   currentSalesWeightPct,
   storageAlert,
@@ -157,6 +197,7 @@ export function ResearchHistoryView({
   onOpenReport,
   onOpenDeepDive,
   onDeleteRecords,
+  onDeleteSingleRecords,
   onOpenBackupRestore,
   onBackToHunting,
   language,
@@ -164,7 +205,12 @@ export function ResearchHistoryView({
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
 
-  const [activeTab, setActiveTab] = useState<HistoryTab>('records');
+  const [activeTab, setActiveTab] = useState<HistoryTab>(initialTab);
+  useEffect(() => {
+    setActiveTab(initialTab);
+    setSelectedRecordId(null);
+  }, [initialTab]);
+
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
   const [archiveScoreMode, setArchiveScoreMode] = useState<'original' | 'live'>('original');
   const [archiveLiveWeightPct, setArchiveLiveWeightPct] = useState<number>(currentSalesWeightPct);
@@ -184,15 +230,22 @@ export function ResearchHistoryView({
   const [archiveSortField, setArchiveSortField] = useState<ProductSortField>('overallScore');
   const [archiveSortDirection, setArchiveSortDirection] = useState<SortDirection>('desc');
 
-  // Search, Filter & Sort state for History List
+  // Search, Filter & Sort state for Batch History List
   const [searchQuery, setSearchQuery] = useState('');
   const [modeFilter, setModeFilter] = useState<HistoryModeFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [sortKey, setSortKey] = useState<HistorySortKey>('newest');
 
-  // Selective deletion state
+  // Selective deletion state for Batch History
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Search, Filter, Sort & Selective deletion state for Single Product History
+  const [singleSearchQuery, setSingleSearchQuery] = useState('');
+  const [singleCategoryFilter, setSingleCategoryFilter] = useState<CategoryFilter>('all');
+  const [singleSortKey, setSingleSortKey] = useState<SingleHistorySortKey>('newest');
+  const [checkedSingleIds, setCheckedSingleIds] = useState<string[]>([]);
+  const [confirmDeleteSingleId, setConfirmDeleteSingleId] = useState<string | null>(null);
 
   // Compare shortcut state
   const [compareOlderId, setCompareOlderId] = useState<string | null>(null);
@@ -232,14 +285,82 @@ export function ResearchHistoryView({
   };
 
   const storageStats = useMemo(
-    () => getLocalStorageUsageStats(records.length, savedCount),
-    [records, savedCount]
+    () => getLocalStorageUsageStats(records.length, savedCount, singleRecords.length),
+    [records, savedCount, singleRecords]
   );
 
   const selectedRecord = useMemo(
     () => records.find((r) => r.id === selectedRecordId) ?? null,
     [records, selectedRecordId]
   );
+
+  const filteredSingleRecords = useMemo(() => {
+    const q = singleSearchQuery.trim().toLowerCase();
+    const filtered = singleRecords.filter((rec) => {
+      if (singleCategoryFilter !== 'all' && rec.product.category !== singleCategoryFilter) {
+        return false;
+      }
+      if (!q) return true;
+      const p = rec.product;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.nameMy.toLowerCase().includes(q) ||
+        p.shopName.toLowerCase().includes(q) ||
+        rec.canonicalProductId.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        (p.kalodataMetrics?.productId ?? '').toLowerCase().includes(q)
+      );
+    });
+
+    return [...filtered].sort((a, b) => {
+      const timeA = Date.parse(a.researchedAt) || 0;
+      const timeB = Date.parse(b.researchedAt) || 0;
+      switch (singleSortKey) {
+        case 'newest':
+          return timeB - timeA;
+        case 'oldest':
+          return timeA - timeB;
+        case 'score-desc':
+          return (b.scoreSnapshot?.totalScore ?? 0) - (a.scoreSnapshot?.totalScore ?? 0) || timeB - timeA;
+        case 'commission-desc': {
+          const commA =
+            a.product.commissionVerified && typeof a.product.commissionRate === 'number'
+              ? a.product.commissionRate
+              : a.product.kalodataMetrics?.commissionRatePct ?? -1;
+          const commB =
+            b.product.commissionVerified && typeof b.product.commissionRate === 'number'
+              ? b.product.commissionRate
+              : b.product.kalodataMetrics?.commissionRatePct ?? -1;
+          return commB - commA || timeB - timeA;
+        }
+        case 'sales-desc':
+          return (
+            (b.product.kalodataMetrics?.salesVolume ?? -1) -
+              (a.product.kalodataMetrics?.salesVolume ?? -1) || timeB - timeA
+          );
+        default:
+          return 0;
+      }
+    });
+  }, [singleRecords, singleSearchQuery, singleCategoryFilter, singleSortKey]);
+
+  const toggleSingleChecked = (id: string) => {
+    setCheckedSingleIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteSelectedSingle = () => {
+    if (checkedSingleIds.length === 0) return;
+    onDeleteSingleRecords(checkedSingleIds);
+    setCheckedSingleIds([]);
+  };
+
+  const handleDeleteSingleItem = (id: string) => {
+    onDeleteSingleRecords([id]);
+    setConfirmDeleteSingleId(null);
+    setCheckedSingleIds((prev) => prev.filter((item) => item !== id));
+  };
 
   const filteredRecords = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1042,14 +1163,14 @@ export function ResearchHistoryView({
                 {t.historyViewTitle}
               </h1>
               <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums">
-                ({records.length})
+                ({activeTab === 'single' ? singleRecords.length : records.length})
               </span>
               <InfoPopover
                 label={t.historyViewTitle}
                 title={t.historyViewTitle}
                 content={
                   <>
-                    <p>{t.historyViewSubtitle}</p>
+                    <p>{activeTab === 'single' ? t.singleHistorySubtitle : t.historyViewSubtitle}</p>
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
                       {t.historyStorageNote}
                     </p>
@@ -1059,9 +1180,9 @@ export function ResearchHistoryView({
             </div>
           </div>
 
-          {/* Sub-Tabs: History Sessions | Compare Sessions */}
+          {/* Sub-Tabs: Batch Research | Single Product History | Compare Sessions */}
           <div
-            className="inline-flex items-center p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg self-start md:self-auto shrink-0"
+            className="inline-flex flex-wrap items-center p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg self-start md:self-auto shrink-0"
             role="tablist"
             aria-label={t.historyViewTitle}
           >
@@ -1069,23 +1190,51 @@ export function ResearchHistoryView({
               type="button"
               role="tab"
               aria-selected={activeTab === 'records'}
-              onClick={() => setActiveTab('records')}
-              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              onClick={() => {
+                setActiveTab('records');
+                onTabChange?.('records');
+              }}
+              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'records'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
               <History className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.historyTabRecords}</span>
+              <span>
+                {t.historyTabRecords} ({records.length})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'single'}
+              onClick={() => {
+                setActiveTab('single');
+                onTabChange?.('single');
+              }}
+              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                activeTab === 'single'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+              }`}
+            >
+              <Link2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>
+                {t.historyTabSingle} ({singleRecords.length})
+              </span>
             </button>
 
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === 'compare'}
-              onClick={() => setActiveTab('compare')}
-              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              onClick={() => {
+                setActiveTab('compare');
+                onTabChange?.('compare');
+              }}
+              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'compare'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1133,7 +1282,11 @@ export function ResearchHistoryView({
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-zinc-600 dark:text-zinc-400 tabular-nums">
             <span>
-              History ({storageStats.historyCount}): {formatByteSize(storageStats.historyBytes)}
+              Batch ({storageStats.historyCount}): {formatByteSize(storageStats.historyBytes)}
+            </span>
+            <span>
+              Single ({storageStats.singleHistoryCount ?? singleRecords.length}):{' '}
+              {formatByteSize(storageStats.singleHistoryBytes ?? 0)}
             </span>
             <span>
               Saved ({storageStats.savedCount}): {formatByteSize(storageStats.savedBytes)}
@@ -1145,7 +1298,11 @@ export function ResearchHistoryView({
             {onOpenBackupRestore && (
               <button
                 type="button"
-                onClick={() => onOpenBackupRestore(records.length > 0 ? 'backup' : 'restore')}
+                onClick={() =>
+                  onOpenBackupRestore(
+                    records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
+                  )
+                }
                 className="font-sans inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer"
               >
                 <HardDrive className="w-3 h-3" aria-hidden="true" />
@@ -1177,6 +1334,356 @@ export function ResearchHistoryView({
           onOpenProductReport={(product, researchDate) => onOpenReport(product, researchDate)}
           language={language}
         />
+      ) : activeTab === 'single' ? (
+        <div className="space-y-4">
+          <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            {t.singleHistorySubtitle}
+          </p>
+
+          {singleRecords.length === 0 ? (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
+              <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
+                <Link2 className="w-5 h-5" aria-hidden="true" />
+              </div>
+              <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                {t.singleHistoryEmptyTitle}
+              </h2>
+              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
+                {t.singleHistoryEmptyDesc}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBackToHunting}
+                  className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  <span>{t.savedViewBackBtn}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Search, Category Filter, Sort & Selective Delete Controls */}
+              <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  <div className="md:col-span-6 relative">
+                    <Search
+                      className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="search"
+                      value={singleSearchQuery}
+                      onChange={(e) => setSingleSearchQuery(e.target.value)}
+                      placeholder={t.singleHistorySearchPlaceholder}
+                      aria-label={t.singleHistorySearchPlaceholder}
+                      className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <select
+                      value={singleCategoryFilter}
+                      onChange={(e) => setSingleCategoryFilter(e.target.value as CategoryFilter)}
+                      aria-label={t.settingCategoryLabel}
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                    >
+                      <option value="all">{t.categoryAll}</option>
+                      {UNIVERSAL_CATEGORIES.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {getCategoryLabel(cat.id, language)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <select
+                      value={singleSortKey}
+                      onChange={(e) => setSingleSortKey(e.target.value as SingleHistorySortKey)}
+                      aria-label={t.sortLabel}
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                    >
+                      <option value="newest">{t.historySortNewest}</option>
+                      <option value="oldest">{t.historySortOldest}</option>
+                      <option value="score-desc">{t.sortFieldLabels.overallScore}</option>
+                      <option value="commission-desc">{t.sortFieldLabels.commissionPotential}</option>
+                      <option value="sales-desc">{t.sortFieldLabels.salesPerformance}</option>
+                    </select>
+                  </div>
+                </div>
+
+                {checkedSingleIds.length > 0 && (
+                  <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
+                      {checkedSingleIds.length} {t.historySelectedCount}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCheckedSingleIds([])}
+                        className="px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                      >
+                        {t.confirmCancelBtn}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteSelectedSingle}
+                        className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>
+                          {t.historyDeleteSelectedBtn} ({checkedSingleIds.length})
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {filteredSingleRecords.length === 0 ? (
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.emptyFilteredTitle}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredSingleRecords.map((rec) => {
+                    const p = rec.product;
+                    const isChecked = checkedSingleIds.includes(rec.id);
+                    const isConfirming = confirmDeleteSingleId === rec.id;
+                    const isSaved = getDecision(p.id) === 'saved';
+                    const imgConfig = resolveProductImageDisplayConfig(p);
+                    const evalResult = evaluateProductOpportunity(p, {
+                      salesWeightPct: currentSalesWeightPct,
+                    });
+                    const commission =
+                      p.commissionVerified && typeof p.commissionRate === 'number'
+                        ? `${p.commissionRate.toFixed(1)}%`
+                        : typeof p.kalodataMetrics?.commissionRatePct === 'number'
+                          ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
+                          : 'Unavailable';
+                    const derivedTiktokUrl = getTikTokShopProductUrl(p);
+                    const tiktokHref =
+                      rec.canonicalUrl ??
+                      (isSafeHttpUrl(derivedTiktokUrl) ? derivedTiktokUrl : null);
+
+                    return (
+                      <article
+                        key={rec.id}
+                        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleSingleChecked(rec.id)}
+                              aria-label={`${t.historySelectLabel} ${p.name}`}
+                              className="mt-1 w-4 h-4 rounded-sm border-zinc-300 dark:border-zinc-700 accent-zinc-950 dark:accent-zinc-100 cursor-pointer shrink-0"
+                            />
+
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
+                              {imgConfig.canRender && imgConfig.src ? (
+                                <ProductImage
+                                  src={imgConfig.src}
+                                  fallbackSrc={imgConfig.fallbackSrc}
+                                  productId={imgConfig.productId}
+                                  alt={p.name}
+                                  title={isMy ? p.nameMy : p.name}
+                                  unavailableLabel={t.cardImageUnverified}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <ImageOff className="w-4 h-4 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                                <span className="font-sans font-medium text-zinc-700 dark:text-zinc-300">
+                                  {getCategoryLabel(p.category, language, { short: true })}
+                                </span>
+                                <span aria-hidden="true">·</span>
+                                <span className="tabular-nums">ID: {rec.canonicalProductId}</span>
+                                <span aria-hidden="true">·</span>
+                                <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
+                              </div>
+
+                              <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
+                                {isMy ? p.nameMy : p.name}
+                              </h3>
+
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                <span>
+                                  {t.linkImportShopLabel}:{' '}
+                                  <strong className="font-medium text-zinc-900 dark:text-zinc-100">
+                                    {p.shopName || 'Unavailable'}
+                                  </strong>
+                                </span>
+                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                  ·
+                                </span>
+                                <span>
+                                  {t.singleHistorySourceLabel}:{' '}
+                                  <strong className="font-mono text-zinc-800 dark:text-zinc-200">
+                                    {singleSourceLabel(rec.dataSource, isMy)}
+                                  </strong>
+                                </span>
+                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                  ·
+                                </span>
+                                <span className="font-mono tabular-nums">
+                                  {t.singleHistoryCreditsLabel}: {formatCredits(rec.estimatedCreditsCharged)} cr
+                                </span>
+                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                  ·
+                                </span>
+                                <span className="font-mono text-[11px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                                  {evalResult.verifiedCount} verified · {evalResult.unavailableCount} unavailable
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2 text-xs">
+                                <div>
+                                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                                    {t.linkImportPriceLabel}
+                                  </span>
+                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                    {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : 'Unavailable'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                                    {t.linkImportSalesLabel}
+                                  </span>
+                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                    {typeof p.kalodataMetrics?.salesVolume === 'number'
+                                      ? p.kalodataMetrics.salesVolume.toLocaleString()
+                                      : 'Unavailable'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                                    {t.linkImportRevenueLabel}
+                                  </span>
+                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                    {typeof p.kalodataMetrics?.revenueThb === 'number'
+                                      ? formatThb(p.kalodataMetrics.revenueThb)
+                                      : 'Unavailable'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                                    {t.linkImportCommissionLabel}
+                                  </span>
+                                  <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                    {commission}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                                    {t.linkImportScoreLabel}
+                                  </span>
+                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                    {evalResult.totalScore}/100 ({evalResult.confidenceLevel})
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Row Actions */}
+                          <div className="flex flex-wrap items-center gap-2 shrink-0 pl-7 lg:pl-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
+                              }
+                              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                            >
+                              <span>{t.singleHistoryOpenReportBtn}</span>
+                              <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+
+                            {onOpenDeepDive && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
+                                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>{t.singleHistoryDeepDiveBtn}</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => onSaveProduct(p, rec.researchedAt)}
+                              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                                isSaved
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+                              }`}
+                            >
+                              <Bookmark
+                                className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`}
+                                aria-hidden="true"
+                              />
+                              <span>{isSaved ? t.linkImportSavedBtn : t.linkImportSaveBtn}</span>
+                            </button>
+
+                            {tiktokHref && (
+                              <a
+                                href={tiktokHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 whitespace-nowrap"
+                              >
+                                <span>{t.singleHistoryOpenLinkBtn}</span>
+                                <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                              </a>
+                            )}
+
+                            {isConfirming ? (
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSingleItem(rec.id)}
+                                  className="min-h-[36px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                                >
+                                  {t.historyDeleteConfirmBtn}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteSingleId(null)}
+                                  className="min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer whitespace-nowrap"
+                                >
+                                  {t.confirmCancelBtn}
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteSingleId(rec.id)}
+                                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span>{t.historyDeleteBtn}</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       ) : records.length === 0 ? (
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
           <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">

@@ -425,6 +425,32 @@ export interface ResearchHistoryRecord {
   scoreSnapshots: Record<string, ProductScoreSnapshot>;
 }
 
+/**
+ * Single-product history record created automatically when researching a product via TikTok Shop link.
+ * Stored strictly separately from Batch Research History (`ResearchHistoryRecord`) and Batch Recent Results.
+ */
+export type SingleLinkResearchSource =
+  | 'kalodata-api'
+  | 'server-cache'
+  | 'client-cache'
+  | 'in-flight-shared'
+  | 'existing-local-record'
+  | 'migrated-legacy';
+
+export interface SingleProductHistoryRecord {
+  id: string;
+  schemaVersion: number;
+  canonicalProductId: string;
+  researchedAt: string;
+  product: ResearchProduct;
+  scoreSnapshot: ProductScoreSnapshot;
+  dataSource: SingleLinkResearchSource;
+  apiCallsMade: number;
+  estimatedCreditsCharged: number;
+  canonicalUrl: string | null;
+  resolvedUrl: string | null;
+}
+
 export interface StorageWriteResult {
   ok: boolean;
   quotaExceeded: boolean;
@@ -435,12 +461,14 @@ export interface StorageWriteResult {
 
 export interface LocalStorageUsageStats {
   historyBytes: number;
+  singleHistoryBytes?: number;
   savedBytes: number;
   otherSiamPickBytes: number;
   totalBytes: number;
   estimatedQuotaBytes: number;
   usagePct: number;
   historyCount: number;
+  singleHistoryCount?: number;
   savedCount: number;
 }
 

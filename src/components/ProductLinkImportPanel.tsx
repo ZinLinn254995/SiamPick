@@ -2,10 +2,14 @@ import { useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  ArrowUpRight,
+  Bookmark,
   CheckCircle2,
   ClipboardPaste,
   Database,
   ExternalLink,
+  History,
+  ImageOff,
   Layers,
   Link2,
   Loader2,
@@ -23,14 +27,24 @@ import type {
   ProductCategory,
   ResearchProduct,
   ResearchQuotaStatus,
+  SingleLinkResearchSource,
+  SingleProductHistoryRecord,
   SyncedKalodataCategoryCache,
 } from '../types/product';
-import { buildResolvedCategoryIdMap } from '../utils/categoryRegistry';
+import { buildResolvedCategoryIdMap, getCategoryLabel } from '../utils/categoryRegistry';
 import { loadEnrichmentCache } from '../utils/enrichmentCache';
-import { isSafeHttpUrl } from '../utils/format';
+import {
+  formatThb,
+  getTikTokShopProductUrl,
+  isSafeHttpUrl,
+  resolveProductImageDisplayConfig,
+} from '../utils/format';
 import { formatCredits, KALODATA_PRODUCT_DETAIL_CREDIT } from '../utils/kalodataPricing';
+import { evaluateProductOpportunity } from '../utils/scoring';
+import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
+import { ProductImage } from './ProductImage';
 
 interface ProductLinkImportPanelProps {
   language: Language;
@@ -41,20 +55,25 @@ interface ProductLinkImportPanelProps {
   existingResultIds: readonly string[];
   existingSavedIds: readonly string[];
   existingHistoryIds: readonly string[];
+  existingSingleHistoryIds: readonly string[];
   budgetStorageAvailable: boolean;
   serverBudgetRemainingCredits: number | null;
   liveBalanceCredits: number | null;
+  activeSingleResult: SingleProductHistoryRecord | null;
+  singleHistoryCount: number;
+  isSavedProduct: (product: ResearchProduct) => boolean;
   onFindExistingProduct: (canonicalProductId: string) => ResearchProduct | null;
-  onRestoreExistingToResults: (product: ResearchProduct) => void;
-  onOpenExistingReport: (product: ResearchProduct) => void;
-  onOpenExistingWorkspace?: (
+  onOpenExistingAsSingleResult: (
     product: ResearchProduct,
     inspectResult: LinkImportInspectResponse
   ) => void;
-  onOpenImportedDeepDive?: (product: ResearchProduct) => void;
+  onClearActiveSingleResult: () => void;
+  onOpenReport: (product: ResearchProduct) => void;
+  onOpenDeepDive: (product: ResearchProduct) => void;
+  onToggleSave: (product: ResearchProduct) => void;
+  onViewSingleHistory: () => void;
   onProductImported: (result: LinkImportExecuteResponse) => void;
   onResumeResearch: () => Promise<void> | void;
-  onScrollToResults: (productId: string) => void;
 }
 
 function tryExtractQuickProductId(rawInput: string): string | null {
@@ -66,6 +85,32 @@ function tryExtractQuickProductId(rawInput: string): string | null {
   return match?.[1] ?? null;
 }
 
+function formatCompactNumber(val: number | null | undefined, isMy: boolean): string {
+  if (typeof val !== 'number' || !Number.isFinite(val)) {
+    return isMy ? 'Unavailable' : 'Unavailable';
+  }
+  return val.toLocaleString();
+}
+
+function formatDataSourceLabel(source: SingleLinkResearchSource, isMy: boolean): string {
+  switch (source) {
+    case 'kalodata-api':
+      return isMy ? 'Kalodata API (တိုက်ရိုက်)' : 'Kalodata API (Live)';
+    case 'server-cache':
+      return isMy ? 'Server Cache (0 cr)' : 'Server Cache (0 cr)';
+    case 'client-cache':
+      return isMy ? 'Browser Cache (0 cr)' : 'Browser Cache (0 cr)';
+    case 'in-flight-shared':
+      return isMy ? 'Shared Request (0 cr)' : 'Shared Request (0 cr)';
+    case 'existing-local-record':
+      return isMy ? 'Local Record (0 cr)' : 'Local Record (0 cr)';
+    case 'migrated-legacy':
+      return isMy ? 'Migrated Record' : 'Migrated Record';
+    default:
+      return 'Kalodata';
+  }
+}
+
 export function ProductLinkImportPanel({
   language,
   spendingLimitCredits,
@@ -75,19 +120,25 @@ export function ProductLinkImportPanel({
   existingResultIds,
   existingSavedIds,
   existingHistoryIds,
+  existingSingleHistoryIds,
   budgetStorageAvailable,
   serverBudgetRemainingCredits,
   liveBalanceCredits,
+  activeSingleResult,
+  singleHistoryCount,
+  isSavedProduct,
   onFindExistingProduct,
-  onRestoreExistingToResults,
-  onOpenExistingReport,
-  onOpenExistingWorkspace,
-  onOpenImportedDeepDive,
+  onOpenExistingAsSingleResult,
+  onClearActiveSingleResult,
+  onOpenReport,
+  onOpenDeepDive,
+  onToggleSave,
+  onViewSingleHistory,
   onProductImported,
   onResumeResearch,
-  onScrollToResults,
 }: ProductLinkImportPanelProps) {
   const t = TRANSLATIONS[language];
+  const isMy = language === 'my';
   const [rawInput, setRawInput] = useState('');
   const [isInspecting, setIsInspecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -98,7 +149,6 @@ export function ProductLinkImportPanel({
     classification?: LinkImportInspectResponse['classification'];
     code?: string;
   } | null>(null);
-  const [importedResult, setImportedResult] = useState<LinkImportExecuteResponse | null>(null);
   const [userConfirmedPaid, setUserConfirmedPaid] = useState(false);
   const [clipboardNotice, setClipboardNotice] = useState(false);
   const inspectControllerRef = useRef<AbortController | null>(null);
@@ -108,17 +158,21 @@ export function ProductLinkImportPanel({
     [syncedCategoryCache]
   );
 
+  const combinedHistoryIds = useMemo(
+    () => Array.from(new Set([...existingHistoryIds, ...existingSingleHistoryIds])),
+    [existingHistoryIds, existingSingleHistoryIds]
+  );
+
   const buildWorkspaceIdsPayload = () => ({
     results: existingResultIds,
     saved: existingSavedIds,
-    history: existingHistoryIds,
+    history: combinedHistoryIds,
   });
 
   const handleInputChange = (nextValue: string) => {
     setRawInput(nextValue);
     setInspectResult(null);
     setImportError(null);
-    setImportedResult(null);
     setUserConfirmedPaid(false);
     setClipboardNotice(false);
   };
@@ -128,7 +182,6 @@ export function ProductLinkImportPanel({
     setRawInput('');
     setInspectResult(null);
     setImportError(null);
-    setImportedResult(null);
     setUserConfirmedPaid(false);
     setClipboardNotice(false);
   };
@@ -157,7 +210,6 @@ export function ProductLinkImportPanel({
 
     setIsInspecting(true);
     setImportError(null);
-    setImportedResult(null);
     setUserConfirmedPaid(false);
 
     try {
@@ -275,12 +327,12 @@ export function ProductLinkImportPanel({
         return;
       }
 
-      setImportedResult(data);
+      setInspectResult(null);
       setUserConfirmedPaid(false);
       onProductImported(data);
     } catch (err) {
       setImportError({
-        en: err instanceof Error ? err.message : 'Network error while importing product.',
+        en: err instanceof Error ? err.message : 'Network error while researching product link.',
       });
     } finally {
       setIsImporting(false);
@@ -313,7 +365,7 @@ export function ProductLinkImportPanel({
   const canImportFromCache =
     Boolean(inspectResult?.ok) &&
     !inspectResult?.requiresPaidApiCall &&
-    !inspectResult?.alreadyInWorkspaceSources.includes('results');
+    !inspectResult?.alreadyInWorkspace;
 
   const canExecutePaidImport =
     Boolean(inspectResult?.ok) &&
@@ -325,6 +377,13 @@ export function ProductLinkImportPanel({
     !isLimitExceeded &&
     !isBalanceInsufficient &&
     !isImporting;
+
+  const activeSingleEvaluation = useMemo(() => {
+    if (!activeSingleResult) return null;
+    return evaluateProductOpportunity(activeSingleResult.product, {
+      salesWeightPct,
+    });
+  }, [activeSingleResult, salesWeightPct]);
 
   const renderFailureBanner = (
     classification: LinkImportInspectResponse['classification'],
@@ -356,7 +415,7 @@ export function ProductLinkImportPanel({
           <div className="space-y-1 min-w-0">
             <div className="font-semibold">{title}</div>
             <p className="leading-relaxed opacity-90">
-              {language === 'my' && messageMy ? messageMy : messageEn}
+              {isMy && messageMy ? messageMy : messageEn}
             </p>
             {inspectResult?.resolvedUrl &&
               inspectResult.resolvedUrl !== inspectResult.extractedInputUrl && (
@@ -396,6 +455,19 @@ export function ProductLinkImportPanel({
             {t.linkImportSubtitle}
           </p>
         </div>
+
+        {singleHistoryCount > 0 && (
+          <button
+            type="button"
+            onClick={onViewSingleHistory}
+            className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+          >
+            <History className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>
+              {t.linkImportViewInSingleHistoryBtn} ({singleHistoryCount})
+            </span>
+          </button>
+        )}
       </div>
 
       {/* URL Input Row */}
@@ -478,7 +550,7 @@ export function ProductLinkImportPanel({
           inspectResult.messageMy
         )}
 
-      {/* Execution Error Banner (when inspect succeeded but import failed) */}
+      {/* Execution Error Banner */}
       {importError &&
         inspectResult?.ok &&
         renderFailureBanner(
@@ -490,8 +562,8 @@ export function ProductLinkImportPanel({
           importError.my
         )}
 
-      {/* Identified Product Card */}
-      {inspectResult?.ok && inspectResult.productId && !importedResult && (
+      {/* Identified Product Inspection & Confirmation Card */}
+      {inspectResult?.ok && inspectResult.productId && (
         <div className="mt-4 p-4 sm:p-5 bg-zinc-50/70 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
@@ -546,8 +618,8 @@ export function ProductLinkImportPanel({
             </div>
           </div>
 
-          {/* Case A: Duplicate Already in Workspace */}
-          {inspectResult.alreadyInWorkspace && (
+          {/* Case A: Already Available Locally (0 cr) */}
+          {inspectResult.alreadyInWorkspace && existingWorkspaceProduct && (
             <div className="p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1 text-xs">
                 <div className="font-semibold text-zinc-950 dark:text-zinc-50">
@@ -571,42 +643,29 @@ export function ProductLinkImportPanel({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
-                {existingWorkspaceProduct && (
-                  <>
-                    {onOpenExistingWorkspace && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenExistingWorkspace(existingWorkspaceProduct, inspectResult)}
-                        className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
-                      >
-                        <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>{t.linkImportOpenWorkspaceBtn}</span>
-                      </button>
-                    )}
-                    {!inspectResult.alreadyInWorkspaceSources.includes('results') && (
-                      <button
-                        type="button"
-                        onClick={() => onRestoreExistingToResults(existingWorkspaceProduct)}
-                        className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg cursor-pointer whitespace-nowrap"
-                      >
-                        <span>{t.linkImportRestoreToResultsBtn}</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => onOpenExistingReport(existingWorkspaceProduct)}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-nowrap"
-                    >
-                      <span>{t.linkImportViewExistingBtn}</span>
-                    </button>
-                  </>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenExistingAsSingleResult(existingWorkspaceProduct, inspectResult);
+                    setInspectResult(null);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
+                >
+                  <span>{t.linkImportViewExistingBtn}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenReport(existingWorkspaceProduct)}
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-nowrap"
+                >
+                  <span>{t.linkImportOpenReportBtn}</span>
+                </button>
               </div>
             </div>
           )}
 
-          {/* Case B: Cached in Server or Browser (0 cr) — not yet in active results */}
-          {canImportFromCache && !inspectResult.alreadyInWorkspace && (
+          {/* Case B: Cached in Server or Browser (0 cr) */}
+          {canImportFromCache && (
             <div className="p-3.5 bg-white dark:bg-zinc-900 border border-emerald-200/90 dark:border-emerald-800/60 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <p className="text-xs text-emerald-900 dark:text-emerald-200 leading-relaxed">
                 {t.linkImportCacheNotice}
@@ -685,7 +744,7 @@ export function ProductLinkImportPanel({
 
               {isBalanceInsufficient && (
                 <p className="text-xs text-red-700 dark:text-red-400">
-                  {language === 'my'
+                  {isMy
                     ? `Kalodata လက်ကျန် Credit မလုံလောက်ပါ (${formatCredits(effectiveBalance ?? 0)} cr)။`
                     : `Insufficient Kalodata balance (${formatCredits(effectiveBalance ?? 0)} cr available; ${formatCredits(KALODATA_PRODUCT_DETAIL_CREDIT)} cr required).`}
                 </p>
@@ -730,67 +789,236 @@ export function ProductLinkImportPanel({
         </div>
       )}
 
-      {/* Import Success Strip */}
-      {importedResult && (
+      {/* Unified Single Product Link Research Result (No Separate Workspace, Strictly Isolated from Batch Results) */}
+      {activeSingleResult && activeSingleEvaluation && (
         <div
-          role="status"
-          className="mt-4 p-4 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          role="region"
+          aria-label={t.linkImportSuccessTitle}
+          className="mt-4 border border-emerald-200/90 dark:border-emerald-800/70 bg-emerald-50/35 dark:bg-emerald-950/15 rounded-xl p-4 sm:p-5 space-y-4"
         >
-          <div className="flex items-start gap-2.5 min-w-0">
-            <CheckCircle2
-              className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-            <div className="space-y-1 text-xs min-w-0">
-              <div className="font-semibold text-emerald-950 dark:text-emerald-100">
-                {t.linkImportSuccessTitle} —{' '}
-                <span className="font-mono tabular-nums">
-                  {formatCredits(importedResult.estimatedCreditsCharged)} cr
-                </span>
-              </div>
-              <p className="text-emerald-900 dark:text-emerald-200 truncate font-medium">
-                {importedResult.product.name}
-              </p>
-              <p className="text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                {importedResult.apiCallsMade === 0
-                  ? t.linkImportSuccessCachedDesc
-                  : t.linkImportSuccessPaidDesc}
-              </p>
-              {importedResult.unmappedCategoryNoteEn && (
-                <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  {language === 'my' && importedResult.unmappedCategoryNoteMy
-                    ? importedResult.unmappedCategoryNoteMy
-                    : importedResult.unmappedCategoryNoteEn}
+          {/* Status Header */}
+          <div className="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-emerald-200/70 dark:border-emerald-800/50">
+            <div className="flex items-start gap-2 min-w-0">
+              <CheckCircle2
+                className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5"
+                aria-hidden="true"
+              />
+              <div className="space-y-0.5 text-xs min-w-0">
+                <div className="font-semibold text-emerald-950 dark:text-emerald-100">
+                  {t.linkImportSuccessTitle} ·{' '}
+                  <span className="font-mono tabular-nums">
+                    {formatCredits(activeSingleResult.estimatedCreditsCharged)} cr
+                  </span>
+                </div>
+                <p className="text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
+                  {activeSingleResult.apiCallsMade === 0
+                    ? t.linkImportSuccessCachedDesc
+                    : t.linkImportSuccessPaidDesc}
                 </p>
-              )}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            {onOpenImportedDeepDive && (
-              <button
-                type="button"
-                onClick={() => onOpenImportedDeepDive(importedResult.product)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
-              >
-                <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.linkImportDeepDiveBtn}</span>
-              </button>
-            )}
+
             <button
               type="button"
-              onClick={() => onScrollToResults(importedResult.product.id)}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-nowrap"
+              onClick={onClearActiveSingleResult}
+              aria-label={t.confirmCancelBtn}
+              className="p-1.5 text-zinc-500 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50 rounded-md cursor-pointer shrink-0"
             >
-              <span>{t.linkImportScrollToProductBtn}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenExistingReport(importedResult.product)}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg cursor-pointer whitespace-nowrap"
-            >
-              <span>{t.linkImportOpenReportBtn}</span>
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
+
+          {/* Product Summary Row */}
+          {(() => {
+            const p = activeSingleResult.product;
+            const imgConfig = resolveProductImageDisplayConfig(p);
+            const saved = isSavedProduct(p);
+            const commissionRate =
+              p.commissionVerified && typeof p.commissionRate === 'number'
+                ? `${p.commissionRate.toFixed(1)}%`
+                : typeof p.kalodataMetrics?.commissionRatePct === 'number'
+                  ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
+                  : 'Unavailable';
+            const missingNotes = isMy ? p.missingDataMy : p.missingDataEn;
+            const derivedTiktokUrl = getTikTokShopProductUrl(p);
+            const tiktokHref =
+              activeSingleResult.canonicalUrl ??
+              (isSafeHttpUrl(derivedTiktokUrl) ? derivedTiktokUrl : null);
+
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
+                    {imgConfig.canRender && imgConfig.src ? (
+                      <ProductImage
+                        src={imgConfig.src}
+                        fallbackSrc={imgConfig.fallbackSrc}
+                        productId={imgConfig.productId}
+                        alt={p.name}
+                        title={isMy ? p.nameMy : p.name}
+                        unavailableLabel={t.cardImageUnverified}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                      <span className="font-sans font-medium text-zinc-700 dark:text-zinc-300">
+                        {getCategoryLabel(p.category, language, { short: true })}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span className="tabular-nums">ID: {activeSingleResult.canonicalProductId}</span>
+                      <span aria-hidden="true">·</span>
+                      <span>{formatResearchDateTime(activeSingleResult.researchedAt, language)}</span>
+                    </div>
+
+                    <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
+                      {isMy ? p.nameMy : p.name}
+                    </h3>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span>
+                        {t.linkImportShopLabel}:{' '}
+                        <strong className="font-medium text-zinc-900 dark:text-zinc-100">
+                          {p.shopName || 'Unavailable'}
+                        </strong>
+                      </span>
+                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">·</span>
+                      <span>
+                        {t.linkImportSourceHeading}:{' '}
+                        <strong className="font-mono font-medium text-zinc-900 dark:text-zinc-100">
+                          {formatDataSourceLabel(activeSingleResult.dataSource, isMy)}
+                        </strong>
+                      </span>
+                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">·</span>
+                      <span className="font-mono text-[11px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                        {activeSingleEvaluation.verifiedCount} verified · {activeSingleEvaluation.unavailableCount} unavailable
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Metrics Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
+                  <div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t.linkImportPriceLabel}
+                    </div>
+                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : 'Unavailable'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t.linkImportSalesLabel}
+                    </div>
+                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {formatCompactNumber(p.kalodataMetrics?.salesVolume, isMy)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t.linkImportRevenueLabel}
+                    </div>
+                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {typeof p.kalodataMetrics?.revenueThb === 'number'
+                        ? formatThb(p.kalodataMetrics.revenueThb)
+                        : 'Unavailable'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t.linkImportCommissionLabel}
+                    </div>
+                    <div className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
+                      {commissionRate}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {t.linkImportScoreLabel}
+                    </div>
+                    <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                      {activeSingleEvaluation.totalScore}/100 ({activeSingleEvaluation.confidenceLevel})
+                    </div>
+                  </div>
+                </div>
+
+                {/* Honest Unavailable Data Notice */}
+                {missingNotes.length > 0 && (
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                    <strong className="text-zinc-800 dark:text-zinc-200">
+                      {t.linkImportUnavailableHeading}:
+                    </strong>{' '}
+                    {missingNotes.slice(0, 3).join(' · ')}
+                  </p>
+                )}
+
+                {/* Unified Product Actions */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => onOpenReport(p)}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <span>{t.linkImportOpenReportBtn}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onOpenDeepDive(p)}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{t.linkImportDeepDiveBtn}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onToggleSave(p)}
+                    className={`inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                      saved
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+                    }`}
+                  >
+                    <Bookmark
+                      className={`w-3.5 h-3.5 ${saved ? 'fill-current' : ''}`}
+                      aria-hidden="true"
+                    />
+                    <span>{saved ? t.linkImportSavedBtn : t.linkImportSaveBtn}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onViewSingleHistory}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <History className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{t.linkImportViewInSingleHistoryBtn}</span>
+                  </button>
+
+                  {tiktokHref && (
+                    <a
+                      href={tiktokHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 underline-offset-2 hover:underline whitespace-nowrap"
+                    >
+                      <span>{t.linkImportOpenTikTokBtn}</span>
+                      <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </section>

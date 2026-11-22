@@ -4,6 +4,7 @@ import type {
   ResearchHistoryRecord,
   ResearchProduct,
   SavedProductRecord,
+  SingleProductHistoryRecord,
   StorageWriteResult,
   SyncedKalodataCategoryCache,
 } from '../types/product.ts';
@@ -42,6 +43,12 @@ import {
   saveSyncedKalodataCategories,
   SYNCED_CATEGORIES_SCHEMA_VERSION,
 } from './categoryRegistry.ts';
+import {
+  loadSingleProductHistory,
+  persistSingleProductHistory,
+  sanitizeSingleProductHistoryRecord,
+  upsertSingleProductHistoryRecord,
+} from './singleProductHistoryStorage.ts';
 import { getCanonicalProductId } from './scoring.ts';
 import { isSafeHttpUrl } from './format.ts';
 
@@ -86,6 +93,7 @@ export interface BackupCountsSummary {
 export interface SiamPickBackupDataPayload {
   savedProducts: SavedProductRecord[];
   researchHistory: ResearchHistoryRecord[];
+  singleProductHistory?: SingleProductHistoryRecord[];
   deepDiveHistoryByProduct: Record<string, DeepDiveHistoryRecord[]>;
   latestResearchSession: LatestResearchSessionSnapshot | null;
   enrichmentCache?: EnrichmentCacheEnvelopeV1;
@@ -138,6 +146,7 @@ export interface BackupRestoreResult {
   };
   savedRecords: SavedProductRecord[];
   researchHistory: ResearchHistoryRecord[];
+  singleProductHistory?: SingleProductHistoryRecord[];
   deepDiveHistoryByProduct: Record<string, DeepDiveHistoryRecord[]>;
   latestResearchSession: LatestResearchSessionSnapshot | null;
   syncedCategories: SyncedKalodataCategoryCache | null;
@@ -500,6 +509,12 @@ export function buildSiamPickBackupSnapshot(
   const researchHistory = scope.includeHistory
     ? loadResearchHistory().map(sanitizeHistoryRecord)
     : [];
+  const singleProductHistory = scope.includeHistory
+    ? loadSingleProductHistory().map((rec) => ({
+        ...rec,
+        product: sanitizeProduct(rec.product),
+      }))
+    : [];
   const deepDiveHistoryByProduct = scope.includeDeepDive
     ? loadAllDeepDiveHistoryByProduct()
     : {};
@@ -513,6 +528,7 @@ export function buildSiamPickBackupSnapshot(
   const data: SiamPickBackupDataPayload = scrubUntrustedObject({
     savedProducts,
     researchHistory,
+    ...(singleProductHistory.length > 0 ? { singleProductHistory } : {}),
     deepDiveHistoryByProduct,
     latestResearchSession: latestResearchSession
       ? {
@@ -733,6 +749,22 @@ export function parseAndValidateSiamPickBackup(rawJson: string): BackupParseResu
     }
   }
 
+  // Optional Single Product Research History
+  const singleProductHistory: SingleProductHistoryRecord[] = [];
+  if (Array.isArray(rawData.singleProductHistory)) {
+    for (const item of rawData.singleProductHistory) {
+      const sanitizedSingle = sanitizeSingleProductHistoryRecord(item);
+      if (sanitizedSingle) {
+        singleProductHistory.push({
+          ...sanitizedSingle,
+          product: sanitizeProduct(sanitizedSingle.product),
+        });
+      } else {
+        skippedInvalidCount += 1;
+      }
+    }
+  }
+
   // Optional caches
   const enrichmentCache =
     rawData.enrichmentCache && typeof rawData.enrichmentCache === 'object'
@@ -747,6 +779,7 @@ export function parseAndValidateSiamPickBackup(rawJson: string): BackupParseResu
   const normalizedData: SiamPickBackupDataPayload = {
     savedProducts,
     researchHistory,
+    ...(singleProductHistory.length > 0 ? { singleProductHistory } : {}),
     deepDiveHistoryByProduct,
     latestResearchSession,
     ...(enrichmentCache ? { enrichmentCache } : {}),
@@ -917,6 +950,7 @@ export function restoreSiamPickBackup(
   // Current snapshots before restore
   const currentSaved = loadSavedProducts();
   const currentHistory = loadResearchHistory();
+  const currentSingleHistory = loadSingleProductHistory();
   const currentDeepDive = loadAllDeepDiveHistoryByProduct();
   const currentLatest = loadLatestResearchSession();
 
@@ -942,6 +976,7 @@ export function restoreSiamPickBackup(
 
   let nextHistory = currentHistory;
   let historyAdded = 0;
+  let nextSingleHistory = currentSingleHistory;
 
   if (scope.includeHistory) {
     if (mode === 'replace') {
@@ -957,6 +992,27 @@ export function restoreSiamPickBackup(
       writeErrors.push(writeRes);
       nextHistory = currentHistory;
       historyAdded = 0;
+    }
+
+    const incomingSingle = backup.data.singleProductHistory ?? [];
+    if (mode === 'replace') {
+      nextSingleHistory = incomingSingle;
+      const singleWriteRes = persistSingleProductHistory(nextSingleHistory);
+      if (!singleWriteRes.ok) {
+        writeErrors.push(singleWriteRes);
+        nextSingleHistory = currentSingleHistory;
+      }
+    } else if (incomingSingle.length > 0) {
+      let mergedSingle = [...currentSingleHistory];
+      for (const rec of incomingSingle) {
+        mergedSingle = upsertSingleProductHistoryRecord(mergedSingle, rec);
+      }
+      nextSingleHistory = mergedSingle;
+      const singleWriteRes = persistSingleProductHistory(nextSingleHistory);
+      if (!singleWriteRes.ok) {
+        writeErrors.push(singleWriteRes);
+        nextSingleHistory = currentSingleHistory;
+      }
     }
   }
 
@@ -1055,6 +1111,7 @@ export function restoreSiamPickBackup(
     const allRestoredProducts = [
       ...nextSaved.map((r) => r.product),
       ...nextHistory.flatMap((h) => h.products),
+      ...nextSingleHistory.map((s) => s.product),
     ];
     if (allRestoredProducts.length > 0) {
       absorbProductsIntoEnrichmentCache(allRestoredProducts);
@@ -1108,6 +1165,7 @@ export function restoreSiamPickBackup(
     },
     savedRecords: nextSaved,
     researchHistory: nextHistory,
+    singleProductHistory: nextSingleHistory,
     deepDiveHistoryByProduct: nextDeepDive,
     latestResearchSession: nextLatest,
     syncedCategories,

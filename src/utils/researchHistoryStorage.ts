@@ -603,28 +603,34 @@ export function createResearchHistoryRecord(
  */
 export function getLocalStorageUsageStats(
   historyCountOverride?: number,
-  savedCountOverride?: number
+  savedCountOverride?: number,
+  singleHistoryCountOverride?: number
 ): LocalStorageUsageStats {
+  const SINGLE_HISTORY_KEY = 'siampick_single_product_history_v1';
   const storage = getStorage();
   if (!storage) {
     return {
       historyBytes: 0,
+      singleHistoryBytes: 0,
       savedBytes: 0,
       otherSiamPickBytes: 0,
       totalBytes: 0,
       estimatedQuotaBytes: ESTIMATED_LOCAL_STORAGE_QUOTA_BYTES,
       usagePct: 0,
       historyCount: historyCountOverride ?? 0,
+      singleHistoryCount: singleHistoryCountOverride ?? 0,
       savedCount: savedCountOverride ?? 0,
     };
   }
 
   let historyBytes = 0;
+  let singleHistoryBytes = 0;
   let savedBytes = 0;
   let otherSiamPickBytes = 0;
 
   try {
     historyBytes = byteSizeOfString(storage.getItem(RESEARCH_HISTORY_STORAGE_KEY));
+    singleHistoryBytes = byteSizeOfString(storage.getItem(SINGLE_HISTORY_KEY));
     savedBytes =
       byteSizeOfString(storage.getItem(SAVED_PRODUCTS_STORAGE_KEY)) +
       byteSizeOfString(storage.getItem(SAVED_PRODUCTS_LEGACY_KEY));
@@ -634,6 +640,7 @@ export function getLocalStorageUsageStats(
       if (!k) continue;
       if (
         k === RESEARCH_HISTORY_STORAGE_KEY ||
+        k === SINGLE_HISTORY_KEY ||
         k === SAVED_PRODUCTS_STORAGE_KEY ||
         k === SAVED_PRODUCTS_LEGACY_KEY
       ) {
@@ -647,7 +654,7 @@ export function getLocalStorageUsageStats(
     // Ignore storage inspection error
   }
 
-  const totalBytes = historyBytes + savedBytes + otherSiamPickBytes;
+  const totalBytes = historyBytes + singleHistoryBytes + savedBytes + otherSiamPickBytes;
   const usagePct = Math.min(
     100,
     Math.round((totalBytes / ESTIMATED_LOCAL_STORAGE_QUOTA_BYTES) * 1000) / 10
@@ -655,12 +662,14 @@ export function getLocalStorageUsageStats(
 
   return {
     historyBytes,
+    singleHistoryBytes,
     savedBytes,
     otherSiamPickBytes,
     totalBytes,
     estimatedQuotaBytes: ESTIMATED_LOCAL_STORAGE_QUOTA_BYTES,
     usagePct,
     historyCount: historyCountOverride ?? 0,
+    singleHistoryCount: singleHistoryCountOverride ?? 0,
     savedCount: savedCountOverride ?? 0,
   };
 }

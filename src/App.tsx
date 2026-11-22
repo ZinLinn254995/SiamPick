@@ -46,6 +46,7 @@ import {
   ResearchQuotaStatus,
   ResearchSessionResponse,
   SavedProductRecord,
+  SingleProductHistoryRecord,
   SortDirection,
   StorageWriteResult,
   StrategyPreset,
@@ -104,6 +105,15 @@ import {
   persistResearchHistory,
   type LatestResearchSessionMeta,
 } from './utils/researchHistoryStorage';
+import {
+  createSingleProductHistoryRecord,
+  createSingleProductHistoryRecordFromExisting,
+  deleteSingleProductHistoryRecords,
+  loadSingleProductHistory,
+  persistSingleProductHistory,
+  syncProductInSingleHistory,
+  upsertSingleProductHistoryRecord,
+} from './utils/singleProductHistoryStorage';
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { ResearchSettingsPanel } from './components/ResearchSettingsPanel';
@@ -111,7 +121,7 @@ import { ScoringRubricPanel } from './components/ScoringRubricPanel';
 import { ResearchResultCard } from './components/ResearchResultCard';
 import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
-import { ResearchHistoryView } from './components/ResearchHistoryView';
+import { ResearchHistoryView, type HistoryTab } from './components/ResearchHistoryView';
 import { KalodataBalanceBar } from './components/KalodataBalanceBar';
 import { BestProductsStrip } from './components/BestProductsStrip';
 import { ProductFilterBar } from './components/ProductFilterBar';
@@ -120,25 +130,7 @@ import { BackupRestoreModal, type BackupModalTab } from './components/BackupRest
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
 import { ProductLinkImportPanel } from './components/ProductLinkImportPanel';
-import { ImportedProductWorkspace } from './components/ImportedProductWorkspace';
-import { ImportedPhase3Workspace } from './components/ImportedPhase3Workspace';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
-import {
-  buildImportedWorkspaceContextFromExecute,
-  buildImportedWorkspaceContextFromExisting,
-  loadImportedWorkspaceContext,
-  persistImportedWorkspaceContext,
-  syncImportedWorkspaceProduct,
-  type ImportedWorkspaceContext,
-} from './utils/importedProductWorkspace';
-import {
-  loadImportedLibrary,
-  persistImportedLibrary,
-  syncProductInImportedLibrary,
-  upsertImportedLibraryEntry,
-  type ComparisonCandidateItem,
-  type ImportedLibraryEntry,
-} from './utils/importedPhase3';
 import { useTheme } from './hooks/useTheme';
 import { useKalodataBalance } from './hooks/useKalodataBalance';
 import type {
@@ -344,30 +336,13 @@ export default function App() {
     Record<string, DeepDiveHistoryRecord[]>
   >(() => loadAllDeepDiveHistoryByProduct());
 
-  // Phase 2 (Link Import Product Research Workspace): isolated workspace state & Deep Dive return flag
-  const [importedWorkspace, setImportedWorkspace] = useState<ImportedWorkspaceContext | null>(() =>
-    loadImportedWorkspaceContext()
+  // Single Product Research History (strictly separate storage key & cap from Batch Research History and Batch Recent Results)
+  const [singleProductHistory, setSingleProductHistory] = useState<SingleProductHistoryRecord[]>(
+    () => loadSingleProductHistory()
   );
-  // Phase 3 (Imported Products Library & Comparison Selection): isolated storage key
-  const [importedLibrary, setImportedLibrary] = useState<ImportedLibraryEntry[]>(() => {
-    const loaded = loadImportedLibrary();
-    const active = loadImportedWorkspaceContext();
-    return active ? upsertImportedLibraryEntry(loaded, active) : loaded;
-  });
-  const [selectedImportedCompareItems, setSelectedImportedCompareItems] = useState<
-    ComparisonCandidateItem[]
-  >(() => {
-    const loaded = loadImportedLibrary();
-    const active = loadImportedWorkspaceContext();
-    const merged = active ? upsertImportedLibraryEntry(loaded, active) : loaded;
-    return merged.slice(0, 2).map((entry) => ({
-      canonicalProductId: entry.canonicalProductId,
-      product: entry.product,
-      origin: entry.dataSource,
-      importedAt: entry.importedAt,
-    }));
-  });
-  const [deepDiveEnteredFromImported, setDeepDiveEnteredFromImported] = useState<boolean>(false);
+  const [activeSingleLinkResult, setActiveSingleLinkResult] =
+    useState<SingleProductHistoryRecord | null>(null);
+  const [historyInitialTab, setHistoryInitialTab] = useState<HistoryTab>('records');
 
   // Phase 9.3.1: Authoritative Server-Side Persistent Budget Ledger Status
   const [serverBudgetStatus, setServerBudgetStatus] = useState<{
@@ -385,33 +360,12 @@ export default function App() {
   });
 
   const settingsSectionRef = useRef<HTMLDivElement>(null);
-  const importedWorkspaceSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const huntingInFlightRef = useRef(false);
   const deepDiveInFlightKeysRef = useRef<Set<string>>(new Set());
   const hasMountedSavedRef = useRef(false);
   const hasMountedLatestSessionRef = useRef(false);
-  const hasMountedImportedWorkspaceRef = useRef(false);
-  const hasMountedImportedLibraryRef = useRef(false);
-
-  // Persist active Imported Product Research Workspace across reloads (isolated storage key)
-  useEffect(() => {
-    if (!hasMountedImportedWorkspaceRef.current) {
-      hasMountedImportedWorkspaceRef.current = true;
-      return;
-    }
-    persistImportedWorkspaceContext(importedWorkspace);
-  }, [importedWorkspace]);
-
-  // Persist Imported Products Library across reloads (isolated Phase 3 storage key)
-  useEffect(() => {
-    if (!hasMountedImportedLibraryRef.current) {
-      hasMountedImportedLibraryRef.current = true;
-      return;
-    }
-    persistImportedLibrary(importedLibrary);
-  }, [importedLibrary]);
 
   // Persist Saved Products to localStorage whenever updated (surfaces QuotaExceeded cleanly)
   useEffect(() => {
@@ -625,9 +579,11 @@ export default function App() {
     if (inLive) return inLive;
     const inSaved = savedRecords.find((r) => r.id === id);
     if (inSaved) return inSaved.product;
-    if (importedWorkspace && importedWorkspace.product.id === id) {
-      return importedWorkspace.product;
+    if (activeSingleLinkResult && activeSingleLinkResult.product.id === id) {
+      return activeSingleLinkResult.product;
     }
+    const inSingle = singleProductHistory.find((r) => r.product.id === id);
+    if (inSingle) return inSingle.product;
     if (activeReport && activeReport.product.id === id) return activeReport.product;
     for (const rec of researchHistory) {
       const inHistory = rec.products.find((p) => p.id === id);
@@ -636,21 +592,18 @@ export default function App() {
     return null;
   };
 
-  const isImportedWorkspaceSaved = useMemo(() => {
-    if (!importedWorkspace) return false;
+  const isProductSavedByIdOrCanonical = (targetProduct: ResearchProduct): boolean => {
+    const targetCanonicalId = getCanonicalProductId(targetProduct);
     return savedRecords.some(
       (r) =>
-        r.id === importedWorkspace.product.id ||
-        getCanonicalProductId(r.product) === importedWorkspace.canonicalProductId
+        r.id === targetProduct.id ||
+        (Boolean(targetCanonicalId) && getCanonicalProductId(r.product) === targetCanonicalId)
     );
-  }, [importedWorkspace, savedRecords]);
+  };
 
-  const handleToggleSaveImportedWorkspace = (targetProduct: ResearchProduct) => {
+  const handleToggleSaveProductDirect = (targetProduct: ResearchProduct) => {
     const targetCanonicalId = getCanonicalProductId(targetProduct);
-    const isCurrentlySaved = savedRecords.some(
-      (r) =>
-        r.id === targetProduct.id || getCanonicalProductId(r.product) === targetCanonicalId
-    );
+    const isCurrentlySaved = isProductSavedByIdOrCanonical(targetProduct);
     if (isCurrentlySaved) {
       setSavedRecords((prev) =>
         prev.filter(
@@ -661,7 +614,9 @@ export default function App() {
       );
       return;
     }
-    handleToggleSave(targetProduct.id);
+    const record = createSavedRecord(targetProduct);
+    setSavedRecords((prev) => [record, ...prev.filter((r) => r.id !== targetProduct.id)]);
+    setRejectedIds((prev) => prev.filter((item) => item !== targetProduct.id));
   };
 
   const handleToggleSave = (id: string) => {
@@ -713,6 +668,24 @@ export default function App() {
       }
       return next;
     });
+  };
+
+  const handleDeleteSingleHistoryRecords = (idsToDelete: string[]) => {
+    if (idsToDelete.length === 0) return;
+    const deleteSet = new Set(idsToDelete);
+    setSingleProductHistory((prev) => {
+      const next = deleteSingleProductHistoryRecords(prev, idsToDelete);
+      const writeRes = persistSingleProductHistory(next);
+      if (writeRes.ok) {
+        setStorageAlert(null);
+      } else {
+        setStorageAlert(writeRes);
+      }
+      return next;
+    });
+    setActiveSingleLinkResult((prev) =>
+      prev && (deleteSet.has(prev.id) || deleteSet.has(prev.canonicalProductId)) ? null : prev
+    );
   };
 
   const handleToggleReject = (id: string) => {
@@ -1068,6 +1041,8 @@ export default function App() {
 
   const findWorkspaceProductByCanonicalId = (canonicalId: string): ResearchProduct | null => {
     const cleanTarget = canonicalId.trim();
+    const inSingle = singleProductHistory.find((r) => r.canonicalProductId === cleanTarget);
+    if (inSingle) return inSingle.product;
     const inLive = liveResults.find((p) => getCanonicalProductId(p) === cleanTarget);
     if (inLive) return inLive;
     const inSaved = savedRecords.find((r) => getCanonicalProductId(r.product) === cleanTarget);
@@ -1079,231 +1054,82 @@ export default function App() {
     return null;
   };
 
-  const upsertProductIntoLiveResults = (incoming: ResearchProduct) => {
-    const canonicalTarget = getCanonicalProductId(incoming);
-    absorbProductsIntoEnrichmentCache([incoming]);
-    const hydrated = hydrateProductFromEnrichmentCache(incoming, {
+  /**
+   * Single Product Link Research Handler:
+   * Saves strictly into `siampick_single_product_history_v1` and updates the inline Single Result card.
+   * NEVER modifies `liveResults` (Batch Recent Results), `researchHistory` (Batch History), or `siampick_latest_research_session_v1`.
+   */
+  const handleProductImportedFromLink = (result: LinkImportExecuteResponse) => {
+    absorbProductsIntoEnrichmentCache([result.product]);
+    const hydrated = hydrateProductFromEnrichmentCache(result.product, {
       salesWeightPct,
-      peerProducts: liveResults,
     }).product;
 
-    setLiveResults((prev) => {
-      const filtered = prev.filter((item) => getCanonicalProductId(item) !== canonicalTarget);
-      return [hydrated, ...filtered];
-    });
-    setRejectedIds((prev) =>
-      prev.filter(
-        (rid) =>
-          rid !== hydrated.id &&
-          getCanonicalProductId({ ...hydrated, id: rid }) !== canonicalTarget
-      )
+    const record = createSingleProductHistoryRecord(
+      {
+        ...result,
+        product: hydrated,
+      },
+      salesWeightPct,
+      strategyPreset
     );
-    setDecisionFilter((prev) => (prev === 'rejected' ? 'active' : prev));
-    setFilters((prev) => ({
-      ...prev,
-      category:
-        prev.category !== 'all' && prev.category !== hydrated.category ? 'all' : prev.category,
-      searchQuery: '',
-    }));
-    setResearchSourceMode((prev) => prev ?? 'kalodata-openapi');
-    setResearchedAt((prev) => prev ?? hydrated.researchedAt ?? new Date().toISOString());
-    setSessionMeta((prev) =>
-      prev ?? {
-        requestedQuantity: 1,
-        verifiedProductCount: 1,
-        filteredOutCount: 0,
+
+    setActiveSingleLinkResult(record);
+    setSingleProductHistory((prev) => {
+      const next = upsertSingleProductHistoryRecord(prev, record);
+      const writeRes = persistSingleProductHistory(next);
+      if (!writeRes.ok) {
+        setStorageAlert(writeRes);
+        return prev;
       }
-    );
-    return hydrated;
-  };
-
-  const handleRestoreExistingProductToResults = (product: ResearchProduct) => {
-    upsertProductIntoLiveResults(product);
-    window.setTimeout(() => {
-      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 60);
-  };
-
-  const ensureImportedCandidateInComparison = (item: ComparisonCandidateItem) => {
-    setSelectedImportedCompareItems((prev) => {
-      const idx = prev.findIndex((x) => x.canonicalProductId === item.canonicalProductId);
-      if (idx >= 0) {
-        return prev.map((x, i) => (i === idx ? { ...x, product: item.product } : x));
-      }
-      const next = [...prev, item];
-      return next.length > 6 ? next.slice(next.length - 6) : next;
+      setStorageAlert(null);
+      return next;
     });
-  };
 
-  const handleProductImportedFromLink = (result: LinkImportExecuteResponse) => {
-    const hydrated = upsertProductIntoLiveResults(result.product);
-    const nextWorkspace = buildImportedWorkspaceContextFromExecute({
-      ...result,
-      product: hydrated,
-    });
-    setImportedWorkspace(nextWorkspace);
-    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextWorkspace));
-    ensureImportedCandidateInComparison({
-      canonicalProductId: nextWorkspace.canonicalProductId,
-      product: hydrated,
-      origin: nextWorkspace.dataSource,
-      importedAt: nextWorkspace.importedAt,
-    });
     if (result.apiCallsMade > 0) {
       setBalanceRefreshSignal((prev) => prev + 1);
       void refreshServerBudgetStatus();
-      setLastCostSummary(result.costSummary);
     }
-    window.setTimeout(() => {
-      importedWorkspaceSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 60);
   };
 
-  const handleOpenExistingWorkspace = (
+  /**
+   * Opens an already-local product match from Link Check at 0 credits inside the inline Single Result card
+   * and archives/updates ONLY in Single Product History (never touches Batch Recent Results or Batch History).
+   */
+  const handleOpenExistingAsSingleResult = (
     product: ResearchProduct,
     inspectResult: LinkImportInspectResponse
   ) => {
     const hydrated = hydrateProductFromEnrichmentCache(product, {
       salesWeightPct,
-      peerProducts: liveResults,
     }).product;
-    const nextWorkspace = buildImportedWorkspaceContextFromExisting(hydrated, {
+    const record = createSingleProductHistoryRecordFromExisting(
+      hydrated,
       inspectResult,
-    });
-    setImportedWorkspace(nextWorkspace);
-    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextWorkspace));
-    ensureImportedCandidateInComparison({
-      canonicalProductId: nextWorkspace.canonicalProductId,
-      product: hydrated,
-      origin: nextWorkspace.dataSource,
-      importedAt: nextWorkspace.importedAt,
-    });
-    window.setTimeout(() => {
-      importedWorkspaceSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 60);
-  };
-
-  const handleSelectImportedEntry = (entry: ImportedLibraryEntry) => {
-    const hydrated = hydrateProductFromEnrichmentCache(entry.product, {
       salesWeightPct,
-      peerProducts: liveResults,
-    }).product;
-    const nextCtx: ImportedWorkspaceContext = {
-      schemaVersion: 1,
-      canonicalProductId: entry.canonicalProductId,
-      product: hydrated,
-      importedAt: entry.importedAt,
-      dataSource: entry.dataSource,
-      apiCallsMade: entry.apiCallsMade,
-      estimatedCreditsCharged: entry.estimatedCreditsCharged,
-      canonicalUrl: entry.canonicalUrl,
-      resolvedUrl: entry.resolvedUrl,
-      redirectHops: [],
-      alreadyExistedInWorkspace: true,
-      existingSources: [],
-    };
-    setImportedWorkspace(nextCtx);
-    window.setTimeout(() => {
-      importedWorkspaceSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 60);
-  };
-
-  const handleToggleImportedCompareItem = (item: ComparisonCandidateItem) => {
-    setSelectedImportedCompareItems((prev) => {
-      const exists = prev.some((x) => x.canonicalProductId === item.canonicalProductId);
-      if (exists) {
-        return prev.filter((x) => x.canonicalProductId !== item.canonicalProductId);
+      strategyPreset
+    );
+    setActiveSingleLinkResult(record);
+    setSingleProductHistory((prev) => {
+      const next = upsertSingleProductHistoryRecord(prev, record);
+      const writeRes = persistSingleProductHistory(next);
+      if (!writeRes.ok) {
+        setStorageAlert(writeRes);
+        return prev;
       }
-      const next = [...prev, item];
-      return next.length > 6 ? next.slice(next.length - 6) : next;
+      setStorageAlert(null);
+      return next;
     });
-  };
-
-  const handleAddSimilarToImportedCompare = (
-    product: ResearchProduct,
-    origin: 'kalodata-similar-search' | 'workspace-pool'
-  ) => {
-    const cid = getCanonicalProductId(product);
-    handleToggleImportedCompareItem({
-      canonicalProductId: cid,
-      product,
-      origin,
-    });
-  };
-
-  const handleOpenProductFromSimilar = (product: ResearchProduct) => {
-    const hydrated = hydrateProductFromEnrichmentCache(product, {
-      salesWeightPct,
-      peerProducts: liveResults,
-    }).product;
-    const nextCtx = buildImportedWorkspaceContextFromExisting(hydrated, {
-      existingSources: ['results'],
-    });
-    setImportedWorkspace(nextCtx);
-    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextCtx));
-    ensureImportedCandidateInComparison({
-      canonicalProductId: nextCtx.canonicalProductId,
-      product: hydrated,
-      origin: nextCtx.dataSource,
-      importedAt: nextCtx.importedAt,
-    });
-    window.setTimeout(() => {
-      importedWorkspaceSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start',
-      });
-    }, 60);
-  };
-
-  const handlePhase3ProductEnriched = (updatedProduct: ResearchProduct) => {
-    const cid = getCanonicalProductId(updatedProduct);
-    setImportedLibrary((prev) => syncProductInImportedLibrary(prev, updatedProduct));
-    setSelectedImportedCompareItems((prev) =>
-      prev.map((item) =>
-        item.canonicalProductId === cid ? { ...item, product: updatedProduct } : item
-      )
-    );
-    setImportedWorkspace((prev) =>
-      prev && prev.canonicalProductId === cid
-        ? syncImportedWorkspaceProduct(prev, updatedProduct)
-        : prev
-    );
-    setLiveResults((prev) =>
-      prev.map((item) => (getCanonicalProductId(item) === cid ? updatedProduct : item))
-    );
-    setSavedRecords((prev) =>
-      prev.map((rec) =>
-        getCanonicalProductId(rec.product) === cid ? { ...rec, product: updatedProduct } : rec
-      )
-    );
-    setCompareItems((prev) =>
-      prev.map((item) =>
-        item.canonicalProductId === cid ? { ...item, product: updatedProduct } : item
-      )
-    );
-    setActiveReport((prev) =>
-      prev && getCanonicalProductId(prev.product) === cid
-        ? { ...prev, product: updatedProduct, evaluation: null }
-        : prev
-    );
   };
 
   const handleOpenResultReport = (product: ResearchProduct) => {
     const existingSaved = savedRecords.find((r) => r.id === product.id);
+    const inLive = liveResults.some((p) => p.id === product.id);
     setActiveReport({
       product,
       researchDate: existingSaved?.researchDate ?? product.researchedAt ?? researchedAt,
       evaluation: null,
-      peerProducts: liveResults,
+      peerProducts: inLive ? liveResults : [product],
       sourceView: 'hunting',
     });
   };
@@ -1339,8 +1165,7 @@ export default function App() {
     product: ResearchProduct,
     originView: DeepDiveOriginView,
     researchDateOverride?: string | null,
-    researchModeOverride?: ResearchMode,
-    fromImportedWorkspace = false
+    researchModeOverride?: ResearchMode
   ) => {
     const context = buildDeepDiveTargetContext(
       product,
@@ -1348,7 +1173,6 @@ export default function App() {
       researchModeOverride ?? activeHuntConfig?.researchMode ?? researchMode,
       researchDateOverride ?? product.researchedAt ?? researchedAt
     );
-    setDeepDiveEnteredFromImported(fromImportedWorkspace);
     setActiveReport(null);
     setDeepDiveTarget(context);
     const productHistory = deepDiveHistoryByProduct[context.canonicalProductId] ?? [];
@@ -1365,16 +1189,6 @@ export default function App() {
     );
     setActiveView('deep-dive');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleOpenDeepDiveFromImportedWorkspace = (product: ResearchProduct) => {
-    handleOpenDeepDive(
-      product,
-      'hunting',
-      importedWorkspace?.importedAt ?? product.researchedAt,
-      product.researchMode ?? 'fast',
-      true
-    );
   };
 
   const updateActiveDeepDiveState = (
@@ -1409,12 +1223,17 @@ export default function App() {
 
   const resolveDeepDivePeerProducts = (target: DeepDiveSourceContext): ResearchProduct[] => {
     if (target.originView === 'hunting') {
-      return liveResults;
+      const inBatchResults = liveResults.some(
+        (p) =>
+          p.id === target.originalProductId ||
+          getCanonicalProductId(p) === target.canonicalProductId
+      );
+      return inBatchResults ? liveResults : [target.product];
     }
     if (target.originView === 'saved') {
       return savedRecords.map((rec) => rec.product);
     }
-    // For history origin, prefer the matching history session's products if available
+    // For history origin, prefer the matching batch history session's products if available
     const matchedHistory = researchHistory.find((rec) =>
       rec.products.some(
         (p) =>
@@ -1422,7 +1241,13 @@ export default function App() {
           getCanonicalProductId(p) === target.canonicalProductId
       )
     );
-    return matchedHistory ? matchedHistory.products : liveResults;
+    if (matchedHistory) return matchedHistory.products;
+    const inSingleHistory = singleProductHistory.some(
+      (rec) =>
+        rec.product.id === target.originalProductId ||
+        rec.canonicalProductId === target.canonicalProductId
+    );
+    return inSingleHistory ? [target.product] : liveResults;
   };
 
   const executeDeepDiveForTarget = async (
@@ -1608,30 +1433,28 @@ export default function App() {
         ? { ...prev, product: { ...prev.product, aiAnalysis: analysis } }
         : prev
     );
-    setImportedWorkspace((prev) =>
+    setActiveSingleLinkResult((prev) =>
       prev && matchesProduct(prev.product)
-        ? syncImportedWorkspaceProduct(prev, { ...prev.product, aiAnalysis: analysis })
+        ? { ...prev, product: { ...prev.product, aiAnalysis: analysis } }
         : prev
     );
-    setImportedLibrary((prev) =>
-      prev.map((entry) =>
-        matchesProduct(entry.product)
-          ? { ...entry, product: { ...entry.product, aiAnalysis: analysis } }
-          : entry
-      )
-    );
-    setSelectedImportedCompareItems((prev) =>
-      prev.map((item) =>
-        matchesProduct(item.product)
-          ? { ...item, product: { ...item.product, aiAnalysis: analysis } }
-          : item
-      )
-    );
+    setSingleProductHistory((prev) => {
+      const target = prev.find((r) => matchesProduct(r.product));
+      if (!target) return prev;
+      const next = syncProductInSingleHistory(
+        prev,
+        { ...target.product, aiAnalysis: analysis },
+        salesWeightPct,
+        strategyPreset
+      );
+      persistSingleProductHistory(next);
+      return next;
+    });
   };
 
   /**
    * Phase 4: Propagates newly enriched Product/Shop/Review data across live results,
-   * saved products, and active drawer — automatically reusing fetched Shop Detail across
+   * saved products, single product link history, and active drawer — automatically reusing fetched Shop Detail across
    * ALL other products sharing the exact same Shop ID at 0 extra credits!
    */
   const handleProductEnriched = (
@@ -1683,21 +1506,18 @@ export default function App() {
         ? { ...prev, product: updatedProduct, evaluation: null }
         : prev
     );
-    setImportedWorkspace((prev) => {
+    setActiveSingleLinkResult((prev) => {
       if (!prev) return prev;
-      const nextProd = applyUpdate(prev.product, liveResults);
-      return nextProd !== prev.product
-        ? syncImportedWorkspaceProduct(prev, nextProd)
-        : prev;
+      const nextProd = applyUpdate(prev.product, [prev.product]);
+      return nextProd !== prev.product ? { ...prev, product: nextProd } : prev;
     });
-    setImportedLibrary((prev) => syncProductInImportedLibrary(prev, updatedProduct));
-    setSelectedImportedCompareItems((prev) =>
-      prev.map((item) =>
-        item.canonicalProductId === getCanonicalProductId(updatedProduct)
-          ? { ...item, product: updatedProduct }
-          : item
-      )
-    );
+    setSingleProductHistory((prev) => {
+      const next = syncProductInSingleHistory(prev, updatedProduct, salesWeightPct, strategyPreset);
+      if (next !== prev) {
+        persistSingleProductHistory(next);
+      }
+      return next;
+    });
 
     if (summary && summary.actualApiCalls > 0) {
       setBalanceRefreshSignal((prev) => prev + 1);
@@ -1917,6 +1737,9 @@ export default function App() {
   const handleBackupRestoreComplete = (result: BackupRestoreResult) => {
     setSavedRecords(result.savedRecords);
     setResearchHistory(result.researchHistory);
+    if (result.singleProductHistory) {
+      setSingleProductHistory(result.singleProductHistory);
+    }
     setDeepDiveHistoryByProduct(result.deepDiveHistoryByProduct);
     // Reset in-memory Deep Dive session cache so subsequent opens re-hydrate cleanly from restored history
     setDeepDiveStatesByProduct({});
@@ -1966,8 +1789,9 @@ export default function App() {
         onGoHome={handleGoHome}
         onSelectCategory={handleHeaderCategorySelect}
         onFocusStrategy={handleFocusSettings}
-        historyCount={researchHistory.length}
+        historyCount={researchHistory.length + singleProductHistory.length}
         onToggleHistoryView={() => {
+          setHistoryInitialTab('records');
           setActiveView((prev) => (prev === 'history' ? 'hunting' : 'history'));
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
@@ -2046,9 +1870,12 @@ export default function App() {
             language={language}
           />
         ) : activeView === 'history' ? (
-          /* Dedicated Local Research History & Comparison View */
+          /* Dedicated Local Research History (Batch Research + Single Product History + Comparison) */
           <ResearchHistoryView
             records={researchHistory}
+            singleRecords={singleProductHistory}
+            initialTab={historyInitialTab}
+            onTabChange={setHistoryInitialTab}
             savedCount={savedRecords.length}
             currentSalesWeightPct={salesWeightPct}
             storageAlert={storageAlert}
@@ -2062,6 +1889,7 @@ export default function App() {
               handleOpenDeepDive(targetProduct, 'history', archiveDate, archiveMode)
             }
             onDeleteRecords={handleDeleteHistoryRecords}
+            onDeleteSingleRecords={handleDeleteSingleHistoryRecords}
             onOpenBackupRestore={handleOpenBackupModal}
             onBackToHunting={handleGoHome}
             language={language}
@@ -2097,44 +1925,9 @@ export default function App() {
             onRunSingle={handleDeepDiveRunSingle}
             historyRecords={deepDiveHistoryByProduct[deepDiveTarget.canonicalProductId] ?? []}
             onDeleteHistoryRecord={handleDeleteDeepDiveHistoryRecord}
-            backLabelOverride={
-              deepDiveEnteredFromImported ? t.importedWorkspaceBackFromDeepDiveLabel : undefined
-            }
             onBack={() => {
-              const returnToImported = deepDiveEnteredFromImported;
-              setDeepDiveEnteredFromImported(false);
-              if (returnToImported) {
-                setImportedWorkspace((prev) => {
-                  if (!prev) return prev;
-                  const refreshed = hydrateProductFromEnrichmentCache(prev.product, {
-                    salesWeightPct,
-                    peerProducts: liveResults,
-                  }).product;
-                  if (refreshed !== prev.product) {
-                    setImportedLibrary((lib) => syncProductInImportedLibrary(lib, refreshed));
-                    setSelectedImportedCompareItems((sel) =>
-                      sel.map((item) =>
-                        item.canonicalProductId === prev.canonicalProductId
-                          ? { ...item, product: refreshed }
-                          : item
-                      )
-                    );
-                    return syncImportedWorkspaceProduct(prev, refreshed);
-                  }
-                  return prev;
-                });
-              }
               setActiveView(deepDiveTarget.originView);
-              if (returnToImported) {
-                window.setTimeout(() => {
-                  importedWorkspaceSectionRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  });
-                }, 60);
-              } else {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onOpenProductDetail={() => {
               setActiveReport({
@@ -2145,7 +1938,10 @@ export default function App() {
                     ? (liveEvaluations.get(deepDiveTarget.originalProductId) ?? null)
                     : null,
                 peerProducts:
-                  deepDiveTarget.originView === 'hunting' ? liveResults : undefined,
+                  deepDiveTarget.originView === 'hunting' &&
+                  liveResults.some((p) => p.id === deepDiveTarget.originalProductId)
+                    ? liveResults
+                    : [deepDiveTarget.product],
                 sourceView: deepDiveTarget.originView,
               });
             }}
@@ -2213,7 +2009,7 @@ export default function App() {
               />
             </div>
 
-            {/* Phase 10A: TikTok Shop Product Link Import & Identification */}
+            {/* Unified TikTok Shop Product Link Research (Strictly Separated Single History, Never Alters Batch Results) */}
             <ProductLinkImportPanel
               language={language}
               spendingLimitCredits={spendingLimitCredits}
@@ -2225,96 +2021,36 @@ export default function App() {
               existingHistoryIds={researchHistory.flatMap((rec) =>
                 rec.products.map((p) => getCanonicalProductId(p))
               )}
+              existingSingleHistoryIds={singleProductHistory.map((r) => r.canonicalProductId)}
               budgetStorageAvailable={serverBudgetStatus.storageAvailable}
               serverBudgetRemainingCredits={
                 serverBudgetStatus.snapshot?.remainingCredits ?? null
               }
               liveBalanceCredits={creditBalance.status?.balance ?? null}
+              activeSingleResult={activeSingleLinkResult}
+              singleHistoryCount={singleProductHistory.length}
+              isSavedProduct={isProductSavedByIdOrCanonical}
               onFindExistingProduct={findWorkspaceProductByCanonicalId}
-              onRestoreExistingToResults={handleRestoreExistingProductToResults}
-              onOpenExistingReport={handleOpenResultReport}
-              onOpenExistingWorkspace={handleOpenExistingWorkspace}
-              onOpenImportedDeepDive={handleOpenDeepDiveFromImportedWorkspace}
+              onOpenExistingAsSingleResult={handleOpenExistingAsSingleResult}
+              onClearActiveSingleResult={() => setActiveSingleLinkResult(null)}
+              onOpenReport={handleOpenResultReport}
+              onOpenDeepDive={(targetProduct) =>
+                handleOpenDeepDive(
+                  targetProduct,
+                  'hunting',
+                  activeSingleLinkResult?.researchedAt ?? targetProduct.researchedAt,
+                  'fast'
+                )
+              }
+              onToggleSave={handleToggleSaveProductDirect}
+              onViewSingleHistory={() => {
+                setHistoryInitialTab('single');
+                setActiveView('history');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
               onProductImported={handleProductImportedFromLink}
               onResumeResearch={handleResumeResearch}
-              onScrollToResults={() => {
-                resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
             />
-
-            {/* Phase 2 & Phase 3: Imported Product Research Workspace, Comparison & Similar Finder */}
-            {importedWorkspace ? (
-              <div ref={importedWorkspaceSectionRef} className="scroll-mt-20">
-                <ImportedProductWorkspace
-                  context={importedWorkspace}
-                  language={language}
-                  salesWeightPct={salesWeightPct}
-                  peerProducts={liveResults}
-                  isSaved={isImportedWorkspaceSaved}
-                  isInResults={liveResults.some(
-                    (p) => getCanonicalProductId(p) === importedWorkspace.canonicalProductId
-                  )}
-                  deepDiveRunsCount={
-                    (deepDiveHistoryByProduct[importedWorkspace.canonicalProductId] ?? []).length
-                  }
-                  onToggleSave={handleToggleSaveImportedWorkspace}
-                  onOpenDeepDive={handleOpenDeepDiveFromImportedWorkspace}
-                  onOpenReport={handleOpenResultReport}
-                  onScrollToResults={() => {
-                    resultsSectionRef.current?.scrollIntoView({
-                      behavior: 'smooth',
-                      block: 'start',
-                    });
-                  }}
-                  onClose={() => setImportedWorkspace(null)}
-                />
-                <ImportedPhase3Workspace
-                  language={language}
-                  activeContext={importedWorkspace}
-                  importedLibrary={importedLibrary}
-                  selectedCompareItems={selectedImportedCompareItems}
-                  liveResults={liveResults}
-                  savedProducts={savedRecords.map((r) => r.product)}
-                  historyProducts={researchHistory.flatMap((rec) => rec.products)}
-                  salesWeightPct={salesWeightPct}
-                  spendingLimitCredits={spendingLimitCredits}
-                  syncedCategoryCache={syncedCategoryCache}
-                  serverBudgetRemainingCredits={
-                    serverBudgetStatus.snapshot?.remainingCredits ?? null
-                  }
-                  liveBalanceCredits={creditBalance.status?.balance ?? null}
-                  budgetStorageAvailable={serverBudgetStatus.storageAvailable}
-                  quotaStatus={quotaStatus}
-                  onSelectImportedEntry={handleSelectImportedEntry}
-                  onToggleCompareItem={handleToggleImportedCompareItem}
-                  onClearCompareSelection={() => setSelectedImportedCompareItems([])}
-                  onAddSimilarToCompare={handleAddSimilarToImportedCompare}
-                  onOpenProductFromSimilar={handleOpenProductFromSimilar}
-                  onHydrateOrEnrichProduct={handlePhase3ProductEnriched}
-                  onBudgetChanged={() => {
-                    setBalanceRefreshSignal((n) => n + 1);
-                    void refreshServerBudgetStatus();
-                  }}
-                  onResumeResearch={handleResumeResearch}
-                />
-              </div>
-            ) : importedLibrary.length > 0 ? (
-              <div className="mt-4 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="text-zinc-600 dark:text-zinc-300">
-                  <span className="font-semibold text-zinc-950 dark:text-zinc-50">
-                    {t.phase3ImportedPoolLabel}:
-                  </span>{' '}
-                  <span className="font-mono tabular-nums">{importedLibrary.length}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSelectImportedEntry(importedLibrary[0])}
-                  className="inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <span>{t.linkImportOpenWorkspaceBtn}</span>
-                </button>
-              </div>
-            ) : null}
 
             {/* Kalodata Open Center Free Credit Balance Check */}
             <KalodataBalanceBar language={language} balanceState={creditBalance} />
