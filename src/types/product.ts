@@ -1048,3 +1048,99 @@ export interface CachedAiAnalysisEntry {
   previousAnalyses?: AiProductAnalysis[];
 }
 
+export type LinkImportClassification =
+  | 'valid-product'
+  | 'invalid-link'
+  | 'unsupported-link'
+  | 'product-not-found';
+
+export type LinkImportErrorCode =
+  | 'EMPTY_INPUT'
+  | 'INVALID_URL'
+  | 'SSRF_BLOCKED'
+  | 'UNSUPPORTED_PLATFORM'
+  | 'UNSUPPORTED_TIKTOK_SURFACE'
+  | 'NON_THAILAND_SHOP_LINK'
+  | 'SHORT_LINK_RESOLUTION_FAILED'
+  | 'PRODUCT_NOT_FOUND'
+  | 'CONFIRMATION_REQUIRED'
+  | 'RESEARCH_PAUSED'
+  | 'SPENDING_LIMIT_EXCEEDED'
+  | 'INSUFFICIENT_CREDITS'
+  | 'BUDGET_STORAGE_UNAVAILABLE'
+  | 'IDEMPOTENCY_IN_PROGRESS'
+  | 'IDEMPOTENCY_CONFLICT'
+  | 'MISSING_API_KEY'
+  | 'KALODATA_API_ERROR';
+
+export type LinkImportLinkType =
+  | 'direct-pdp'
+  | 'short-link'
+  | 'redirect-link'
+  | 'share-text'
+  | 'deep-link';
+
+export interface LinkImportBudgetSummary {
+  configuredLimitCredits: number;
+  totalCommittedCredits: number;
+  remainingLimitCredits: number;
+  storageAvailable: boolean;
+  liveBalanceCredits: number | null;
+}
+
+export interface LinkImportInspectResponse {
+  ok: boolean;
+  classification: LinkImportClassification;
+  errorCode?: LinkImportErrorCode;
+  messageEn: string;
+  messageMy: string;
+  extractedInputUrl: string | null;
+  resolvedUrl: string | null;
+  redirectHops: string[];
+  linkType: LinkImportLinkType | null;
+  productId: string | null;
+  canonicalProductId: string | null;
+  canonicalUrl: string | null;
+  slugResolved: boolean;
+  previewTitle: string | null;
+  previewImageUrl: string | null;
+  alreadyInWorkspace: boolean;
+  alreadyInWorkspaceSources: Array<'results' | 'saved' | 'history'>;
+  cachedInServer: boolean;
+  cachedInClient: boolean;
+  requiresPaidApiCall: boolean;
+  estimatedCredits: number;
+  requiresConfirmation: boolean;
+  budgetSummary: LinkImportBudgetSummary | null;
+  quotaPaused: boolean;
+}
+
+export interface LinkImportExecuteResponse {
+  ok: true;
+  product: ResearchProduct;
+  evaluation: OpportunityEvaluation;
+  productDetailRecord: KalodataProductDetailEnrichmentRecord | null;
+  shopDetailRecord: KalodataShopEnrichmentRecord | null;
+  reviewInsightRecord: KalodataReviewInsightData | null;
+  canonicalUrl: string;
+  slugResolved: boolean;
+  resolvedUrl: string;
+  redirectHops: string[];
+  alreadyExistedInWorkspace: boolean;
+  dataSource: 'server-cache' | 'client-cache' | 'kalodata-api' | 'in-flight-shared';
+  apiCallsMade: number;
+  estimatedCreditsCharged: number;
+  creditsBalanceBefore: number | null;
+  creditsBalanceAfter: number | null;
+  unmappedCategoryNoteEn?: string;
+  unmappedCategoryNoteMy?: string;
+  budgetSnapshot?: {
+    scopeKey: string;
+    configuredLimitCredits: number;
+    totalCommittedCredits: number;
+    remainingCredits: number;
+  };
+  costSummary: ResearchCostSummary;
+}
+
+

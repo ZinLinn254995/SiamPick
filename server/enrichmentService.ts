@@ -167,6 +167,26 @@ export function setServerCachedVideoProducts(
   setBoundedEntry(serverVideoProductsCache, cacheKey.trim(), items);
 }
 
+export function getInFlightProductDetailPromise(productId: string) {
+  return inFlightProductDetail.get(productId.trim()) ?? null;
+}
+
+export function setInFlightProductDetailPromise(
+  productId: string,
+  promise: Promise<{
+    record: KalodataProductDetailEnrichmentRecord | null;
+    error?: { en: string; my: string };
+  }>
+): void {
+  const trimmed = productId.trim();
+  if (!trimmed) return;
+  inFlightProductDetail.set(trimmed, promise);
+}
+
+export function deleteInFlightProductDetailPromise(productId: string): void {
+  inFlightProductDetail.delete(productId.trim());
+}
+
 export function clearServerEnrichmentCache(): void {
   serverProductDetailCache.clear();
   serverShopDetailCache.clear();

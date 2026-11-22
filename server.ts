@@ -23,6 +23,12 @@ import { analyzeSingleProductWithGemini } from './server/aiProductAnalysis.ts';
 import { generateDeepDiveAiStrategy } from './server/deepDiveAiService.ts';
 import { EnrichmentApiError, enrichSingleProduct } from './server/enrichmentService.ts';
 import {
+  importTikTokProductFromLink,
+  inspectTikTokProductLink,
+  LinkImportApiError,
+  type LinkImportWorkspaceIds,
+} from './server/linkImportService.ts';
+import {
   BudgetStorageUnavailableError,
   getDefaultBudgetLedger,
   resolveAuthoritativeBudgetScope,
@@ -1055,6 +1061,184 @@ async function startServer() {
         code: 'UPSTREAM_ERROR',
         error: sanitizeServerError(error, 'Unexpected server error during Deep Dive AI analysis.'),
         errorMy: 'Deep Dive AI ခွဲခြမ်းစိတ်ဖြာမှုတွင် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
+  const sanitizeWorkspaceIds = (raw: unknown): LinkImportWorkspaceIds | undefined => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+    const obj = raw as Record<string, unknown>;
+    const cleanList = (arr: unknown): string[] | undefined =>
+      Array.isArray(arr)
+        ? arr
+            .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+            .map((v) => v.trim().slice(0, 80))
+            .slice(0, 500)
+        : undefined;
+    return {
+      results: cleanList(obj.results),
+      saved: cleanList(obj.saved),
+      history: cleanList(obj.history),
+    };
+  };
+
+  const clampLinkSpendingLimit = (raw: unknown): number => {
+    const num =
+      typeof raw === 'number' && Number.isFinite(raw)
+        ? raw
+        : typeof raw === 'string' && raw.trim() !== ''
+          ? Number(raw)
+          : DEFAULT_SPENDING_LIMIT_CREDITS;
+    if (!Number.isFinite(num)) return DEFAULT_SPENDING_LIMIT_CREDITS;
+    return (
+      Math.round(
+        Math.max(MIN_SPENDING_LIMIT_CREDITS, Math.min(MAX_SPENDING_LIMIT_CREDITS, num)) * 1000
+      ) / 1000
+    );
+  };
+
+  // Phase 10A: Zero-Credit TikTok Shop Product Link Inspection & Identification
+  app.post('/api/link-import/inspect', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawInput =
+        typeof body.rawInput === 'string'
+          ? body.rawInput.slice(0, 2000)
+          : typeof body.url === 'string'
+            ? body.url.slice(0, 2000)
+            : '';
+
+      const clientCachedProductDetail =
+        body.clientCachedProductDetail &&
+        typeof body.clientCachedProductDetail === 'object' &&
+        !Array.isArray(body.clientCachedProductDetail) &&
+        typeof (body.clientCachedProductDetail as Record<string, unknown>).productId === 'string'
+          ? (body.clientCachedProductDetail as KalodataProductDetailEnrichmentRecord)
+          : null;
+
+      const result = await inspectTikTokProductLink({
+        rawInput,
+        existingWorkspaceIds: sanitizeWorkspaceIds(body.existingWorkspaceIds),
+        clientCachedProductDetail,
+        spendingLimitCredits: clampLinkSpendingLimit(body.spendingLimitCredits),
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        classification: 'invalid-link',
+        errorCode: 'INVALID_URL',
+        messageEn: sanitizeServerError(error, 'Unexpected error while inspecting TikTok Shop link.'),
+        messageMy: 'TikTok Shop Link ကို စစ်ဆေးစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
+  // Phase 10A: Confirmation-Gated TikTok Shop Product Link Import (reuses Kalodata, Cache, Budget Ledger)
+  app.post('/api/link-import/import', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawInput =
+        typeof body.rawInput === 'string'
+          ? body.rawInput.slice(0, 2000)
+          : typeof body.url === 'string'
+            ? body.url.slice(0, 2000)
+            : '';
+
+      let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+      if (
+        body.resolvedCategoryIdMap &&
+        typeof body.resolvedCategoryIdMap === 'object' &&
+        !Array.isArray(body.resolvedCategoryIdMap)
+      ) {
+        const sanitizedMap: Partial<Record<ProductCategory, string>> = {};
+        for (const [slug, id] of Object.entries(
+          body.resolvedCategoryIdMap as Record<string, unknown>
+        )) {
+          if (
+            isValidProductCategory(slug) &&
+            typeof id === 'string' &&
+            isValidKalodataId(id.trim())
+          ) {
+            sanitizedMap[slug] = id.trim();
+          }
+        }
+        if (Object.keys(sanitizedMap).length > 0) {
+          resolvedCategoryIdMap = sanitizedMap;
+        }
+      }
+
+      const clientCachedProductDetail =
+        body.clientCachedProductDetail &&
+        typeof body.clientCachedProductDetail === 'object' &&
+        !Array.isArray(body.clientCachedProductDetail) &&
+        typeof (body.clientCachedProductDetail as Record<string, unknown>).productId === 'string'
+          ? (body.clientCachedProductDetail as KalodataProductDetailEnrichmentRecord)
+          : null;
+
+      const clientCachedShopDetail =
+        body.clientCachedShopDetail &&
+        typeof body.clientCachedShopDetail === 'object' &&
+        !Array.isArray(body.clientCachedShopDetail) &&
+        typeof (body.clientCachedShopDetail as Record<string, unknown>).shopId === 'string'
+          ? (body.clientCachedShopDetail as KalodataShopEnrichmentRecord)
+          : null;
+
+      const clientCachedReviewInsight =
+        body.clientCachedReviewInsight &&
+        typeof body.clientCachedReviewInsight === 'object' &&
+        !Array.isArray(body.clientCachedReviewInsight) &&
+        typeof (body.clientCachedReviewInsight as Record<string, unknown>).productId === 'string'
+          ? (body.clientCachedReviewInsight as KalodataReviewInsightData)
+          : null;
+
+      const rawWeight =
+        typeof body.salesWeightPct === 'number' && Number.isFinite(body.salesWeightPct)
+          ? Math.max(10, Math.min(90, Math.round(body.salesWeightPct)))
+          : 50;
+
+      const result = await importTikTokProductFromLink({
+        rawInput,
+        existingWorkspaceIds: sanitizeWorkspaceIds(body.existingWorkspaceIds),
+        clientCachedProductDetail,
+        clientCachedShopDetail,
+        clientCachedReviewInsight,
+        resolvedCategoryIdMap,
+        spendingLimitCredits: clampLinkSpendingLimit(body.spendingLimitCredits),
+        salesWeightPct: rawWeight,
+        userConfirmedPaidExecution: body.userConfirmedPaidExecution === true,
+        forceRefresh: body.forceRefresh === true,
+        idempotencyKey:
+          typeof body.idempotencyKey === 'string' ? body.idempotencyKey.slice(0, 128) : undefined,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof LinkImportApiError) {
+        res.status(error.status).json({
+          ok: false,
+          classification: error.classification,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+          quotaPaused: error.code === 'RESEARCH_PAUSED',
+          quotaStatus: error.code === 'RESEARCH_PAUSED' ? getResearchQuotaStatus() : undefined,
+          budgetSnapshot: error.budgetSnapshot,
+        });
+        return;
+      }
+
+      res.status(500).json({
+        ok: false,
+        classification: 'invalid-link',
+        code: 'KALODATA_API_ERROR',
+        error: sanitizeServerError(error, 'Unexpected server error while importing TikTok Shop product link.'),
+        errorMy: 'TikTok Shop Product Link ထည့်သွင်းစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
       });
     }
   });

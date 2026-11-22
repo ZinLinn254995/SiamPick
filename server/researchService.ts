@@ -413,16 +413,18 @@ function computeKalodataPriceStrength(priceThb: number | null): number {
   return 60;
 }
 
-interface KalodataProductEnrichment {
+export interface KalodataProductEnrichment {
   researchMode: ResearchMode;
   productDetail: ParsedProductDetail | null;
   shopDetail: ParsedShopDetail | null;
   commentInsight: ParsedCommentInsight | null;
   matchedVideos?: MyanmarVideoEvidenceItem[];
-  sourceMode?: 'product-rank' | 'video-rank';
+  sourceMode?: 'product-rank' | 'video-rank' | 'link-import';
+  customTikTokShopUrl?: string | null;
+  unmappedCategoryNote?: { en: string; my: string } | null;
 }
 
-function buildKalodataProductSummary(
+export function buildKalodataProductSummary(
   item: Record<string, unknown>,
   mappedCategory: ProductCategory,
   categoryIdsRequested: string[],
@@ -437,8 +439,16 @@ function buildKalodataProductSummary(
   },
   enrichment: KalodataProductEnrichment
 ): ResearchProduct {
-  const { researchMode, productDetail, shopDetail, commentInsight, matchedVideos, sourceMode } =
-    enrichment;
+  const {
+    researchMode,
+    productDetail,
+    shopDetail,
+    commentInsight,
+    matchedVideos,
+    sourceMode,
+    customTikTokShopUrl,
+    unmappedCategoryNote,
+  } = enrichment;
   const productId =
     item.product_id !== undefined && item.product_id !== null
       ? String(item.product_id).trim()
@@ -530,7 +540,8 @@ function buildKalodataProductSummary(
   const subCategory =
     subCategoryParts.length > 0
       ? subCategoryParts.join(' · ')
-      : priCategory?.category_name || getCategoryDefinition(mappedCategory).labelEn;
+      : priCategory?.category_name ||
+        (unmappedCategoryNote ? 'Unverified Category' : getCategoryDefinition(mappedCategory).labelEn);
 
   const hasSalesMetrics = revenueThb !== null || salesVolume !== null;
   const demandLevel = computeKalodataDemandLevel(revenueThb, salesVolume, revenueGrowthRate);
@@ -683,11 +694,20 @@ function buildKalodataProductSummary(
 
   const kalodataProductUrl = `https://www.kalodata.com/product/detail?id=${encodeURIComponent(productId)}&region=TH`;
   const cleanNumericProductId = extractNumericTikTokProductId(productId) ?? '';
-  const tiktokShopProductUrl = cleanNumericProductId
-    ? buildFallbackTikTokShopUrl(cleanNumericProductId)
-    : null;
-  const sourceEndpoints = [sourceMode === 'video-rank' ? 'TH Video Rank' : 'TH Product Rank'];
-  if (productDetail) sourceEndpoints.push('Product Detail');
+  const tiktokShopProductUrl =
+    customTikTokShopUrl && customTikTokShopUrl.trim().length > 0
+      ? customTikTokShopUrl.trim()
+      : cleanNumericProductId
+        ? buildFallbackTikTokShopUrl(cleanNumericProductId)
+        : null;
+  const sourceEndpoints = [
+    sourceMode === 'video-rank'
+      ? 'TH Video Rank'
+      : sourceMode === 'link-import'
+        ? 'Product Detail (Link Import)'
+        : 'TH Product Rank',
+  ];
+  if (productDetail && sourceMode !== 'link-import') sourceEndpoints.push('Product Detail');
   if (shopDetail) sourceEndpoints.push('Shop Detail');
   if (commentInsight) sourceEndpoints.push('Comment Insight');
 
@@ -843,6 +863,10 @@ function buildKalodataProductSummary(
   if (!imageCheck.imageVerified) {
     missingDataEn.push('Verified live product photo from master_image_url.');
     missingDataMy.push('master_image_url မှ စစ်ဆေးအတည်ပြုနိုင်သော Product ဓာတ်ပုံ။');
+  }
+  if (unmappedCategoryNote) {
+    missingDataEn.push(unmappedCategoryNote.en);
+    missingDataMy.push(unmappedCategoryNote.my);
   }
 
   const generalRisksEn: string[] = [];
@@ -1086,7 +1110,7 @@ function buildKalodataProductSummary(
   };
 }
 
-function cachedProductDetailToParsed(
+export function cachedProductDetailToParsed(
   cachedPd: KalodataProductDetailEnrichmentRecord
 ): ParsedProductDetail {
   return {

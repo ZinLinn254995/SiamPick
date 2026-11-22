@@ -28,6 +28,7 @@ import {
   GroundingSourceLink,
   KalodataShopEnrichmentRecord,
   Language,
+  LinkImportExecuteResponse,
   OpportunityEvaluation,
   ProductCategory,
   ProductDecision,
@@ -117,6 +118,7 @@ import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { BackupRestoreModal, type BackupModalTab } from './components/BackupRestoreModal';
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
+import { ProductLinkImportPanel } from './components/ProductLinkImportPanel';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
 import { useTheme } from './hooks/useTheme';
 import { useKalodataBalance } from './hooks/useKalodataBalance';
@@ -968,6 +970,73 @@ export default function App() {
     }
   };
 
+  const findWorkspaceProductByCanonicalId = (canonicalId: string): ResearchProduct | null => {
+    const cleanTarget = canonicalId.trim();
+    const inLive = liveResults.find((p) => getCanonicalProductId(p) === cleanTarget);
+    if (inLive) return inLive;
+    const inSaved = savedRecords.find((r) => getCanonicalProductId(r.product) === cleanTarget);
+    if (inSaved) return inSaved.product;
+    for (const rec of researchHistory) {
+      const inHistory = rec.products.find((p) => getCanonicalProductId(p) === cleanTarget);
+      if (inHistory) return inHistory;
+    }
+    return null;
+  };
+
+  const upsertProductIntoLiveResults = (incoming: ResearchProduct) => {
+    const canonicalTarget = getCanonicalProductId(incoming);
+    absorbProductsIntoEnrichmentCache([incoming]);
+    const hydrated = hydrateProductFromEnrichmentCache(incoming, {
+      salesWeightPct,
+      peerProducts: liveResults,
+    }).product;
+
+    setLiveResults((prev) => {
+      const filtered = prev.filter((item) => getCanonicalProductId(item) !== canonicalTarget);
+      return [hydrated, ...filtered];
+    });
+    setRejectedIds((prev) =>
+      prev.filter(
+        (rid) =>
+          rid !== hydrated.id &&
+          getCanonicalProductId({ ...hydrated, id: rid }) !== canonicalTarget
+      )
+    );
+    setDecisionFilter((prev) => (prev === 'rejected' ? 'active' : prev));
+    setFilters((prev) => ({
+      ...prev,
+      category:
+        prev.category !== 'all' && prev.category !== hydrated.category ? 'all' : prev.category,
+      searchQuery: '',
+    }));
+    setResearchSourceMode((prev) => prev ?? 'kalodata-openapi');
+    setResearchedAt((prev) => prev ?? hydrated.researchedAt ?? new Date().toISOString());
+    setSessionMeta((prev) =>
+      prev ?? {
+        requestedQuantity: 1,
+        verifiedProductCount: 1,
+        filteredOutCount: 0,
+      }
+    );
+    return hydrated;
+  };
+
+  const handleRestoreExistingProductToResults = (product: ResearchProduct) => {
+    upsertProductIntoLiveResults(product);
+    window.setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  };
+
+  const handleProductImportedFromLink = (result: LinkImportExecuteResponse) => {
+    upsertProductIntoLiveResults(result.product);
+    if (result.apiCallsMade > 0) {
+      setBalanceRefreshSignal((prev) => prev + 1);
+      void refreshServerBudgetStatus();
+      setLastCostSummary(result.costSummary);
+    }
+  };
+
   const handleOpenResultReport = (product: ResearchProduct) => {
     const existingSaved = savedRecords.find((r) => r.id === product.id);
     setActiveReport({
@@ -1802,6 +1871,33 @@ export default function App() {
                 language={language}
               />
             </div>
+
+            {/* Phase 10A: TikTok Shop Product Link Import & Identification */}
+            <ProductLinkImportPanel
+              language={language}
+              spendingLimitCredits={spendingLimitCredits}
+              salesWeightPct={salesWeightPct}
+              syncedCategoryCache={syncedCategoryCache}
+              quotaStatus={quotaStatus}
+              existingResultIds={liveResults.map((p) => getCanonicalProductId(p))}
+              existingSavedIds={savedRecords.map((r) => getCanonicalProductId(r.product))}
+              existingHistoryIds={researchHistory.flatMap((rec) =>
+                rec.products.map((p) => getCanonicalProductId(p))
+              )}
+              budgetStorageAvailable={serverBudgetStatus.storageAvailable}
+              serverBudgetRemainingCredits={
+                serverBudgetStatus.snapshot?.remainingCredits ?? null
+              }
+              liveBalanceCredits={creditBalance.status?.balance ?? null}
+              onFindExistingProduct={findWorkspaceProductByCanonicalId}
+              onRestoreExistingToResults={handleRestoreExistingProductToResults}
+              onOpenExistingReport={handleOpenResultReport}
+              onProductImported={handleProductImportedFromLink}
+              onResumeResearch={handleResumeResearch}
+              onScrollToResults={() => {
+                resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            />
 
             {/* Kalodata Open Center Free Credit Balance Check */}
             <KalodataBalanceBar language={language} balanceState={creditBalance} />

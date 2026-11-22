@@ -546,6 +546,50 @@ export const TRANSLATIONS: Record<
     myanmarTurnOffFilterBtn: string;
     filterMyanmarSignalLabel: string;
     filterMyanmarSignalOnlyOption: string;
+    linkImportHeading: string;
+    linkImportSubtitle: string;
+    linkImportInputPlaceholder: string;
+    linkImportPasteBtn: string;
+    linkImportClearBtn: string;
+    linkImportCheckBtn: string;
+    linkImportCheckingLabel: string;
+    linkImportImportingLabel: string;
+    linkImportSupportedFormatsNote: string;
+    linkImportInvalidTitle: string;
+    linkImportUnsupportedTitle: string;
+    linkImportNotFoundTitle: string;
+    linkImportReadyTitle: string;
+    linkImportProductIdLabel: string;
+    linkImportResolvedUrlLabel: string;
+    linkImportCanonicalUrlLabel: string;
+    linkImportRedirectChainLabel: string;
+    linkImportCostZeroLabel: string;
+    linkImportCostPaidLabel: string;
+    linkImportCacheNotice: string;
+    linkImportDuplicateTitle: string;
+    linkImportDuplicateDesc: string;
+    linkImportDuplicateSourceResults: string;
+    linkImportDuplicateSourceSaved: string;
+    linkImportDuplicateSourceHistory: string;
+    linkImportViewExistingBtn: string;
+    linkImportRestoreToResultsBtn: string;
+    linkImportImportCachedBtn: string;
+    linkImportConfirmPromptTitle: string;
+    linkImportConfirmPromptDesc: string;
+    linkImportConfirmCheckboxLabel: string;
+    linkImportConfirmExecuteBtn: string;
+    linkImportRefreshCacheBtn: string;
+    linkImportPausedBannerTitle: string;
+    linkImportBudgetRemainingLabel: string;
+    linkImportLimitExceededNote: string;
+    linkImportBalanceLabel: string;
+    linkImportStorageBlockedNote: string;
+    linkImportSuccessTitle: string;
+    linkImportSuccessCachedDesc: string;
+    linkImportSuccessPaidDesc: string;
+    linkImportOpenReportBtn: string;
+    linkImportScrollToProductBtn: string;
+    linkImportClipboardUnavailableNote: string;
   }
 > = {
   en: {
@@ -1244,6 +1288,57 @@ export const TRANSLATIONS: Record<
     myanmarTurnOffFilterBtn: 'Turn OFF Myanmar Filter & Edit Settings',
     filterMyanmarSignalLabel: 'Myanmar Match',
     filterMyanmarSignalOnlyOption: 'Confirmed Myanmar Video / Review Only',
+    linkImportHeading: 'Import TikTok Shop Product by Link',
+    linkImportSubtitle:
+      'Paste any Thailand TikTok Shop product URL, short link (vt.tiktok.com), redirect link, or mobile share text. Link checking uses 0 Kalodata credits; uncached Kalodata imports require confirmation.',
+    linkImportInputPlaceholder:
+      'Paste link or mobile share text (e.g. https://vt.tiktok.com/... or https://shop.tiktok.com/th/pdp/...)',
+    linkImportPasteBtn: 'Paste',
+    linkImportClearBtn: 'Clear',
+    linkImportCheckBtn: 'Inspect Link (0 cr)',
+    linkImportCheckingLabel: 'Checking link...',
+    linkImportImportingLabel: 'Importing from Kalodata...',
+    linkImportSupportedFormatsNote:
+      'Supports direct TH PDP URLs, vt.tiktok.com / vm.tiktok.com / tiktok.com/t/ short links, redirect links, and mobile share captions.',
+    linkImportInvalidTitle: 'Invalid or Blocked Link',
+    linkImportUnsupportedTitle: 'Unsupported Link',
+    linkImportNotFoundTitle: 'Product Not Found',
+    linkImportReadyTitle: 'Thailand TikTok Shop Product Identified',
+    linkImportProductIdLabel: 'Product ID',
+    linkImportResolvedUrlLabel: 'Resolved URL',
+    linkImportCanonicalUrlLabel: 'Official TH PDP Link',
+    linkImportRedirectChainLabel: 'Redirect Path',
+    linkImportCostZeroLabel: '0 Kalodata credits (Cache hit)',
+    linkImportCostPaidLabel: '0.1 Kalodata credits (Product Detail)',
+    linkImportCacheNotice: 'Verified product data is already cached — ready to import with 0 API calls.',
+    linkImportDuplicateTitle: 'Already in Your Workspace',
+    linkImportDuplicateDesc:
+      'This Product ID is already loaded in your workspace under another link or session. Zero extra Kalodata call needed.',
+    linkImportDuplicateSourceResults: 'Active Results',
+    linkImportDuplicateSourceSaved: 'Saved Products',
+    linkImportDuplicateSourceHistory: 'Research History',
+    linkImportViewExistingBtn: 'Open Existing Report (0 cr)',
+    linkImportRestoreToResultsBtn: 'Show in Results (0 cr)',
+    linkImportImportCachedBtn: 'Import from Cache (0 cr)',
+    linkImportConfirmPromptTitle: 'Confirm Paid Kalodata Product Detail Call',
+    linkImportConfirmPromptDesc:
+      'This product is not in cache yet. Importing will run 1 Kalodata Product Detail API call (~0.1 credits) using your active Spending Limit and Balance.',
+    linkImportConfirmCheckboxLabel: 'I confirm spending ~0.1 Kalodata credits to import this product.',
+    linkImportConfirmExecuteBtn: 'Confirm & Import Product (0.1 cr)',
+    linkImportRefreshCacheBtn: 'Force Refresh via Kalodata (0.1 cr)',
+    linkImportPausedBannerTitle: 'Paid Kalodata Calls Paused',
+    linkImportBudgetRemainingLabel: 'Remaining Spending Limit',
+    linkImportLimitExceededNote:
+      'Insufficient remaining spending limit for this 0.1 credit call. Increase your Spending Limit in Research Settings above.',
+    linkImportBalanceLabel: 'Live Balance',
+    linkImportStorageBlockedNote:
+      'Persistent budget ledger storage is unavailable, so paid calls are blocked for safety.',
+    linkImportSuccessTitle: 'Product Imported to Results',
+    linkImportSuccessCachedDesc: 'Loaded cleanly from cache (0 Kalodata credits used, no duplicates created).',
+    linkImportSuccessPaidDesc: 'Imported verified Thailand TikTok Shop data from Kalodata.',
+    linkImportOpenReportBtn: 'Open Product Report',
+    linkImportScrollToProductBtn: 'View in Results',
+    linkImportClipboardUnavailableNote: 'Clipboard permission unavailable — please paste manually into the box.',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1941,5 +2036,56 @@ export const TRANSLATIONS: Record<
     myanmarTurnOffFilterBtn: 'မြန်မာ Filter ပိတ်ပြီး ပြန်ချိန်ညှိမည်',
     filterMyanmarSignalLabel: 'မြန်မာ Match',
     filterMyanmarSignalOnlyOption: 'မြန်မာ Video / Review အတည်ပြုပြီး Product များသာ',
+    linkImportHeading: 'TikTok Shop Product Link ထည့်သွင်း၍ စစ်ဆေးမည်',
+    linkImportSubtitle:
+      'Thailand TikTok Shop Product Link၊ Short Link (vt.tiktok.com)၊ Redirect Link သို့မဟုတ် Share Text ကို Paste လုပ်ပါ။ Link စစ်ဆေးခြင်းသည် Kalodata Credit (0 cr) မကုန်ကျပါ။ Cache မရှိသေးမှသာ အတည်ပြုပြီး Import လုပ်နိုင်ပါမည်။',
+    linkImportInputPlaceholder:
+      'Product Link သို့မဟုတ် Share Text ထည့်ပါ (ဥပမာ https://vt.tiktok.com/... သို့မဟုတ် https://shop.tiktok.com/th/pdp/...)',
+    linkImportPasteBtn: 'Paste',
+    linkImportClearBtn: 'ရှင်းမည်',
+    linkImportCheckBtn: 'Link စစ်ဆေးမည် (0 cr)',
+    linkImportCheckingLabel: 'Link ကို စစ်ဆေးနေပါသည်...',
+    linkImportImportingLabel: 'Kalodata မှ Product ဒေတာ ရယူနေပါသည်...',
+    linkImportSupportedFormatsNote:
+      'TH PDP Link တိုက်ရိုက်၊ vt.tiktok.com / vm.tiktok.com / tiktok.com/t/ Short Link၊ Redirect Link နှင့် Mobile Share စာသားများကို ပံ့ပိုးပါသည်။',
+    linkImportInvalidTitle: 'Link ပုံစံ မမှန်ကန်ပါ (သို့) ပိတ်ပင်ထားသည်',
+    linkImportUnsupportedTitle: 'ပံ့ပိုးမထားသော Link',
+    linkImportNotFoundTitle: 'Product ရှာမတွေ့ပါ',
+    linkImportReadyTitle: 'Thailand TikTok Shop Product ကို ခွဲခြားတွေ့ရှိပါသည်',
+    linkImportProductIdLabel: 'Product ID',
+    linkImportResolvedUrlLabel: 'နောက်ဆုံးရရှိသော URL',
+    linkImportCanonicalUrlLabel: 'တရားဝင် TH PDP Link',
+    linkImportRedirectChainLabel: 'Redirect လမ်းကြောင်း',
+    linkImportCostZeroLabel: '0 Kalodata Credits (Cache မှ)',
+    linkImportCostPaidLabel: '0.1 Kalodata Credits (Product Detail)',
+    linkImportCacheNotice: 'ဤ Product ဒေတာသည် Cache ထဲတွင် အသင့်ရှိနေပြီး API ထပ်မခေါ်ဘဲ (0 cr) ထည့်သွင်းနိုင်ပါသည်။',
+    linkImportDuplicateTitle: 'Workspace ထဲတွင် ရှိပြီးသား Product ဖြစ်ပါသည်',
+    linkImportDuplicateDesc:
+      'ဤ Product ID သည် Link မတူသော်လည်း သင့် Workspace ထဲတွင် ရှိပြီးသားဖြစ်ပါသည်။ Duplicate ထပ်မဖြစ်စေဘဲ Kalodata API ထပ်မခေါ်တော့ပါ။',
+    linkImportDuplicateSourceResults: 'လက်ရှိ Results',
+    linkImportDuplicateSourceSaved: 'Saved Products',
+    linkImportDuplicateSourceHistory: 'Research History',
+    linkImportViewExistingBtn: 'ရှိပြီးသား Report ဖွင့်ကြည့်မည် (0 cr)',
+    linkImportRestoreToResultsBtn: 'Results ထဲ ပြန်ပြမည် (0 cr)',
+    linkImportImportCachedBtn: 'Cache မှ ထည့်သွင်းမည် (0 cr)',
+    linkImportConfirmPromptTitle: 'Paid Kalodata Product Detail API ခေါ်ဆိုရန် အတည်ပြုပါ',
+    linkImportConfirmPromptDesc:
+      'ဤ Product သည် Cache ထဲတွင် မရှိသေးပါ။ Import လုပ်ပါက Kalodata Product Detail API ၁ ကြိမ် (~0.1 Credits) ခေါ်ဆိုမည်ဖြစ်ပြီး Spending Limit နှင့် Balance ဖြင့် စစ်ဆေးပါမည်။',
+    linkImportConfirmCheckboxLabel: 'ဤ Product ကို ထည့်သွင်းရန် Kalodata Credit ~0.1 cr အသုံးပြုမည်ကို အတည်ပြုပါသည်။',
+    linkImportConfirmExecuteBtn: 'အတည်ပြုပြီး Product ထည့်သွင်းမည် (0.1 cr)',
+    linkImportRefreshCacheBtn: 'Kalodata မှ အသစ်ပြန်စစ်မည် (0.1 cr)',
+    linkImportPausedBannerTitle: 'Paid Kalodata API များ ယာယီရပ်နားထားသည်',
+    linkImportBudgetRemainingLabel: 'ကျန်ရှိသော Spending Limit',
+    linkImportLimitExceededNote:
+      'ဤ 0.1 Credit Call အတွက် Spending Limit မလုံလောက်ပါ။ အထက်ပါ Research Settings တွင် Spending Limit ကို တိုးမြှင့်ပေးပါ။',
+    linkImportBalanceLabel: 'လက်ရှိ Balance',
+    linkImportStorageBlockedNote:
+      'Persistent Budget Storage မရရှိနိုင်သေးသဖြင့် ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Paid API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။',
+    linkImportSuccessTitle: 'Product ကို Results ထဲသို့ ထည့်သွင်းပြီးပါပြီ',
+    linkImportSuccessCachedDesc: 'Cache မှ အောင်မြင်စွာ ရယူထည့်သွင်းပြီးပါပြီ (0 Kalodata Credits · Duplicate မဖြစ်ပါ)။',
+    linkImportSuccessPaidDesc: 'Kalodata မှ တကယ့် Thailand TikTok Shop Product ဒေတာကို ထည့်သွင်းပြီးပါပြီ။',
+    linkImportOpenReportBtn: 'Product Report ဖွင့်မည်',
+    linkImportScrollToProductBtn: 'Results တွင် ကြည့်မည်',
+    linkImportClipboardUnavailableNote: 'Clipboard ဖတ်ခွင့် မရပါ — Box ထဲသို့ ကိုယ်တိုင် Paste လုပ်ပေးပါ။',
   },
 };
