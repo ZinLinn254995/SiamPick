@@ -11,15 +11,15 @@ import {
   GitCompareArrows,
   HardDrive,
   ImageOff,
+  RotateCcw,
   Trash2,
-  Upload,
 } from 'lucide-react';
 import {
   CategoryFilter,
   DataStatus,
   Language,
+  ProductDecisionVerdict,
   SavedProductRecord,
-  ScoreTier,
 } from '../types/product';
 import {
   formatThb,
@@ -29,6 +29,7 @@ import {
   resolveProductImageDisplayConfig,
 } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
+import { deriveProductDecisionSummary } from '../utils/productAnalytics';
 import {
   buildProductsExportCsv,
   buildProductsExportJson,
@@ -39,6 +40,12 @@ import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistr
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
+import {
+  ScoreRing,
+  StateMessage,
+  StatusDot,
+  VerdictBadge,
+} from './visual';
 
 interface SavedProductsViewProps {
   records: SavedProductRecord[];
@@ -53,17 +60,34 @@ interface SavedProductsViewProps {
 }
 
 type SavedSortKey = 'newest' | 'score-desc' | 'price-asc' | 'price-desc';
+type VerdictFilter = 'all' | ProductDecisionVerdict;
 
-function tierColorClass(tier: ScoreTier): string {
-  if (tier === 'priority-test') return 'text-emerald-700 dark:text-emerald-400';
-  if (tier === 'investigate-further') return 'text-amber-700 dark:text-amber-400';
-  return 'text-zinc-500 dark:text-zinc-400';
-}
+const VERDICT_ORDER: ProductDecisionVerdict[] = [
+  'recommended',
+  'worth-testing',
+  'need-more-data',
+  'not-recommended',
+];
 
-function dataStatusColorClass(status: DataStatus): string {
-  if (status === 'verified') return 'text-emerald-700 dark:text-emerald-400';
-  if (status === 'estimated') return 'text-amber-700 dark:text-amber-400';
-  return 'text-zinc-400 dark:text-zinc-500';
+function verdictChipTone(verdict: ProductDecisionVerdict, active: boolean): string {
+  if (verdict === 'recommended') {
+    return active
+      ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600'
+      : 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70';
+  }
+  if (verdict === 'worth-testing') {
+    return active
+      ? 'bg-amber-700 dark:bg-amber-700 text-white border-amber-700 dark:border-amber-600'
+      : 'bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70 hover:bg-amber-100/80 dark:hover:bg-amber-950/70';
+  }
+  if (verdict === 'not-recommended') {
+    return active
+      ? 'bg-red-700 dark:bg-red-700 text-white border-red-700 dark:border-red-600'
+      : 'bg-red-50/70 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-100/80 dark:hover:bg-red-950/70';
+  }
+  return active
+    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
+    : 'bg-zinc-100/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80';
 }
 
 export function SavedProductsView({
@@ -78,6 +102,7 @@ export function SavedProductsView({
   language,
 }: SavedProductsViewProps) {
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>('all');
   const [sortKey, setSortKey] = useState<SavedSortKey>('newest');
   const [copied, setCopied] = useState(false);
 
@@ -89,24 +114,43 @@ export function SavedProductsView({
     return UNIVERSAL_CATEGORIES.map((c) => c.id).filter((id) => seen.has(id));
   }, [records]);
 
-  const evaluatedRecords = useMemo(() => {
-    const filtered = records.filter((rec) => {
-      if (categoryFilter !== 'all' && rec.product.category !== categoryFilter) {
-        return false;
-      }
-      return true;
-    });
-
+  const allEvaluated = useMemo(() => {
     const allPeers = records.map((r) => r.product);
-    const mapped = filtered.map((record) => ({
-      record,
-      evaluation: evaluateProductOpportunity(record.product, {
+    return records.map((record) => {
+      const evaluation = evaluateProductOpportunity(record.product, {
         salesWeightPct,
         peerProducts: allPeers,
-      }),
-    }));
+      });
+      const decision = deriveProductDecisionSummary(record.product, evaluation);
+      return { record, evaluation, decision };
+    });
+  }, [records, salesWeightPct]);
 
-    return mapped.sort((a, b) => {
+  const categoryScoped = useMemo(() => {
+    if (categoryFilter === 'all') return allEvaluated;
+    return allEvaluated.filter((item) => item.record.product.category === categoryFilter);
+  }, [allEvaluated, categoryFilter]);
+
+  const verdictCounts = useMemo(() => {
+    const counts: Record<ProductDecisionVerdict, number> = {
+      recommended: 0,
+      'worth-testing': 0,
+      'need-more-data': 0,
+      'not-recommended': 0,
+    };
+    for (const item of categoryScoped) {
+      counts[item.decision.verdict] += 1;
+    }
+    return counts;
+  }, [categoryScoped]);
+
+  const evaluatedRecords = useMemo(() => {
+    const filtered =
+      verdictFilter === 'all'
+        ? categoryScoped
+        : categoryScoped.filter((item) => item.decision.verdict === verdictFilter);
+
+    return [...filtered].sort((a, b) => {
       const priceA = a.record.product.priceThb ?? Number.POSITIVE_INFINITY;
       const priceB = b.record.product.priceThb ?? Number.POSITIVE_INFINITY;
       switch (sortKey) {
@@ -125,7 +169,7 @@ export function SavedProductsView({
           return 0;
       }
     });
-  }, [records, categoryFilter, sortKey, salesWeightPct]);
+  }, [categoryScoped, verdictFilter, sortKey]);
 
   const avgScore =
     evaluatedRecords.length > 0
@@ -202,7 +246,7 @@ export function SavedProductsView({
   };
 
   return (
-    <section aria-labelledby="saved-products-heading" className="space-y-8">
+    <section aria-labelledby="saved-products-heading" className="space-y-6">
       {/* Header & Back Navigation */}
       <div className="space-y-4">
         <button
@@ -251,7 +295,7 @@ export function SavedProductsView({
                 className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{isMy ? 'Backup / Restore' : 'Backup / Restore'}</span>
+                <span>Backup / Restore</span>
               </button>
             )}
 
@@ -298,42 +342,61 @@ export function SavedProductsView({
         </div>
       </div>
 
-      {/* Empty State */}
+      {/* Empty State (Single CTA) */}
       {records.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
-          <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
-            <Bookmark className="w-5 h-5" aria-hidden="true" />
-          </div>
-          <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-            {t.shortlistEmptyTitle}
-          </h2>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-            {t.shortlistEmptyDesc}
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToHunting}
-              className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              <span>{t.savedViewBackBtn}</span>
-            </button>
-            {onOpenBackupRestore && (
-              <button
-                type="button"
-                onClick={() => onOpenBackupRestore('restore')}
-                className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                <Upload className="w-4 h-4" aria-hidden="true" />
-                <span>{isMy ? 'Backup မှ ပြန်ယူမည်' : 'Restore from Backup'}</span>
-              </button>
-            )}
-          </div>
-        </div>
+        <StateMessage
+          variant="empty"
+          icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
+          title={t.shortlistEmptyTitle}
+          reason={t.shortlistEmptyDesc}
+          actionLabel={t.savedViewBackBtn}
+          actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+          onAction={onBackToHunting}
+        />
       ) : (
         <>
-          {/* Filter, Summary & Sort Bar */}
+          {/* Verdict Filter Chips */}
+          <div
+            className="flex flex-wrap items-center gap-2"
+            role="group"
+            aria-label={t.filterDecisionLabel}
+          >
+            <button
+              type="button"
+              aria-pressed={verdictFilter === 'all'}
+              onClick={() => setVerdictFilter('all')}
+              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                verdictFilter === 'all'
+                  ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+              }`}
+            >
+              <span>{t.savedVerdictAll}</span>
+              <span className="font-mono tabular-nums opacity-80">{categoryScoped.length}</span>
+            </button>
+
+            {VERDICT_ORDER.map((verdict) => {
+              const count = verdictCounts[verdict];
+              const isActive = verdictFilter === verdict;
+              return (
+                <button
+                  key={verdict}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => setVerdictFilter((prev) => (prev === verdict ? 'all' : verdict))}
+                  className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${verdictChipTone(
+                    verdict,
+                    isActive
+                  )}`}
+                >
+                  <span>{t.decisionVerdictLabels[verdict]}</span>
+                  <span className="font-mono tabular-nums opacity-85">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category Filter, Summary & Sort Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 min-w-0">
               {presentCategories.length <= 4 ? (
@@ -391,12 +454,16 @@ export function SavedProductsView({
               )}
 
               <span className="text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
-                {t.shortlistAvgScore}: <strong className="text-zinc-950 dark:text-zinc-50">{avgScore}/100</strong>
+                {t.shortlistAvgScore}:{' '}
+                <strong className="text-zinc-950 dark:text-zinc-50">{avgScore}/100</strong>
               </span>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
-              <label htmlFor="saved-sort" className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+              <label
+                htmlFor="saved-sort"
+                className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+              >
                 {t.sortLabel}
               </label>
               <select
@@ -413,21 +480,32 @@ export function SavedProductsView({
             </div>
           </div>
 
-          {/* Saved Product Cards */}
+          {/* Saved Product Cards (ResearchResultCard visual look) */}
           {evaluatedRecords.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.emptyFilteredTitle}</p>
-            </div>
+            <StateMessage
+              variant="empty"
+              icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
+              reason={t.emptyFilteredTitle}
+              actionLabel={t.savedResetFiltersBtn}
+              actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+              onAction={() => {
+                setCategoryFilter('all');
+                setVerdictFilter('all');
+              }}
+            />
           ) : (
-            <div className="space-y-4">
-              {evaluatedRecords.map(({ record, evaluation }) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {evaluatedRecords.map(({ record, evaluation, decision }) => {
                 const product = record.product;
                 const displayName = isMy ? product.nameMy : product.name;
-                const subCategory = isMy ? product.subCategoryMy : product.subCategory;
-                const categoryLabel = getCategoryLabel(product.category, language);
+                const categoryLabel = getCategoryLabel(product.category, language, { short: true });
                 const imageConfig = resolveProductImageDisplayConfig(product);
+                const formattedDate = formatResearchDate(record.researchDate, language);
+
                 const hasVerifiedComm =
-                  product.commissionVerified && product.commissionRate !== null;
+                  product.commissionVerified &&
+                  product.commissionRate !== null &&
+                  product.commissionRate > 0;
                 const effectivePriceStatus: DataStatus = normalizeDataStatus(
                   product.priceThb === null || product.priceThb <= 0
                     ? 'unavailable'
@@ -436,214 +514,265 @@ export function SavedProductsView({
                 const effectiveCommissionStatus: DataStatus = hasVerifiedComm
                   ? 'verified'
                   : normalizeDataStatus(product.commissionStatus ?? 'unavailable');
-                const formattedDate = formatResearchDate(record.researchDate, language);
+
+                const salesVolume =
+                  typeof product.kalodataMetrics?.salesVolume === 'number' &&
+                  Number.isFinite(product.kalodataMetrics.salesVolume)
+                    ? product.kalodataMetrics.salesVolume
+                    : null;
+                const salesCriterion = evaluation.criteria.find(
+                  (c) => c.key === 'salesPerformance'
+                );
+                const effectiveSalesStatus: DataStatus = salesCriterion
+                  ? normalizeDataStatus(salesCriterion.verification)
+                  : salesVolume !== null
+                    ? 'verified'
+                    : 'unavailable';
+
+                const creatorNumber =
+                  typeof product.kalodataMetrics?.creatorNumber === 'number' &&
+                  Number.isFinite(product.kalodataMetrics.creatorNumber)
+                    ? product.kalodataMetrics.creatorNumber
+                    : null;
+                const compCriterion = evaluation.criteria.find((c) => c.key === 'competition');
+                const effectiveCompStatus: DataStatus = compCriterion
+                  ? normalizeDataStatus(compCriterion.verification)
+                  : creatorNumber !== null
+                    ? 'verified'
+                    : 'unavailable';
+
+                const isCompared = comparedKeys?.has(`saved:${record.id}`) ?? false;
 
                 return (
                   <article
                     key={record.id}
-                    className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 transition-colors hover:border-zinc-300 dark:hover:border-zinc-700"
+                    className="group bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col transition-all duration-200 hover:border-zinc-400/80 dark:hover:border-zinc-600 hover:shadow-md dark:hover:shadow-black/40"
                   >
-                    <div className="flex flex-col md:flex-row gap-5">
-                      {/* Verified Thumbnail */}
-                      <button
-                        type="button"
-                        onClick={() => onOpenReport(record)}
-                        className="w-full md:w-48 aspect-[4/3] rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 cursor-pointer flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
-                      >
-                        {imageConfig.canRender && imageConfig.src ? (
-                          <ProductImage
-                            src={imageConfig.src}
-                            fallbackSrc={imageConfig.fallbackSrc}
-                            productId={imageConfig.productId}
-                            alt={product.name}
-                            title={displayName}
-                            unavailableLabel={t.cardImageUnverified}
+                    {/* Row 1: Media Thumbnail */}
+                    <button
+                      type="button"
+                      onClick={() => onOpenReport(record)}
+                      className="relative aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 flex items-center justify-center"
+                    >
+                      {imageConfig.canRender && imageConfig.src ? (
+                        <ProductImage
+                          src={imageConfig.src}
+                          fallbackSrc={imageConfig.fallbackSrc}
+                          productId={imageConfig.productId}
+                          alt={product.name}
+                          title={displayName}
+                          unavailableLabel={t.cardImageUnverified}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center p-6 text-center">
+                          <ImageOff
+                            className="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2"
+                            aria-hidden="true"
                           />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center p-4 text-center">
-                            <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1.5" aria-hidden="true" />
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                              {t.cardImageUnverified}
-                            </span>
+                          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                            {t.cardImageUnverified}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+
+                    <div className="p-4 sm:p-5 flex-1 flex flex-col gap-3.5">
+                      {/* Row 2: Title + ScoreRing */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                            <span className="truncate">{categoryLabel}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="truncate">{product.shopName}</span>
                           </div>
-                        )}
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenReport(record)}
+                            className="mt-1 text-left w-full cursor-pointer group/title"
+                          >
+                            <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/title:text-zinc-700 dark:group-hover/title:text-zinc-300 transition-colors">
+                              {displayName}
+                            </h3>
+                          </button>
+                        </div>
 
-                      {/* Main Details */}
-                      <div className="flex-1 min-w-0 flex flex-col justify-between space-y-4">
-                        <div className="space-y-3">
-                          {/* Top Metadata & Score */}
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                                <span>{categoryLabel}</span>
-                                <span aria-hidden="true">·</span>
-                                <span>{subCategory}</span>
-                                <span aria-hidden="true">·</span>
-                                <span className="inline-flex items-center gap-1 font-mono tabular-nums text-zinc-600 dark:text-zinc-400">
-                                  <Calendar className="w-3 h-3 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
-                                  {t.savedResearchDateLabel}: {formattedDate}
-                                </span>
-                              </div>
+                        <ScoreRing
+                          value={evaluation.totalScore}
+                          max={100}
+                          size={56}
+                          className="shrink-0"
+                        />
+                      </div>
 
-                              <button
-                                type="button"
-                                onClick={() => onOpenReport(record)}
-                                className="mt-1.5 text-left cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-                              >
-                                <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
-                                  {displayName}
-                                </h3>
-                              </button>
-                            </div>
+                      {/* Row 3: VerdictBadge + Saved Date & Sources Popover */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <VerdictBadge verdict={decision.verdict} size="sm" language={language} />
 
-                            <div className="text-left md:text-right shrink-0">
-                              <div className="font-mono text-lg font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                {evaluation.totalScore}
-                                <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">/100</span>
-                              </div>
-                              <div className={`text-xs font-medium ${tierColorClass(evaluation.tier)}`}>
-                                {t.scoringTierLabels[evaluation.tier]}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Key Metrics Strip */}
-                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5 border-y border-zinc-100 dark:border-zinc-800/70 text-xs">
-                            <div>
-                              <span className="text-zinc-500 dark:text-zinc-400 mr-1.5">{t.cardPrice}:</span>
-                              {product.priceThb !== null && product.priceThb > 0 ? (
-                                <>
-                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {formatThb(product.priceThb)}
-                                  </span>{' '}
-                                  <span
-                                    className={`text-xs font-medium ${dataStatusColorClass(effectivePriceStatus)}`}
-                                  >
-                                    ({t.dataStatusLabels[effectivePriceStatus]})
-                                  </span>
-                                </>
+                        <div className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="inline-flex items-center gap-1 font-mono tabular-nums">
+                            <Calendar className="w-3 h-3 shrink-0" aria-hidden="true" />
+                            <span>{formattedDate}</span>
+                          </span>
+                          <InfoPopover
+                            label={t.savedSourcesLabel}
+                            title={t.savedSourcesLabel}
+                            content={
+                              record.sources.length === 0 ? (
+                                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                  {t.savedNoSources}
+                                </p>
                               ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500 font-medium">
-                                  {t.dataStatusLabels[effectivePriceStatus]}
-                                </span>
-                              )}
-                            </div>
-
-                            <div>
-                              <span className="text-zinc-500 dark:text-zinc-400 mr-1.5">{t.cardCommission}:</span>
-                              {hasVerifiedComm && product.commissionRate !== null ? (
-                                <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                                  {product.commissionRate}%
-                                </span>
-                              ) : (
-                                <span className="text-zinc-400 dark:text-zinc-500 font-medium">
-                                  {t.dataStatusLabels[effectiveCommissionStatus]}
-                                </span>
-                              )}
-                            </div>
-
-                            <div>
-                              <span className="text-zinc-500 dark:text-zinc-400 mr-1.5">{t.cardConfidence}:</span>
-                              <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                                {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
-                                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                                  ({evaluation.confidencePct}%)
-                                </span>
-                              </span>
-                            </div>
-
-                            <div className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
-                              {evaluation.verifiedCount}/{evaluation.totalCriteria}{' '}
-                              {t.scoringVerifiedCountLabel}
-                            </div>
-                          </div>
-
-                          {/* Saved Research Sources */}
-                          <div className="space-y-1">
-                            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                              {t.savedSourcesLabel}
-                            </div>
-                            {record.sources.length === 0 ? (
-                              <p className="text-xs text-zinc-400 dark:text-zinc-500">{t.savedNoSources}</p>
-                            ) : (
-                              <ul className="space-y-1">
-                                {record.sources.map((src, idx) => {
-                                  const resolvedUrl =
-                                    isLegacyOrSluglessTikTokUrl(src.url)
+                                <ul className="space-y-1.5">
+                                  {record.sources.map((src, idx) => {
+                                    const resolvedUrl = isLegacyOrSluglessTikTokUrl(src.url)
                                       ? (getTikTokShopProductUrl(record) ?? src.url)
                                       : src.url;
-                                  return (
-                                    <li
-                                      key={`${idx}-${resolvedUrl ?? src.labelEn}`}
-                                      className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-400"
-                                    >
-                                      <span className="truncate max-w-xl">
-                                        {isMy ? src.labelMy : src.labelEn}
-                                      </span>
-                                      {src.verified && isSafeHttpUrl(resolvedUrl) ? (
-                                        <a
-                                          href={resolvedUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
-                                        >
-                                          <span>{t.sourceOpenLink}</span>
-                                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                                        </a>
-                                      ) : (
-                                        <span className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
-                                          {t.sourcePendingLink}
+                                    return (
+                                      <li
+                                        key={`${idx}-${resolvedUrl ?? src.labelEn}`}
+                                        className="flex items-center justify-between gap-2 text-xs"
+                                      >
+                                        <span className="truncate text-zinc-700 dark:text-zinc-300">
+                                          {isMy ? src.labelMy : src.labelEn}
                                         </span>
-                                      )}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
+                                        {src.verified && isSafeHttpUrl(resolvedUrl) ? (
+                                          <a
+                                            href={resolvedUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 font-medium text-zinc-950 dark:text-zinc-50 hover:underline whitespace-nowrap shrink-0"
+                                          >
+                                            <span>{t.sourceOpenLink}</span>
+                                            <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                          </a>
+                                        ) : (
+                                          <span className="text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                            {t.sourcePendingLink}
+                                          </span>
+                                        )}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 4: 2x2 Key Metrics with StatusDot */}
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
+                        {/* Price */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            <StatusDot status={effectivePriceStatus} language={language} size="sm" />
+                            <span className="truncate">{t.cardPrice}</span>
+                          </div>
+                          <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
+                            {product.priceThb !== null && product.priceThb > 0
+                              ? formatThb(product.priceThb)
+                              : '—'}
+                          </div>
+                        </div>
+
+                        {/* Commission */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            <StatusDot
+                              status={effectiveCommissionStatus}
+                              language={language}
+                              size="sm"
+                            />
+                            <span className="truncate">{t.cardCommission}</span>
+                          </div>
+                          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums truncate">
+                            {hasVerifiedComm && product.commissionRate !== null ? (
+                              <span className="text-emerald-700 dark:text-emerald-400">
+                                {product.commissionRate}%
+                                {product.estimatedCommissionPerSaleThb !== null && (
+                                  <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400 ml-1">
+                                    (~{formatThb(product.estimatedCommissionPerSaleThb)})
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
                             )}
                           </div>
                         </div>
 
-                        {/* Actions: Open Research Report + Compare + Delete Saved Product */}
-                        <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => onOpenReport(record)}
-                              className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
-                            >
-                              <span>{t.cardOpenReport}</span>
-                              <ArrowUpRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-                            </button>
+                        {/* Sales */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            <StatusDot status={effectiveSalesStatus} language={language} size="sm" />
+                            <span className="truncate">{t.cardSalesLabel}</span>
+                          </div>
+                          <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
+                            {salesVolume !== null ? salesVolume.toLocaleString('en-US') : '—'}
+                          </div>
+                        </div>
 
-                            {onToggleCompareRecord && (
-                              <button
-                                type="button"
-                                onClick={() => onToggleCompareRecord(record)}
-                                aria-pressed={comparedKeys?.has(`saved:${record.id}`) ?? false}
-                                className={`inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3.5 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug ${
-                                  comparedKeys?.has(`saved:${record.id}`)
-                                    ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-500 hover:bg-emerald-800 dark:hover:bg-emerald-500'
-                                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
-                                }`}
-                              >
-                                <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                                <span>
-                                  {comparedKeys?.has(`saved:${record.id}`)
-                                    ? t.compareSelectedBtn
-                                    : t.compareSelectBtn}
+                        {/* Competition */}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            <StatusDot status={effectiveCompStatus} language={language} size="sm" />
+                            <span className="truncate">{t.cardCompetition}</span>
+                          </div>
+                          <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50 truncate">
+                            {creatorNumber !== null ? (
+                              <span className="font-mono tabular-nums">
+                                {creatorNumber.toLocaleString('en-US')}{' '}
+                                <span className="font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                  {t.bestCreatorsUnit}
                                 </span>
-                              </button>
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 dark:text-zinc-500 font-normal">—</span>
                             )}
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Row 5: Actions */}
+                      <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => onOpenReport(record)}
+                          className="w-full inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
+                        >
+                          <span>{t.cardOpenReport}</span>
+                          <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                        </button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          {onToggleCompareRecord && (
+                            <button
+                              type="button"
+                              onClick={() => onToggleCompareRecord(record)}
+                              aria-pressed={isCompared}
+                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer ${
+                                isCompared
+                                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white border-emerald-700 dark:border-emerald-500 hover:bg-emerald-800 dark:hover:bg-emerald-500'
+                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
+                              }`}
+                            >
+                              <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                              <span className="truncate">
+                                {isCompared ? t.compareSelectedBtn : t.compareSelectBtn}
+                              </span>
+                            </button>
+                          )}
 
                           <button
                             type="button"
                             onClick={() => onDelete(record.id)}
-                            className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3.5 py-2 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer ${
+                              onToggleCompareRecord ? '' : 'col-span-2'
+                            }`}
                           >
                             <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                            <span>{t.savedDeleteBtn}</span>
+                            <span className="truncate">{t.savedDeleteBtn}</span>
                           </button>
                         </div>
                       </div>

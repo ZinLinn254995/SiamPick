@@ -74,6 +74,11 @@ import {
   resolveProductImageDisplayConfig,
 } from '../utils/format';
 import {
+  getScrollBehavior,
+  prefersReducedMotion,
+  useBodyScrollLock,
+} from '../hooks/useDialogA11y';
+import {
   DEFAULT_SPENDING_LIMIT_CREDITS,
   formatCredits,
   formatUsd,
@@ -86,10 +91,117 @@ import { evaluateProductOpportunity } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
+import { StateMessage, StatusDot } from './visual';
 import {
   DeepDiveVideoCreativePanel,
   VideoCreativeConfigBar,
 } from './DeepDiveVideoCreativePanel';
+
+interface ModuleHeadlineSummary {
+  status: DataStatus;
+  tone: 'emerald' | 'amber' | 'red' | 'zinc';
+  primaryText: string;
+  secondaryText?: string;
+}
+
+function getModuleHeadlineSummary(
+  slot: DeepDiveAnalysisSlotState,
+  language: Language
+): ModuleHeadlineSummary {
+  const isMy = language === 'my';
+  const t = TRANSLATIONS[language];
+
+  if (slot.status === 'error' && slot.error) {
+    return {
+      status: 'unavailable',
+      tone: 'red',
+      primaryText: t.deepDiveHeadlineError,
+      secondaryText: slot.error.code,
+    };
+  }
+
+  const result = slot.result;
+  if (!result) {
+    return {
+      status: 'unavailable',
+      tone: 'zinc',
+      primaryText:
+        slot.status === 'running'
+          ? isMy
+            ? 'လုပ်ဆောင်နေသည်...'
+            : 'Running...'
+          : t.deepDiveHeadlineNotRun,
+    };
+  }
+
+  // Module 08: AI Business Verdict chip
+  if (result.analysisId === 'ai-strategic-recommendation' && result.aiMeta?.verdict) {
+    const verdict = result.aiMeta.verdict;
+    const tone: ModuleHeadlineSummary['tone'] =
+      verdict === 'priority-test'
+        ? 'emerald'
+        : verdict === 'test-with-caution'
+          ? 'amber'
+          : verdict === 'skip'
+            ? 'red'
+            : 'zinc';
+    return {
+      status: result.dataStatus,
+      tone,
+      primaryText: t.aiVerdictLabels[verdict],
+    };
+  }
+
+  // Module 09: Ad Video Creative Blueprint count chip
+  if (result.analysisId === 'ad-video-creative-blueprint' && result.videoCreative) {
+    const bp = result.videoCreative;
+    const text = t.deepDiveHeadlineReadyScript
+      .replace('{hooks}', String(bp.hooks.length))
+      .replace('{scenes}', String(bp.scriptScenes.length));
+    return {
+      status: result.dataStatus,
+      tone: bp.hooks.length > 0 ? 'emerald' : 'zinc',
+      primaryText: text,
+    };
+  }
+
+  // Modules 01-07 (and fallback): First available key metric
+  const primaryMetric =
+    result.metrics.find((m) => m.status !== 'unavailable') ?? result.metrics[0];
+  if (primaryMetric) {
+    const tone: ModuleHeadlineSummary['tone'] =
+      primaryMetric.status === 'verified'
+        ? 'emerald'
+        : primaryMetric.status === 'estimated'
+          ? 'amber'
+          : 'zinc';
+    return {
+      status: primaryMetric.status,
+      tone,
+      primaryText: isMy ? primaryMetric.valueMy : primaryMetric.valueEn,
+      secondaryText: isMy ? primaryMetric.labelMy : primaryMetric.labelEn,
+    };
+  }
+
+  return {
+    status: result.dataStatus,
+    tone: result.dataStatus === 'verified' ? 'emerald' : result.dataStatus === 'estimated' ? 'amber' : 'zinc',
+    primaryText: isMy ? result.headlineMy : result.headlineEn,
+  };
+}
+
+function headlineChipClass(tone: ModuleHeadlineSummary['tone']): string {
+  if (tone === 'emerald') {
+    return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70';
+  }
+  if (tone === 'amber') {
+    return 'bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70';
+  }
+  if (tone === 'red') {
+    return 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/70';
+  }
+  return 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700';
+}
 
 interface DeepDiveWorkspaceViewProps {
   context: DeepDiveSourceContext;
@@ -274,50 +386,32 @@ function ModuleResultPanel({
     hasError && slot.error ? (
       <div
         role="alert"
-        className="px-4 py-3.5 border-t border-rose-200/80 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/30 space-y-2.5 text-xs"
+        className="px-4 py-3.5 border-t border-red-200 dark:border-red-800/60 bg-red-50/80 dark:bg-red-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2 min-w-0">
-            <AlertCircle
-              className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-            <div className="space-y-0.5 min-w-0">
-              <div className="font-semibold text-rose-900 dark:text-rose-200">
-                {isMy ? 'Analysis လုပ်ဆောင်မှု မအောင်မြင်ပါ' : 'Analysis Failed'}
-                <span className="font-mono text-xs font-normal text-rose-700 dark:text-rose-300 ml-1.5">
-                  ({slot.error.code})
-                </span>
-              </div>
-              <p className="text-rose-800 dark:text-rose-300 leading-relaxed">
-                {isMy ? slot.error.messageMy : slot.error.messageEn}
-              </p>
-            </div>
+        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/80 text-red-600 dark:text-red-400 inline-flex items-center justify-center shrink-0">
+            <AlertCircle className="w-4 h-4" aria-hidden="true" />
           </div>
-
-          <button
-            type="button"
-            onClick={() => onRerun(false)}
-            disabled={isVisuallyRunning}
-            className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium text-rose-800 dark:text-rose-200 bg-white dark:bg-zinc-900 border border-rose-300 dark:border-rose-800 rounded-md hover:border-rose-500 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-          >
-            <RotateCw
-              className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />
-            <span>{isMy ? 'ထပ်စမ်းမည်' : 'Retry'}</span>
-          </button>
+          <p className="text-red-900 dark:text-red-200 leading-snug min-w-0">
+            <span className="font-semibold">
+              {isMy ? slot.error.messageMy : slot.error.messageEn}
+            </span>{' '}
+            <span className="font-mono text-red-700 dark:text-red-400">({slot.error.code})</span>
+          </p>
         </div>
 
-        <div className="text-xs text-rose-700/90 dark:text-rose-300/80">
-          {result
-            ? isMy
-              ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ — အရင်ရရှိထားသော ရလဒ်ကို အောက်တွင် ဆက်လက်ထိန်းသိမ်းထားပါသည်။'
-              : 'Isolated failure — your previous verified result is safely preserved below.'
-            : isMy
-              ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ။'
-              : 'Isolated failure — other Deep Dive modules are unaffected.'}
-        </div>
+        <button
+          type="button"
+          onClick={() => onRerun(false)}
+          disabled={isVisuallyRunning}
+          className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-1.5 text-xs font-medium text-white bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer shrink-0 whitespace-nowrap disabled:opacity-60"
+        >
+          <RotateCw
+            className={`w-3.5 h-3.5 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
+            aria-hidden="true"
+          />
+          <span>{isMy ? 'ထပ်စမ်းမည်' : 'Retry'}</span>
+        </button>
       </div>
     ) : null;
 
@@ -883,6 +977,8 @@ export function DeepDiveWorkspaceView({
     setCopiedTikTokLink(false);
   }, [canonicalProductId]);
 
+  useBodyScrollLock(isCheckoutModalOpen);
+
   // Escape closes Checkout / Budget Modal & traps keyboard focus inside dialog/bottom sheet
   useEffect(() => {
     if (!isCheckoutModalOpen) return;
@@ -1353,10 +1449,12 @@ export function DeepDiveWorkspaceView({
   }, [workspaceState.slots, workspaceState.lastAttemptedRunAt]);
 
   const handleJumpToCard = (id: DeepDiveAnalysisId) => {
+    const reduced = prefersReducedMotion();
     const el = cardRefs.current[id];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
     }
+    if (reduced) return;
     setJumpHighlightId(id);
     if (jumpHighlightTimerRef.current !== null) {
       window.clearTimeout(jumpHighlightTimerRef.current);
@@ -1984,6 +2082,31 @@ export function DeepDiveWorkspaceView({
               >
                 {/* Default Compact Visible Area */}
                 <div className="p-4 space-y-2.5">
+                  {/* Compact Headline Row (Key Number / Verdict Chip + StatusDot, always visible even when collapsed) */}
+                  {(() => {
+                    const hl = getModuleHeadlineSummary(slot, language);
+                    return (
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-zinc-100 dark:border-zinc-800/70">
+                        <div className="inline-flex items-center gap-1.5 min-w-0">
+                          <StatusDot status={hl.status} language={language} size="sm" />
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md border text-xs font-semibold font-mono tabular-nums truncate max-w-[220px] sm:max-w-[260px] ${headlineChipClass(
+                              hl.tone
+                            )}`}
+                            title={hl.primaryText}
+                          >
+                            {hl.primaryText}
+                          </span>
+                        </div>
+                        {hl.secondaryText && (
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                            {hl.secondaryText}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex items-start justify-between gap-3">
                     <label
                       htmlFor={`deep-dive-opt-${option.id}`}
@@ -2228,7 +2351,7 @@ export function DeepDiveWorkspaceView({
                             });
                             window.requestAnimationFrame(() => {
                               videoStudioCardRef.current?.scrollIntoView({
-                                behavior: 'smooth',
+                                behavior: getScrollBehavior(),
                                 block: 'start',
                               });
                             });
@@ -2792,11 +2915,21 @@ export function DeepDiveWorkspaceView({
             className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 space-y-3 text-xs"
           >
             {historyRecords.length === 0 ? (
-              <p className="text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                {isMy
-                  ? 'ဤ Product အတွက် Deep Dive Analysis မှတ်တမ်း မရှိသေးပါ။ အထက်ပါ Module တစ်ခုခုကို Run လိုက်သည်နှင့် Analysis Date၊ Data Source၊ Cost နှင့် Result Status များကို ဤနေရာတွင် အလိုအလျောက် သိမ်းဆည်းပေးပါမည်။'
-                  : 'No Deep Dive history saved for this product yet. Once you run any analysis module above, its date, data sources, cost, and result status will be saved here automatically.'}
-              </p>
+              <StateMessage
+                variant="empty"
+                compact
+                icon={<History className="w-4 h-4" aria-hidden="true" />}
+                reason={
+                  isMy
+                    ? 'ဤကုန်ပစ္စည်းအတွက် Deep Dive မှတ်တမ်း မရှိသေးပါ။'
+                    : 'No Deep Dive history saved for this product yet.'
+                }
+                actionLabel={isMy ? 'အပိုင်း 01-09 ကြည့်မည်' : 'Go to Modules'}
+                onAction={() => {
+                  const first = cardRefs.current['product-intelligence'];
+                  first?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
+                }}
+              />
             ) : (
               <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800">
                 {historyRecords.map((rec) => {
@@ -2893,7 +3026,7 @@ export function DeepDiveWorkspaceView({
                                 setShowFinalReport(true);
                                 window.requestAnimationFrame(() => {
                                   finalReportRef.current?.scrollIntoView({
-                                    behavior: 'smooth',
+                                    behavior: getScrollBehavior(),
                                     block: 'nearest',
                                   });
                                 });
@@ -3040,9 +3173,9 @@ export function DeepDiveWorkspaceView({
               type="button"
               onClick={() => setRunFeedbackToast(null)}
               aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
-              className="p-1 opacity-75 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+              className="w-10 h-10 -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
             >
-              <X className="w-3.5 h-3.5" aria-hidden="true" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         )}
@@ -3074,10 +3207,10 @@ export function DeepDiveWorkspaceView({
                             ? `0${opt.order}. ${opt.nameMy} ဖြုတ်မည်`
                             : `Remove 0${opt.order}. ${opt.nameEn}`
                         }
-                        className="inline-flex items-center gap-0.5 min-h-[28px] px-2 py-0.5 text-xs font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 min-h-[40px] sm:min-h-[32px] px-2.5 sm:px-2 py-1 text-xs font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <span>0{opt.order}</span>
-                        <X className="w-2.5 h-2.5 opacity-70" aria-hidden="true" />
+                        <X className="w-3 h-3 opacity-75" aria-hidden="true" />
                       </button>
                     ))}
                 </div>
@@ -3139,7 +3272,7 @@ export function DeepDiveWorkspaceView({
               type="button"
               data-testid="deep-dive-open-budget-modal-btn"
               onClick={() => setIsBudgetModalOpen(true)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
               title={isMy ? 'Spending Limit နှင့် ကုန်ကျစရိတ် စစ်ဆေးရန်' : 'Spending Limit & Cost Details'}
             >
               <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -3154,7 +3287,7 @@ export function DeepDiveWorkspaceView({
                 type="button"
                 onClick={onClearAll}
                 disabled={isAnyRunning}
-                className="min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-45 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-45 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
               >
                 {isMy ? 'ဖြုတ်' : 'Clear'}
               </button>
@@ -3165,7 +3298,7 @@ export function DeepDiveWorkspaceView({
               data-testid="deep-dive-sticky-run-btn"
               onClick={handleRequestBatchRun}
               disabled={!canRun || isAnyRunning}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 sm:px-4 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 sm:px-4 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
               {isAnyRunning ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
@@ -3425,7 +3558,7 @@ export function DeepDiveWorkspaceView({
                           type="button"
                           onClick={() => onToggleOption('customer-review-intelligence')}
                           disabled={isAnyRunning}
-                          className="inline-flex items-center justify-center gap-1 min-h-[32px] px-2.5 py-1 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                          className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-1.5 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                         >
                           <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>
@@ -3484,7 +3617,7 @@ export function DeepDiveWorkspaceView({
                           onClick={() =>
                             handleSpendingLimitUpdate(modalBudgetGuard.recommendedMinimumLimit)
                           }
-                          className="inline-flex items-center justify-center min-h-[32px] px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                          className="inline-flex items-center justify-center min-h-[40px] px-3 py-1.5 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                         >
                           {isMy
                             ? `Limit ကို ${formatCredits(modalBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
@@ -3534,14 +3667,14 @@ export function DeepDiveWorkspaceView({
                             handleSpendingLimitUpdate(parsed);
                           }
                         }}
-                        className="w-24 min-h-[34px] px-2.5 py-1 text-xs font-mono tabular-nums text-zinc-950 dark:text-zinc-50 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                        className="w-24 min-h-[40px] px-2.5 py-1.5 text-xs font-mono tabular-nums text-zinc-950 dark:text-zinc-50 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
                       />
                       {SPENDING_LIMIT_PRESETS.map((preset) => (
                         <button
                           key={preset}
                           type="button"
                           onClick={() => handleSpendingLimitUpdate(preset)}
-                          className={`min-h-[34px] px-2.5 py-1 text-xs font-mono tabular-nums rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`min-h-[40px] px-3 py-1.5 text-xs font-mono tabular-nums rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                             Math.abs(effectiveSpendingLimit - preset) < 1e-6
                               ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                               : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'

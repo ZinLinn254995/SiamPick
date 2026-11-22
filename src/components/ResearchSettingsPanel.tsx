@@ -937,7 +937,7 @@ export function ResearchSettingsPanel({
 
           <div className="flex flex-wrap sm:flex-nowrap items-stretch gap-2">
             <div
-              className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex-1 min-w-[200px]"
+              className="grid grid-cols-3 gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg w-full sm:w-auto sm:flex-1 sm:min-w-[200px]"
               role="group"
               aria-label={t.settingQuantityLabel}
             >
@@ -946,7 +946,7 @@ export function ResearchSettingsPanel({
                   key={qty}
                   type="button"
                   onClick={() => onQuantityChange(qty)}
-                  className={`min-h-[38px] px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all cursor-pointer whitespace-nowrap text-center font-mono tabular-nums ${
+                  className={`min-h-[40px] px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all cursor-pointer whitespace-nowrap text-center font-mono tabular-nums ${
                     quantity === qty
                       ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'

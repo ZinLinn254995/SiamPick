@@ -204,9 +204,9 @@ export function StatusLegendPopover({
                   setOpen(false);
                 }}
                 aria-label={t.reportClose}
-                className="w-7 h-7 -mt-1 -mr-1 rounded-full inline-flex items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 touch-manipulation"
+                className="w-10 h-10 -mt-2 -mr-2 rounded-full inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 touch-manipulation"
               >
-                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 

@@ -22,3 +22,7 @@ export type { StatusLegendPopoverProps } from './StatusLegendPopover';
 export { ResearchResultCardSkeleton } from './ResearchResultCardSkeleton';
 export type { ResearchResultCardSkeletonProps } from './ResearchResultCardSkeleton';
 
+export { StateMessage } from './StateMessage';
+export type { StateMessageProps } from './StateMessage';
+
+

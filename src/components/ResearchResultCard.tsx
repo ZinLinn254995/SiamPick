@@ -132,7 +132,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
       : t.competitionLabels[product.competitionLevel];
 
   const competitionColor = competitionUnavailable
-    ? 'text-zinc-400 dark:text-zinc-500'
+    ? 'text-zinc-600 dark:text-zinc-400'
     : product.competitionLevel === 'Low'
       ? 'text-emerald-700 dark:text-emerald-400'
       : product.competitionLevel === 'Moderate'
@@ -341,7 +341,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
                 className={`font-mono text-base font-bold tabular-nums shrink-0 ${
                   hasVerifiedCommission && product.commissionRate !== null
                     ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-zinc-400 dark:text-zinc-500'
+                    : 'text-zinc-600 dark:text-zinc-400'
                 }`}
               >
                 {hasVerifiedCommission && product.commissionRate !== null
@@ -368,7 +368,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
               className={`mt-0.5 font-mono text-base font-bold tabular-nums truncate ${
                 hasSalesVolume
                   ? 'text-zinc-950 dark:text-zinc-50'
-                  : 'text-zinc-400 dark:text-zinc-500'
+                  : 'text-zinc-600 dark:text-zinc-400'
               }`}
             >
               {hasSalesVolume
@@ -450,7 +450,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
             aria-pressed={isSaved}
             className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
               isSaved
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white hover:bg-emerald-800 dark:hover:bg-emerald-500'
+                ? 'bg-emerald-700 dark:bg-emerald-700 text-white hover:bg-emerald-800 dark:hover:bg-emerald-600'
                 : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
             }`}
           >

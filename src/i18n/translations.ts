@@ -659,6 +659,31 @@ export const TRANSLATIONS: Record<
     deepDiveAriaRunning: string;
     deepDiveAriaFinished: string;
     deepDiveAriaFailed: string;
+    compareBestInMetrics: string;
+    compareBestBadge: string;
+    compareRowOverallScore: string;
+    compareRowVerdict: string;
+    compareRowPrice: string;
+    compareRowCommission: string;
+    compareRowSales: string;
+    compareRowRevenue: string;
+    compareRowCompetition: string;
+    compareRowAiContent: string;
+    compareRowConfidence: string;
+    compareClosePickMoreBtn: string;
+    compareImprovedChip: string;
+    compareDeclinedChip: string;
+    compareUnchangedChip: string;
+    comparePeriodApartLabel: string;
+    compareBeforeLabel: string;
+    compareAfterLabel: string;
+    compareResetFilterBtn: string;
+    compareSwapSessionsBtn: string;
+    savedVerdictAll: string;
+    savedResetFiltersBtn: string;
+    deepDiveHeadlineNotRun: string;
+    deepDiveHeadlineError: string;
+    deepDiveHeadlineReadyScript: string;
   }
 > = {
   en: {
@@ -1505,6 +1530,31 @@ export const TRANSLATIONS: Record<
     deepDiveAriaRunning: 'Running Module {nums}...',
     deepDiveAriaFinished: 'Module {nums} finished {time}',
     deepDiveAriaFailed: 'Module {nums} failed {time}',
+    compareBestInMetrics: 'Best in {n} of {total} metrics',
+    compareBestBadge: 'Best',
+    compareRowOverallScore: 'Overall Score',
+    compareRowVerdict: 'Verdict',
+    compareRowPrice: 'Price',
+    compareRowCommission: 'Commission',
+    compareRowSales: 'Sales',
+    compareRowRevenue: 'Revenue',
+    compareRowCompetition: 'Competition',
+    compareRowAiContent: 'AI Content',
+    compareRowConfidence: 'Data Confidence',
+    compareClosePickMoreBtn: 'Select Products',
+    compareImprovedChip: 'Improved',
+    compareDeclinedChip: 'Declined',
+    compareUnchangedChip: 'Unchanged',
+    comparePeriodApartLabel: 'Period between runs',
+    compareBeforeLabel: 'Before',
+    compareAfterLabel: 'After',
+    compareResetFilterBtn: 'Show all',
+    compareSwapSessionsBtn: 'Use latest 2 runs',
+    savedVerdictAll: 'All Verdicts',
+    savedResetFiltersBtn: 'Clear Filters',
+    deepDiveHeadlineNotRun: 'Not run yet',
+    deepDiveHeadlineError: 'Failed',
+    deepDiveHeadlineReadyScript: '{hooks} hooks · {scenes} scenes',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -2350,5 +2400,30 @@ export const TRANSLATIONS: Record<
     deepDiveAriaRunning: 'အပိုင်း {nums} လုပ်ဆောင်နေသည်...',
     deepDiveAriaFinished: 'အပိုင်း {nums} ပြီးစီးပြီး {time}',
     deepDiveAriaFailed: 'အပိုင်း {nums} မအောင်မြင်ပါ {time}',
+    compareBestInMetrics: 'အချက် {total} ခုအနက် {n} ခု အကောင်းဆုံး',
+    compareBestBadge: 'အကောင်းဆုံး',
+    compareRowOverallScore: 'စုစုပေါင်းအမှတ်',
+    compareRowVerdict: 'ဆုံးဖြတ်ချက်',
+    compareRowPrice: 'ဈေးနှုန်း',
+    compareRowCommission: 'ကော်မရှင်',
+    compareRowSales: 'ရောင်းအား',
+    compareRowRevenue: 'ဝင်ငွေ',
+    compareRowCompetition: 'ပြိုင်ဆိုင်မှု',
+    compareRowAiContent: 'AI Content',
+    compareRowConfidence: 'ဒေတာယုံကြည်စိတ်ချရမှု',
+    compareClosePickMoreBtn: 'ကုန်ပစ္စည်း ရွေးချယ်မည်',
+    compareImprovedChip: 'တိုးတက်',
+    compareDeclinedChip: 'ကျဆင်း',
+    compareUnchangedChip: 'မပြောင်းလဲ',
+    comparePeriodApartLabel: 'ရှာဖွေမှု 2 ခုကြား ကွာဟချိန်',
+    compareBeforeLabel: 'ယခင်',
+    compareAfterLabel: 'ယခု',
+    compareResetFilterBtn: 'အားလုံးပြမည်',
+    compareSwapSessionsBtn: 'နောက်ဆုံး 2 ခု ရွေးမည်',
+    savedVerdictAll: 'ဆုံးဖြတ်ချက်အားလုံး',
+    savedResetFiltersBtn: 'စစ်ထုတ်မှု ရှင်းမည်',
+    deepDiveHeadlineNotRun: 'မစစ်ဆေးရသေးပါ',
+    deepDiveHeadlineError: 'မအောင်မြင်ပါ',
+    deepDiveHeadlineReadyScript: 'Hook {hooks} ခု · Scene {scenes} ခု',
   },
 };

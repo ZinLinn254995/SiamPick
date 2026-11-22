@@ -45,6 +45,7 @@ import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
+import { StateMessage } from './visual';
 
 interface ProductLinkImportPanelProps {
   language: Language;
@@ -391,41 +392,24 @@ export function ProductLinkImportPanel({
     messageEn: string,
     messageMy?: string
   ) => {
-    const isUnsupported = classification === 'unsupported-link';
     const IconComp =
       classification === 'product-not-found'
         ? SearchX
-        : isUnsupported
+        : classification === 'unsupported-link'
           ? AlertTriangle
           : AlertCircle;
-    const containerClass = isUnsupported
-      ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/70 text-amber-950 dark:text-amber-100'
-      : 'bg-red-50/70 dark:bg-red-950/30 border-red-200 dark:border-red-800/70 text-red-950 dark:text-red-100';
-    const iconClass = isUnsupported
-      ? 'text-amber-600 dark:text-amber-400'
-      : 'text-red-600 dark:text-red-400';
 
     return (
-      <div
-        role="alert"
-        className={`mt-4 p-4 rounded-xl border text-xs sm:text-sm ${containerClass}`}
-      >
-        <div className="flex items-start gap-2.5">
-          <IconComp className={`w-4 h-4 shrink-0 mt-0.5 ${iconClass}`} aria-hidden="true" />
-          <div className="space-y-1 min-w-0">
-            <div className="font-semibold">{title}</div>
-            <p className="leading-relaxed opacity-90">
-              {isMy && messageMy ? messageMy : messageEn}
-            </p>
-            {inspectResult?.resolvedUrl &&
-              inspectResult.resolvedUrl !== inspectResult.extractedInputUrl && (
-                <p className="font-mono text-xs opacity-75 break-all">
-                  {t.linkImportResolvedUrlLabel}: {inspectResult.resolvedUrl}
-                </p>
-              )}
-          </div>
-        </div>
-      </div>
+      <StateMessage
+        variant="error"
+        compact
+        className="mt-4"
+        icon={<IconComp className="w-4 h-4" aria-hidden="true" />}
+        title={title}
+        reason={isMy && messageMy ? messageMy : messageEn}
+        actionLabel={t.linkImportClearBtn}
+        onAction={handleClear}
+      />
     );
   };
 

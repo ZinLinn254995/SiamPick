@@ -12,7 +12,7 @@ export interface MiniBarProps {
 
 const FILL_CLASSES: Record<MiniBarTone, string> = {
   emerald: 'bg-emerald-600 dark:bg-emerald-400',
-  amber: 'bg-amber-500 dark:bg-amber-400',
+  amber: 'bg-amber-600 dark:bg-amber-400',
   red: 'bg-red-600 dark:bg-red-400',
   zinc: 'bg-zinc-500 dark:bg-zinc-400',
   sky: 'bg-sky-600 dark:bg-sky-400',
@@ -55,16 +55,16 @@ export function MiniBar({
       : '—');
 
   return (
-    <div className={`flex items-center gap-2.5 sm:gap-3 min-w-0 ${className}`}>
+    <div className={`flex items-center gap-2 sm:gap-3 min-w-0 ${className}`}>
       {(label || typeof weightPct === 'number') && (
-        <div className="flex items-baseline justify-between gap-1.5 w-[144px] sm:w-[172px] shrink-0">
+        <div className="flex items-baseline justify-between gap-1.5 w-[128px] sm:w-[172px] shrink-0">
           {label && (
             <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 leading-snug">
               {label}
             </span>
           )}
           {typeof weightPct === 'number' && Number.isFinite(weightPct) && (
-            <span className="text-xs font-mono tabular-nums text-zinc-400 dark:text-zinc-500 shrink-0">
+            <span className="text-xs font-mono tabular-nums text-zinc-600 dark:text-zinc-400 shrink-0">
               {Math.round(weightPct)}%
             </span>
           )}
@@ -80,14 +80,14 @@ export function MiniBar({
         className="flex-1 min-w-[48px] h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
       >
         <div
-          className={`h-full rounded-full transition-[width] duration-300 ease-out ${FILL_CLASSES[tone]}`}
+          className={`h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none ${FILL_CLASSES[tone]}`}
           style={{ width: `${pct}%` }}
         />
       </div>
 
       <span
         className={`w-9 text-right font-mono text-xs font-semibold tabular-nums shrink-0 ${
-          isAvailable ? VALUE_CLASSES[tone] : 'text-zinc-400 dark:text-zinc-500'
+          isAvailable ? VALUE_CLASSES[tone] : 'text-zinc-600 dark:text-zinc-400'
         }`}
       >
         {formattedValue}

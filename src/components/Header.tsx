@@ -110,11 +110,11 @@ export function Header({
               <span className="inline-flex items-center gap-1.5" aria-busy="true">
                 <span
                   aria-hidden="true"
-                  className="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse shrink-0"
+                  className="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none shrink-0"
                 />
                 <span
                   aria-hidden="true"
-                  className="h-3.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse"
+                  className="h-3.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
                 />
                 <span className="sr-only">{t.creditsLoadingLabel}</span>
               </span>

@@ -80,7 +80,7 @@ import { BestProductsStrip } from './BestProductsStrip';
 import { ProductFilterBar } from './ProductFilterBar';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
-import { StatusLegendPopover } from './visual';
+import { StateMessage, StatusLegendPopover } from './visual';
 
 const ARCHIVE_STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -757,7 +757,7 @@ export function ResearchHistoryView({
           <button
             type="button"
             onClick={() => setSelectedRecordId(null)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1"
+            className="inline-flex items-center gap-1.5 min-h-[40px] text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1.5"
           >
             <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{t.historyBackToListBtn}</span>
@@ -768,7 +768,7 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => handleOpenCompareWith(selectedRecord)}
-                className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <GitCompareArrows className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{t.historyCompareBtn}</span>
@@ -823,7 +823,7 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('original')}
-                className={`min-h-[34px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'original'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -834,7 +834,7 @@ export function ResearchHistoryView({
               <button
                 type="button"
                 onClick={() => setArchiveScoreMode('live')}
-                className={`min-h-[34px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                   archiveScoreMode === 'live'
                     ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -1165,25 +1165,18 @@ export function ResearchHistoryView({
 
         {/* Archived Product Cards Grid or Filtered Empty State */}
         {visibleArchiveProducts.length === 0 ? (
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
-            <h3 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
-              {t.emptyFilteredTitle}
-            </h3>
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-              {t.emptyFilteredDesc}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setArchiveFilters({ ...DEFAULT_PRODUCT_FILTERS });
-                setArchiveDecisionFilter('active');
-              }}
-              className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" aria-hidden="true" />
-              <span>{t.resetViewBtn}</span>
-            </button>
-          </div>
+          <StateMessage
+            variant="empty"
+            icon={<Search className="w-5 h-5" aria-hidden="true" />}
+            title={t.emptyFilteredTitle}
+            reason={t.emptyFilteredDesc}
+            actionLabel={t.resetViewBtn}
+            actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+            onAction={() => {
+              setArchiveFilters({ ...DEFAULT_PRODUCT_FILTERS });
+              setArchiveDecisionFilter('active');
+            }}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleArchiveProducts.map((product) => {
@@ -1360,28 +1353,19 @@ export function ResearchHistoryView({
 
       {/* Quota Exceeded / Storage Warning Banner */}
       {storageAlert && !storageAlert.ok && (
-        <div
-          role="alert"
-          className="p-4 bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-xl flex items-start justify-between gap-3 text-xs text-red-900 dark:text-red-200"
-        >
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <div className="font-semibold">{t.historyQuotaWarningTitle}</div>
-              <p className="mt-0.5 text-red-800 dark:text-red-300 leading-relaxed">
-                {isMy ? storageAlert.errorMy ?? storageAlert.errorEn : storageAlert.errorEn}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onDismissStorageAlert}
-            aria-label={t.historyQuotaWarningDismiss}
-            className="text-red-700 dark:text-red-400 hover:text-red-950 dark:hover:text-red-200 p-1 rounded cursor-pointer shrink-0"
-          >
-            <X className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
+        <StateMessage
+          variant="error"
+          compact
+          icon={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}
+          title={t.historyQuotaWarningTitle}
+          reason={
+            isMy
+              ? (storageAlert.errorMy ?? storageAlert.errorEn ?? t.historyQuotaWarningTitle)
+              : (storageAlert.errorEn ?? t.historyQuotaWarningTitle)
+          }
+          actionLabel={t.historyQuotaWarningDismiss}
+          onAction={onDismissStorageAlert}
+        />
       )}
 
       {/* Active Tab Content */}
@@ -1400,27 +1384,15 @@ export function ResearchHistoryView({
           </p>
 
           {singleRecords.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
-              <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
-                <Link2 className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                {t.singleHistoryEmptyTitle}
-              </h2>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-                {t.singleHistoryEmptyDesc}
-              </p>
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={onBackToHunting}
-                  className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-                  <span>{t.savedViewBackBtn}</span>
-                </button>
-              </div>
-            </div>
+            <StateMessage
+              variant="empty"
+              icon={<Link2 className="w-5 h-5" aria-hidden="true" />}
+              title={t.singleHistoryEmptyTitle}
+              reason={t.singleHistoryEmptyDesc}
+              actionLabel={t.savedViewBackBtn}
+              actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+              onAction={onBackToHunting}
+            />
           ) : (
             <>
               {/* Search, Category Filter, Sort & Selective Delete Controls */}
@@ -1482,14 +1454,14 @@ export function ResearchHistoryView({
                       <button
                         type="button"
                         onClick={() => setCheckedSingleIds([])}
-                        className="px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                        className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
                       >
                         {t.confirmCancelBtn}
                       </button>
                       <button
                         type="button"
                         onClick={handleDeleteSelectedSingle}
-                        className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>
@@ -1502,9 +1474,17 @@ export function ResearchHistoryView({
               </div>
 
               {filteredSingleRecords.length === 0 ? (
-                <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.emptyFilteredTitle}</p>
-                </div>
+                <StateMessage
+                  variant="empty"
+                  icon={<Search className="w-5 h-5" aria-hidden="true" />}
+                  reason={t.emptyFilteredTitle}
+                  actionLabel={t.savedResetFiltersBtn}
+                  actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+                  onAction={() => {
+                    setSingleSearchQuery('');
+                    setSingleCategoryFilter('all');
+                  }}
+                />
               ) : (
                 <div className="space-y-3">
                   {filteredSingleRecords.map((rec) => {
@@ -1662,7 +1642,7 @@ export function ResearchHistoryView({
                               onClick={() =>
                                 onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
                               }
-                              className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                              className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                             >
                               <span>{t.singleHistoryOpenReportBtn}</span>
                               <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -1672,7 +1652,7 @@ export function ResearchHistoryView({
                               <button
                                 type="button"
                                 onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
-                                className="inline-flex items-center gap-1.5 min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
+                                className="inline-flex items-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug"
                               >
                                 <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>{t.singleHistoryDeepDiveBtn}</span>
@@ -1682,7 +1662,7 @@ export function ResearchHistoryView({
                             <button
                               type="button"
                               onClick={() => onSaveProduct(p, rec.researchedAt)}
-                              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                                 isSaved
                                   ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                                   : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
@@ -1700,7 +1680,7 @@ export function ResearchHistoryView({
                                 href={tiktokHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 whitespace-nowrap"
+                                className="inline-flex items-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 whitespace-nowrap"
                               >
                                 <span>{t.singleHistoryOpenLinkBtn}</span>
                                 <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -1712,14 +1692,14 @@ export function ResearchHistoryView({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteSingleItem(rec.id)}
-                                  className="min-h-[36px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                                  className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                                 >
                                   {t.historyDeleteConfirmBtn}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setConfirmDeleteSingleId(null)}
-                                  className="min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer whitespace-nowrap"
+                                  className="min-h-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer whitespace-nowrap"
                                 >
                                   {t.confirmCancelBtn}
                                 </button>
@@ -1745,37 +1725,15 @@ export function ResearchHistoryView({
           )}
         </div>
       ) : records.length === 0 ? (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
-          <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
-            <History className="w-5 h-5" aria-hidden="true" />
-          </div>
-          <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-            {t.historyEmptyTitle}
-          </h2>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-            {t.historyEmptyDesc}
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={onBackToHunting}
-              className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-              <span>{t.savedViewBackBtn}</span>
-            </button>
-            {onOpenBackupRestore && (
-              <button
-                type="button"
-                onClick={() => onOpenBackupRestore('restore')}
-                className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                <Upload className="w-4 h-4" aria-hidden="true" />
-                <span>{isMy ? 'Backup မှ ပြန်ယူမည်' : 'Restore from Backup'}</span>
-              </button>
-            )}
-          </div>
-        </div>
+        <StateMessage
+          variant="empty"
+          icon={<History className="w-5 h-5" aria-hidden="true" />}
+          title={t.historyEmptyTitle}
+          reason={t.historyEmptyDesc}
+          actionLabel={t.savedViewBackBtn}
+          actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+          onAction={onBackToHunting}
+        />
       ) : (
         <div className="space-y-4">
           {/* Search, Filter, Sort & Selective Delete Controls */}
@@ -1876,9 +1834,18 @@ export function ResearchHistoryView({
 
           {/* History Records List */}
           {filteredRecords.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.emptyFilteredTitle}</p>
-            </div>
+            <StateMessage
+              variant="empty"
+              icon={<Search className="w-5 h-5" aria-hidden="true" />}
+              reason={t.emptyFilteredTitle}
+              actionLabel={t.savedResetFiltersBtn}
+              actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+              onAction={() => {
+                setSearchQuery('');
+                setModeFilter('all');
+                setCategoryFilter('all');
+              }}
+            />
           ) : (
             <div className="space-y-3">
               {filteredRecords.map((rec) => {

@@ -77,6 +77,7 @@ import {
   TrendDelta,
   VerdictBadge,
 } from './visual';
+import { getScrollBehavior, useDialogA11y } from '../hooks/useDialogA11y';
 
 interface ResearchReportDrawerProps {
   product: ResearchProduct | null;
@@ -157,6 +158,14 @@ export function ResearchReportDrawer({
   const [activeTabId, setActiveTabId] = useState<string>('rep-overview');
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const drawerPanelRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogA11y({
+    isOpen: Boolean(product),
+    containerRef: drawerPanelRef,
+    onClose,
+    closeOnEscape: false,
+  });
 
   useEffect(() => {
     setCopied(false);
@@ -172,7 +181,7 @@ export function ResearchReportDrawer({
     const activeButton = tabRefs.current[activeTabId];
     if (activeButton && typeof activeButton.scrollIntoView === 'function') {
       activeButton.scrollIntoView({
-        behavior: 'smooth',
+        behavior: getScrollBehavior(),
         inline: 'center',
         block: 'nearest',
       });
@@ -435,7 +444,9 @@ export function ResearchReportDrawer({
 
   const jumpToSection = (sectionId: string) => {
     setActiveTabId(sectionId);
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById(sectionId)
+      ?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
   };
 
   const handleCopyReport = async () => {
@@ -507,7 +518,9 @@ export function ResearchReportDrawer({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col"
+        ref={drawerPanelRef}
+        tabIndex={-1}
+        className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Top Header + Section Jump Navigation */}
@@ -2166,7 +2179,7 @@ export function ResearchReportDrawer({
         </div>
 
         {/* F. Sticky Decision & Export Footer */}
-        <div className="sticky bottom-[env(safe-area-inset-bottom)] shrink-0 z-10 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-7 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+        <div className="sticky bottom-0 shrink-0 z-10 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-7 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row sm:items-center gap-2">
           <div className="flex items-center gap-2 shrink-0">
             {/* "..." Overflow menu for Copy / CSV / JSON */}
             <div ref={actionsMenuRef} className="relative shrink-0">

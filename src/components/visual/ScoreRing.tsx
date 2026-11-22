@@ -15,7 +15,7 @@ const TONE_STYLES: Record<ScoreRingTone, { stroke: string; text: string }> = {
     text: 'text-emerald-700 dark:text-emerald-300',
   },
   amber: {
-    stroke: 'stroke-amber-500 dark:stroke-amber-400',
+    stroke: 'stroke-amber-600 dark:stroke-amber-400',
     text: 'text-amber-700 dark:text-amber-300',
   },
   red: {
@@ -100,7 +100,7 @@ export function ScoreRing({
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
-            className={`${styles.stroke} transition-[stroke-dashoffset] duration-300 ease-out`}
+            className={`${styles.stroke} transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none`}
           />
         </svg>
 

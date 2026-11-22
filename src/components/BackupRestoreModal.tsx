@@ -26,6 +26,7 @@ import {
 import { formatByteSize } from '../utils/researchHistoryStorage';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { triggerFileDownload } from '../utils/exportReports';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 
 export type BackupModalTab = 'backup' | 'restore';
 
@@ -71,6 +72,14 @@ export function BackupRestoreModal({
   });
   const [restoreOutcome, setRestoreOutcome] = useState<BackupRestoreResult | null>(null);
 
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useDialogA11y({
+    isOpen,
+    containerRef: modalRef,
+    onClose,
+  });
+
   // Sync initial tab when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -80,16 +89,6 @@ export function BackupRestoreModal({
       setFileReadError(null);
     }
   }, [isOpen, initialTab]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose]);
 
   const localCounts = useMemo(() => {
     if (!isOpen) {
@@ -265,14 +264,16 @@ export function BackupRestoreModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-center justify-center p-2 sm:p-5"
+      className="fixed inset-0 z-50 bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="backup-restore-heading"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[660px] max-h-[92vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        ref={modalRef}
+        tabIndex={-1}
+        className="w-full max-w-[660px] max-h-[92vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] sm:pb-0 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -298,7 +299,7 @@ export function BackupRestoreModal({
             type="button"
             onClick={onClose}
             aria-label={isMy ? 'ပိတ်ရန်' : 'Close'}
-            className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+            className="w-10 h-10 -mt-1 -mr-1 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -316,7 +317,7 @@ export function BackupRestoreModal({
               role="tab"
               aria-selected={activeTab === 'backup'}
               onClick={() => setActiveTab('backup')}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 activeTab === 'backup'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -331,7 +332,7 @@ export function BackupRestoreModal({
               role="tab"
               aria-selected={activeTab === 'restore'}
               onClick={() => setActiveTab('restore')}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 activeTab === 'restore'
                   ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'

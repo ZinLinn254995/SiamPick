@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowRight, ArrowUpRight, GitCompareArrows, Minus } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Clock,
+  GitCompareArrows,
+  Minus,
+  RotateCcw,
+} from 'lucide-react';
 import {
   ComparisonMetricDelta,
   Language,
+  ProductComparisonRow,
   ResearchHistoryRecord,
   ResearchMode,
   ResearchProduct,
@@ -11,6 +20,7 @@ import { formatThb } from '../utils/format';
 import { compareResearchSessions } from '../utils/researchHistoryStorage';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
+import { StateMessage } from './visual';
 
 interface ResearchComparisonPanelProps {
   historyRecords: ResearchHistoryRecord[];
@@ -20,6 +30,8 @@ interface ResearchComparisonPanelProps {
   language: Language;
 }
 
+type TrendFilter = 'all' | 'improved' | 'declined' | 'unchanged';
+
 function getModeLabel(mode: ResearchMode, language: Language): string {
   const t = TRANSLATIONS[language];
   if (mode === 'deep') return t.modeDeepTitle;
@@ -27,9 +39,66 @@ function getModeLabel(mode: ResearchMode, language: Language): string {
   return t.modeFastTitle;
 }
 
-function deltaToneClass(delta: number | null): string {
-  if (delta === null || delta === 0) return 'text-zinc-500 dark:text-zinc-400';
-  return delta > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400';
+function classifyMatchedTrend(
+  row: ProductComparisonRow
+): 'improved' | 'declined' | 'unchanged' {
+  const primaryDelta =
+    row.score.available && row.score.delta !== null
+      ? row.score.delta
+      : row.revenue.available && row.revenue.delta !== null
+        ? row.revenue.delta
+        : row.sales.available && row.sales.delta !== null
+          ? row.sales.delta
+          : 0;
+  if (primaryDelta > 0) return 'improved';
+  if (primaryDelta < 0) return 'declined';
+  return 'unchanged';
+}
+
+function formatPeriodBetween(
+  olderIso: string,
+  newerIso: string,
+  language: Language
+): string {
+  const olderMs = new Date(olderIso).getTime();
+  const newerMs = new Date(newerIso).getTime();
+  if (!Number.isFinite(olderMs) || !Number.isFinite(newerMs)) return '—';
+  const diffMs = Math.abs(newerMs - olderMs);
+  const totalMinutes = Math.round(diffMs / 60_000);
+  const isMy = language === 'my';
+
+  if (totalMinutes < 1) {
+    return isMy ? '< 1 မိနစ်' : '< 1 min';
+  }
+  if (totalMinutes < 60) {
+    return isMy ? `${totalMinutes} မိနစ်` : `${totalMinutes} min`;
+  }
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remMinutes = totalMinutes % 60;
+  if (totalHours < 24) {
+    if (remMinutes > 0) {
+      return isMy
+        ? `${totalHours} နာရီ ${remMinutes} မိနစ်`
+        : `${totalHours}h ${remMinutes}m`;
+    }
+    return isMy ? `${totalHours} နာရီ` : `${totalHours} hr`;
+  }
+  const days = Math.floor(totalHours / 24);
+  const remHours = totalHours % 24;
+  if (days < 7 && remHours > 0) {
+    return isMy ? `${days} ရက် ${remHours} နာရီ` : `${days}d ${remHours}h`;
+  }
+  return isMy ? `${days} ရက်` : `${days} ${days === 1 ? 'day' : 'days'}`;
+}
+
+function formatSignedNumber(val: number, decimals = 0): string {
+  const absFormatted = Math.abs(val).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  if (val > 0) return `+${absFormatted}`;
+  if (val < 0) return `-${absFormatted}`;
+  return absFormatted;
 }
 
 function DeltaIcon({ delta }: { delta: number | null }) {
@@ -43,33 +112,43 @@ function DeltaIcon({ delta }: { delta: number | null }) {
   );
 }
 
-function formatSignedNumber(val: number, decimals = 0): string {
-  const absFormatted = Math.abs(val).toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  if (val > 0) return `+${absFormatted}`;
-  if (val < 0) return `-${absFormatted}`;
-  return absFormatted;
-}
-
 function MetricDeltaCell({
   metric,
   kind,
   unavailableLabel,
   unchangedLabel,
+  beforeLabel,
+  afterLabel,
 }: {
   metric: ComparisonMetricDelta;
   kind: 'sales' | 'revenue' | 'growth' | 'commission' | 'score';
   unavailableLabel: string;
   unchangedLabel: string;
+  beforeLabel: string;
+  afterLabel: string;
 }) {
-  if (!metric.available || metric.oldValue === null || metric.newValue === null || metric.delta === null) {
-    return <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">{unavailableLabel}</span>;
+  if (
+    !metric.available ||
+    metric.oldValue === null ||
+    metric.newValue === null ||
+    metric.delta === null
+  ) {
+    return (
+      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {unavailableLabel}
+      </span>
+    );
   }
 
+  const oldVal = metric.oldValue;
+  const newVal = metric.newValue;
   const delta = metric.delta;
-  const deltaPct = metric.deltaPct;
+  const computedPct =
+    metric.deltaPct !== null
+      ? metric.deltaPct
+      : oldVal !== 0
+        ? ((newVal - oldVal) / Math.abs(oldVal)) * 100
+        : null;
 
   const formatSingle = (v: number): string => {
     if (kind === 'sales') return Math.round(v).toLocaleString('en-US');
@@ -79,41 +158,71 @@ function MetricDeltaCell({
     return `${Math.round(v)}`;
   };
 
-  const formatDelta = (): string => {
-    if (delta === 0) return unchangedLabel;
-    if (kind === 'sales') {
-      const base = formatSignedNumber(Math.round(delta), 0);
-      return deltaPct !== null
-        ? `${base} (${formatSignedNumber(deltaPct, 1)}%)`
-        : base;
-    }
-    if (kind === 'revenue') {
-      const sign = delta > 0 ? '+' : '-';
-      const base = `${sign}${formatThb(Math.round(Math.abs(delta)))}`;
-      return deltaPct !== null
-        ? `${base} (${formatSignedNumber(deltaPct, 1)}%)`
-        : base;
+  const chipText = (() => {
+    if (delta === 0) return `0% · ${unchangedLabel}`;
+    if (computedPct !== null && Number.isFinite(computedPct)) {
+      return `${formatSignedNumber(computedPct, 1)}%`;
     }
     if (kind === 'growth' || kind === 'commission') {
       return `${formatSignedNumber(delta, 1)} pp`;
     }
-    return `${formatSignedNumber(Math.round(delta), 0)} pts`;
-  };
+    if (kind === 'score') {
+      return `${formatSignedNumber(Math.round(delta), 0)} pts`;
+    }
+    return formatSignedNumber(Math.round(delta), 0);
+  })();
+
+  const chipClasses =
+    delta > 0
+      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
+      : delta < 0
+        ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/70'
+        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700';
+
+  const maxMagnitude = Math.max(Math.abs(oldVal), Math.abs(newVal), 1);
+  const beforePct = Math.max(4, Math.min(100, Math.round((Math.abs(oldVal) / maxMagnitude) * 100)));
+  const afterPct = Math.max(4, Math.min(100, Math.round((Math.abs(newVal) / maxMagnitude) * 100)));
+  const afterBarClass =
+    delta > 0
+      ? 'bg-emerald-500 dark:bg-emerald-400'
+      : delta < 0
+        ? 'bg-red-500 dark:bg-red-400'
+        : 'bg-zinc-400 dark:bg-zinc-500';
 
   return (
-    <div className="space-y-0.5">
-      <div className="flex items-center gap-1 font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums whitespace-nowrap">
-        <span>{formatSingle(metric.oldValue)}</span>
-        <ArrowRight className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
-        <span className="text-zinc-900 dark:text-zinc-100 font-medium">{formatSingle(metric.newValue)}</span>
+    <div className="space-y-1.5 min-w-[132px]">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${chipClasses}`}
+        >
+          <DeltaIcon delta={delta} />
+          <span>{chipText}</span>
+        </span>
       </div>
+
+      {/* Before -> After Mini Bar */}
       <div
-        className={`inline-flex items-center gap-0.5 font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${deltaToneClass(
-          metric.delta
-        )}`}
+        className="space-y-1"
+        aria-label={`${beforeLabel}: ${formatSingle(oldVal)}, ${afterLabel}: ${formatSingle(newVal)}`}
       >
-        <DeltaIcon delta={metric.delta} />
-        <span>{formatDelta()}</span>
+        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-zinc-300 dark:bg-zinc-600 transition-all duration-300 motion-reduce:transition-none"
+            style={{ width: `${beforePct}%` }}
+          />
+        </div>
+        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 motion-reduce:transition-none ${afterBarClass}`}
+            style={{ width: `${afterPct}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+        <span>{formatSingle(oldVal)}</span>
+        <ArrowRight className="w-2.5 h-2.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+        <span className="text-zinc-900 dark:text-zinc-100 font-medium">{formatSingle(newVal)}</span>
       </div>
     </div>
   );
@@ -129,7 +238,6 @@ export function ResearchComparisonPanel({
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
 
-  // Records are sorted newest-first in storage
   const defaultNewer = initialNewerId ?? historyRecords[0]?.id ?? '';
   const defaultOlder =
     initialOlderId ??
@@ -139,6 +247,7 @@ export function ResearchComparisonPanel({
 
   const [olderId, setOlderId] = useState<string>(defaultOlder);
   const [newerId, setNewerId] = useState<string>(defaultNewer);
+  const [trendFilter, setTrendFilter] = useState<TrendFilter>('all');
 
   useEffect(() => {
     if (initialOlderId && historyRecords.some((r) => r.id === initialOlderId)) {
@@ -179,19 +288,51 @@ export function ResearchComparisonPanel({
     return compareResearchSessions(olderRecord, newerRecord);
   }, [olderRecord, newerRecord]);
 
+  const trendBuckets = useMemo(() => {
+    if (!comparison) {
+      return { improved: 0, declined: 0, unchanged: 0, tagged: [] as Array<{ row: ProductComparisonRow; trend: 'improved' | 'declined' | 'unchanged' }> };
+    }
+    let improved = 0;
+    let declined = 0;
+    let unchanged = 0;
+    const tagged = comparison.matchedProducts.map((row) => {
+      const trend = classifyMatchedTrend(row);
+      if (trend === 'improved') improved += 1;
+      else if (trend === 'declined') declined += 1;
+      else unchanged += 1;
+      return { row, trend };
+    });
+    return { improved, declined, unchanged, tagged };
+  }, [comparison]);
+
+  const visibleRows = useMemo(() => {
+    if (trendFilter === 'all') return trendBuckets.tagged.map((x) => x.row);
+    return trendBuckets.tagged
+      .filter((x) => x.trend === trendFilter)
+      .map((x) => x.row);
+  }, [trendBuckets, trendFilter]);
+
+  const periodLabel = useMemo(() => {
+    if (!olderRecord || !newerRecord || olderRecord.id === newerRecord.id) return null;
+    return formatPeriodBetween(olderRecord.researchedAt, newerRecord.researchedAt, language);
+  }, [olderRecord, newerRecord, language]);
+
+  const handleUseLatestTwo = () => {
+    if (historyRecords.length >= 2) {
+      setNewerId(historyRecords[0].id);
+      setOlderId(historyRecords[1].id);
+      setTrendFilter('all');
+    }
+  };
+
   if (historyRecords.length < 2) {
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
-        <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
-          <GitCompareArrows className="w-5 h-5" aria-hidden="true" />
-        </div>
-        <h2 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-          {t.compareNeedTwoTitle}
-        </h2>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-          {t.compareNeedTwoDesc}
-        </p>
-      </div>
+      <StateMessage
+        variant="empty"
+        icon={<GitCompareArrows className="w-5 h-5" aria-hidden="true" />}
+        title={t.compareNeedTwoTitle}
+        reason={t.compareNeedTwoDesc}
+      />
     );
   }
 
@@ -200,26 +341,50 @@ export function ResearchComparisonPanel({
     return `${dt} · ${getModeLabel(rec.researchMode, language)} (${rec.productCount} ${t.quantityProductsUnit})`;
   };
 
+  const toggleTrendFilter = (next: 'improved' | 'declined' | 'unchanged') => {
+    setTrendFilter((prev) => (prev === next ? 'all' : next));
+  };
+
   return (
     <div className="space-y-5">
       {/* Selector Bar */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-5 space-y-4">
-        <div>
-          <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
-            {t.compareHeading}
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{t.compareSubtitle}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
+              {t.compareHeading}
+            </h2>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              {t.compareSubtitle}
+            </p>
+          </div>
+
+          {periodLabel && (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-700 dark:text-zinc-200">
+              <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+              <span className="text-zinc-500 dark:text-zinc-400">{t.comparePeriodApartLabel}:</span>
+              <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                {periodLabel}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label htmlFor="compare-older-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <label
+              htmlFor="compare-older-select"
+              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+            >
               {t.compareOlderLabel}
             </label>
             <select
               id="compare-older-select"
               value={olderId}
-              onChange={(e) => setOlderId(e.target.value)}
+              onChange={(e) => {
+                setOlderId(e.target.value);
+                setTrendFilter('all');
+              }}
               className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               {historyRecords.map((rec) => (
@@ -231,13 +396,19 @@ export function ResearchComparisonPanel({
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="compare-newer-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+            <label
+              htmlFor="compare-newer-select"
+              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+            >
               {t.compareNewerLabel}
             </label>
             <select
               id="compare-newer-select"
               value={newerId}
-              onChange={(e) => setNewerId(e.target.value)}
+              onChange={(e) => {
+                setNewerId(e.target.value);
+                setTrendFilter('all');
+              }}
               className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
             >
               {historyRecords.map((rec) => (
@@ -256,51 +427,116 @@ export function ResearchComparisonPanel({
 
       {/* Same Session Warning */}
       {olderRecord && newerRecord && olderRecord.id === newerRecord.id && (
-        <div className="bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-800/60 rounded-xl p-5 text-xs text-amber-800 dark:text-amber-300">
-          {t.compareSelectDifferentHint}
-        </div>
+        <StateMessage
+          variant="empty"
+          compact
+          icon={<GitCompareArrows className="w-4 h-4" aria-hidden="true" />}
+          reason={t.compareSelectDifferentHint}
+          actionLabel={t.compareSwapSessionsBtn}
+          onAction={handleUseLatestTwo}
+        />
       )}
 
       {/* Comparison Results */}
       {comparison && (
         <div className="space-y-4">
-          {/* Summary Strip */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-600 dark:text-zinc-400 px-1">
-            <span>
-              <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
-                {comparison.matchedProducts.length}
-              </strong>{' '}
-              {t.compareMatchedCount}
-            </span>
-            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-              ·
-            </span>
-            <span>
-              <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
-                {comparison.onlyInOlderCount}
-              </strong>{' '}
-              {t.compareOnlyOlder}
-            </span>
-            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-              ·
-            </span>
-            <span>
-              <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
-                {comparison.onlyInNewerCount}
-              </strong>{' '}
-              {t.compareOnlyNewer}
-            </span>
+          {/* Top Summary: Tappable Improved / Declined / Unchanged Filter Chips + Counts */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.compareHeading}>
+              <button
+                type="button"
+                aria-pressed={trendFilter === 'improved'}
+                onClick={() => toggleTrendFilter('improved')}
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                  trendFilter === 'improved'
+                    ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600'
+                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70'
+                }`}
+              >
+                <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.compareImprovedChip}</span>
+                <span className="font-mono tabular-nums">{trendBuckets.improved}</span>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={trendFilter === 'declined'}
+                onClick={() => toggleTrendFilter('declined')}
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                  trendFilter === 'declined'
+                    ? 'bg-red-700 dark:bg-red-700 text-white border-red-700 dark:border-red-600'
+                    : 'bg-red-50/80 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-100/80 dark:hover:bg-red-950/70'
+                }`}
+              >
+                <ArrowDownRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.compareDeclinedChip}</span>
+                <span className="font-mono tabular-nums">{trendBuckets.declined}</span>
+              </button>
+
+              <button
+                type="button"
+                aria-pressed={trendFilter === 'unchanged'}
+                onClick={() => toggleTrendFilter('unchanged')}
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                  trendFilter === 'unchanged'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
+                    : 'bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80'
+                }`}
+              >
+                <Minus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{t.compareUnchangedChip}</span>
+                <span className="font-mono tabular-nums">{trendBuckets.unchanged}</span>
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+              <span>
+                <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
+                  {comparison.matchedProducts.length}
+                </strong>{' '}
+                {t.compareMatchedCount}
+              </span>
+              <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+                ·
+              </span>
+              <span>
+                <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+                  {comparison.onlyInOlderCount}
+                </strong>{' '}
+                {t.compareOnlyOlder}
+              </span>
+              <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+                ·
+              </span>
+              <span>
+                <strong className="font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">
+                  {comparison.onlyInNewerCount}
+                </strong>{' '}
+                {t.compareOnlyNewer}
+              </span>
+            </div>
           </div>
 
           {comparison.matchedProducts.length === 0 ? (
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-12 text-center">
-              <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50">
-                {t.compareNoMatchesTitle}
-              </h3>
-              <p className="mt-1.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
-                {t.compareNoMatchesDesc}
-              </p>
-            </div>
+            <StateMessage
+              variant="empty"
+              icon={<GitCompareArrows className="w-5 h-5" aria-hidden="true" />}
+              title={t.compareNoMatchesTitle}
+              reason={t.compareNoMatchesDesc}
+              actionLabel={
+                historyRecords.length > 2 ? t.compareSwapSessionsBtn : undefined
+              }
+              onAction={historyRecords.length > 2 ? handleUseLatestTwo : undefined}
+            />
+          ) : visibleRows.length === 0 ? (
+            <StateMessage
+              variant="empty"
+              icon={<GitCompareArrows className="w-5 h-5" aria-hidden="true" />}
+              reason={t.emptyFilteredTitle}
+              actionLabel={t.compareResetFilterBtn}
+              actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+              onAction={() => setTrendFilter('all')}
+            />
           ) : (
             <>
               {/* Desktop Table */}
@@ -318,13 +554,19 @@ export function ResearchComparisonPanel({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-xs">
-                      {comparison.matchedProducts.map((row) => (
-                        <tr key={row.canonicalProductId} className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/60 transition-colors">
-                          <td className="py-3.5 px-4 max-w-[280px]">
+                      {visibleRows.map((row) => (
+                        <tr
+                          key={row.canonicalProductId}
+                          className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/60 transition-colors"
+                        >
+                          <td className="py-3.5 px-4 max-w-[260px] align-top">
                             <button
                               type="button"
                               onClick={() =>
-                                onOpenProductReport(row.newerProduct, comparison.newerRecord.researchedAt)
+                                onOpenProductReport(
+                                  row.newerProduct,
+                                  comparison.newerRecord.researchedAt
+                                )
                               }
                               className="text-left cursor-pointer group"
                             >
@@ -332,52 +574,64 @@ export function ResearchComparisonPanel({
                                 {isMy ? row.nameMy : row.name}
                               </div>
                               <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                                <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
+                                <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                                  ID: {row.canonicalProductId}
+                                </span>
                                 {' · '}
                                 {row.shopName}
                               </div>
                             </button>
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 align-top">
                             <MetricDeltaCell
                               metric={row.sales}
                               kind="sales"
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
+                              beforeLabel={t.compareBeforeLabel}
+                              afterLabel={t.compareAfterLabel}
                             />
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 align-top">
                             <MetricDeltaCell
                               metric={row.revenue}
                               kind="revenue"
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
+                              beforeLabel={t.compareBeforeLabel}
+                              afterLabel={t.compareAfterLabel}
                             />
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 align-top">
                             <MetricDeltaCell
                               metric={row.growth}
                               kind="growth"
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
+                              beforeLabel={t.compareBeforeLabel}
+                              afterLabel={t.compareAfterLabel}
                             />
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 align-top">
                             <MetricDeltaCell
                               metric={row.commission}
                               kind="commission"
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
+                              beforeLabel={t.compareBeforeLabel}
+                              afterLabel={t.compareAfterLabel}
                             />
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-4 align-top">
                             <MetricDeltaCell
                               metric={row.score}
                               kind="score"
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
+                              beforeLabel={t.compareBeforeLabel}
+                              afterLabel={t.compareAfterLabel}
                             />
-                            <div className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+                            <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
                               {t.confidenceLabels[row.olderConfidence]} →{' '}
                               {t.confidenceLabels[row.newerConfidence]}
                             </div>
@@ -391,7 +645,7 @@ export function ResearchComparisonPanel({
 
               {/* Mobile / Tablet Cards */}
               <div className="lg:hidden space-y-3">
-                {comparison.matchedProducts.map((row) => (
+                {visibleRows.map((row) => (
                   <article
                     key={row.canonicalProductId}
                     className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 space-y-3"
@@ -399,64 +653,89 @@ export function ResearchComparisonPanel({
                     <button
                       type="button"
                       onClick={() =>
-                        onOpenProductReport(row.newerProduct, comparison.newerRecord.researchedAt)
+                        onOpenProductReport(
+                          row.newerProduct,
+                          comparison.newerRecord.researchedAt
+                        )
                       }
                       className="text-left w-full cursor-pointer"
                     >
-                      <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
+                      <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
                         {isMy ? row.nameMy : row.name}
                       </h3>
-                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
+                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        <span className="font-mono text-zinc-600 dark:text-zinc-400">
+                          ID: {row.canonicalProductId}
+                        </span>
                         {' · '}
                         {row.shopName}
                       </div>
                     </button>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
                       <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColSales}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                          {t.compareColSales}
+                        </div>
                         <MetricDeltaCell
                           metric={row.sales}
                           kind="sales"
                           unavailableLabel={t.dataStatusLabels.unavailable}
                           unchangedLabel={t.compareUnchanged}
+                          beforeLabel={t.compareBeforeLabel}
+                          afterLabel={t.compareAfterLabel}
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColRevenue}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                          {t.compareColRevenue}
+                        </div>
                         <MetricDeltaCell
                           metric={row.revenue}
                           kind="revenue"
                           unavailableLabel={t.dataStatusLabels.unavailable}
                           unchangedLabel={t.compareUnchanged}
+                          beforeLabel={t.compareBeforeLabel}
+                          afterLabel={t.compareAfterLabel}
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColGrowth}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                          {t.compareColGrowth}
+                        </div>
                         <MetricDeltaCell
                           metric={row.growth}
                           kind="growth"
                           unavailableLabel={t.dataStatusLabels.unavailable}
                           unchangedLabel={t.compareUnchanged}
+                          beforeLabel={t.compareBeforeLabel}
+                          afterLabel={t.compareAfterLabel}
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColCommission}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                          {t.compareColCommission}
+                        </div>
                         <MetricDeltaCell
                           metric={row.commission}
                           kind="commission"
                           unavailableLabel={t.dataStatusLabels.unavailable}
                           unchangedLabel={t.compareUnchanged}
+                          beforeLabel={t.compareBeforeLabel}
+                          afterLabel={t.compareAfterLabel}
                         />
                       </div>
                       <div>
-                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColScore}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
+                          {t.compareColScore}
+                        </div>
                         <MetricDeltaCell
                           metric={row.score}
                           kind="score"
                           unavailableLabel={t.dataStatusLabels.unavailable}
                           unchangedLabel={t.compareUnchanged}
+                          beforeLabel={t.compareBeforeLabel}
+                          afterLabel={t.compareAfterLabel}
                         />
                       </div>
                     </div>

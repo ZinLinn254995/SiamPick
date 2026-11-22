@@ -34,7 +34,7 @@ const VALUE_TONE_CLASSES: Record<StatCardTone, string> = {
 
 const BAR_TONE_CLASSES: Record<StatCardTone, string> = {
   emerald: 'bg-emerald-600 dark:bg-emerald-400',
-  amber: 'bg-amber-500 dark:bg-amber-400',
+  amber: 'bg-amber-600 dark:bg-amber-400',
   red: 'bg-red-600 dark:bg-red-400',
   zinc: 'bg-zinc-900 dark:bg-zinc-200',
   sky: 'bg-sky-600 dark:bg-sky-400',
@@ -66,6 +66,13 @@ export function StatCard({
 }: StatCardProps) {
   const hasProgress = typeof progress === 'number' && Number.isFinite(progress);
   const clampedProgress = hasProgress ? Math.max(0, Math.min(100, progress)) : 0;
+  const valueStr = String(value);
+  const valueSizeClass =
+    valueStr.length >= 10
+      ? 'text-lg sm:text-xl'
+      : valueStr.length >= 7
+        ? 'text-xl sm:text-2xl'
+        : 'text-2xl sm:text-3xl';
 
   return (
     <div
@@ -85,7 +92,7 @@ export function StatCard({
 
       <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
         <span
-          className={`font-mono text-2xl sm:text-3xl font-bold tabular-nums tracking-tight leading-none ${VALUE_TONE_CLASSES[tone]}`}
+          className={`font-mono ${valueSizeClass} font-bold tabular-nums tracking-tight leading-tight break-words max-w-full ${VALUE_TONE_CLASSES[tone]}`}
         >
           {value}
         </span>
@@ -106,7 +113,7 @@ export function StatCard({
           className="mt-1 w-full h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
         >
           <div
-            className={`h-full rounded-full transition-[width] duration-300 ease-out ${BAR_TONE_CLASSES[tone]}`}
+            className={`h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none ${BAR_TONE_CLASSES[tone]}`}
             style={{ width: `${clampedProgress}%` }}
           />
         </div>

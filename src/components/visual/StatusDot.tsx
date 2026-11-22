@@ -50,7 +50,7 @@ export function StatusDot({
           viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"
-          className={`${svgSize} text-amber-500 dark:text-amber-400`}
+          className={`${svgSize} text-amber-600 dark:text-amber-400`}
         >
           <circle
             cx="8"
@@ -92,7 +92,7 @@ export function StatusDot({
           viewBox="0 0 16 16"
           fill="none"
           aria-hidden="true"
-          className={`${svgSize} text-zinc-400 dark:text-zinc-500`}
+          className={`${svgSize} text-zinc-500 dark:text-zinc-400`}
         >
           <circle
             cx="8"

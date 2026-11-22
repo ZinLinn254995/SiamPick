@@ -15,8 +15,8 @@ const SPARKLINE_TONE_CLASSES: Record<SparklineTone, { stroke: string; fill: stri
     fill: 'fill-emerald-600 dark:fill-emerald-400',
   },
   amber: {
-    stroke: 'stroke-amber-500 dark:stroke-amber-400',
-    fill: 'fill-amber-500 dark:fill-amber-400',
+    stroke: 'stroke-amber-600 dark:stroke-amber-400',
+    fill: 'fill-amber-600 dark:fill-amber-400',
   },
   red: {
     stroke: 'stroke-red-600 dark:stroke-red-400',
@@ -113,7 +113,7 @@ export function TrendDelta({
     return (
       <span
         aria-label="Trend unavailable"
-        className={`inline-flex items-center font-mono text-xs font-medium tabular-nums text-zinc-400 dark:text-zinc-500 ${className}`}
+        className={`inline-flex items-center font-mono text-xs font-medium tabular-nums text-zinc-600 dark:text-zinc-400 ${className}`}
       >
         —
       </span>
@@ -125,10 +125,10 @@ export function TrendDelta({
   const formatted = `${Math.abs(pct).toFixed(decimals)}%`;
 
   const chipToneClass = isPositive
-    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border-emerald-200/80 dark:border-emerald-800/70'
+    ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/70'
     : isNegative
-      ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-400 border-red-200/80 dark:border-red-800/70'
-      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700';
+      ? 'bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300 border-red-200/80 dark:border-red-800/70'
+      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700';
 
   const symbol = isPositive ? '▲' : isNegative ? '▼' : '';
   const ariaDirection = isPositive ? 'Up' : isNegative ? 'Down' : 'Unchanged';
@@ -144,7 +144,7 @@ export function TrendDelta({
       {symbol && <span aria-hidden="true">{symbol}</span>}
       <span>{formatted}</span>
       {cleanPeriod && (
-        <span className="font-sans font-medium opacity-80">
+        <span className="font-sans font-medium">
           · {cleanPeriod}
         </span>
       )}

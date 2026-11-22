@@ -8,7 +8,7 @@ export function ResearchResultCardSkeleton({
   return (
     <div
       aria-hidden="true"
-      className={`bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col animate-pulse ${className}`}
+      className={`bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden flex flex-col animate-pulse motion-reduce:animate-none ${className}`}
     >
       {/* Image placeholder (4:3) */}
       <div className="aspect-[4/3] w-full bg-zinc-200/80 dark:bg-zinc-800/80" />

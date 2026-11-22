@@ -82,6 +82,7 @@ import {
   buildProductsExportJson,
   triggerFileDownload,
 } from './utils/exportReports';
+import { getScrollBehavior } from './hooks/useDialogA11y';
 import {
   absorbProductsIntoEnrichmentCache,
   hydrateProductFromEnrichmentCache,
@@ -116,7 +117,11 @@ import {
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { ResearchResultCardSkeleton, StatusLegendPopover } from './components/visual';
+import {
+  ResearchResultCardSkeleton,
+  StateMessage,
+  StatusLegendPopover,
+} from './components/visual';
 import { ResearchSettingsPanel } from './components/ResearchSettingsPanel';
 import { ScoringRubricPanel } from './components/ScoringRubricPanel';
 import { ResearchResultCard } from './components/ResearchResultCard';
@@ -717,13 +722,13 @@ export default function App() {
 
   const handleGoHome = () => {
     setActiveView('hunting');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: getScrollBehavior() });
   };
 
   const handleFocusSettings = () => {
     setActiveView('hunting');
     window.setTimeout(() => {
-      settingsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      settingsSectionRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
     }, 50);
   };
 
@@ -731,7 +736,7 @@ export default function App() {
     setActiveView('hunting');
     setFilters((prev) => ({ ...prev, category: cat }));
     window.setTimeout(() => {
-      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      resultsSectionRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
     }, 50);
   };
 
@@ -881,7 +886,7 @@ export default function App() {
     setIsHunting(true);
 
     window.setTimeout(() => {
-      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      resultsSectionRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
     }, 60);
 
     try {
@@ -1190,7 +1195,7 @@ export default function App() {
           }
     );
     setActiveView('deep-dive');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: getScrollBehavior() });
   };
 
   const updateActiveDeepDiveState = (
@@ -1833,12 +1838,12 @@ export default function App() {
         onToggleHistoryView={() => {
           setHistoryInitialTab('records');
           setActiveView((prev) => (prev === 'history' ? 'hunting' : 'history'));
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: getScrollBehavior() });
         }}
         shortlistCount={savedRecords.length}
         onToggleSavedView={() => {
           setActiveView((prev) => (prev === 'saved' ? 'hunting' : 'saved'));
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: getScrollBehavior() });
         }}
         onOpenBackupModal={() => handleOpenBackupModal('backup')}
         language={language}
@@ -1858,42 +1863,23 @@ export default function App() {
 
         {/* Global Local Storage Quota Alert Banner (shown on Hunting/Saved views too) */}
         {activeView !== 'history' && storageAlert && !storageAlert.ok && (
-          <div
-            role="alert"
-            className="mb-6 p-4 bg-red-50/90 dark:bg-red-950/40 border border-red-200 dark:border-red-800/60 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-3 text-xs text-red-900 dark:text-red-200"
-          >
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-              <div>
-                <div className="font-semibold">{t.historyQuotaWarningTitle}</div>
-                <p className="mt-0.5 text-red-800 dark:text-red-300 leading-relaxed">
-                  {language === 'my'
-                    ? storageAlert.errorMy ?? storageAlert.errorEn
-                    : storageAlert.errorEn}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView('history');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-500 rounded-lg cursor-pointer whitespace-nowrap"
-              >
-                {t.navHistory}
-              </button>
-              <button
-                type="button"
-                onClick={() => setStorageAlert(null)}
-                aria-label={t.historyQuotaWarningDismiss}
-                className="text-red-700 dark:text-red-400 hover:text-red-950 dark:hover:text-red-200 p-1 rounded cursor-pointer"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+          <StateMessage
+            variant="error"
+            compact
+            className="mb-6"
+            icon={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}
+            title={t.historyQuotaWarningTitle}
+            reason={
+              language === 'my'
+                ? (storageAlert.errorMy ?? storageAlert.errorEn ?? t.historyQuotaWarningTitle)
+                : (storageAlert.errorEn ?? t.historyQuotaWarningTitle)
+            }
+            actionLabel={t.navHistory}
+            onAction={() => {
+              setActiveView('history');
+              window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+            }}
+          />
         )}
 
         {activeView === 'saved' ? (
@@ -1968,7 +1954,7 @@ export default function App() {
             onDeleteHistoryRecord={handleDeleteDeepDiveHistoryRecord}
             onBack={() => {
               setActiveView(deepDiveTarget.originView);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              window.scrollTo({ top: 0, behavior: getScrollBehavior() });
             }}
             onOpenProductDetail={() => {
               setActiveReport({
@@ -2093,7 +2079,7 @@ export default function App() {
               onViewSingleHistory={() => {
                 setHistoryInitialTab('single');
                 setActiveView('history');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                window.scrollTo({ top: 0, behavior: getScrollBehavior() });
               }}
               onProductImported={handleProductImportedFromLink}
               onResumeResearch={handleResumeResearch}
@@ -2169,7 +2155,7 @@ export default function App() {
                         key={preset.id}
                         type="button"
                         onClick={() => handleSelectStrategyPreset(preset.id)}
-                        className={`min-h-[32px] max-w-full px-3 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                        className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
                           strategyPreset === preset.id
                             ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                             : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -2430,30 +2416,17 @@ export default function App() {
 
               {/* Error State (Propagated honestly from server — never replaced with fake results) */}
               {displayErrorText && !isHunting && (
-                <div
-                  role="alert"
-                  className="mt-6 bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-800/60 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-                    <div>
-                      <h3 className="text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                        {t.huntingErrorTitle}
-                      </h3>
-                      <p className="mt-1 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        {displayErrorText}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleFocusSettings}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>{t.huntingRetryBtn}</span>
-                  </button>
-                </div>
+                <StateMessage
+                  variant="error"
+                  compact
+                  className="mt-6"
+                  icon={<AlertCircle className="w-4 h-4" aria-hidden="true" />}
+                  title={t.huntingErrorTitle}
+                  reason={displayErrorText}
+                  actionLabel={t.huntingRetryBtn}
+                  actionIcon={<RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />}
+                  onAction={handleFocusSettings}
+                />
               )}
 
               {/* Phase 9 Method 1: Honest Myanmar Video-First Discovery Scope Strip */}
@@ -2658,122 +2631,53 @@ export default function App() {
                     </div>
                   </div>
                 ) : liveResults.length === 0 ? (
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 sm:py-16 text-center">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 inline-flex items-center justify-center mb-4">
-                      <SearchCheck className="w-5 h-5" aria-hidden="true" />
-                    </div>
-
-                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                      {sessionMeta?.myanmarFilterApplied
+                  <StateMessage
+                    variant="empty"
+                    icon={<SearchCheck className="w-5 h-5" aria-hidden="true" />}
+                    title={
+                      sessionMeta?.myanmarFilterApplied
                         ? t.myanmarEmptyTitle
-                        : t.emptyLiveTitle}
-                    </h3>
-                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
-                      {sessionMeta?.myanmarFilterApplied
+                        : t.emptyLiveTitle
+                    }
+                    reason={
+                      sessionMeta?.myanmarFilterApplied
                         ? t.myanmarEmptyDesc
-                        : t.emptyLiveDesc}
-                    </p>
-                    {sessionMeta?.myanmarFilterApplied &&
-                      !sessionMeta.myanmarReviewDiscovery &&
-                      !sessionMeta.myanmarVideoDiscovery &&
-                      typeof sessionMeta.myanmarCandidatesScanned === 'number' && (
-                        <p className="mt-3 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
-                          {t.myanmarEmptyScannedPrefix}{' '}
-                          <strong className="text-zinc-950 dark:text-zinc-50">
-                            {sessionMeta.myanmarCandidatesScanned}
-                          </strong>
-                        </p>
-                      )}
-
-                    <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                      {sessionMeta?.myanmarFilterApplied ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMyanmarLanguageOnly(false);
-                            handleFocusSettings();
-                          }}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-                        >
-                          <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                          <span>{t.myanmarTurnOffFilterBtn}</span>
-                        </button>
+                        : t.emptyLiveDesc
+                    }
+                    actionLabel={
+                      sessionMeta?.myanmarFilterApplied
+                        ? t.myanmarTurnOffFilterBtn
+                        : quotaStatus.paused
+                          ? t.btnResumeAndRetry
+                          : t.emptyStartBtn
+                    }
+                    actionIcon={
+                      sessionMeta?.myanmarFilterApplied ? (
+                        <RotateCcw className="w-4 h-4" aria-hidden="true" />
                       ) : (
-                        <button
-                          type="button"
-                          onClick={handleFocusSettings}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-                        >
-                          <span>
-                            {quotaStatus.paused ? t.btnResumeAndRetry : t.emptyStartBtn}
-                          </span>
-                          <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                        </button>
-                      )}
-
-                      {researchHistory.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveView('history');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
-                        >
-                          <History className="w-4 h-4 text-zinc-600 dark:text-zinc-400" aria-hidden="true" />
-                          <span>
-                            {t.historyViewTitle} ({researchHistory.length})
-                          </span>
-                        </button>
-                      )}
-
-                      {savedRecords.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveView('saved');
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                          className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
-                        >
-                          <span>
-                            {t.savedViewTitle} ({savedRecords.length})
-                          </span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenBackupModal('restore')}
-                        className="inline-flex items-center gap-2 min-h-[42px] px-4 py-2 text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer"
-                      >
-                        <Upload className="w-4 h-4 text-zinc-600 dark:text-zinc-400" aria-hidden="true" />
-                        <span>
-                          {language === 'my' ? 'Backup မှ ပြန်ယူမည်' : 'Restore Backup'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
+                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                      )
+                    }
+                    onAction={() => {
+                      if (sessionMeta?.myanmarFilterApplied) {
+                        setMyanmarLanguageOnly(false);
+                      }
+                      handleFocusSettings();
+                    }}
+                  />
                 ) : visibleProducts.length === 0 ? (
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-14 text-center">
-                    <h3 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
-                      {t.emptyFilteredTitle}
-                    </h3>
-                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-md mx-auto leading-relaxed">
-                      {t.emptyFilteredDesc}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFilters({ ...DEFAULT_PRODUCT_FILTERS });
-                        setDecisionFilter('active');
-                      }}
-                      className="mt-5 inline-flex items-center gap-2 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                      <span>{t.resetViewBtn}</span>
-                    </button>
-                  </div>
+                  <StateMessage
+                    variant="empty"
+                    icon={<SearchCheck className="w-5 h-5" aria-hidden="true" />}
+                    title={t.emptyFilteredTitle}
+                    reason={t.emptyFilteredDesc}
+                    actionLabel={t.resetViewBtn}
+                    actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+                    onAction={() => {
+                      setFilters({ ...DEFAULT_PRODUCT_FILTERS });
+                      setDecisionFilter('active');
+                    }}
+                  />
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {visibleProducts.map((product) => (
@@ -2818,7 +2722,10 @@ export default function App() {
           !backupModalOpen;
         return (
           <>
-            {compareItems.length > 0 && !comparisonModalOpen && (
+            {compareItems.length > 0 &&
+              !comparisonModalOpen &&
+              !activeReport &&
+              activeView !== 'deep-dive' && (
               <div
                 className={`sticky z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none ${
                   showMobileBottomNav
@@ -2881,11 +2788,11 @@ export default function App() {
                 onSelectHistory={() => {
                   setHistoryInitialTab('records');
                   setActiveView('history');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  window.scrollTo({ top: 0, behavior: getScrollBehavior() });
                 }}
                 onSelectSaved={() => {
                   setActiveView('saved');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  window.scrollTo({ top: 0, behavior: getScrollBehavior() });
                 }}
                 language={language}
               />

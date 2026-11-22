@@ -50,6 +50,7 @@ import {
 } from '../utils/sameProductMatcher';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
+import { StateMessage } from './visual';
 
 interface SameProductHunterSectionProps {
   product: ResearchProduct;
@@ -639,10 +640,15 @@ export function SameProductHunterSection({
 
         {/* Error Display */}
         {errorMsg && (
-          <div className="p-3 rounded-lg bg-red-50/70 dark:bg-red-950/40 border border-red-200 dark:border-red-900/70 flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
-            <span>{errorMsg}</span>
-          </div>
+          <StateMessage
+            variant="error"
+            compact
+            icon={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}
+            reason={errorMsg}
+            actionLabel={isMy ? 'ထပ်စမ်းမည်' : 'Retry'}
+            actionIcon={<RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />}
+            onAction={() => handleRunSearch(false)}
+          />
         )}
       </div>
 
@@ -742,18 +748,19 @@ export function SameProductHunterSection({
 
           {/* Empty State */}
           {visibleCandidates.length === 0 ? (
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {isMy
-                  ? 'လက်ရှိသတ်မှတ်ချက်အတွင်း ချွတ်စွပ်တူ တခြားဆိုင် Affiliate Link မတွေ့ရှိပါ'
-                  : 'No matching same-product affiliate links found under the current filters'}
-              </p>
-              <p className="leading-relaxed">
-                {isMy
-                  ? `Kalodata မှ Product ${searchResult.totalRankCandidatesFetched} ခု စစ်ဆေးခဲ့သော်လည်း (မူလဆိုင်ဖယ်ထုတ်: ${searchResult.excludedSameProductOrShopCount}, ဈေး/Commission မကိုက်: ${searchResult.excludedPriceOrSalesCount}, ပုံမတူဖယ်ထုတ်: ${searchResult.excludedDifferentProductCount}) ကိုက်ညီသော Link မရှိသေးပါ။ Keyword ကို ပိုတိုအောင်ပြင်ခြင်း၊ ဈေးကွာဟချက် ±50% တိုးခြင်း (သို့) "Category တူသာ" ဖြုတ်ပြီး ထပ်ရှာကြည့်နိုင်ပါသည်။`
-                  : `Scanned ${searchResult.totalRankCandidatesFetched} Kalodata rows (excluded same shop/item: ${searchResult.excludedSameProductOrShopCount}, price/commission mismatch: ${searchResult.excludedPriceOrSalesCount}, visually different: ${searchResult.excludedDifferentProductCount}). Try a shorter Thai/English core keyword, widen the price band to ±50%, or turn off "Same Category".`}
-              </p>
-            </div>
+            <StateMessage
+              variant="empty"
+              compact
+              icon={<Search className="w-4 h-4" aria-hidden="true" />}
+              reason={
+                isMy
+                  ? `Kalodata မှ ${searchResult.totalRankCandidatesFetched} ခု စစ်ဆေးသော်လည်း ကိုက်ညီသော တခြားဆိုင် Link မတွေ့ရှိပါ။`
+                  : `Scanned ${searchResult.totalRankCandidatesFetched} listings — no matching same-product affiliate links under current filters.`
+              }
+              actionLabel={isMy ? 'ပြန်ရှာမည် (0.1 cr)' : 'Refresh Search'}
+              actionIcon={<RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />}
+              onAction={() => handleRunSearch(true)}
+            />
           ) : (
             /* Matched Same-Product Candidate List */
             <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800 border border-zinc-200/80 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900 overflow-hidden">
