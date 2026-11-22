@@ -4,6 +4,7 @@ import type {
   SavedProductRecord,
   StorageWriteResult,
 } from '../types/product.ts';
+import { isSafeHttpUrl } from './format.ts';
 
 export const SAVED_PRODUCTS_LEGACY_KEY = 'siampick_saved_products_v1';
 export const SAVED_PRODUCTS_STORAGE_KEY = 'siampick_saved_products_v2';
@@ -67,11 +68,20 @@ function normalizeSavedRecord(record: SavedProductRecord): SavedProductRecord {
     : Array.isArray(record.product.sources)
       ? record.product.sources
       : [];
+  const validOriginUrl = isSafeHttpUrl(record.product.imageOriginUrl)
+    ? record.product.imageOriginUrl.trim()
+    : null;
+  const recoveredImageUrl =
+    record.product.imageUrl ||
+    (validOriginUrl ? `/api/image-proxy?url=${encodeURIComponent(validOriginUrl)}` : null);
+
   return {
     ...record,
     sources: safeSources.map((s) => ({ ...s })),
     product: {
       ...record.product,
+      imageUrl: recoveredImageUrl,
+      imageVerified: Boolean(record.product.imageVerified || recoveredImageUrl),
       priceThb:
         typeof record.product.priceThb === 'number' && Number.isFinite(record.product.priceThb)
           ? record.product.priceThb

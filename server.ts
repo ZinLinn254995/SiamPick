@@ -46,10 +46,9 @@ import {
   runThailandProductResearch,
 } from './server/researchService.ts';
 import {
+  fetchProxiedImageBuffer,
   isProxyableImageUrl,
-  isSafeExternalUrl,
-  registerVerifiedImage,
-  resolveValidImageMime,
+  resolveLiveTikTokProductImageUrl,
 } from './server/imageRetriever.ts';
 import {
   extractNumericTikTokProductId,
@@ -560,65 +559,79 @@ async function startServer() {
 
   /**
    * Verified Product Image Proxy:
-   * Streams ONLY server-verified or trusted Kalodata/TikTok CDN https:// raster image URLs
-   * so browser hotlink/Referer policies and server restarts never break legitimate product photos.
+   * Streams server-verified or trusted Kalodata/TikTok CDN https:// raster image URLs,
+   * and transparently recovers expired/missing URLs via 0-credit TikTok Shop PDP lookup when productId is provided.
    */
   app.get('/api/image-proxy', async (req, res) => {
     const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
-    if (!rawUrl || !isProxyableImageUrl(rawUrl)) {
-      res.status(403).end();
+    const cleanProductId = extractNumericTikTokProductId(
+      typeof req.query.productId === 'string' ? req.query.productId : null
+    );
+
+    if (rawUrl && isProxyableImageUrl(rawUrl)) {
+      const directResult = await fetchProxiedImageBuffer(rawUrl, MAX_PROXY_IMAGE_BYTES);
+      if (directResult.ok) {
+        res.setHeader('Content-Type', directResult.mime);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(directResult.buffer);
+        return;
+      }
+
+      if (!cleanProductId) {
+        res.status(directResult.status).end();
+        return;
+      }
+    }
+
+    if (cleanProductId) {
+      const recoveredUrl = await resolveLiveTikTokProductImageUrl(cleanProductId);
+      if (recoveredUrl) {
+        const recoveredResult = await fetchProxiedImageBuffer(
+          recoveredUrl,
+          MAX_PROXY_IMAGE_BYTES
+        );
+        if (recoveredResult.ok) {
+          res.setHeader('Content-Type', recoveredResult.mime);
+          res.setHeader('X-Content-Type-Options', 'nosniff');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.send(recoveredResult.buffer);
+          return;
+        }
+      }
+    }
+
+    res.status(rawUrl ? 403 : 400).end();
+  });
+
+  /**
+   * 0-Credit Live TikTok Shop Product Image Recovery Endpoint:
+   * Fetches and streams verified raster product images from public TikTok Shop PDP metadata
+   * when restored/archived backups lack imageOriginUrl or carry expired CDN signatures.
+   */
+  app.get('/api/product-image/:productId', async (req, res) => {
+    const cleanId = extractNumericTikTokProductId(req.params.productId);
+    if (!cleanId) {
+      res.status(400).end();
       return;
     }
 
-    try {
-      const upstream = await fetch(rawUrl, {
-        redirect: 'follow',
-        signal: AbortSignal.timeout(10000),
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.9,*/*;q=0.8',
-        },
-      });
-
-      // Verify final URL after any upstream redirect stays on a safe external host
-      if (upstream.url && !isSafeExternalUrl(upstream.url)) {
-        res.status(403).end();
-        return;
-      }
-
-      if (!upstream.ok) {
-        res.status(upstream.status === 404 ? 404 : 502).end();
-        return;
-      }
-
-      const declaredLength = Number(upstream.headers.get('content-length') ?? '0');
-      if (Number.isFinite(declaredLength) && declaredLength > MAX_PROXY_IMAGE_BYTES) {
-        res.status(413).end();
-        return;
-      }
-
-      const buffer = Buffer.from(await upstream.arrayBuffer());
-      if (buffer.byteLength < 256 || buffer.byteLength > MAX_PROXY_IMAGE_BYTES) {
-        res.status(buffer.byteLength > MAX_PROXY_IMAGE_BYTES ? 413 : 404).end();
-        return;
-      }
-
-      const contentType = (upstream.headers.get('content-type') ?? '').toLowerCase();
-      const resolvedMime = resolveValidImageMime(contentType, buffer);
-      if (!resolvedMime) {
-        res.status(415).end();
-        return;
-      }
-
-      registerVerifiedImage(rawUrl, resolvedMime);
-      res.setHeader('Content-Type', resolvedMime);
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Cache-Control', 'public, max-age=3600');
-      res.send(buffer);
-    } catch {
-      res.status(502).end();
+    const recoveredUrl = await resolveLiveTikTokProductImageUrl(cleanId);
+    if (!recoveredUrl) {
+      res.status(404).end();
+      return;
     }
+
+    const imgResult = await fetchProxiedImageBuffer(recoveredUrl, MAX_PROXY_IMAGE_BYTES);
+    if (!imgResult.ok) {
+      res.status(imgResult.status).end();
+      return;
+    }
+
+    res.setHeader('Content-Type', imgResult.mime);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(imgResult.buffer);
   });
 
   app.get('/api/tiktok-product/:productId', async (req, res) => {

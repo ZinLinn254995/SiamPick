@@ -26,6 +26,7 @@ import {
   getTikTokShopProductUrl,
   isLegacyOrSluglessTikTokUrl,
   isSafeHttpUrl,
+  resolveProductImageDisplayConfig,
 } from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
 import {
@@ -416,7 +417,7 @@ export function SavedProductsView({
                 const displayName = isMy ? product.nameMy : product.name;
                 const subCategory = isMy ? product.subCategoryMy : product.subCategory;
                 const categoryLabel = getCategoryLabel(product.category, language);
-                const hasVerifiedImg = product.imageVerified && Boolean(product.imageUrl);
+                const imageConfig = resolveProductImageDisplayConfig(product);
                 const hasVerifiedComm =
                   product.commissionVerified && product.commissionRate !== null;
                 const effectivePriceStatus: DataStatus = normalizeDataStatus(
@@ -441,10 +442,11 @@ export function SavedProductsView({
                         onClick={() => onOpenReport(record)}
                         className="w-full md:w-48 aspect-[4/3] rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 cursor-pointer flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
                       >
-                        {hasVerifiedImg && product.imageUrl ? (
+                        {imageConfig.canRender && imageConfig.src ? (
                           <ProductImage
-                            src={product.imageUrl}
-                            fallbackSrc={product.imageOriginUrl}
+                            src={imageConfig.src}
+                            fallbackSrc={imageConfig.fallbackSrc}
+                            productId={imageConfig.productId}
                             alt={product.name}
                             title={displayName}
                             unavailableLabel={t.cardImageUnverified}

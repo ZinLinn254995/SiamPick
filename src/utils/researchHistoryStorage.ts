@@ -28,6 +28,7 @@ import {
   SAVED_PRODUCTS_STORAGE_KEY,
 } from './savedProductsStorage.ts';
 import { isValidProductCategory } from './categoryRegistry.ts';
+import { isSafeHttpUrl } from './format.ts';
 
 export const RESEARCH_HISTORY_STORAGE_KEY = 'siampick_research_history_v1';
 export const RESEARCH_HISTORY_SCHEMA_VERSION = 1;
@@ -114,8 +115,17 @@ function isValidHistoryRecord(value: unknown): value is ResearchHistoryRecord {
 }
 
 function normalizeArchivedProduct(product: ResearchProduct): ResearchProduct {
+  const validOriginUrl = isSafeHttpUrl(product.imageOriginUrl)
+    ? product.imageOriginUrl.trim()
+    : null;
+  const recoveredImageUrl =
+    product.imageUrl ||
+    (validOriginUrl ? `/api/image-proxy?url=${encodeURIComponent(validOriginUrl)}` : null);
+
   return {
     ...product,
+    imageUrl: recoveredImageUrl,
+    imageVerified: Boolean(product.imageVerified || recoveredImageUrl),
     priceThb:
       typeof product.priceThb === 'number' && Number.isFinite(product.priceThb)
         ? product.priceThb

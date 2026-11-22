@@ -19,7 +19,11 @@ import {
   ProductDecisionVerdict,
   ResearchProduct,
 } from '../types/product';
-import { formatThb, isSafeHttpUrl } from '../utils/format';
+import {
+  formatThb,
+  isSafeHttpUrl,
+  resolveProductImageDisplayConfig,
+} from '../utils/format';
 import { evaluateProductOpportunity, normalizeDataStatus } from '../utils/scoring';
 import {
   deriveProductDecisionSummary,
@@ -94,7 +98,7 @@ export const ResearchResultCard = memo(function ResearchResultCard({
   const isSaved = decision === 'saved';
   const isRejected = decision === 'rejected';
 
-  const hasVerifiedImage = product.imageVerified && Boolean(product.imageUrl);
+  const imageConfig = resolveProductImageDisplayConfig(product);
   const hasVerifiedCommission =
     product.commissionVerified && product.commissionRate !== null;
 
@@ -173,10 +177,11 @@ export const ResearchResultCard = memo(function ResearchResultCard({
         aria-label={`${t.cardOpenReport}: ${displayName}`}
         className="block relative aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
       >
-        {hasVerifiedImage && product.imageUrl ? (
+        {imageConfig.canRender && imageConfig.src ? (
           <ProductImage
-            src={product.imageUrl}
-            fallbackSrc={product.imageOriginUrl}
+            src={imageConfig.src}
+            fallbackSrc={imageConfig.fallbackSrc}
+            productId={imageConfig.productId}
             alt={product.name}
             title={displayName}
             unavailableLabel={t.cardImageUnverified}

@@ -5,6 +5,7 @@ import { isSafeHttpUrl } from '../utils/format';
 interface ProductImageProps {
   src: string;
   fallbackSrc?: string | null;
+  productId?: string | null;
   alt: string;
   title: string;
   unavailableLabel?: string;
@@ -38,6 +39,7 @@ function deriveDirectFallbackUrl(
 export function ProductImage({
   src,
   fallbackSrc,
+  productId,
   alt,
   unavailableLabel = 'Verified image unavailable',
   className = '',
@@ -47,20 +49,32 @@ export function ProductImage({
     [src, fallbackSrc]
   );
 
+  const liveRecoveryUrl = useMemo(() => {
+    if (!productId || !/^\d{8,24}$/.test(productId.trim())) return null;
+    return `/api/product-image/${encodeURIComponent(productId.trim())}`;
+  }, [productId]);
+
   const [activeSrc, setActiveSrc] = useState(src);
-  const [triedFallback, setTriedFallback] = useState(false);
+  const [triedDirectFallback, setTriedDirectFallback] = useState(false);
+  const [triedLiveRecovery, setTriedLiveRecovery] = useState(false);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     setActiveSrc(src);
-    setTriedFallback(false);
+    setTriedDirectFallback(false);
+    setTriedLiveRecovery(false);
     setHasError(false);
-  }, [src, directFallback]);
+  }, [src, directFallback, liveRecoveryUrl]);
 
   const handleError = () => {
-    if (!triedFallback && directFallback && activeSrc !== directFallback) {
-      setTriedFallback(true);
+    if (!triedDirectFallback && directFallback && activeSrc !== directFallback) {
+      setTriedDirectFallback(true);
       setActiveSrc(directFallback);
+      return;
+    }
+    if (!triedLiveRecovery && liveRecoveryUrl && activeSrc !== liveRecoveryUrl) {
+      setTriedLiveRecovery(true);
+      setActiveSrc(liveRecoveryUrl);
       return;
     }
     setHasError(true);

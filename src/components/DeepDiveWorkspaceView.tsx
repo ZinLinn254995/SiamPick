@@ -55,10 +55,9 @@ import {
   extractCanonicalTikTokNumericId,
   fetchResolvedTikTokProductUrl,
   formatThb,
-  getTikTokOpenLauncherUrl,
   getTikTokShopProductUrl,
   hasResolvedCanonicalTikTokSlug,
-  isAndroidBrowser,
+  resolveProductImageDisplayConfig,
 } from '../utils/format';
 import {
   DEFAULT_SPENDING_LIMIT_CREDITS,
@@ -621,7 +620,6 @@ export function DeepDiveWorkspaceView({
     getTikTokShopProductUrl(product)
   );
   const finalReportRef = useRef<HTMLElement | null>(null);
-  const isAndroid = isAndroidBrowser();
 
   // Cancel stale confirmation & snapshot inspection if product changes
   useEffect(() => {
@@ -657,7 +655,7 @@ export function DeepDiveWorkspaceView({
   const displayName = isMy ? product.nameMy : product.name;
   const categoryLabel = getCategoryLabel(product.category, language);
   const originModeLabel = getOriginModeLabel(originResearchMode, language);
-  const hasVerifiedImage = Boolean(product.imageUrl && product.imageVerified !== false);
+  const imageConfig = resolveProductImageDisplayConfig(product);
 
   const selectedCount = workspaceState.selectedIds.length;
   const totalCount = DEEP_DIVE_ANALYSIS_OPTIONS.length;
@@ -967,10 +965,11 @@ export function DeepDiveWorkspaceView({
       >
         <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0">
-            {hasVerifiedImage && product.imageUrl ? (
+            {imageConfig.canRender && imageConfig.src ? (
               <ProductImage
-                src={product.imageUrl}
-                fallbackSrc={product.imageOriginUrl}
+                src={imageConfig.src}
+                fallbackSrc={imageConfig.fallbackSrc}
+                productId={imageConfig.productId}
                 alt={product.name}
                 title={displayName}
                 unavailableLabel={t.cardImageUnverified}
@@ -1033,7 +1032,6 @@ export function DeepDiveWorkspaceView({
               </dl>
 
               {(() => {
-                const tiktokOpenUrl = getTikTokOpenLauncherUrl(product);
                 const tiktokUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
                 if (!tiktokUrl) return null;
                 return (
@@ -1049,19 +1047,6 @@ export function DeepDiveWorkspaceView({
                       </span>
                       <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                     </a>
-                    {isAndroid && tiktokOpenUrl && (
-                      <a
-                        href={tiktokOpenUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap shrink-0"
-                      >
-                        <span>
-                          {isMy ? 'TikTok App ဖြင့် ဖွင့်ရန်' : 'Open in TikTok App'}
-                        </span>
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      </a>
-                    )}
                     <button
                       type="button"
                       onClick={async () => {

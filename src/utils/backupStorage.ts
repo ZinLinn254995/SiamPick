@@ -167,6 +167,44 @@ function sanitizeOptionalUrl(url: string | null | undefined): string | null {
   return isSafeHttpUrl(trimmed) ? trimmed : null;
 }
 
+function sanitizeImageUrl(url: string | null | undefined): string | null {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  const trimmed: string = url.trim();
+  if (trimmed.startsWith('/api/image-proxy?')) {
+    try {
+      const params = new URLSearchParams(trimmed.slice('/api/image-proxy?'.length));
+      const targetUrl = params.get('url');
+      if (targetUrl && isSafeHttpUrl(targetUrl)) {
+        return trimmed;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  if (/^\/api\/product-image\/\d{8,24}$/.test(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/assets/') && !trimmed.includes('..') && !trimmed.includes('\\')) {
+    return trimmed;
+  }
+  if (isSafeHttpUrl(trimmed)) {
+    return trimmed;
+  }
+  return null;
+}
+
+function extractOriginFromProxyUrl(proxyUrl: string | null): string | null {
+  if (!proxyUrl || !proxyUrl.startsWith('/api/image-proxy?')) return null;
+  try {
+    const params = new URLSearchParams(proxyUrl.slice('/api/image-proxy?'.length));
+    const targetUrl = params.get('url');
+    return targetUrl && isSafeHttpUrl(targetUrl) ? targetUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeGroundingSources(sources: unknown): GroundingSourceLink[] {
   if (!Array.isArray(sources)) return [];
   const valid: GroundingSourceLink[] = [];
@@ -184,8 +222,20 @@ function sanitizeGroundingSources(sources: unknown): GroundingSourceLink[] {
 }
 
 function sanitizeProduct(product: ResearchProduct): ResearchProduct {
-  const safeImage = sanitizeOptionalUrl(product.imageUrl);
-  const safeOriginImage = sanitizeOptionalUrl(product.imageOriginUrl);
+  let safeImage = sanitizeImageUrl(product.imageUrl);
+  const safeOriginImage =
+    sanitizeImageUrl(product.imageOriginUrl) ?? extractOriginFromProxyUrl(safeImage);
+  let imageVerified = product.imageVerified === true;
+
+  // Recover imageUrl seamlessly from imageOriginUrl if an earlier backup stripped /api/image-proxy
+  if (!safeImage && safeOriginImage) {
+    safeImage =
+      safeOriginImage.startsWith('http://') || safeOriginImage.startsWith('https://')
+        ? `/api/image-proxy?url=${encodeURIComponent(safeOriginImage)}`
+        : safeOriginImage;
+    imageVerified = true;
+  }
+
   const safeSources = Array.isArray(product.sources)
     ? product.sources.map((src) => {
         const cleanUrl = sanitizeOptionalUrl(src.url);
@@ -219,7 +269,7 @@ function sanitizeProduct(product: ResearchProduct): ResearchProduct {
         : null,
     imageUrl: safeImage,
     imageOriginUrl: safeOriginImage,
-    imageVerified: product.imageVerified === true && Boolean(safeImage || safeOriginImage),
+    imageVerified: imageVerified && Boolean(safeImage || safeOriginImage),
     sources: safeSources,
     ...(safeMyanmarLanguage ? { myanmarLanguage: safeMyanmarLanguage } : {}),
     reviewStrengthsEn: Array.isArray(product.reviewStrengthsEn) ? product.reviewStrengthsEn : [],

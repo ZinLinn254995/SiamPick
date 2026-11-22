@@ -18,6 +18,7 @@ import {
   buildProductsExportJson,
   triggerFileDownload,
 } from '../utils/exportReports';
+import { resolveProductImageDisplayConfig } from '../utils/format';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
@@ -259,7 +260,7 @@ export function ProductComparisonModal({
                   {matrix.columns.map((col) => {
                     const p = col.item.product;
                     const displayName = isMy ? p.nameMy : p.name;
-                    const hasVerifiedImg = p.imageVerified && Boolean(p.imageUrl);
+                    const imageConfig = resolveProductImageDisplayConfig(p);
                     return (
                       <th
                         key={col.item.selectionKey}
@@ -282,10 +283,11 @@ export function ProductComparisonModal({
                           </div>
 
                           <div className="aspect-[4/3] w-full rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                            {hasVerifiedImg && p.imageUrl ? (
+                            {imageConfig.canRender && imageConfig.src ? (
                               <ProductImage
-                                src={p.imageUrl}
-                                fallbackSrc={p.imageOriginUrl}
+                                src={imageConfig.src}
+                                fallbackSrc={imageConfig.fallbackSrc}
+                                productId={imageConfig.productId}
                                 alt={p.name}
                                 title={displayName}
                                 unavailableLabel={t.cardImageUnverified}

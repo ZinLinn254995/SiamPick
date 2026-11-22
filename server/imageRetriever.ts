@@ -28,11 +28,24 @@ const TRUSTED_PRODUCT_IMAGE_DOMAINS = [
   'kalodata.cn',
   'kalodata.net',
   'kalodata.io',
+  'kalodata.co',
+  'kalodata.org',
+  'kalodata-static.com',
+  'kalodata-cdn.com',
   'tiktokcdn.com',
   'tiktokcdn-us.com',
   'tiktokcdn-eu.com',
   'tiktokcdn-in.com',
   'tiktokcdn-sg.com',
+  'tiktokcdn-maliva.com',
+  'tiktokcdn-va.com',
+  'tiktokcdn-id.com',
+  'tiktokcdn-my.com',
+  'tiktokcdn-th.com',
+  'tiktokcdn-vn.com',
+  'tiktokcdn-ph.com',
+  'tiktokglobalshop.com',
+  'tiktokshop.com',
   'tiktokv.com',
   'tiktok.com',
   'ttwstatic.com',
@@ -42,10 +55,19 @@ const TRUSTED_PRODUCT_IMAGE_DOMAINS = [
   'byteoversea.com',
   'bytecdn.cn',
   'bytedance.com',
+  'bytegecko.com',
+  'byteintl.com',
+  'byteicdn.com',
+  'bytefcdn.com',
+  'pstatp.com',
+  'toutiao.com',
+  'toutiaocdn.com',
   'sgsnssdk.com',
   'snssdk.com',
   'muscdn.com',
   'akamaized.net',
+  'edgesuite.net',
+  'edgekey.net',
   'aliyuncs.com',
   'alicdn.com',
   'cloudfront.net',
@@ -55,6 +77,17 @@ const TRUSTED_PRODUCT_IMAGE_DOMAINS = [
   'qcloud.com',
   'volces.com',
   'volccdn.com',
+  'volctos.com',
+  'oceanengine.com',
+  'myhuaweicloud.com',
+  'huaweicloud.com',
+  'hwcdn.net',
+  'ksyun.com',
+  'fastly.net',
+  'cloudflare.com',
+  'googleusercontent.com',
+  'ggpht.com',
+  'fbcdn.net',
   'susercontent.com',
   'shopee.co.th',
   'lazcdn.com',
@@ -427,4 +460,177 @@ export async function verifyKalodataImageUrl(
     imageSourceNoteMy:
       'Verified image unavailable — Kalodata Product ပုံ URL ကို Live စစ်ဆေးအတည်ပြု၍ မရပါ။',
   };
+}
+
+const DEFAULT_MAX_PROXY_IMAGE_BYTES = 5 * 1024 * 1024;
+const PDP_IMAGE_POSITIVE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const PDP_IMAGE_NEGATIVE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_PDP_IMAGE_CACHE = 2000;
+
+const livePdpImageCache = new Map<string, { url: string | null; expiresAt: number }>();
+const inFlightPdpImageLookups = new Map<string, Promise<string | null>>();
+
+export function decodeHtmlUrlEntities(raw: string): string {
+  return raw
+    .replace(/&amp;/gi, '&')
+    .replace(/&#38;/gi, '&')
+    .replace(/&#x26;/gi, '&')
+    .replace(/&#x2f;/gi, '/')
+    .replace(/&#47;/gi, '/')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002f/gi, '/')
+    .replace(/\\\//g, '/')
+    .trim();
+}
+
+export function extractTikTokPdpImageUrlFromHtml(html: string): string | null {
+  if (!html || typeof html !== 'string') return null;
+
+  const metaMatches = [
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i),
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i),
+    html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i),
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i),
+  ];
+
+  for (const match of metaMatches) {
+    if (match?.[1]) {
+      const candidate = normalizeExternalImageUrl(decodeHtmlUrlEntities(match[1]));
+      if (candidate && isPlausibleProductImageUrl(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  const cdnRegex = /https:\/\/[^"'\s\\<>]+(?:ibyteimg\.com|tiktokcdn[^"'\s\\<>]*\.com)\/[^"'\s\\<>]+/gi;
+  let cdnMatch: RegExpExecArray | null;
+  while ((cdnMatch = cdnRegex.exec(html)) !== null) {
+    const candidate = normalizeExternalImageUrl(decodeHtmlUrlEntities(cdnMatch[0]));
+    if (
+      candidate &&
+      isPlausibleProductImageUrl(candidate) &&
+      /\.(webp|jpe?g|png|avif)(?:$|\?)/i.test(candidate)
+    ) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 0-credit live recovery of a product's official photo from its public TikTok Shop Thailand PDP.
+ * Used transparently when backed-up/restored CDN URLs have expired or been stripped in older exports.
+ */
+export async function resolveLiveTikTokProductImageUrl(
+  rawProductId: string | null | undefined
+): Promise<string | null> {
+  if (typeof rawProductId !== 'string') return null;
+  const cleanId = rawProductId.trim().replace(/^(kalodata-th-|kd[_-])/i, '').trim();
+  if (!/^\d{8,24}$/.test(cleanId)) return null;
+
+  const now = Date.now();
+  const cached = livePdpImageCache.get(cleanId);
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+
+  const existing = inFlightPdpImageLookups.get(cleanId);
+  if (existing) return existing;
+
+  const pending = (async (): Promise<string | null> => {
+    try {
+      const pdpUrl = `https://shop.tiktok.com/th/pdp/product/${cleanId}`;
+      const res = await fetch(pdpUrl, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: AbortSignal.timeout(7000),
+        headers: {
+          'User-Agent': BROWSER_USER_AGENT,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'th-TH,th;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+      });
+
+      if (!res.ok) {
+        res.body?.cancel().catch(() => {});
+        return null;
+      }
+
+      const html = await res.text();
+      const extracted = extractTikTokPdpImageUrlFromHtml(html);
+      if (extracted) {
+        registerVerifiedImage(extracted, 'image/webp');
+      }
+
+      if (livePdpImageCache.size >= MAX_PDP_IMAGE_CACHE && !livePdpImageCache.has(cleanId)) {
+        const firstKey = livePdpImageCache.keys().next().value;
+        if (firstKey) livePdpImageCache.delete(firstKey);
+      }
+      livePdpImageCache.set(cleanId, {
+        url: extracted,
+        expiresAt: Date.now() + (extracted ? PDP_IMAGE_POSITIVE_TTL_MS : PDP_IMAGE_NEGATIVE_TTL_MS),
+      });
+      return extracted;
+    } catch {
+      return null;
+    } finally {
+      inFlightPdpImageLookups.delete(cleanId);
+    }
+  })();
+
+  inFlightPdpImageLookups.set(cleanId, pending);
+  return pending;
+}
+
+export async function fetchProxiedImageBuffer(
+  rawUrl: string,
+  maxBytes: number = DEFAULT_MAX_PROXY_IMAGE_BYTES
+): Promise<{ ok: true; buffer: Buffer; mime: string } | { ok: false; status: number }> {
+  if (!isSafeExternalUrl(rawUrl)) {
+    return { ok: false, status: 403 };
+  }
+
+  try {
+    const upstream = await fetch(rawUrl, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        'User-Agent': BROWSER_USER_AGENT,
+        Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.9,*/*;q=0.8',
+      },
+    });
+
+    if (upstream.url && !isSafeExternalUrl(upstream.url)) {
+      upstream.body?.cancel().catch(() => {});
+      return { ok: false, status: 403 };
+    }
+
+    if (!upstream.ok) {
+      upstream.body?.cancel().catch(() => {});
+      return { ok: false, status: upstream.status === 404 ? 404 : 502 };
+    }
+
+    const declaredLength = Number(upstream.headers.get('content-length') ?? '0');
+    if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      upstream.body?.cancel().catch(() => {});
+      return { ok: false, status: 413 };
+    }
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    if (buffer.byteLength < 256 || buffer.byteLength > maxBytes) {
+      return { ok: false, status: buffer.byteLength > maxBytes ? 413 : 404 };
+    }
+
+    const contentType = (upstream.headers.get('content-type') ?? '').toLowerCase();
+    const resolvedMime = resolveValidImageMime(contentType, buffer);
+    if (!resolvedMime) {
+      return { ok: false, status: 415 };
+    }
+
+    registerVerifiedImage(rawUrl, resolvedMime);
+    return { ok: true, buffer, mime: resolvedMime };
+  } catch {
+    return { ok: false, status: 502 };
+  }
 }

@@ -33,12 +33,11 @@ import {
   extractCanonicalTikTokNumericId,
   fetchResolvedTikTokProductUrl,
   formatThb,
-  getTikTokOpenLauncherUrl,
   getTikTokShopProductUrl,
   hasResolvedCanonicalTikTokSlug,
-  isAndroidBrowser,
   isLegacyOrSluglessTikTokUrl,
   isSafeHttpUrl,
+  resolveProductImageDisplayConfig,
 } from '../utils/format';
 import { DEFAULT_SPENDING_LIMIT_CREDITS } from '../utils/kalodataPricing';
 import {
@@ -141,7 +140,6 @@ export function ResearchReportDrawer({
   const [resolvedTikTokUrl, setResolvedTikTokUrl] = useState<string | null>(() =>
     getTikTokShopProductUrl(product)
   );
-  const isAndroid = isAndroidBrowser();
 
   useEffect(() => {
     setCopied(false);
@@ -206,7 +204,7 @@ export function ResearchReportDrawer({
 
   const isSaved = decision === 'saved';
   const isRejected = decision === 'rejected';
-  const hasVerifiedImage = product.imageVerified && Boolean(product.imageUrl);
+  const imageConfig = resolveProductImageDisplayConfig(product);
   const hasVerifiedCommission =
     product.commissionVerified && product.commissionRate !== null;
 
@@ -379,7 +377,6 @@ export function ResearchReportDrawer({
     effectiveAiAnalysis
   );
   const km = product.kalodataMetrics;
-  const tiktokOpenUrl = getTikTokOpenLauncherUrl(product);
   const tiktokShopUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
   const myanmarInfo = product.myanmarLanguage ?? detectMyanmarLanguageForProduct(product);
   const lastUpdatedIso = km?.lastEnrichedAt ?? effectiveDateIso;
@@ -534,11 +531,12 @@ export function ResearchReportDrawer({
           >
             <div className="md:col-span-5 space-y-2">
               <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                {hasVerifiedImage && product.imageUrl ? (
+                {imageConfig.canRender && imageConfig.src ? (
                   <>
                     <ProductImage
-                      src={product.imageUrl}
-                      fallbackSrc={product.imageOriginUrl}
+                      src={imageConfig.src}
+                      fallbackSrc={imageConfig.fallbackSrc}
+                      productId={imageConfig.productId}
                       alt={product.name}
                       title={displayName}
                       unavailableLabel={t.cardImageUnverified}
@@ -605,19 +603,6 @@ export function ResearchReportDrawer({
                       </span>
                       <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                     </a>
-                    {isAndroid && tiktokOpenUrl && (
-                      <a
-                        href={tiktokOpenUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors whitespace-nowrap"
-                      >
-                        <span>
-                          {isMy ? 'TikTok App ဖြင့် တိုက်ရိုက်ဖွင့်ရန်' : 'Open in TikTok App'}
-                        </span>
-                        <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      </a>
-                    )}
                     <button
                       type="button"
                       onClick={async () => {

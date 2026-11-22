@@ -212,5 +212,92 @@ export function isAndroidBrowser(): boolean {
   return /android/i.test(navigator.userAgent ?? '');
 }
 
+export function isSafeProductImageSrc(rawUrl: string | null | undefined): rawUrl is string {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return false;
+  const trimmed: string = rawUrl.trim();
+  if (trimmed.startsWith('/api/image-proxy?')) {
+    try {
+      const params = new URLSearchParams(trimmed.slice('/api/image-proxy?'.length));
+      const targetUrl = params.get('url');
+      return Boolean(targetUrl && isSafeHttpUrl(targetUrl));
+    } catch {
+      return false;
+    }
+  }
+  if (/^\/api\/product-image\/\d{8,24}$/.test(trimmed)) {
+    return true;
+  }
+  if (trimmed.startsWith('/assets/') && !trimmed.includes('..') && !trimmed.includes('\\')) {
+    return true;
+  }
+  return isSafeHttpUrl(trimmed);
+}
 
+export interface ResolvedProductImageConfig {
+  src: string | null;
+  fallbackSrc: string | null;
+  productId: string | null;
+  canRender: boolean;
+}
 
+export function resolveProductImageDisplayConfig(
+  product:
+    | (TikTokProductLinkInput & {
+        imageUrl?: string | null;
+        imageOriginUrl?: string | null;
+        imageVerified?: boolean;
+      })
+    | null
+    | undefined
+): ResolvedProductImageConfig {
+  if (!product) {
+    return { src: null, fallbackSrc: null, productId: null, canRender: false };
+  }
+
+  const productId = extractCanonicalTikTokNumericId(product);
+  const rawImage = isSafeProductImageSrc(product.imageUrl) ? product.imageUrl.trim() : null;
+  const rawOrigin = isSafeHttpUrl(product.imageOriginUrl) ? product.imageOriginUrl.trim() : null;
+
+  if (rawImage) {
+    let resolvedSrc = rawImage;
+    if (resolvedSrc.startsWith('/api/image-proxy?') && productId) {
+      try {
+        const params = new URLSearchParams(resolvedSrc.slice('/api/image-proxy?'.length));
+        if (!params.get('productId')) {
+          resolvedSrc = `${resolvedSrc}&productId=${encodeURIComponent(productId)}`;
+        }
+      } catch {
+        // Keep original proxy URL
+      }
+    }
+    return {
+      src: resolvedSrc,
+      fallbackSrc: rawOrigin,
+      productId,
+      canRender: product.imageVerified !== false || Boolean(rawOrigin || productId),
+    };
+  }
+
+  if (rawOrigin) {
+    const proxySrc = `/api/image-proxy?url=${encodeURIComponent(rawOrigin)}${
+      productId ? `&productId=${encodeURIComponent(productId)}` : ''
+    }`;
+    return {
+      src: proxySrc,
+      fallbackSrc: rawOrigin,
+      productId,
+      canRender: true,
+    };
+  }
+
+  if (productId) {
+    return {
+      src: `/api/product-image/${encodeURIComponent(productId)}`,
+      fallbackSrc: null,
+      productId,
+      canRender: true,
+    };
+  }
+
+  return { src: null, fallbackSrc: null, productId: null, canRender: false };
+}

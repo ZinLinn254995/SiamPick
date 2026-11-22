@@ -24,6 +24,8 @@ import {
   loadSavedProducts,
   persistSavedProductsWithStatus,
 } from '../src/utils/savedProductsStorage.ts';
+import { resolveProductImageDisplayConfig } from '../src/utils/format.ts';
+import { extractTikTokPdpImageUrlFromHtml } from '../server/imageRetriever.ts';
 import {
   createResearchHistoryRecord,
   loadLatestResearchSession,
@@ -539,3 +541,156 @@ test('QuotaExceededError during restore keeps pre-existing Saved Products & Hist
   storage.failAllWritesWithQuota = false;
   assert.equal(loadSavedProducts()[0].product.id, '7001');
 });
+
+test('Backup export and restore preserve /api/image-proxy imageUrl and recover missing imageUrl from imageOriginUrl', () => {
+  const storage = setupStorage();
+
+  const proxyUrl =
+    '/api/image-proxy?url=' + encodeURIComponent('https://p16-oec-va.ibyteimg.com/tos-maliva-i-o3syd03w52-us/sample.jpg');
+  const originUrl = 'https://p16-oec-va.ibyteimg.com/tos-maliva-i-o3syd03w52-us/sample.jpg';
+
+  const proxiedProd = makeProduct('8001', 'Proxied Image Product');
+  proxiedProd.imageUrl = proxyUrl;
+  proxiedProd.imageOriginUrl = originUrl;
+  proxiedProd.imageVerified = true;
+
+  persistSavedProductsWithStatus([createSavedRecord(proxiedProd)]);
+  const exported = buildSiamPickBackupSnapshot();
+  assert.equal(exported.backup.data.savedProducts[0].product.imageUrl, proxyUrl);
+  assert.equal(exported.backup.data.savedProducts[0].product.imageVerified, true);
+
+  storage.clear();
+  const parsed = parseAndValidateSiamPickBackup(exported.json);
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+
+  const restored = restoreSiamPickBackup(parsed.backup, { mode: 'replace' });
+  assert.equal(restored.savedRecords[0].product.imageUrl, proxyUrl);
+  assert.equal(restored.savedRecords[0].product.imageOriginUrl, originUrl);
+  assert.equal(restored.savedRecords[0].product.imageVerified, true);
+
+  // Also test recovery when an older backup had imageUrl stripped to null but imageOriginUrl intact
+  const olderBackupJson = JSON.stringify({
+    format: SIAMPICK_BACKUP_FORMAT,
+    schemaVersion: 1,
+    app: 'SiamPick',
+    exportedAt: '2026-11-21T00:00:00.000Z',
+    data: {
+      savedProducts: [
+        {
+          id: '8002',
+          savedAt: '2026-11-21T00:00:00.000Z',
+          researchDate: '2026-11-21T00:00:00.000Z',
+          sources: [],
+          product: {
+            ...proxiedProd,
+            id: '8002',
+            imageUrl: null,
+            imageOriginUrl: originUrl,
+            imageVerified: false,
+          },
+        },
+      ],
+      researchHistory: [],
+      deepDiveHistoryByProduct: {},
+      latestResearchSession: null,
+    },
+  });
+
+  const recoveredParsed = parseAndValidateSiamPickBackup(olderBackupJson);
+  assert.equal(recoveredParsed.ok, true);
+  if (!recoveredParsed.ok) return;
+  assert.equal(recoveredParsed.backup.data.savedProducts[0].product.imageUrl, proxyUrl);
+  assert.equal(recoveredParsed.backup.data.savedProducts[0].product.imageVerified, true);
+
+  // Reject unsafe inner target inside /api/image-proxy?url=javascript:...
+  const craftedProxyJson = JSON.stringify({
+    format: SIAMPICK_BACKUP_FORMAT,
+    schemaVersion: 1,
+    app: 'SiamPick',
+    exportedAt: '2026-11-21T00:00:00.000Z',
+    data: {
+      savedProducts: [
+        {
+          id: '8003',
+          savedAt: '2026-11-21T00:00:00.000Z',
+          researchDate: '2026-11-21T00:00:00.000Z',
+          sources: [],
+          product: {
+            ...proxiedProd,
+            id: '8003',
+            imageUrl: '/api/image-proxy?url=javascript:alert(1)',
+            imageOriginUrl: null,
+            imageVerified: true,
+          },
+        },
+      ],
+      researchHistory: [],
+      deepDiveHistoryByProduct: {},
+      latestResearchSession: null,
+    },
+  });
+
+  const craftedParsed = parseAndValidateSiamPickBackup(craftedProxyJson);
+  assert.equal(craftedParsed.ok, true);
+  if (!craftedParsed.ok) return;
+  assert.equal(craftedParsed.backup.data.savedProducts[0].product.imageUrl, null);
+  assert.equal(craftedParsed.backup.data.savedProducts[0].product.imageVerified, false);
+});
+
+test('Restored products self-heal broken localStorage images and fall back to /api/product-image/:id at 0 credits', () => {
+  const storage = setupStorage();
+  const originUrl = 'https://p16-oec-sg.ibyteimg.com/tos-alisg-i-aphluv4xwc-sg/sample.webp';
+
+  // 1. Pre-existing localStorage saved record where imageUrl was previously wiped but imageOriginUrl exists
+  const brokenSaved = createSavedRecord(makeProduct('1734487708082145250', 'Jeans Product'));
+  brokenSaved.product.imageUrl = null;
+  brokenSaved.product.imageOriginUrl = originUrl;
+  brokenSaved.product.imageVerified = false;
+  persistSavedProductsWithStatus([brokenSaved]);
+
+  const loadedSaved = loadSavedProducts();
+  assert.equal(
+    loadedSaved[0].product.imageUrl,
+    `/api/image-proxy?url=${encodeURIComponent(originUrl)}`
+  );
+  assert.equal(loadedSaved[0].product.imageVerified, true);
+
+  // 2. Display config attaches productId to proxy URLs for transparent server recovery
+  const cfgWithProxy = resolveProductImageDisplayConfig(loadedSaved[0].product);
+  assert.equal(cfgWithProxy.canRender, true);
+  assert.equal(
+    cfgWithProxy.src,
+    `/api/image-proxy?url=${encodeURIComponent(originUrl)}&productId=1734487708082145250`
+  );
+  assert.equal(cfgWithProxy.fallbackSrc, originUrl);
+  assert.equal(cfgWithProxy.productId, '1734487708082145250');
+
+  // 3. Even if BOTH imageUrl and imageOriginUrl are null in an old backup, valid TikTok IDs recover via /api/product-image/:id
+  const completelyStripped = makeProduct('kalodata-th-1734487708082145250', 'Stripped Backup Product');
+  completelyStripped.imageUrl = null;
+  completelyStripped.imageOriginUrl = null;
+  completelyStripped.imageVerified = false;
+  const cfgStripped = resolveProductImageDisplayConfig(completelyStripped);
+  assert.equal(cfgStripped.canRender, true);
+  assert.equal(cfgStripped.src, '/api/product-image/1734487708082145250');
+
+  // 4. Non-TikTok fake ID with no valid image still shows unavailable safely
+  const noIdProduct = makeProduct('999', 'No Image Product');
+  noIdProduct.imageUrl = 'javascript:alert(1)';
+  noIdProduct.imageOriginUrl = null;
+  noIdProduct.imageVerified = false;
+  const cfgNone = resolveProductImageDisplayConfig(noIdProduct);
+  assert.equal(cfgNone.canRender, false);
+  assert.equal(cfgNone.src, null);
+
+  // 5. HTML og:image entity decoding preserves signed TikTok CDN query parameters
+  const html =
+    '<meta property="og:image" content="https://p16-oec-sg.ibyteimg.com/img.webp?dr=15582&amp;t=555f072d&amp;from=3376456192" />';
+  assert.equal(
+    extractTikTokPdpImageUrlFromHtml(html),
+    'https://p16-oec-sg.ibyteimg.com/img.webp?dr=15582&t=555f072d&from=3376456192'
+  );
+  void storage;
+});
+
