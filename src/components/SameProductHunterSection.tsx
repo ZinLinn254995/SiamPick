@@ -50,11 +50,16 @@ import {
 } from '../utils/sameProductMatcher';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
+import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
 import { StateMessage } from './visual';
 
 interface SameProductHunterSectionProps {
   product: ResearchProduct;
   spendingLimitCredits: number;
+  serverBudgetCommittedCredits?: number | null;
+  serverBudgetRemainingCredits?: number | null;
+  budgetStorageAvailable?: boolean;
+  onSpendingLimitChange?: (nextLimit: number) => void;
   salesWeightPct: number;
   language: Language;
   savedProductIds?: ReadonlySet<string>;
@@ -107,6 +112,10 @@ function earlyMoverLabel(badge: SameProductEarlyMoverBadge, isMy: boolean): stri
 export function SameProductHunterSection({
   product,
   spendingLimitCredits,
+  serverBudgetCommittedCredits,
+  serverBudgetRemainingCredits,
+  budgetStorageAvailable = true,
+  onSpendingLimitChange,
   salesWeightPct,
   language,
   savedProductIds,
@@ -239,6 +248,9 @@ export function SameProductHunterSection({
         : null;
 
       if (!res.ok || !data || !data.ok) {
+        if (res.status === 400 || res.status === 503) {
+          onCreditsSpent?.();
+        }
         const errPayload = data as { error?: string; errorMy?: string } | null;
         if (!data) {
           setErrorMsg(
@@ -315,6 +327,9 @@ export function SameProductHunterSection({
       } | null;
 
       if (!res.ok || !payload?.ok || !payload.product) {
+        if (res.status === 400 || res.status === 503) {
+          onCreditsSpent?.();
+        }
         setStage2Errors((prev) => ({
           ...prev,
           [candidate.productId]: isMy
@@ -385,9 +400,21 @@ export function SameProductHunterSection({
     [visibleCandidates]
   );
 
-  const stage1CostLabel = `${formatCredits(KALODATA_CREDITS_PER_100_ROWS)} cr (~${formatUsd(
-    KALODATA_CREDITS_PER_100_ROWS * KALODATA_USD_PER_CREDIT
+  const stage1CostCredits = KALODATA_CREDITS_PER_100_ROWS;
+  const stage1CostLabel = `${formatCredits(stage1CostCredits)} cr (~${formatUsd(
+    stage1CostCredits * KALODATA_USD_PER_CREDIT
   )})`;
+
+  const safeUsedToday =
+    typeof serverBudgetCommittedCredits === 'number' && Number.isFinite(serverBudgetCommittedCredits)
+      ? Math.max(0, serverBudgetCommittedCredits)
+      : 0;
+  const effectiveRemainingBudget =
+    typeof serverBudgetRemainingCredits === 'number' && Number.isFinite(serverBudgetRemainingCredits)
+      ? Math.max(0, serverBudgetRemainingCredits)
+      : Math.max(0, Math.round((spendingLimitCredits - safeUsedToday) * 1000) / 1000);
+  const stage1BlockedByBudget =
+    !budgetStorageAvailable || stage1CostCredits > effectiveRemainingBudget + 1e-6;
 
   return (
     <section
@@ -615,6 +642,15 @@ export function SameProductHunterSection({
                 </>
               )}
             </div>
+            <InlineDailyBudgetGuard
+              language={language}
+              dailyLimitCredits={spendingLimitCredits}
+              usedCreditsToday={serverBudgetCommittedCredits}
+              remainingCreditsToday={serverBudgetRemainingCredits}
+              requiredCredits={stage1CostCredits}
+              budgetStorageAvailable={budgetStorageAvailable}
+              onUpdateDailyLimit={onSpendingLimitChange}
+            />
             <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
@@ -625,8 +661,9 @@ export function SameProductHunterSection({
               </button>
               <button
                 type="button"
+                disabled={stage1BlockedByBudget}
                 onClick={() => handleRunSearch(false)}
-                className="sp-btn-primary !px-3.5 text-xs whitespace-nowrap"
+                className="sp-btn-primary !px-3.5 text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>{isMy ? 'အတည်ပြုပြီး ရှာမည် (0.1 cr)' : 'Confirm & Search (0.1 cr)'}</span>
@@ -1009,6 +1046,15 @@ export function SameProductHunterSection({
                             </label>
                           )}
                         </div>
+                        <InlineDailyBudgetGuard
+                          language={language}
+                          dailyLimitCredits={spendingLimitCredits}
+                          usedCreditsToday={serverBudgetCommittedCredits}
+                          remainingCreditsToday={serverBudgetRemainingCredits}
+                          requiredCredits={stage2Cost}
+                          budgetStorageAvailable={budgetStorageAvailable}
+                          onUpdateDailyLimit={onSpendingLimitChange}
+                        />
                         <div className="flex items-center justify-end gap-2 pt-1">
                           <button
                             type="button"
@@ -1020,8 +1066,12 @@ export function SameProductHunterSection({
                           <button
                             type="button"
                             onClick={() => handleVerifyCandidateStage2(cand)}
-                            disabled={isStage2Loading}
-                            className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 whitespace-nowrap"
+                            disabled={
+                              isStage2Loading ||
+                              !budgetStorageAvailable ||
+                              stage2Cost > effectiveRemainingBudget + 1e-6
+                            }
+                            className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                           >
                             {isStage2Loading ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />

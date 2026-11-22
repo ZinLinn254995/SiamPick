@@ -239,6 +239,8 @@ export const TRANSLATIONS: Record<
     creditsUnit: string;
     pricingFormulaNote: string;
     spendingLimitLabel: string;
+    batchSpendingLimitLabel: string;
+    batchSpendingLimitInfo: string;
     spendingLimitExceededTitle: string;
     spendingLimitExceededDesc: string;
     confirmHeading: string;
@@ -684,6 +686,15 @@ export const TRANSLATIONS: Record<
     deepDiveHeadlineNotRun: string;
     deepDiveHeadlineError: string;
     deepDiveHeadlineReadyScript: string;
+    launcherTabBatch: string;
+    launcherTabSingle: string;
+    launcherEditSettingsBtn: string;
+    launcherCollapseSettingsBtn: string;
+    launcherCheckLinkBtn: string;
+    headerBalancePopoverTitle: string;
+    headerBalanceLiveLabel: string;
+    headerBalanceRefreshBtn: string;
+    scoringRubricDetailsBtn: string;
   }
 > = {
   en: {
@@ -972,9 +983,12 @@ export const TRANSLATIONS: Record<
     pricingFormulaNote:
       'Kalodata Pricing: Rank 0.1 cr/100 rows · Product Detail 0.1 cr · Shop Detail 0.1 cr · Review Insight 1.0 cr (1 cr ≈ $0.10)',
     spendingLimitLabel: 'Spending Limit (Credits)',
-    spendingLimitExceededTitle: 'Estimated cost exceeds spending limit',
+    batchSpendingLimitLabel: 'Per-Search Max Cost (Credits)',
+    batchSpendingLimitInfo:
+      'Caps a single Batch Discovery run. Separate from your Daily Credit Guardrail used in Product Details, Link Research, and Deep Dive.',
+    spendingLimitExceededTitle: 'Estimated cost exceeds per-search limit',
     spendingLimitExceededDesc:
-      'Switch to Fast Mode, lower quantity or Deep-Inspect count, or raise your Spending Limit before calling Kalodata API.',
+      'Switch to Fast Mode, lower quantity or Deep-Inspect count, or raise this Per-Search Max Cost before calling Kalodata API.',
     confirmHeading: 'Confirm Kalodata API Research',
     confirmNotice:
       'No API call has been made yet. Review your verified category IDs, research mode, and estimated credit cost before confirming.',
@@ -1555,6 +1569,15 @@ export const TRANSLATIONS: Record<
     deepDiveHeadlineNotRun: 'Not run yet',
     deepDiveHeadlineError: 'Failed',
     deepDiveHeadlineReadyScript: '{hooks} hooks · {scenes} scenes',
+    launcherTabBatch: 'Batch Discovery',
+    launcherTabSingle: 'Single Link Research',
+    launcherEditSettingsBtn: 'Edit Settings',
+    launcherCollapseSettingsBtn: 'Collapse Settings',
+    launcherCheckLinkBtn: 'Check a Link',
+    headerBalancePopoverTitle: 'Kalodata Balance & Daily Budget',
+    headerBalanceLiveLabel: 'Live Account Balance',
+    headerBalanceRefreshBtn: 'Refresh',
+    scoringRubricDetailsBtn: '7-Factor Breakdown',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1842,9 +1865,12 @@ export const TRANSLATIONS: Record<
     pricingFormulaNote:
       'Kalodata ဈေးနှုန်း: Rank 0.1 cr/100 ခု · Product Detail 0.1 cr · Shop Detail 0.1 cr · Review Insight 1.0 cr (1 cr ≈ $0.10)',
     spendingLimitLabel: 'သုံးစွဲမှုကန့်သတ်ချက် (Credit)',
-    spendingLimitExceededTitle: 'ခန့်မှန်းကုန်ကျစရိတ်သည် သုံးစွဲမှုကန့်သတ်ချက်ထက် ကျော်လွန်နေပါသည်',
+    batchSpendingLimitLabel: 'တစ်ကြိမ်ရှာဖွေမှု Limit (Credit)',
+    batchSpendingLimitInfo:
+      'Batch Discovery တစ်ကြိမ်စာ ကုန်ကျစရိတ်ကိုသာ ကန့်သတ်ပါသည်။ Product Details၊ Link Research နှင့် Deep Dive တို့၏ တစ်နေ့တာ Credit ကန့်သတ်ချက်နှင့် သီးခြားစီ ခွဲထားပါသည်။',
+    spendingLimitExceededTitle: 'ခန့်မှန်းကုန်ကျစရိတ်သည် တစ်ကြိမ်ရှာဖွေမှု Limit ထက် ကျော်လွန်နေပါသည်',
     spendingLimitExceededDesc:
-      'API မခေါ်ဆိုမီ Fast Mode ပြောင်းပါ၊ အရေအတွက်/အသေးစိတ်စစ်ဆေးမှု လျှော့ပါ သို့မဟုတ် သုံးစွဲမှုကန့်သတ်ချက်ကို တိုးသတ်မှတ်ပါ။',
+      'API မခေါ်ဆိုမီ Fast Mode ပြောင်းပါ၊ အရေအတွက်/အသေးစိတ်စစ်ဆေးမှု လျှော့ပါ သို့မဟုတ် တစ်ကြိမ်ရှာဖွေမှု Limit ကို တိုးသတ်မှတ်ပါ။',
     confirmHeading: 'Kalodata API ခေါ်ဆိုမှုကို အတည်ပြုပါ',
     confirmNotice:
       'API မခေါ်ဆိုရသေးပါ။ အတည်ပြုပြီး Category ID များ၊ ရှာဖွေမှု Mode နှင့် ခန့်မှန်း Credit ကုန်ကျစရိတ်ကို စစ်ဆေးပြီးမှ အတည်ပြုပါ။',
@@ -2425,5 +2451,14 @@ export const TRANSLATIONS: Record<
     deepDiveHeadlineNotRun: 'မစစ်ဆေးရသေးပါ',
     deepDiveHeadlineError: 'မအောင်မြင်ပါ',
     deepDiveHeadlineReadyScript: 'Hook {hooks} ခု · Scene {scenes} ခု',
+    launcherTabBatch: 'အစုလိုက် ရှာဖွေရန်',
+    launcherTabSingle: 'Link တစ်ခုချင်း စစ်ရန်',
+    launcherEditSettingsBtn: 'Settings ပြင်ရန်',
+    launcherCollapseSettingsBtn: 'Settings ခေါက်သိမ်းရန်',
+    launcherCheckLinkBtn: 'Link ဖြင့် စစ်ရန်',
+    headerBalancePopoverTitle: 'Kalodata လက်ကျန်နှင့် တစ်နေ့တာ Limit',
+    headerBalanceLiveLabel: 'Kalodata အကောင့် လက်ကျန်',
+    headerBalanceRefreshBtn: 'ပြန်စစ်မည်',
+    scoringRubricDetailsBtn: 'အချက် ၇ ချက် ကြည့်ရန်',
   },
 };

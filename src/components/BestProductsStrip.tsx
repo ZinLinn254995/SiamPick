@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowUpRight,
@@ -108,7 +108,7 @@ function resolveCompetitionTone(level: ResearchProduct['competitionLevel'], hasC
   return 'amber';
 }
 
-export function BestProductsStrip({
+export const BestProductsStrip = memo(function BestProductsStrip({
   selections,
   comparedIds,
   onOpenReport,
@@ -690,5 +690,6 @@ export function BestProductsStrip({
       )}
     </section>
   );
-}
+});
+
 

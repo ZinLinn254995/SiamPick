@@ -85,6 +85,10 @@ interface ResearchReportDrawerProps {
   salesWeightPct?: number;
   peerProducts?: readonly ResearchProduct[];
   spendingLimitCredits?: number;
+  serverBudgetCommittedCredits?: number | null;
+  serverBudgetRemainingCredits?: number | null;
+  budgetStorageAvailable?: boolean;
+  onSpendingLimitChange?: (nextLimit: number) => void;
   researchDate?: string | null;
   decision: ProductDecision;
   onSave: (id: string) => void;
@@ -128,6 +132,10 @@ export function ResearchReportDrawer({
   salesWeightPct = 50,
   peerProducts,
   spendingLimitCredits = DEFAULT_SPENDING_LIMIT_CREDITS,
+  serverBudgetCommittedCredits,
+  serverBudgetRemainingCredits,
+  budgetStorageAvailable = true,
+  onSpendingLimitChange,
   researchDate,
   decision,
   onSave,
@@ -1517,6 +1525,11 @@ export function ResearchReportDrawer({
             salesWeightPct={salesWeightPct}
             peerProducts={peerProducts}
             spendingLimitCredits={spendingLimitCredits}
+            serverBudgetCommittedCredits={serverBudgetCommittedCredits}
+            serverBudgetRemainingCredits={serverBudgetRemainingCredits}
+            budgetStorageAvailable={budgetStorageAvailable}
+            onSpendingLimitChange={onSpendingLimitChange}
+            onBudgetRefresh={onCreditsSpent}
             language={language}
             onProductEnriched={onProductEnriched}
           />
@@ -1525,6 +1538,10 @@ export function ResearchReportDrawer({
           <SameProductHunterSection
             product={product}
             spendingLimitCredits={spendingLimitCredits}
+            serverBudgetCommittedCredits={serverBudgetCommittedCredits}
+            serverBudgetRemainingCredits={serverBudgetRemainingCredits}
+            budgetStorageAvailable={budgetStorageAvailable}
+            onSpendingLimitChange={onSpendingLimitChange}
             salesWeightPct={salesWeightPct}
             language={language}
             savedProductIds={savedProductIds}

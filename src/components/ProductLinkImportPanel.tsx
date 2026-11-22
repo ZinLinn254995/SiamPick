@@ -45,12 +45,15 @@ import { deriveProductDecisionSummary } from '../utils/productAnalytics';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
+import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
 import { ProductImage } from './ProductImage';
 import { ScoreRing, StateMessage, StatusDot, VerdictBadge } from './visual';
 
 interface ProductLinkImportPanelProps {
   language: Language;
   spendingLimitCredits: number;
+  serverBudgetCommittedCredits?: number | null;
+  onSpendingLimitChange?: (nextLimit: number) => void;
   salesWeightPct: number;
   syncedCategoryCache: SyncedKalodataCategoryCache;
   quotaStatus: ResearchQuotaStatus;
@@ -76,6 +79,7 @@ interface ProductLinkImportPanelProps {
   onViewSingleHistory: () => void;
   onProductImported: (result: LinkImportExecuteResponse) => void;
   onResumeResearch: () => Promise<void> | void;
+  compactTop?: boolean;
 }
 
 function tryExtractQuickProductId(rawInput: string): string | null {
@@ -116,6 +120,8 @@ function formatDataSourceLabel(source: SingleLinkResearchSource, isMy: boolean):
 export function ProductLinkImportPanel({
   language,
   spendingLimitCredits,
+  serverBudgetCommittedCredits,
+  onSpendingLimitChange,
   salesWeightPct,
   syncedCategoryCache,
   quotaStatus,
@@ -138,6 +144,7 @@ export function ProductLinkImportPanel({
   onViewSingleHistory,
   onProductImported,
   onResumeResearch,
+  compactTop = false,
 }: ProductLinkImportPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
@@ -346,10 +353,15 @@ export function ProductLinkImportPanel({
     return onFindExistingProduct(inspectResult.canonicalProductId);
   }, [inspectResult, onFindExistingProduct]);
 
+  const effectiveUsedToday =
+    inspectResult?.budgetSummary?.totalCommittedCredits ??
+    serverBudgetCommittedCredits ??
+    0;
   const effectiveRemainingBudget =
-    inspectResult?.budgetSummary?.remainingLimitCredits ??
-    serverBudgetRemainingCredits ??
-    spendingLimitCredits;
+    serverBudgetRemainingCredits !== null && serverBudgetRemainingCredits !== undefined
+      ? Math.max(0, serverBudgetRemainingCredits)
+      : inspectResult?.budgetSummary?.remainingLimitCredits ??
+        Math.max(0, Math.round((spendingLimitCredits - effectiveUsedToday) * 1000) / 1000);
   const effectiveStorageAvailable =
     inspectResult?.budgetSummary?.storageAvailable ?? budgetStorageAvailable;
   const effectiveBalance =
@@ -358,7 +370,8 @@ export function ProductLinkImportPanel({
 
   const isLimitExceeded =
     Boolean(inspectResult?.requiresPaidApiCall) &&
-    effectiveRemainingBudget + 1e-6 < KALODATA_PRODUCT_DETAIL_CREDIT;
+    (KALODATA_PRODUCT_DETAIL_CREDIT > spendingLimitCredits + 1e-6 ||
+      effectiveRemainingBudget + 1e-6 < KALODATA_PRODUCT_DETAIL_CREDIT);
   const isBalanceInsufficient =
     Boolean(inspectResult?.requiresPaidApiCall) &&
     effectiveBalance !== null &&
@@ -417,7 +430,7 @@ export function ProductLinkImportPanel({
   return (
     <section
       aria-labelledby="link-import-heading"
-      className="mt-4 sp-card p-4 sm:p-5"
+      className={`${compactTop ? 'mt-2.5' : 'mt-4'} sp-card p-4 sm:p-5`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2.5">
         <div className="space-y-1 max-w-3xl min-w-0">
@@ -715,17 +728,16 @@ export function ProductLinkImportPanel({
                 </div>
               )}
 
-              {!effectiveStorageAvailable && (
-                <p className="text-xs text-red-700 dark:text-red-400">
-                  {t.linkImportStorageBlockedNote}
-                </p>
-              )}
-
-              {isLimitExceeded && (
-                <p className="text-xs text-red-700 dark:text-red-400">
-                  {t.linkImportLimitExceededNote}
-                </p>
-              )}
+              <InlineDailyBudgetGuard
+                language={language}
+                dailyLimitCredits={spendingLimitCredits}
+                usedCreditsToday={effectiveUsedToday}
+                remainingCreditsToday={effectiveRemainingBudget}
+                requiredCredits={KALODATA_PRODUCT_DETAIL_CREDIT}
+                budgetStorageAvailable={effectiveStorageAvailable}
+                onUpdateDailyLimit={onSpendingLimitChange}
+                testId="link-import-inline-budget-guard"
+              />
 
               {isBalanceInsufficient && (
                 <p className="text-xs text-red-700 dark:text-red-400">

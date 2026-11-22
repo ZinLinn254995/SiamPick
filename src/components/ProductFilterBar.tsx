@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowUp,
@@ -56,7 +56,7 @@ const SORT_FIELDS: readonly ProductSortField[] = [
   'dataConfidence',
 ] as const;
 
-export function ProductFilterBar({
+export const ProductFilterBar = memo(function ProductFilterBar({
   filters,
   onChangeFilters,
   decisionFilter,
@@ -536,4 +536,4 @@ export function ProductFilterBar({
       )}
     </div>
   );
-}
+});

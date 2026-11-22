@@ -33,12 +33,18 @@ import {
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
+import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
 
 interface DataEnrichmentSectionProps {
   product: ResearchProduct;
   salesWeightPct: number;
   peerProducts?: readonly ResearchProduct[];
   spendingLimitCredits: number;
+  serverBudgetCommittedCredits?: number | null;
+  serverBudgetRemainingCredits?: number | null;
+  budgetStorageAvailable?: boolean;
+  onSpendingLimitChange?: (nextLimit: number) => void;
+  onBudgetRefresh?: () => void;
   language: Language;
   onProductEnriched?: (
     updatedProduct: ResearchProduct,
@@ -85,6 +91,11 @@ export function DataEnrichmentSection({
   salesWeightPct,
   peerProducts,
   spendingLimitCredits,
+  serverBudgetCommittedCredits,
+  serverBudgetRemainingCredits,
+  budgetStorageAvailable = true,
+  onSpendingLimitChange,
+  onBudgetRefresh,
   language,
   onProductEnriched,
 }: DataEnrichmentSectionProps) {
@@ -147,6 +158,19 @@ export function DataEnrichmentSection({
       }),
     [product, selection, spendingLimitCredits, cached]
   );
+
+  const safeUsedToday =
+    typeof serverBudgetCommittedCredits === 'number' && Number.isFinite(serverBudgetCommittedCredits)
+      ? Math.max(0, serverBudgetCommittedCredits)
+      : 0;
+  const effectiveRemainingBudget =
+    typeof serverBudgetRemainingCredits === 'number' && Number.isFinite(serverBudgetRemainingCredits)
+      ? Math.max(0, serverBudgetRemainingCredits)
+      : Math.max(0, Math.round((spendingLimitCredits - safeUsedToday) * 1000) / 1000);
+
+  const isBlockedByDailyLimit =
+    plan.exceedsSpendingLimit ||
+    (plan.estimatedCredits > 0 && plan.estimatedCredits > effectiveRemainingBudget + 1e-6);
 
   const allThreePresent =
     coverage.hasProductDetail && coverage.hasShopDetail && coverage.hasReviewInsights;
@@ -272,6 +296,9 @@ export function DataEnrichmentSection({
       if (abortRef.current !== controller) return;
 
       if (!response.ok || !payload?.ok || !payload.product) {
+        if (response.status === 400 || response.status === 503) {
+          onBudgetRefresh?.();
+        }
         setErrorMsg(
           isMy
             ? (payload?.errorMy ?? payload?.error ?? `Enrichment failed (HTTP ${response.status})`)
@@ -520,10 +547,20 @@ export function DataEnrichmentSection({
               }
             />
           </div>
-          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-            {t.spendingLimitLabel}: {formatCredits(spendingLimitCredits)} {t.creditsUnit}
-          </span>
         </div>
+
+        {coverage.hasKalodataId && !allThreePresent && (
+          <InlineDailyBudgetGuard
+            language={language}
+            dailyLimitCredits={spendingLimitCredits}
+            usedCreditsToday={serverBudgetCommittedCredits}
+            remainingCreditsToday={serverBudgetRemainingCredits}
+            requiredCredits={plan.estimatedCredits}
+            budgetStorageAvailable={budgetStorageAvailable}
+            onUpdateDailyLimit={onSpendingLimitChange}
+            testId="enrichment-inline-budget-guard"
+          />
+        )}
 
         {!coverage.hasKalodataId ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.enrichNoKalodataIdNotice}</p>
@@ -620,7 +657,7 @@ export function DataEnrichmentSection({
                   </span>
                   <span>
                     {t.estimatedCostLabel}:{' '}
-                    <strong className={plan.exceedsSpendingLimit ? 'text-red-700 dark:text-red-400' : 'text-zinc-950 dark:text-zinc-50'}>
+                    <strong className={isBlockedByDailyLimit ? 'text-red-700 dark:text-red-400' : 'text-zinc-950 dark:text-zinc-50'}>
                       {formatCredits(plan.estimatedCredits)} {t.creditsUnit}
                     </strong>{' '}
                     (≈ {formatUsd(plan.estimatedUsd)})
@@ -646,7 +683,7 @@ export function DataEnrichmentSection({
                     ) : (
                       <button
                         type="button"
-                        disabled={plan.exceedsSpendingLimit || plan.plannedApiCalls === 0}
+                        disabled={!budgetStorageAvailable || isBlockedByDailyLimit || plan.plannedApiCalls === 0}
                         onClick={() => setConfirmOpen(true)}
                         className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -659,19 +696,8 @@ export function DataEnrichmentSection({
               </div>
             )}
 
-            {/* Spending Limit Exceeded Warning */}
-            {plan.exceedsSpendingLimit && (
-              <div
-                role="alert"
-                className="p-3 rounded-lg bg-red-50 dark:bg-red-950/35 border border-red-200 dark:border-red-800/60 text-xs text-red-900 dark:text-red-200 flex items-start gap-2"
-              >
-                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <span>{t.enrichSpendingLimitBlocked}</span>
-              </div>
-            )}
-
             {/* Explicit Pre-Call Confirmation Gate */}
-            {confirmOpen && !isEnriching && !plan.exceedsSpendingLimit && (
+            {confirmOpen && !isEnriching && !isBlockedByDailyLimit && budgetStorageAvailable && (
               <div className="p-3.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 space-y-2.5 text-xs">
                 <div>
                   <div className="font-semibold text-zinc-950 dark:text-zinc-50">{t.enrichConfirmTitle}</div>

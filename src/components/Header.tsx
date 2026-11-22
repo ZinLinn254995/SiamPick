@@ -1,8 +1,20 @@
-import { Bookmark, Coins, Globe, HardDrive, Moon, Sun } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Bookmark,
+  ChevronDown,
+  Coins,
+  Globe,
+  HardDrive,
+  Moon,
+  RefreshCw,
+  Sun,
+} from 'lucide-react';
 import { AppView, CategoryFilter, Language } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
 import type { KalodataBalanceState } from '../hooks/useKalodataBalance';
 import type { ThemeMode } from '../hooks/useTheme';
+import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
+import { StatusDot } from './visual';
 
 interface HeaderProps {
   activeView: AppView;
@@ -20,6 +32,11 @@ interface HeaderProps {
   theme: ThemeMode;
   onToggleTheme: () => void;
   creditBalance: KalodataBalanceState;
+  dailyBudgetLimitCredits?: number;
+  serverBudgetCommittedCredits?: number | null;
+  serverBudgetRemainingCredits?: number | null;
+  budgetStorageAvailable?: boolean;
+  onDailyBudgetLimitChange?: (nextLimit: number) => void;
 }
 
 function formatCompactHeaderBalance(balance: number): string {
@@ -27,6 +44,13 @@ function formatCompactHeaderBalance(balance: number): string {
     return balance.toLocaleString('en-US');
   }
   return balance.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function formatBalanceFieldLabel(key: string): string {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 export function Header({
@@ -45,12 +69,51 @@ export function Header({
   theme,
   onToggleTheme,
   creditBalance,
+  dailyBudgetLimitCredits,
+  serverBudgetCommittedCredits,
+  serverBudgetRemainingCredits,
+  budgetStorageAvailable = true,
+  onDailyBudgetLimitChange,
 }: HeaderProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
   const isDark = theme === 'dark';
 
-  const { status: balanceStatus, loading: balanceLoading, refreshBalance } = creditBalance;
+  const [balanceMenuOpen, setBalanceMenuOpen] = useState(false);
+  const balancePopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!balanceMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        balancePopoverRef.current &&
+        !balancePopoverRef.current.contains(event.target as Node)
+      ) {
+        setBalanceMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setBalanceMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [balanceMenuOpen]);
+
+  const {
+    status: balanceStatus,
+    loading: balanceLoading,
+    fetchError: balanceFetchError,
+    refreshBalance,
+  } = creditBalance;
   const hasNumericBalance = Boolean(balanceStatus?.ok && balanceStatus.balance !== null);
   const rawBalanceNumber = hasNumericBalance
     ? formatCompactHeaderBalance(balanceStatus!.balance!)
@@ -58,13 +121,21 @@ export function Header({
   const unitFull = balanceStatus?.unit ? balanceStatus.unit : 'credits';
   const unitShort = /^credits?$/i.test(unitFull) ? 'cr' : unitFull;
 
+  const balanceErrorMessage =
+    balanceFetchError ??
+    (balanceStatus && !balanceStatus.ok
+      ? isMy && balanceStatus.errorMy
+        ? balanceStatus.errorMy
+        : balanceStatus.error ?? 'Unknown error'
+      : null);
+
   const balanceTitle = isMy
     ? hasNumericBalance
-      ? `လက်ကျန် Credit Balance: ${rawBalanceNumber} ${unitFull} — ပြန်စစ်ရန် နှိပ်ပါ`
-      : 'Kalodata Credit Balance စစ်ဆေးရန် နှိပ်ပါ'
+      ? `Kalodata Balance: ${rawBalanceNumber} ${unitFull} — လက်ကျန်နှင့် Daily Limit ကြည့်ရန် နှိပ်ပါ`
+      : 'Kalodata Balance နှင့် Daily Limit ကြည့်ရန် နှိပ်ပါ'
     : hasNumericBalance
-      ? `Kalodata Credit Balance: ${rawBalanceNumber} ${unitFull} — Click to refresh`
-      : 'Click to check Kalodata Credit Balance';
+      ? `Kalodata Balance: ${rawBalanceNumber} ${unitFull} — View balance & daily budget`
+      : 'View Kalodata Balance & Daily Budget';
 
   const themeToggleLabel = isMy
     ? isDark
@@ -78,8 +149,8 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/85 dark:border-zinc-800/85 overflow-x-clip transition-colors">
-      <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-[52px] sm:h-[60px] flex items-center justify-between gap-2 sm:gap-5">
-        {/* Zone 1: Brand Wordmark + Quiet Unboxed Credit Balance */}
+      <div className="relative max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-[52px] sm:h-[60px] flex items-center justify-between gap-2 sm:gap-5">
+        {/* Zone 1: Brand Wordmark + Quiet Unboxed Credit Balance & Daily Budget Popover */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <a
             href="#top"
@@ -97,53 +168,164 @@ export function Header({
             aria-hidden="true"
           />
 
-          {/* Unboxed, lightweight Credit Balance readout (click to refresh) */}
-          <button
-            type="button"
-            onClick={() => void refreshBalance()}
-            disabled={balanceLoading}
-            title={balanceTitle}
-            aria-label={balanceLoading ? t.creditsLoadingLabel : balanceTitle}
-            className="inline-flex items-center gap-1.5 min-h-[40px] px-2 py-1.5 -mx-1 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-950 dark:hover:text-zinc-100 disabled:opacity-75 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
-          >
-            {balanceLoading ? (
-              <span className="inline-flex items-center gap-1.5" aria-busy="true">
-                <span
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none shrink-0"
-                />
-                <span
-                  aria-hidden="true"
-                  className="h-3.5 w-11 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
-                />
-                <span className="sr-only">{t.creditsLoadingLabel}</span>
-              </span>
-            ) : (
-              <>
-                <Coins
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    hasNumericBalance
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
-                  }`}
-                  aria-hidden="true"
-                />
-                <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {rawBalanceNumber}
+          <div ref={balancePopoverRef} className="sm:relative">
+            <button
+              type="button"
+              onClick={() => setBalanceMenuOpen((prev) => !prev)}
+              aria-expanded={balanceMenuOpen}
+              aria-haspopup="dialog"
+              title={balanceTitle}
+              aria-label={balanceLoading ? t.creditsLoadingLabel : balanceTitle}
+              className={`inline-flex items-center gap-1.5 min-h-[40px] px-2 py-1.5 -mx-1 rounded-lg text-xs transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                balanceMenuOpen
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-950 dark:hover:text-zinc-100'
+              }`}
+            >
+              {balanceLoading ? (
+                <span className="inline-flex items-center gap-1.5" aria-busy="true">
+                  <span
+                    aria-hidden="true"
+                    className="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none shrink-0"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-11 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
+                  />
+                  <span className="sr-only">{t.creditsLoadingLabel}</span>
                 </span>
-                {hasNumericBalance && (
-                  <>
-                    <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 xl:hidden">
-                      {unitShort}
-                    </span>
-                    <span className="hidden xl:inline font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                      {unitFull}
-                    </span>
-                  </>
+              ) : (
+                <>
+                  <Coins
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      hasNumericBalance
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                    }`}
+                    aria-hidden="true"
+                  />
+                  <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {rawBalanceNumber}
+                  </span>
+                  {hasNumericBalance && (
+                    <>
+                      <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 xl:hidden">
+                        {unitShort}
+                      </span>
+                      <span className="hidden xl:inline font-mono text-xs text-zinc-600 dark:text-zinc-400">
+                        {unitFull}
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+              <ChevronDown
+                className={`w-3 h-3 text-zinc-500 dark:text-zinc-400 transition-transform ${
+                  balanceMenuOpen ? 'rotate-180' : ''
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {balanceMenuOpen && (
+              <div
+                role="dialog"
+                aria-label={t.headerBalancePopoverTitle}
+                className="absolute left-3.5 right-3.5 sm:left-0 sm:right-auto top-full mt-2 sm:w-[380px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg p-3.5 space-y-3 z-50"
+              >
+                {/* Live Kalodata Balance Details */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <StatusDot
+                        status={balanceStatus?.ok ? 'verified' : 'unavailable'}
+                        language={language}
+                      />
+                      <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                        {t.kalodataSectionLabel}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => void refreshBalance()}
+                      disabled={balanceLoading}
+                      className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 rounded-md transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap shrink-0"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${
+                          balanceLoading ? 'animate-spin motion-reduce:animate-none' : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span>{t.headerBalanceRefreshBtn}</span>
+                    </button>
+                  </div>
+
+                  {balanceLoading ? (
+                    <div className="flex items-center gap-2 pt-0.5" role="status" aria-live="polite">
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse motion-reduce:animate-none"
+                      />
+                      <span className="sr-only">{t.kalodataChecking}</span>
+                    </div>
+                  ) : balanceStatus?.ok ? (
+                    <div className="space-y-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {t.headerBalanceLiveLabel}
+                        </span>
+                        <span className="font-mono text-base font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                          {balanceStatus.balance !== null
+                            ? balanceStatus.balance.toLocaleString('en-US')
+                            : t.dataStatusLabels.unavailable}
+                          {balanceStatus.balance !== null && balanceStatus.unit
+                            ? ` ${balanceStatus.unit}`
+                            : ''}
+                        </span>
+                      </div>
+
+                      {balanceStatus.fields.length > 0 && (
+                        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs pt-0.5">
+                          {balanceStatus.fields.map((entry) => (
+                            <span
+                              key={entry.key}
+                              className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums"
+                            >
+                              {formatBalanceFieldLabel(entry.key)}:{' '}
+                              <span className="text-zinc-900 dark:text-zinc-100">
+                                {String(entry.value)}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">
+                      {balanceErrorMessage}
+                    </p>
+                  )}
+                </div>
+
+                {/* Shared Daily Credit Guardrail */}
+                {dailyBudgetLimitCredits !== undefined && (
+                  <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800">
+                    <InlineDailyBudgetGuard
+                      language={language}
+                      dailyLimitCredits={dailyBudgetLimitCredits}
+                      usedCreditsToday={serverBudgetCommittedCredits}
+                      remainingCreditsToday={serverBudgetRemainingCredits}
+                      budgetStorageAvailable={budgetStorageAvailable}
+                      onUpdateDailyLimit={onDailyBudgetLimitChange}
+                      testId="header-daily-budget-guard"
+                    />
+                  </div>
                 )}
-              </>
+              </div>
             )}
-          </button>
+          </div>
         </div>
 
         {/* Zone 2: Clean Unboxed Text Navigation (Visible from Tablet md+ upwards) */}

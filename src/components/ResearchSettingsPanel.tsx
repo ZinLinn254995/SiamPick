@@ -53,7 +53,6 @@ import {
   mergeSyncedL2Subcategories,
   saveSyncedKalodataCategories,
 } from '../utils/categoryRegistry';
-import { computeStrategyWeights, SCORING_FACTOR_ORDER } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
 
@@ -78,10 +77,6 @@ interface ResearchSettingsPanelProps {
   onIncludeReviewInsightsChange: (enabled: boolean) => void;
   strategyPreset: StrategyPreset;
   salesWeightPct: number;
-  onSelectStrategyPreset: (preset: StrategyPreset) => void;
-  onCustomWeightChange: (weight: number) => void;
-  showFineTune: boolean;
-  onToggleFineTune: () => void;
   quantity: ResearchQuantity;
   onQuantityChange: (quantity: ResearchQuantity) => void;
   spendingLimitCredits: number;
@@ -97,6 +92,9 @@ interface ResearchSettingsPanelProps {
   onResumeResearch: () => void;
   onConfirmStartHunting: () => void;
   language: Language;
+  compactTop?: boolean;
+  canCollapse?: boolean;
+  onCollapse?: () => void;
 }
 
 const PRESET_QUANTITIES = [10, 20, 30] as const;
@@ -124,10 +122,6 @@ export function ResearchSettingsPanel({
   onIncludeReviewInsightsChange,
   strategyPreset,
   salesWeightPct,
-  onSelectStrategyPreset,
-  onCustomWeightChange,
-  showFineTune,
-  onToggleFineTune,
   quantity,
   onQuantityChange,
   spendingLimitCredits,
@@ -143,6 +137,9 @@ export function ResearchSettingsPanel({
   onResumeResearch,
   onConfirmStartHunting,
   language,
+  compactTop = false,
+  canCollapse = false,
+  onCollapse,
 }: ResearchSettingsPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
@@ -479,7 +476,7 @@ export function ResearchSettingsPanel({
   return (
     <section
       aria-labelledby="research-settings-heading"
-      className="mt-5 sm:mt-6 sp-card p-4 sm:p-6 space-y-5"
+      className={`${compactTop ? 'mt-2.5' : 'mt-5 sm:mt-6'} sp-card p-4 sm:p-6 space-y-5`}
     >
       {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -512,19 +509,16 @@ export function ResearchSettingsPanel({
               </button>
             ))}
 
-          <button
-            type="button"
-            onClick={onToggleFineTune}
-            aria-expanded={showFineTune}
-            className={`inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              showFineTune
-                ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
-                : 'text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>{t.weightFineTune}</span>
-          </button>
+          {canCollapse && onCollapse && !isHunting && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.launcherCollapseSettingsBtn}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -574,101 +568,6 @@ export function ResearchSettingsPanel({
           </div>
         </div>
       </div>
-
-      {/* Working Strategy Slider & Live 7-Factor Weight Distribution (Always Totals 100) */}
-      {showFineTune && (() => {
-        const previewCategory =
-          selectedCategories.length === 1 ? selectedCategories[0] : undefined;
-        const liveWeights = computeStrategyWeights(salesWeightPct, previewCategory);
-        const totalWeight = SCORING_FACTOR_ORDER.reduce((sum, key) => sum + liveWeights[key], 0);
-        return (
-          <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800/80 space-y-4">
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-              <div
-                className="flex flex-wrap items-center gap-2 min-w-0"
-                role="group"
-                aria-label={t.strategyLabel}
-              >
-                {(
-                  [
-                    { id: 'sales-first', label: t.strategySales },
-                    { id: 'balanced', label: t.strategyBalanced },
-                    { id: 'commission-first', label: t.strategyCommission },
-                  ] as const
-                ).map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => onSelectStrategyPreset(preset.id)}
-                    className={`min-h-[40px] max-w-full px-3.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
-                      strategyPreset === preset.id
-                        ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
-                    }`}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="w-full xl:max-w-sm space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {t.commissionWeight}{' '}
-                    <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                      {100 - salesWeightPct}%
-                    </span>
-                  </span>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {t.salesWeight}{' '}
-                    <span className="font-mono font-semibold tabular-nums text-zinc-950 dark:text-zinc-50">
-                      {salesWeightPct}%
-                    </span>
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={90}
-                  step={5}
-                  value={salesWeightPct}
-                  onChange={(e) => onCustomWeightChange(Number(e.target.value))}
-                  aria-label={t.weightFineTune}
-                  className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-950 dark:accent-zinc-100"
-                />
-              </div>
-            </div>
-
-            {/* Live 7-Factor Weight Breakdown (Always Sums to 100) */}
-            <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-zinc-700 dark:text-zinc-300">{t.scoringStrategyActiveLabel}</span>
-                <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {t.scoringTotalWeightLabel}: {totalWeight}/100
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {SCORING_FACTOR_ORDER.map((key) => (
-                  <div
-                    key={key}
-                    className="sp-surface-muted px-2.5 py-2"
-                  >
-                    <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate" title={t.factorLabels[key]}>
-                      {t.factorShortLabels[key]}
-                    </div>
-                    <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                      {liveWeights[key]}
-                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                        {isMy ? ' မှတ်' : ' pts'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* 1. Universal Multi-Select Product Categories (Verified + Live Kalodata TH Sync + L2 Subcategories) */}
       <div className="space-y-3">
@@ -1378,14 +1277,22 @@ export function ResearchSettingsPanel({
             />
           </div>
 
-          {/* User Spending Limit Control */}
+          {/* User Per-Search Spending Limit Control */}
           <div className="flex items-center justify-between md:justify-end gap-2.5 md:shrink-0">
-            <label
-              htmlFor="spending-limit-input"
-              className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              {t.spendingLimitLabel}
-            </label>
+            <div className="inline-flex items-center gap-1">
+              <label
+                htmlFor="spending-limit-input"
+                className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+              >
+                {t.batchSpendingLimitLabel}
+              </label>
+              <InfoPopover
+                variant="info"
+                label={t.batchSpendingLimitLabel}
+                title={t.batchSpendingLimitLabel}
+                content={t.batchSpendingLimitInfo}
+              />
+            </div>
             <div
               className={`flex items-center gap-1.5 min-h-[40px] px-2.5 py-1 bg-white dark:bg-zinc-900 border rounded-lg w-28 ${
                 exceedsLimit
