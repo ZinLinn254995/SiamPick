@@ -29,6 +29,11 @@ import {
   type LinkImportWorkspaceIds,
 } from './server/linkImportService.ts';
 import {
+  previewSimilarProductsSearch,
+  searchSimilarProducts,
+  SimilarProductApiError,
+} from './server/similarProductService.ts';
+import {
   BudgetStorageUnavailableError,
   getDefaultBudgetLedger,
   resolveAuthoritativeBudgetScope,
@@ -1239,6 +1244,183 @@ async function startServer() {
         code: 'KALODATA_API_ERROR',
         error: sanitizeServerError(error, 'Unexpected server error while importing TikTok Shop product link.'),
         errorMy: 'TikTok Shop Product Link ထည့်သွင်းစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
+      });
+    }
+  });
+
+  // Phase 3: Similar Product Finder — 0-Credit Cost Preview & Budget Inspection
+  app.post('/api/similar-products/preview', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawProduct =
+        body.referenceProduct && typeof body.referenceProduct === 'object'
+          ? (body.referenceProduct as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid referenceProduct (id, name, category) is required to preview similar product search.',
+          errorMy: 'ဆင်တူ Product ရှာဖွေမှု ခန့်မှန်းရန် မှန်ကန်သော referenceProduct (id, name, category) လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+      if (
+        body.resolvedCategoryIdMap &&
+        typeof body.resolvedCategoryIdMap === 'object' &&
+        !Array.isArray(body.resolvedCategoryIdMap)
+      ) {
+        const sanitized: Partial<Record<ProductCategory, string>> = {};
+        for (const [slug, id] of Object.entries(
+          body.resolvedCategoryIdMap as Record<string, unknown>
+        )) {
+          if (isValidProductCategory(slug) && typeof id === 'string' && isValidKalodataId(id.trim())) {
+            sanitized[slug] = id.trim();
+          }
+        }
+        if (Object.keys(sanitized).length > 0) resolvedCategoryIdMap = sanitized;
+      }
+
+      const preview = await previewSimilarProductsSearch({
+        referenceProduct: rawProduct as unknown as ResearchProduct,
+        customKeyword: typeof body.customKeyword === 'string' ? body.customKeyword.slice(0, 100) : undefined,
+        resolvedCategoryIdMap,
+        spendingLimitCredits: clampLinkSpendingLimit(body.spendingLimitCredits),
+        forceRefresh: body.forceRefresh === true,
+      });
+
+      res.status(200).json({ ok: true, preview });
+    } catch (error) {
+      res.status(500).json({
+        ok: false,
+        code: 'SIMILAR_PREVIEW_ERROR',
+        error: sanitizeServerError(error, 'Unable to preview similar product search.'),
+      });
+    }
+  });
+
+  // Phase 3: Similar Product Finder — Server-Cache-First / Confirmation-Gated Search
+  app.post('/api/similar-products/search', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body =
+        req.body && typeof req.body === 'object' ? (req.body as Record<string, unknown>) : {};
+      const rawProduct =
+        body.referenceProduct && typeof body.referenceProduct === 'object'
+          ? (body.referenceProduct as Record<string, unknown>)
+          : null;
+
+      if (
+        !rawProduct ||
+        typeof rawProduct.id !== 'string' ||
+        rawProduct.id.trim().length === 0 ||
+        typeof rawProduct.name !== 'string' ||
+        rawProduct.name.trim().length === 0 ||
+        !isValidProductCategory(rawProduct.category)
+      ) {
+        res.status(400).json({
+          ok: false,
+          code: 'INVALID_PAYLOAD',
+          error: 'Valid referenceProduct (id, name, category) is required to search similar products.',
+          errorMy: 'ဆင်တူ Product ရှာဖွေရန် မှန်ကန်သော referenceProduct (id, name, category) လိုအပ်ပါသည်။',
+        });
+        return;
+      }
+
+      let resolvedCategoryIdMap: Partial<Record<ProductCategory, string>> | undefined;
+      if (
+        body.resolvedCategoryIdMap &&
+        typeof body.resolvedCategoryIdMap === 'object' &&
+        !Array.isArray(body.resolvedCategoryIdMap)
+      ) {
+        const sanitized: Partial<Record<ProductCategory, string>> = {};
+        for (const [slug, id] of Object.entries(
+          body.resolvedCategoryIdMap as Record<string, unknown>
+        )) {
+          if (isValidProductCategory(slug) && typeof id === 'string' && isValidKalodataId(id.trim())) {
+            sanitized[slug] = id.trim();
+          }
+        }
+        if (Object.keys(sanitized).length > 0) resolvedCategoryIdMap = sanitized;
+      }
+
+      let clientCachedDetails: Record<string, KalodataProductDetailEnrichmentRecord> | undefined;
+      if (
+        body.clientCachedDetails &&
+        typeof body.clientCachedDetails === 'object' &&
+        !Array.isArray(body.clientCachedDetails)
+      ) {
+        const sanitizedDetails: Record<string, KalodataProductDetailEnrichmentRecord> = {};
+        let count = 0;
+        for (const [pid, rec] of Object.entries(
+          body.clientCachedDetails as Record<string, unknown>
+        )) {
+          if (count >= 100) break;
+          if (
+            typeof pid === 'string' &&
+            pid.trim().length > 0 &&
+            rec &&
+            typeof rec === 'object' &&
+            !Array.isArray(rec) &&
+            typeof (rec as Record<string, unknown>).productId === 'string'
+          ) {
+            sanitizedDetails[pid.trim()] = rec as KalodataProductDetailEnrichmentRecord;
+            count += 1;
+          }
+        }
+        if (count > 0) clientCachedDetails = sanitizedDetails;
+      }
+
+      const rawWeight =
+        typeof body.salesWeightPct === 'number' && Number.isFinite(body.salesWeightPct)
+          ? Math.max(10, Math.min(90, Math.round(body.salesWeightPct)))
+          : 50;
+
+      const result = await searchSimilarProducts({
+        referenceProduct: rawProduct as unknown as ResearchProduct,
+        customKeyword: typeof body.customKeyword === 'string' ? body.customKeyword.slice(0, 100) : undefined,
+        resolvedCategoryIdMap,
+        clientCachedDetails,
+        spendingLimitCredits: clampLinkSpendingLimit(body.spendingLimitCredits),
+        salesWeightPct: rawWeight,
+        userConfirmedPaidExecution: body.userConfirmedPaidExecution === true,
+        forceRefresh: body.forceRefresh === true,
+        idempotencyKey:
+          typeof body.idempotencyKey === 'string' ? body.idempotencyKey.slice(0, 128) : undefined,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof SimilarProductApiError) {
+        res.status(error.status).json({
+          ok: false,
+          code: error.code,
+          error: error.message,
+          errorMy: error.errorMy,
+          quotaPaused: error.code === 'RESEARCH_PAUSED',
+          quotaStatus: error.code === 'RESEARCH_PAUSED' ? getResearchQuotaStatus() : undefined,
+          budgetSnapshot: error.budgetSnapshot,
+        });
+        return;
+      }
+
+      res.status(500).json({
+        ok: false,
+        code: 'SIMILAR_SEARCH_INTERNAL_ERROR',
+        error: sanitizeServerError(error, 'Unexpected server error while searching similar products.'),
+        errorMy: 'ဆင်တူ Product များ ရှာဖွေစဉ် မမျှော်လင့်သော Server အမှား ဖြစ်ပွားခဲ့ပါသည်။',
       });
     }
   });

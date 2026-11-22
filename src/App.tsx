@@ -29,6 +29,7 @@ import {
   KalodataShopEnrichmentRecord,
   Language,
   LinkImportExecuteResponse,
+  LinkImportInspectResponse,
   OpportunityEvaluation,
   ProductCategory,
   ProductDecision,
@@ -119,7 +120,25 @@ import { BackupRestoreModal, type BackupModalTab } from './components/BackupRest
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
 import { ProductLinkImportPanel } from './components/ProductLinkImportPanel';
+import { ImportedProductWorkspace } from './components/ImportedProductWorkspace';
+import { ImportedPhase3Workspace } from './components/ImportedPhase3Workspace';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
+import {
+  buildImportedWorkspaceContextFromExecute,
+  buildImportedWorkspaceContextFromExisting,
+  loadImportedWorkspaceContext,
+  persistImportedWorkspaceContext,
+  syncImportedWorkspaceProduct,
+  type ImportedWorkspaceContext,
+} from './utils/importedProductWorkspace';
+import {
+  loadImportedLibrary,
+  persistImportedLibrary,
+  syncProductInImportedLibrary,
+  upsertImportedLibraryEntry,
+  type ComparisonCandidateItem,
+  type ImportedLibraryEntry,
+} from './utils/importedPhase3';
 import { useTheme } from './hooks/useTheme';
 import { useKalodataBalance } from './hooks/useKalodataBalance';
 import type {
@@ -325,6 +344,31 @@ export default function App() {
     Record<string, DeepDiveHistoryRecord[]>
   >(() => loadAllDeepDiveHistoryByProduct());
 
+  // Phase 2 (Link Import Product Research Workspace): isolated workspace state & Deep Dive return flag
+  const [importedWorkspace, setImportedWorkspace] = useState<ImportedWorkspaceContext | null>(() =>
+    loadImportedWorkspaceContext()
+  );
+  // Phase 3 (Imported Products Library & Comparison Selection): isolated storage key
+  const [importedLibrary, setImportedLibrary] = useState<ImportedLibraryEntry[]>(() => {
+    const loaded = loadImportedLibrary();
+    const active = loadImportedWorkspaceContext();
+    return active ? upsertImportedLibraryEntry(loaded, active) : loaded;
+  });
+  const [selectedImportedCompareItems, setSelectedImportedCompareItems] = useState<
+    ComparisonCandidateItem[]
+  >(() => {
+    const loaded = loadImportedLibrary();
+    const active = loadImportedWorkspaceContext();
+    const merged = active ? upsertImportedLibraryEntry(loaded, active) : loaded;
+    return merged.slice(0, 2).map((entry) => ({
+      canonicalProductId: entry.canonicalProductId,
+      product: entry.product,
+      origin: entry.dataSource,
+      importedAt: entry.importedAt,
+    }));
+  });
+  const [deepDiveEnteredFromImported, setDeepDiveEnteredFromImported] = useState<boolean>(false);
+
   // Phase 9.3.1: Authoritative Server-Side Persistent Budget Ledger Status
   const [serverBudgetStatus, setServerBudgetStatus] = useState<{
     loaded: boolean;
@@ -341,12 +385,33 @@ export default function App() {
   });
 
   const settingsSectionRef = useRef<HTMLDivElement>(null);
+  const importedWorkspaceSectionRef = useRef<HTMLDivElement>(null);
   const resultsSectionRef = useRef<HTMLElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const huntingInFlightRef = useRef(false);
   const deepDiveInFlightKeysRef = useRef<Set<string>>(new Set());
   const hasMountedSavedRef = useRef(false);
   const hasMountedLatestSessionRef = useRef(false);
+  const hasMountedImportedWorkspaceRef = useRef(false);
+  const hasMountedImportedLibraryRef = useRef(false);
+
+  // Persist active Imported Product Research Workspace across reloads (isolated storage key)
+  useEffect(() => {
+    if (!hasMountedImportedWorkspaceRef.current) {
+      hasMountedImportedWorkspaceRef.current = true;
+      return;
+    }
+    persistImportedWorkspaceContext(importedWorkspace);
+  }, [importedWorkspace]);
+
+  // Persist Imported Products Library across reloads (isolated Phase 3 storage key)
+  useEffect(() => {
+    if (!hasMountedImportedLibraryRef.current) {
+      hasMountedImportedLibraryRef.current = true;
+      return;
+    }
+    persistImportedLibrary(importedLibrary);
+  }, [importedLibrary]);
 
   // Persist Saved Products to localStorage whenever updated (surfaces QuotaExceeded cleanly)
   useEffect(() => {
@@ -560,12 +625,43 @@ export default function App() {
     if (inLive) return inLive;
     const inSaved = savedRecords.find((r) => r.id === id);
     if (inSaved) return inSaved.product;
+    if (importedWorkspace && importedWorkspace.product.id === id) {
+      return importedWorkspace.product;
+    }
     if (activeReport && activeReport.product.id === id) return activeReport.product;
     for (const rec of researchHistory) {
       const inHistory = rec.products.find((p) => p.id === id);
       if (inHistory) return inHistory;
     }
     return null;
+  };
+
+  const isImportedWorkspaceSaved = useMemo(() => {
+    if (!importedWorkspace) return false;
+    return savedRecords.some(
+      (r) =>
+        r.id === importedWorkspace.product.id ||
+        getCanonicalProductId(r.product) === importedWorkspace.canonicalProductId
+    );
+  }, [importedWorkspace, savedRecords]);
+
+  const handleToggleSaveImportedWorkspace = (targetProduct: ResearchProduct) => {
+    const targetCanonicalId = getCanonicalProductId(targetProduct);
+    const isCurrentlySaved = savedRecords.some(
+      (r) =>
+        r.id === targetProduct.id || getCanonicalProductId(r.product) === targetCanonicalId
+    );
+    if (isCurrentlySaved) {
+      setSavedRecords((prev) =>
+        prev.filter(
+          (r) =>
+            r.id !== targetProduct.id &&
+            getCanonicalProductId(r.product) !== targetCanonicalId
+        )
+      );
+      return;
+    }
+    handleToggleSave(targetProduct.id);
   };
 
   const handleToggleSave = (id: string) => {
@@ -1028,13 +1124,177 @@ export default function App() {
     }, 60);
   };
 
+  const ensureImportedCandidateInComparison = (item: ComparisonCandidateItem) => {
+    setSelectedImportedCompareItems((prev) => {
+      const idx = prev.findIndex((x) => x.canonicalProductId === item.canonicalProductId);
+      if (idx >= 0) {
+        return prev.map((x, i) => (i === idx ? { ...x, product: item.product } : x));
+      }
+      const next = [...prev, item];
+      return next.length > 6 ? next.slice(next.length - 6) : next;
+    });
+  };
+
   const handleProductImportedFromLink = (result: LinkImportExecuteResponse) => {
-    upsertProductIntoLiveResults(result.product);
+    const hydrated = upsertProductIntoLiveResults(result.product);
+    const nextWorkspace = buildImportedWorkspaceContextFromExecute({
+      ...result,
+      product: hydrated,
+    });
+    setImportedWorkspace(nextWorkspace);
+    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextWorkspace));
+    ensureImportedCandidateInComparison({
+      canonicalProductId: nextWorkspace.canonicalProductId,
+      product: hydrated,
+      origin: nextWorkspace.dataSource,
+      importedAt: nextWorkspace.importedAt,
+    });
     if (result.apiCallsMade > 0) {
       setBalanceRefreshSignal((prev) => prev + 1);
       void refreshServerBudgetStatus();
       setLastCostSummary(result.costSummary);
     }
+    window.setTimeout(() => {
+      importedWorkspaceSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 60);
+  };
+
+  const handleOpenExistingWorkspace = (
+    product: ResearchProduct,
+    inspectResult: LinkImportInspectResponse
+  ) => {
+    const hydrated = hydrateProductFromEnrichmentCache(product, {
+      salesWeightPct,
+      peerProducts: liveResults,
+    }).product;
+    const nextWorkspace = buildImportedWorkspaceContextFromExisting(hydrated, {
+      inspectResult,
+    });
+    setImportedWorkspace(nextWorkspace);
+    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextWorkspace));
+    ensureImportedCandidateInComparison({
+      canonicalProductId: nextWorkspace.canonicalProductId,
+      product: hydrated,
+      origin: nextWorkspace.dataSource,
+      importedAt: nextWorkspace.importedAt,
+    });
+    window.setTimeout(() => {
+      importedWorkspaceSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 60);
+  };
+
+  const handleSelectImportedEntry = (entry: ImportedLibraryEntry) => {
+    const hydrated = hydrateProductFromEnrichmentCache(entry.product, {
+      salesWeightPct,
+      peerProducts: liveResults,
+    }).product;
+    const nextCtx: ImportedWorkspaceContext = {
+      schemaVersion: 1,
+      canonicalProductId: entry.canonicalProductId,
+      product: hydrated,
+      importedAt: entry.importedAt,
+      dataSource: entry.dataSource,
+      apiCallsMade: entry.apiCallsMade,
+      estimatedCreditsCharged: entry.estimatedCreditsCharged,
+      canonicalUrl: entry.canonicalUrl,
+      resolvedUrl: entry.resolvedUrl,
+      redirectHops: [],
+      alreadyExistedInWorkspace: true,
+      existingSources: [],
+    };
+    setImportedWorkspace(nextCtx);
+    window.setTimeout(() => {
+      importedWorkspaceSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 60);
+  };
+
+  const handleToggleImportedCompareItem = (item: ComparisonCandidateItem) => {
+    setSelectedImportedCompareItems((prev) => {
+      const exists = prev.some((x) => x.canonicalProductId === item.canonicalProductId);
+      if (exists) {
+        return prev.filter((x) => x.canonicalProductId !== item.canonicalProductId);
+      }
+      const next = [...prev, item];
+      return next.length > 6 ? next.slice(next.length - 6) : next;
+    });
+  };
+
+  const handleAddSimilarToImportedCompare = (
+    product: ResearchProduct,
+    origin: 'kalodata-similar-search' | 'workspace-pool'
+  ) => {
+    const cid = getCanonicalProductId(product);
+    handleToggleImportedCompareItem({
+      canonicalProductId: cid,
+      product,
+      origin,
+    });
+  };
+
+  const handleOpenProductFromSimilar = (product: ResearchProduct) => {
+    const hydrated = hydrateProductFromEnrichmentCache(product, {
+      salesWeightPct,
+      peerProducts: liveResults,
+    }).product;
+    const nextCtx = buildImportedWorkspaceContextFromExisting(hydrated, {
+      existingSources: ['results'],
+    });
+    setImportedWorkspace(nextCtx);
+    setImportedLibrary((prev) => upsertImportedLibraryEntry(prev, nextCtx));
+    ensureImportedCandidateInComparison({
+      canonicalProductId: nextCtx.canonicalProductId,
+      product: hydrated,
+      origin: nextCtx.dataSource,
+      importedAt: nextCtx.importedAt,
+    });
+    window.setTimeout(() => {
+      importedWorkspaceSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 60);
+  };
+
+  const handlePhase3ProductEnriched = (updatedProduct: ResearchProduct) => {
+    const cid = getCanonicalProductId(updatedProduct);
+    setImportedLibrary((prev) => syncProductInImportedLibrary(prev, updatedProduct));
+    setSelectedImportedCompareItems((prev) =>
+      prev.map((item) =>
+        item.canonicalProductId === cid ? { ...item, product: updatedProduct } : item
+      )
+    );
+    setImportedWorkspace((prev) =>
+      prev && prev.canonicalProductId === cid
+        ? syncImportedWorkspaceProduct(prev, updatedProduct)
+        : prev
+    );
+    setLiveResults((prev) =>
+      prev.map((item) => (getCanonicalProductId(item) === cid ? updatedProduct : item))
+    );
+    setSavedRecords((prev) =>
+      prev.map((rec) =>
+        getCanonicalProductId(rec.product) === cid ? { ...rec, product: updatedProduct } : rec
+      )
+    );
+    setCompareItems((prev) =>
+      prev.map((item) =>
+        item.canonicalProductId === cid ? { ...item, product: updatedProduct } : item
+      )
+    );
+    setActiveReport((prev) =>
+      prev && getCanonicalProductId(prev.product) === cid
+        ? { ...prev, product: updatedProduct, evaluation: null }
+        : prev
+    );
   };
 
   const handleOpenResultReport = (product: ResearchProduct) => {
@@ -1079,7 +1339,8 @@ export default function App() {
     product: ResearchProduct,
     originView: DeepDiveOriginView,
     researchDateOverride?: string | null,
-    researchModeOverride?: ResearchMode
+    researchModeOverride?: ResearchMode,
+    fromImportedWorkspace = false
   ) => {
     const context = buildDeepDiveTargetContext(
       product,
@@ -1087,6 +1348,7 @@ export default function App() {
       researchModeOverride ?? activeHuntConfig?.researchMode ?? researchMode,
       researchDateOverride ?? product.researchedAt ?? researchedAt
     );
+    setDeepDiveEnteredFromImported(fromImportedWorkspace);
     setActiveReport(null);
     setDeepDiveTarget(context);
     const productHistory = deepDiveHistoryByProduct[context.canonicalProductId] ?? [];
@@ -1103,6 +1365,16 @@ export default function App() {
     );
     setActiveView('deep-dive');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenDeepDiveFromImportedWorkspace = (product: ResearchProduct) => {
+    handleOpenDeepDive(
+      product,
+      'hunting',
+      importedWorkspace?.importedAt ?? product.researchedAt,
+      product.researchMode ?? 'fast',
+      true
+    );
   };
 
   const updateActiveDeepDiveState = (
@@ -1336,6 +1608,25 @@ export default function App() {
         ? { ...prev, product: { ...prev.product, aiAnalysis: analysis } }
         : prev
     );
+    setImportedWorkspace((prev) =>
+      prev && matchesProduct(prev.product)
+        ? syncImportedWorkspaceProduct(prev, { ...prev.product, aiAnalysis: analysis })
+        : prev
+    );
+    setImportedLibrary((prev) =>
+      prev.map((entry) =>
+        matchesProduct(entry.product)
+          ? { ...entry, product: { ...entry.product, aiAnalysis: analysis } }
+          : entry
+      )
+    );
+    setSelectedImportedCompareItems((prev) =>
+      prev.map((item) =>
+        matchesProduct(item.product)
+          ? { ...item, product: { ...item.product, aiAnalysis: analysis } }
+          : item
+      )
+    );
   };
 
   /**
@@ -1391,6 +1682,21 @@ export default function App() {
       prev && prev.product.id === updatedProduct.id
         ? { ...prev, product: updatedProduct, evaluation: null }
         : prev
+    );
+    setImportedWorkspace((prev) => {
+      if (!prev) return prev;
+      const nextProd = applyUpdate(prev.product, liveResults);
+      return nextProd !== prev.product
+        ? syncImportedWorkspaceProduct(prev, nextProd)
+        : prev;
+    });
+    setImportedLibrary((prev) => syncProductInImportedLibrary(prev, updatedProduct));
+    setSelectedImportedCompareItems((prev) =>
+      prev.map((item) =>
+        item.canonicalProductId === getCanonicalProductId(updatedProduct)
+          ? { ...item, product: updatedProduct }
+          : item
+      )
     );
 
     if (summary && summary.actualApiCalls > 0) {
@@ -1791,9 +2097,44 @@ export default function App() {
             onRunSingle={handleDeepDiveRunSingle}
             historyRecords={deepDiveHistoryByProduct[deepDiveTarget.canonicalProductId] ?? []}
             onDeleteHistoryRecord={handleDeleteDeepDiveHistoryRecord}
+            backLabelOverride={
+              deepDiveEnteredFromImported ? t.importedWorkspaceBackFromDeepDiveLabel : undefined
+            }
             onBack={() => {
+              const returnToImported = deepDiveEnteredFromImported;
+              setDeepDiveEnteredFromImported(false);
+              if (returnToImported) {
+                setImportedWorkspace((prev) => {
+                  if (!prev) return prev;
+                  const refreshed = hydrateProductFromEnrichmentCache(prev.product, {
+                    salesWeightPct,
+                    peerProducts: liveResults,
+                  }).product;
+                  if (refreshed !== prev.product) {
+                    setImportedLibrary((lib) => syncProductInImportedLibrary(lib, refreshed));
+                    setSelectedImportedCompareItems((sel) =>
+                      sel.map((item) =>
+                        item.canonicalProductId === prev.canonicalProductId
+                          ? { ...item, product: refreshed }
+                          : item
+                      )
+                    );
+                    return syncImportedWorkspaceProduct(prev, refreshed);
+                  }
+                  return prev;
+                });
+              }
               setActiveView(deepDiveTarget.originView);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              if (returnToImported) {
+                window.setTimeout(() => {
+                  importedWorkspaceSectionRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  });
+                }, 60);
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
             }}
             onOpenProductDetail={() => {
               setActiveReport({
@@ -1892,12 +2233,88 @@ export default function App() {
               onFindExistingProduct={findWorkspaceProductByCanonicalId}
               onRestoreExistingToResults={handleRestoreExistingProductToResults}
               onOpenExistingReport={handleOpenResultReport}
+              onOpenExistingWorkspace={handleOpenExistingWorkspace}
+              onOpenImportedDeepDive={handleOpenDeepDiveFromImportedWorkspace}
               onProductImported={handleProductImportedFromLink}
               onResumeResearch={handleResumeResearch}
               onScrollToResults={() => {
                 resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             />
+
+            {/* Phase 2 & Phase 3: Imported Product Research Workspace, Comparison & Similar Finder */}
+            {importedWorkspace ? (
+              <div ref={importedWorkspaceSectionRef} className="scroll-mt-20">
+                <ImportedProductWorkspace
+                  context={importedWorkspace}
+                  language={language}
+                  salesWeightPct={salesWeightPct}
+                  peerProducts={liveResults}
+                  isSaved={isImportedWorkspaceSaved}
+                  isInResults={liveResults.some(
+                    (p) => getCanonicalProductId(p) === importedWorkspace.canonicalProductId
+                  )}
+                  deepDiveRunsCount={
+                    (deepDiveHistoryByProduct[importedWorkspace.canonicalProductId] ?? []).length
+                  }
+                  onToggleSave={handleToggleSaveImportedWorkspace}
+                  onOpenDeepDive={handleOpenDeepDiveFromImportedWorkspace}
+                  onOpenReport={handleOpenResultReport}
+                  onScrollToResults={() => {
+                    resultsSectionRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
+                  }}
+                  onClose={() => setImportedWorkspace(null)}
+                />
+                <ImportedPhase3Workspace
+                  language={language}
+                  activeContext={importedWorkspace}
+                  importedLibrary={importedLibrary}
+                  selectedCompareItems={selectedImportedCompareItems}
+                  liveResults={liveResults}
+                  savedProducts={savedRecords.map((r) => r.product)}
+                  historyProducts={researchHistory.flatMap((rec) => rec.products)}
+                  salesWeightPct={salesWeightPct}
+                  spendingLimitCredits={spendingLimitCredits}
+                  syncedCategoryCache={syncedCategoryCache}
+                  serverBudgetRemainingCredits={
+                    serverBudgetStatus.snapshot?.remainingCredits ?? null
+                  }
+                  liveBalanceCredits={creditBalance.status?.balance ?? null}
+                  budgetStorageAvailable={serverBudgetStatus.storageAvailable}
+                  quotaStatus={quotaStatus}
+                  onSelectImportedEntry={handleSelectImportedEntry}
+                  onToggleCompareItem={handleToggleImportedCompareItem}
+                  onClearCompareSelection={() => setSelectedImportedCompareItems([])}
+                  onAddSimilarToCompare={handleAddSimilarToImportedCompare}
+                  onOpenProductFromSimilar={handleOpenProductFromSimilar}
+                  onHydrateOrEnrichProduct={handlePhase3ProductEnriched}
+                  onBudgetChanged={() => {
+                    setBalanceRefreshSignal((n) => n + 1);
+                    void refreshServerBudgetStatus();
+                  }}
+                  onResumeResearch={handleResumeResearch}
+                />
+              </div>
+            ) : importedLibrary.length > 0 ? (
+              <div className="mt-4 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="text-zinc-600 dark:text-zinc-300">
+                  <span className="font-semibold text-zinc-950 dark:text-zinc-50">
+                    {t.phase3ImportedPoolLabel}:
+                  </span>{' '}
+                  <span className="font-mono tabular-nums">{importedLibrary.length}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSelectImportedEntry(importedLibrary[0])}
+                  className="inline-flex items-center gap-1.5 min-h-[32px] px-3 py-1 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span>{t.linkImportOpenWorkspaceBtn}</span>
+                </button>
+              </div>
+            ) : null}
 
             {/* Kalodata Open Center Free Credit Balance Check */}
             <KalodataBalanceBar language={language} balanceState={creditBalance} />

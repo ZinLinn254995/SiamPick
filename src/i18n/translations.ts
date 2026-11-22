@@ -590,6 +590,87 @@ export const TRANSLATIONS: Record<
     linkImportOpenReportBtn: string;
     linkImportScrollToProductBtn: string;
     linkImportClipboardUnavailableNote: string;
+    linkImportOpenWorkspaceBtn: string;
+    linkImportDeepDiveBtn: string;
+    importedWorkspaceHeading: string;
+    importedWorkspaceSubtitle: string;
+    importedWorkspaceCloseBtn: string;
+    importedWorkspaceShopLabel: string;
+    importedWorkspaceSellerIdLabel: string;
+    importedWorkspaceDispatchLabel: string;
+    importedWorkspaceProductIdLabel: string;
+    importedWorkspaceOpenTikTokBtn: string;
+    importedWorkspaceCopyLinkBtn: string;
+    importedWorkspaceCopiedBtn: string;
+    importedWorkspaceDeepDiveCta: string;
+    importedWorkspaceDeepDiveHint: string;
+    importedWorkspaceDeepDiveRunsLabel: string;
+    importedWorkspaceSalesLabel: string;
+    importedWorkspaceRevenueLabel: string;
+    importedWorkspaceCommissionLabel: string;
+    importedWorkspaceScoreLabel: string;
+    importedWorkspaceCreatorsLabel: string;
+    importedWorkspaceReviewsLabel: string;
+    importedWorkspaceChannelSplitLabel: string;
+    importedWorkspaceSkuRangeLabel: string;
+    importedWorkspaceSourceHeading: string;
+    importedWorkspaceVerificationHeading: string;
+    importedWorkspaceUnavailableHeading: string;
+    importedWorkspaceNoUnavailableNote: string;
+    importedWorkspaceExternalLinksHeading: string;
+    importedWorkspaceBackFromDeepDiveLabel: string;
+    // Phase 3: Imported Product Comparison & Similar Product Finder
+    phase3WorkspaceHeading: string;
+    phase3WorkspaceSubtitle: string;
+    phase3TabComparison: string;
+    phase3TabSimilar: string;
+    phase3ImportedPoolLabel: string;
+    phase3SelectedCountLabel: string;
+    phase3SelectAtLeastTwoTitle: string;
+    phase3SelectAtLeastTwoDesc: string;
+    phase3ClearSelectionBtn: string;
+    phase3AddFromWorkspaceLabel: string;
+    phase3AddFromWorkspacePlaceholder: string;
+    phase3RemoveColBtn: string;
+    phase3BestMarker: string;
+    phase3DiffMarker: string;
+    phase3MissingDetailTitle: string;
+    phase3MissingDetailCachedDesc: string;
+    phase3MissingDetailPaidDesc: string;
+    phase3ApplyCachedDetailBtn: string;
+    phase3EnrichMissingBtn: string;
+    phase3EnrichConfirmTitle: string;
+    phase3EnrichConfirmCheckbox: string;
+    phase3EnrichConfirmProceedBtn: string;
+    phase3EnrichCancelBtn: string;
+    phase3EnrichingLabel: string;
+    phase3SimilarRefLabel: string;
+    phase3SimilarKeywordLabel: string;
+    phase3SimilarKeywordPlaceholder: string;
+    phase3SimilarCheckPreviewBtn: string;
+    phase3SimilarUseCacheBtn: string;
+    phase3SimilarLoadingPreview: string;
+    phase3SimilarSearchingLabel: string;
+    phase3SimilarConfirmTitle: string;
+    phase3SimilarConfirmDesc: string;
+    phase3SimilarConfirmCheckbox: string;
+    phase3SimilarConfirmProceedBtn: string;
+    phase3SimilarFilterAll: string;
+    phase3SimilarFilterCheaper: string;
+    phase3SimilarFilterBetterComm: string;
+    phase3SimilarFilterLowerComp: string;
+    phase3SimilarAddToCompareBtn: string;
+    phase3SimilarInCompareBtn: string;
+    phase3SimilarInspectBtn: string;
+    phase3SimilarCheaperTag: string;
+    phase3SimilarBetterCommTag: string;
+    phase3SimilarLowerCompTag: string;
+    phase3SimilarLocalPoolTitle: string;
+    phase3SimilarEmptyTitle: string;
+    phase3SimilarEmptyDesc: string;
+    phase3SimilarNoBucketMatchTitle: string;
+    phase3SimilarNoBucketMatchDesc: string;
+    phase3SimilarDetailNeededNote: string;
   }
 > = {
   en: {
@@ -1339,6 +1420,96 @@ export const TRANSLATIONS: Record<
     linkImportOpenReportBtn: 'Open Product Report',
     linkImportScrollToProductBtn: 'View in Results',
     linkImportClipboardUnavailableNote: 'Clipboard permission unavailable — please paste manually into the box.',
+    linkImportOpenWorkspaceBtn: 'Open Product Workspace (0 cr)',
+    linkImportDeepDiveBtn: 'Deep Dive Analysis',
+    importedWorkspaceHeading: 'Imported Product Research Workspace',
+    importedWorkspaceSubtitle:
+      'Single-product overview from your TikTok Shop link import — inspect verified metrics, missing data, and launch Deep Dive Analysis.',
+    importedWorkspaceCloseBtn: 'Close Workspace',
+    importedWorkspaceShopLabel: 'Shop',
+    importedWorkspaceSellerIdLabel: 'Seller ID',
+    importedWorkspaceDispatchLabel: 'Fulfillment',
+    importedWorkspaceProductIdLabel: 'Product ID',
+    importedWorkspaceOpenTikTokBtn: 'Open on TikTok Shop',
+    importedWorkspaceCopyLinkBtn: 'Copy Link',
+    importedWorkspaceCopiedBtn: 'Copied',
+    importedWorkspaceDeepDiveCta: 'Open Deep Dive Analysis',
+    importedWorkspaceDeepDiveHint:
+      'Uses existing 8 analysis modules, pre-run Cost Preview, and Confirmation gate.',
+    importedWorkspaceDeepDiveRunsLabel: 'Deep Dive runs recorded',
+    importedWorkspaceSalesLabel: 'Sales Volume',
+    importedWorkspaceRevenueLabel: 'Revenue (GMV)',
+    importedWorkspaceCommissionLabel: 'Affiliate Commission',
+    importedWorkspaceScoreLabel: 'Opportunity Score',
+    importedWorkspaceCreatorsLabel: 'Creators & Videos',
+    importedWorkspaceReviewsLabel: 'Reviews & Rating',
+    importedWorkspaceChannelSplitLabel: 'Channel Split',
+    importedWorkspaceSkuRangeLabel: 'SKU Range',
+    importedWorkspaceSourceHeading: 'Data Source & Link Resolution',
+    importedWorkspaceVerificationHeading: 'Field Verification Status',
+    importedWorkspaceUnavailableHeading: 'Unavailable Data & Verification Notes',
+    importedWorkspaceNoUnavailableNote: 'All tracked overview fields returned verified metrics.',
+    importedWorkspaceExternalLinksHeading: 'Verified Source Links',
+    importedWorkspaceBackFromDeepDiveLabel: 'Back to Imported Product Workspace',
+    // Phase 3: Imported Product Comparison & Similar Product Finder
+    phase3WorkspaceHeading: 'Product Comparison & Similar Product Finder',
+    phase3WorkspaceSubtitle:
+      'Compare at least 2 imported products side-by-side across real verified metrics, or find similar Thailand TikTok Shop products with lower price, higher commission, or lower creator competition.',
+    phase3TabComparison: 'Product Comparison',
+    phase3TabSimilar: 'Similar Product Finder',
+    phase3ImportedPoolLabel: 'Imported Products Pool',
+    phase3SelectedCountLabel: 'selected for comparison',
+    phase3SelectAtLeastTwoTitle: 'Select at least 2 imported products to compare',
+    phase3SelectAtLeastTwoDesc:
+      'Import another TikTok Shop product link above, pick one from your Imported Library or Similar Product Finder, or include a workspace product below.',
+    phase3ClearSelectionBtn: 'Clear selection',
+    phase3AddFromWorkspaceLabel: 'Add another product from Workspace / Imported Pool',
+    phase3AddFromWorkspacePlaceholder: 'Choose a product to compare...',
+    phase3RemoveColBtn: 'Remove',
+    phase3BestMarker: 'Best in set',
+    phase3DiffMarker: 'Differs',
+    phase3MissingDetailTitle: 'Some comparison products are missing Product Detail (Creator & Video counts)',
+    phase3MissingDetailCachedDesc:
+      'Cached Product Detail records are available in this browser — apply immediately with 0 API calls and 0 credits.',
+    phase3MissingDetailPaidDesc:
+      'Fetching missing Product Detail via Kalodata fills Creator Competition and Video counts (0.1 cr per uncached product). Missing fields never get estimated.',
+    phase3ApplyCachedDetailBtn: 'Apply Cached Details (0 cr)',
+    phase3EnrichMissingBtn: 'Enrich Missing Details',
+    phase3EnrichConfirmTitle: 'Confirm Comparison Detail Enrichment',
+    phase3EnrichConfirmCheckbox: 'I confirm spending the estimated Kalodata credits above to fetch missing Product Detail data.',
+    phase3EnrichConfirmProceedBtn: 'Confirm & Enrich Details',
+    phase3EnrichCancelBtn: 'Cancel',
+    phase3EnrichingLabel: 'Fetching missing Product Detail...',
+    phase3SimilarRefLabel: 'Reference Product',
+    phase3SimilarKeywordLabel: 'Search Keyword (editable)',
+    phase3SimilarKeywordPlaceholder: 'Enter product keyword...',
+    phase3SimilarCheckPreviewBtn: 'Search Similar on Kalodata',
+    phase3SimilarUseCacheBtn: 'Load Cached Similar Products (0 cr)',
+    phase3SimilarLoadingPreview: 'Checking cache & budget...',
+    phase3SimilarSearchingLabel: 'Searching similar Thailand TikTok Shop products...',
+    phase3SimilarConfirmTitle: 'Confirm Kalodata Similar Product Search',
+    phase3SimilarConfirmDesc:
+      'Runs 1 Kalodata Product Rank query (up to 30 similar TH affiliate products = 0.1 credits) using your active Spending Limit and Balance.',
+    phase3SimilarConfirmCheckbox: 'I confirm spending 0.1 Kalodata credits to search similar products.',
+    phase3SimilarConfirmProceedBtn: 'Confirm & Search Similar (0.1 cr)',
+    phase3SimilarFilterAll: 'All Similar',
+    phase3SimilarFilterCheaper: 'Cheaper Price',
+    phase3SimilarFilterBetterComm: 'Better Commission',
+    phase3SimilarFilterLowerComp: 'Lower Competition',
+    phase3SimilarAddToCompareBtn: 'Add to Compare',
+    phase3SimilarInCompareBtn: 'In Comparison',
+    phase3SimilarInspectBtn: 'Open Workspace',
+    phase3SimilarCheaperTag: 'Cheaper',
+    phase3SimilarBetterCommTag: 'Higher Comm',
+    phase3SimilarLowerCompTag: 'Lower Comp',
+    phase3SimilarLocalPoolTitle: 'Local Workspace Matches (0 cr)',
+    phase3SimilarEmptyTitle: 'No matching similar products yet',
+    phase3SimilarEmptyDesc:
+      'Check matches from your current workspace at 0 credits or preview & run a confirmation-gated Kalodata Similar Product Search.',
+    phase3SimilarNoBucketMatchTitle: 'No products matched this filter yet',
+    phase3SimilarNoBucketMatchDesc:
+      'Only products with verified metrics strictly beating the reference product appear here — missing fields are never guessed as better.',
+    phase3SimilarDetailNeededNote: 'Creator count requires Product Detail (Unavailable)',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -2087,5 +2258,95 @@ export const TRANSLATIONS: Record<
     linkImportOpenReportBtn: 'Product Report ဖွင့်မည်',
     linkImportScrollToProductBtn: 'Results တွင် ကြည့်မည်',
     linkImportClipboardUnavailableNote: 'Clipboard ဖတ်ခွင့် မရပါ — Box ထဲသို့ ကိုယ်တိုင် Paste လုပ်ပေးပါ။',
+    linkImportOpenWorkspaceBtn: 'Product Workspace ဖွင့်မည် (0 cr)',
+    linkImportDeepDiveBtn: 'Deep Dive Analysis ဝင်မည်',
+    importedWorkspaceHeading: 'Link မှ ထည့်သွင်းထားသော Product Research Workspace',
+    importedWorkspaceSubtitle:
+      'Product Link မှ ရရှိထားသော ဒေတာများ၊ Source နှင့် Unavailable အချက်များကို တစ်နေရာတည်းတွင် စစ်ဆေးပြီး Deep Dive Analysis သို့ တိုက်ရိုက်ဝင်ရောက်နိုင်ပါသည်။',
+    importedWorkspaceCloseBtn: 'Workspace ပိတ်မည်',
+    importedWorkspaceShopLabel: 'ဆိုင်အမည် (Shop)',
+    importedWorkspaceSellerIdLabel: 'Seller ID',
+    importedWorkspaceDispatchLabel: 'ပို့ဆောင်မှု',
+    importedWorkspaceProductIdLabel: 'Product ID',
+    importedWorkspaceOpenTikTokBtn: 'TikTok Shop တွင် ကြည့်မည်',
+    importedWorkspaceCopyLinkBtn: 'Link ကူးမည်',
+    importedWorkspaceCopiedBtn: 'ကူးပြီး',
+    importedWorkspaceDeepDiveCta: 'Deep Dive Analysis ဝင်မည်',
+    importedWorkspaceDeepDiveHint:
+      'လက်ရှိ Analysis ၈ မျိုး၊ Cost Preview နှင့် Confirmation စနစ်တို့ကို တိုက်ရိုက်ပြန်သုံးနိုင်ပါသည်။',
+    importedWorkspaceDeepDiveRunsLabel: 'ပြီးစီးပြီး Deep Dive မှတ်တမ်း',
+    importedWorkspaceSalesLabel: 'ရောင်းအား',
+    importedWorkspaceRevenueLabel: 'ရောင်းချဝင်ငွေ (GMV)',
+    importedWorkspaceCommissionLabel: 'Affiliate ကော်မရှင်',
+    importedWorkspaceScoreLabel: 'Opportunity Score',
+    importedWorkspaceCreatorsLabel: 'Creator နှင့် Video',
+    importedWorkspaceReviewsLabel: 'Review နှင့် Rating',
+    importedWorkspaceChannelSplitLabel: 'ရောင်းချမှုလမ်းကြောင်း',
+    importedWorkspaceSkuRangeLabel: 'SKU ဈေးအပိုင်းအခြား',
+    importedWorkspaceSourceHeading: 'Data Source နှင့် Link စစ်ဆေးမှု',
+    importedWorkspaceVerificationHeading: 'Data Verification အခြေအနေ',
+    importedWorkspaceUnavailableHeading: 'မရရှိနိုင်သော Data နှင့် သတိပြုရန်အချက်များ',
+    importedWorkspaceNoUnavailableNote: 'အဓိက Product Overview ဒေတာအားလုံးကို အတည်ပြုရရှိထားပါသည်။',
+    importedWorkspaceExternalLinksHeading: 'အတည်ပြု Source Link များ',
+    importedWorkspaceBackFromDeepDiveLabel: 'Imported Product Workspace သို့ ပြန်သွားမည်',
+    // Phase 3: Imported Product Comparison & Similar Product Finder
+    phase3WorkspaceHeading: 'Product Comparison နှင့် Similar Product Finder',
+    phase3WorkspaceSubtitle:
+      'Import လုပ်ထားသော Product ၂ ခုနှင့်အထက်ကို ဘေးချင်းယှဉ်နှိုင်းယှဉ်ခြင်း သို့မဟုတ် ဈေးပိုသက်သာ၊ Commission ပိုကောင်း၊ Competition ပိုနည်းသည့် ဆင်တူ Product များကို ရှာဖွေနိုင်ပါသည်။',
+    phase3TabComparison: 'Product နှိုင်းယှဉ်မှု (Compare)',
+    phase3TabSimilar: 'ဆင်တူ Product ရှာဖွေမှု (Similar)',
+    phase3ImportedPoolLabel: 'Import လုပ်ထားသော Product စာရင်း',
+    phase3SelectedCountLabel: 'ခု နှိုင်းယှဉ်ရန် ရွေးထား',
+    phase3SelectAtLeastTwoTitle: 'နှိုင်းယှဉ်ရန် အနည်းဆုံး Product ၂ ခု ရွေးချယ်ပေးပါ',
+    phase3SelectAtLeastTwoDesc:
+      'အပေါ်တွင် နောက်ထပ် TikTok Shop Product Link တစ်ခု ထပ်မံ Import လုပ်ပါ (သို့မဟုတ်) Import စာရင်း / ဆင်တူ Product Finder / Workspace စာရင်းထဲမှ Product တစ်ခု ထပ်ရွေးပါ။',
+    phase3ClearSelectionBtn: 'ရွေးထားမှု ရှင်းမည်',
+    phase3AddFromWorkspaceLabel: 'Imported စာရင်း / Workspace ထဲမှ Product ထပ်ထည့်ရန်',
+    phase3AddFromWorkspacePlaceholder: 'နှိုင်းယှဉ်မည့် Product ရွေးပါ...',
+    phase3RemoveColBtn: 'ဖယ်ရှားမည်',
+    phase3BestMarker: 'အကောင်းဆုံး',
+    phase3DiffMarker: 'ကွာခြား',
+    phase3MissingDetailTitle: 'နှိုင်းယှဉ်ထားသော Product အချို့တွင် Product Detail (Creator နှင့် Video အရေအတွက်) မပြည့်စုံသေးပါ',
+    phase3MissingDetailCachedDesc:
+      'Browser Cache ထဲတွင် Product Detail ဒေတာ အသင့်ရှိနေပါသည် — API မခေါ်ဘဲ 0 Credit ဖြင့် ချက်ချင်း ဖြည့်စွက်နိုင်ပါသည်။',
+    phase3MissingDetailPaidDesc:
+      'မပြည့်စုံသေးသော Product Detail များကို Kalodata မှ ရယူဖြည့်စွက်ပါက Creator Competition နှင့် Video အရေအတွက်များ ရရှိမည်ဖြစ်သည် (Cache မရှိသေးသော Product ၁ ခုလျှင် 0.1 cr)။ မရရှိသော ဒေတာကို ခန့်မှန်းမဖြည့်ပါ။',
+    phase3ApplyCachedDetailBtn: 'Cache မှ Detail ဖြည့်မည် (0 cr)',
+    phase3EnrichMissingBtn: 'မပြည့်စုံသော Detail ဖြည့်မည်',
+    phase3EnrichConfirmTitle: 'Comparison Product Detail ရယူရန် အတည်ပြုပါ',
+    phase3EnrichConfirmCheckbox: 'မပြည့်စုံသေးသော Product Detail ဒေတာများ ရယူရန် အထက်ပါ Kalodata Credit ကို အသုံးပြုမည်ဖြစ်ကြောင်း အတည်ပြုပါသည်။',
+    phase3EnrichConfirmProceedBtn: 'အတည်ပြုပြီး Detail ဖြည့်မည်',
+    phase3EnrichCancelBtn: 'ပယ်ဖျက်မည်',
+    phase3EnrichingLabel: 'မပြည့်စုံသော Product Detail ရယူနေပါသည်...',
+    phase3SimilarRefLabel: 'မူရင်း Product (Reference)',
+    phase3SimilarKeywordLabel: 'ရှာဖွေမည့် Keyword (ပြင်ဆင်နိုင်သည်)',
+    phase3SimilarKeywordPlaceholder: 'Product Keyword ထည့်ပါ...',
+    phase3SimilarCheckPreviewBtn: 'Kalodata တွင် ဆင်တူရှာမည်',
+    phase3SimilarUseCacheBtn: 'Cache ထဲမှ ဆင်တူ Product ကြည့်မည် (0 cr)',
+    phase3SimilarLoadingPreview: 'Cache နှင့် Budget စစ်ဆေးနေပါသည်...',
+    phase3SimilarSearchingLabel: 'Thailand TikTok Shop ရှိ ဆင်တူ Product များ ရှာဖွေနေပါသည်...',
+    phase3SimilarConfirmTitle: 'Kalodata ဆင်တူ Product ရှာဖွေမှု အတည်ပြုပါ',
+    phase3SimilarConfirmDesc:
+      'သင်၏ Spending Limit နှင့် Balance အတွင်းမှ Kalodata Product Rank API ၁ ကြိမ် (ဆင်တူ TH Affiliate Product ၃၀ အထိ = 0.1 Credits) ခေါ်ဆိုရှာဖွေပါမည်။',
+    phase3SimilarConfirmCheckbox: 'ဆင်တူ Product ရှာဖွေရန် 0.1 Kalodata Credits အသုံးပြုမည်ကို အတည်ပြုပါသည်။',
+    phase3SimilarConfirmProceedBtn: 'အတည်ပြုပြီး ဆင်တူရှာမည် (0.1 cr)',
+    phase3SimilarFilterAll: 'အားလုံး',
+    phase3SimilarFilterCheaper: 'ပိုသက်သာတဲ့ဈေး',
+    phase3SimilarFilterBetterComm: 'Commission ပိုကောင်း',
+    phase3SimilarFilterLowerComp: 'Competition နည်း',
+    phase3SimilarAddToCompareBtn: 'နှိုင်းယှဉ်ထဲ ထည့်မည်',
+    phase3SimilarInCompareBtn: 'နှိုင်းယှဉ်စာရင်းထဲရှိ',
+    phase3SimilarInspectBtn: 'Workspace ဖွင့်မည်',
+    phase3SimilarCheaperTag: 'ဈေးပိုသက်သာ',
+    phase3SimilarBetterCommTag: 'Commission ပိုမြင့်',
+    phase3SimilarLowerCompTag: 'Competition ပိုနည်း',
+    phase3SimilarLocalPoolTitle: 'Workspace စာရင်းထဲမှ ဆင်တူ Product များ (0 cr)',
+    phase3SimilarEmptyTitle: 'ဆင်တူ Product မတွေ့သေးပါ',
+    phase3SimilarEmptyDesc:
+      'Workspace ထဲရှိ Product များကို 0 Credit ဖြင့် စစ်ဆေးနိုင်ပြီး (သို့မဟုတ်) Kalodata မှ ဆင်တူ Product ရှာဖွေမှု (Cost Preview နှင့် Confirmation ဖြင့်) ကို စတင်နိုင်ပါသည်။',
+    phase3SimilarNoBucketMatchTitle: 'ဤအမျိုးအစားနှင့် ကိုက်ညီသော Product မရှိသေးပါ',
+    phase3SimilarNoBucketMatchDesc:
+      'မူရင်း Product ထက် ဒေတာအမှန်တကယ် သာလွန်ကြောင်း အတည်ပြုနိုင်သည့် Product များကိုသာ ပြသထားပါသည် — မရရှိသော ဒေတာကို ခန့်မှန်းဖော်ပြခြင်း မပြုပါ။',
+    phase3SimilarDetailNeededNote: 'Creator အရေအတွက် စစ်ရန် Product Detail လိုအပ် (Unavailable)',
   },
 };

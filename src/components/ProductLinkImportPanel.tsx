@@ -6,6 +6,7 @@ import {
   ClipboardPaste,
   Database,
   ExternalLink,
+  Layers,
   Link2,
   Loader2,
   PlayCircle,
@@ -46,6 +47,11 @@ interface ProductLinkImportPanelProps {
   onFindExistingProduct: (canonicalProductId: string) => ResearchProduct | null;
   onRestoreExistingToResults: (product: ResearchProduct) => void;
   onOpenExistingReport: (product: ResearchProduct) => void;
+  onOpenExistingWorkspace?: (
+    product: ResearchProduct,
+    inspectResult: LinkImportInspectResponse
+  ) => void;
+  onOpenImportedDeepDive?: (product: ResearchProduct) => void;
   onProductImported: (result: LinkImportExecuteResponse) => void;
   onResumeResearch: () => Promise<void> | void;
   onScrollToResults: (productId: string) => void;
@@ -75,6 +81,8 @@ export function ProductLinkImportPanel({
   onFindExistingProduct,
   onRestoreExistingToResults,
   onOpenExistingReport,
+  onOpenExistingWorkspace,
+  onOpenImportedDeepDive,
   onProductImported,
   onResumeResearch,
   onScrollToResults,
@@ -565,6 +573,16 @@ export function ProductLinkImportPanel({
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {existingWorkspaceProduct && (
                   <>
+                    {onOpenExistingWorkspace && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenExistingWorkspace(existingWorkspaceProduct, inspectResult)}
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
+                      >
+                        <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>{t.linkImportOpenWorkspaceBtn}</span>
+                      </button>
+                    )}
                     {!inspectResult.alreadyInWorkspaceSources.includes('results') && (
                       <button
                         type="button"
@@ -577,7 +595,7 @@ export function ProductLinkImportPanel({
                     <button
                       type="button"
                       onClick={() => onOpenExistingReport(existingWorkspaceProduct)}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg cursor-pointer whitespace-nowrap"
                     >
                       <span>{t.linkImportViewExistingBtn}</span>
                     </button>
@@ -748,6 +766,16 @@ export function ProductLinkImportPanel({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onOpenImportedDeepDive && (
+              <button
+                type="button"
+                onClick={() => onOpenImportedDeepDive(importedResult.product)}
+                className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg cursor-pointer whitespace-nowrap"
+              >
+                <Layers className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>{t.linkImportDeepDiveBtn}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onScrollToResults(importedResult.product.id)}

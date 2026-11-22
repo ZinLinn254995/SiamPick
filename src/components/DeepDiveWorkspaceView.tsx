@@ -98,6 +98,7 @@ interface DeepDiveWorkspaceViewProps {
   historyRecords?: DeepDiveHistoryRecord[];
   onDeleteHistoryRecord?: (recordId: string) => void;
   onBack: () => void;
+  backLabelOverride?: string;
   onOpenProductDetail: () => void;
   language: Language;
 }
@@ -576,6 +577,7 @@ export function DeepDiveWorkspaceView({
   historyRecords = [],
   onDeleteHistoryRecord,
   onBack,
+  backLabelOverride,
   onOpenProductDetail,
   language,
 }: DeepDiveWorkspaceViewProps) {
@@ -927,7 +929,7 @@ export function DeepDiveWorkspaceView({
           className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer py-1"
         >
           <ArrowLeft className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>{backLabel}</span>
+          <span>{backLabelOverride ?? backLabel}</span>
         </button>
 
         <button
