@@ -5,8 +5,11 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Clock,
   Copy,
   Download,
@@ -20,6 +23,7 @@ import {
   RefreshCw,
   RotateCw,
   ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
   X,
@@ -126,7 +130,11 @@ function getOriginModeLabel(mode: ResearchMode, language: Language): string {
   return t.modeFastTitle;
 }
 
-function formatCompletedTime(iso: string | null, language: Language): string {
+function formatCompletedTime(
+  iso: string | null,
+  language: Language,
+  includeSeconds = false
+): string {
   if (!iso) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -136,9 +144,10 @@ function formatCompletedTime(iso: string | null, language: Language): string {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      ...(includeSeconds ? { second: '2-digit' } : {}),
     }).format(date);
   } catch {
-    return date.toISOString().slice(0, 16).replace('T', ' ');
+    return date.toISOString().slice(0, includeSeconds ? 19 : 16).replace('T', ' ');
   }
 }
 
@@ -195,9 +204,19 @@ function getExecutionStatusDisplay(
   }
 }
 
+interface ModuleRunFeedbackState {
+  phase: 'pulsing' | 'updated';
+  mode: 'cache-local' | 'live';
+  triggeredAt: number;
+  completedAtIso: string;
+}
+
 interface ModuleResultPanelProps {
   slot: DeepDiveAnalysisSlotState;
   language: Language;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  runFeedback?: ModuleRunFeedbackState | null;
   onRerun: (forceRefresh?: boolean) => void;
   onApplyConceptToBrief?: (suggestionText: string) => void;
 }
@@ -205,12 +224,17 @@ interface ModuleResultPanelProps {
 function ModuleResultPanel({
   slot,
   language,
+  isCollapsed,
+  onToggleCollapse,
+  runFeedback = null,
   onRerun,
   onApplyConceptToBrief,
 }: ModuleResultPanelProps) {
   const isMy = language === 'my';
   const t = TRANSLATIONS[language];
   const isRunning = slot.status === 'running';
+  const isVisuallyRunning = isRunning || runFeedback?.phase === 'pulsing';
+  const isRecentlyUpdated = !isVisuallyRunning && runFeedback?.phase === 'updated';
   const result: DeepDiveModuleResult | null = slot.result;
   const hasError = slot.status === 'error' && Boolean(slot.error);
   const canForceRefresh = API_REFRESHABLE_MODULES.has(slot.analysisId);
@@ -245,10 +269,13 @@ function ModuleResultPanel({
           <button
             type="button"
             onClick={() => onRerun(false)}
-            disabled={isRunning}
+            disabled={isVisuallyRunning}
             className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium text-rose-800 dark:text-rose-200 bg-white dark:bg-zinc-900 border border-rose-300 dark:border-rose-800 rounded-md hover:border-rose-500 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
           >
-            <RotateCw className="w-3 h-3 shrink-0" aria-hidden="true" />
+            <RotateCw
+              className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
+              aria-hidden="true"
+            />
             <span>{isMy ? 'ထပ်စမ်းမည်' : 'Retry'}</span>
           </button>
         </div>
@@ -278,40 +305,114 @@ function ModuleResultPanel({
   return (
     <div>
       {errorBanner}
-      <div className="px-4 py-4 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 space-y-3.5 text-xs">
-        {/* Phase 9.4 Top Provenance Strip: Clear Data Status & Last Updated */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-          <span className={`font-semibold ${getDataStatusStyle(result.dataStatus)}`}>
-            {isMy ? 'Data Status' : 'Data Status'}: {dataStatusLabel}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span className="font-mono tabular-nums">
-            {isMy ? 'Last Updated' : 'Last Updated'}: {formatCompletedTime(result.completedAt, language)}
-          </span>
-          {result.reusedFromCache && result.apiCallsMade === 0 && !result.isAiInterpretation && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono text-emerald-700 dark:text-emerald-400">
-                {isMy ? 'Cache / Local (0 cr)' : 'Cache / Local (0 cr)'}
+      <div
+        className={`border-t border-zinc-200/80 dark:border-zinc-800 transition-colors duration-300 ${
+          isRecentlyUpdated
+            ? 'bg-emerald-50/50 dark:bg-emerald-950/20'
+            : isVisuallyRunning
+              ? 'bg-sky-50/40 dark:bg-sky-950/20'
+              : 'bg-zinc-50/50 dark:bg-zinc-950/40'
+        }`}
+      >
+        {/* Collapsible Result Summary Bar + Unmistakable Re-run Feedback */}
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2 text-[11px]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-zinc-500 dark:text-zinc-400">
+            {isVisuallyRunning ? (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-sky-700 dark:text-sky-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+                <span>{isMy ? 'ပြန် Run နေသည်...' : 'Re-running module...'}</span>
               </span>
-            </>
-          )}
+            ) : isRecentlyUpdated ? (
+              <span
+                role="status"
+                data-testid={`deep-dive-rerun-feedback-${slot.analysisId}`}
+                className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  {runFeedback?.mode === 'live'
+                    ? isMy
+                      ? 'ယခုလေးတင် Data အသစ်ယူပြီး'
+                      : 'Updated just now · Live Refreshed'
+                    : isMy
+                      ? 'ယခုလေးတင် ပြန် Run ပြီး · Cache/Local (0 cr)'
+                      : 'Updated just now · Cache/Local (0 cr)'}
+                </span>
+              </span>
+            ) : (
+              <span className={`font-semibold ${getDataStatusStyle(result.dataStatus)}`}>
+                Data Status: {dataStatusLabel}
+              </span>
+            )}
+            <span aria-hidden="true">·</span>
+            <span className="font-mono tabular-nums">
+              {isMy ? 'Last Updated' : 'Last Updated'}:{' '}
+              {formatCompletedTime(result.completedAt, language, true)}
+            </span>
+            {!isRecentlyUpdated &&
+              !isVisuallyRunning &&
+              result.reusedFromCache &&
+              result.apiCallsMade === 0 &&
+              !result.isAiInterpretation && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono text-emerald-700 dark:text-emerald-400">
+                    Cache / Local (0 cr)
+                  </span>
+                </>
+              )}
+          </div>
+
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-expanded={!isCollapsed}
+            aria-controls={`deep-dive-result-body-${slot.analysisId}`}
+            className="inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+          >
+            <span>
+              {isCollapsed
+                ? isMy
+                  ? 'ရလဒ်ကြည့်မည်'
+                  : 'Show Result'
+                : isMy
+                  ? 'ရလဒ်ခေါက်မည်'
+                  : 'Hide Result'}
+            </span>
+            {isCollapsed ? (
+              <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            ) : (
+              <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            )}
+          </button>
         </div>
 
-        {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
-        {result.isAiInterpretation && (
-          <div className="flex items-start gap-2 pb-2.5 border-b border-sky-200/70 dark:border-sky-900/60 text-sky-900 dark:text-sky-200">
-            <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="leading-relaxed">
-              <span className="font-semibold">
-                {result.analysisId === 'ad-video-creative-blueprint'
-                  ? isMy
-                    ? 'AI Ad Video Creative Studio (ကြော်ငြာ Video ဖန်တီးမှု Blueprint)'
-                    : 'AI Ad Video Creative Studio (Production & SEO Blueprint)'
-                  : isMy
-                    ? 'AI Business Decision (လုပ်သင့်/မလုပ်သင့် ဗျူဟာဆုံးဖြတ်ချက်)'
-                    : 'AI Business Decision (Strategic Go / No-Go)'}
-              </span>
+        {/* Compact 1-Line Preview When Result Is Collapsed */}
+        {isCollapsed ? (
+          <div className="px-4 pb-3 pt-0.5 text-xs text-zinc-600 dark:text-zinc-400 truncate">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">{headline}</span>
+          </div>
+        ) : (
+          <div
+            id={`deep-dive-result-body-${slot.analysisId}`}
+            className={`px-4 pb-4 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/70 space-y-3.5 text-xs transition-opacity duration-200 ${
+              isVisuallyRunning ? 'opacity-60' : 'opacity-100'
+            }`}
+          >
+            {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
+            {result.isAiInterpretation && (
+              <div className="flex items-start gap-2 pb-2.5 border-b border-sky-200/70 dark:border-sky-900/60 text-sky-900 dark:text-sky-200">
+                <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="leading-relaxed">
+                  <span className="font-semibold">
+                    {result.analysisId === 'ad-video-creative-blueprint'
+                      ? isMy
+                        ? 'AI Ad Video Creative Studio (ကြော်ငြာ Video ဖန်တီးမှု Blueprint)'
+                        : 'AI Ad Video Creative Studio (Production & SEO Blueprint)'
+                      : isMy
+                        ? 'AI Business Decision (လုပ်သင့်/မလုပ်သင့် ဗျူဟာဆုံးဖြတ်ချက်)'
+                        : 'AI Business Decision (Strategic Go / No-Go)'}
+                  </span>
               <span className="text-sky-800/90 dark:text-sky-300/90">
                 {' — '}
                 {result.analysisId === 'ad-video-creative-blueprint'
@@ -495,7 +596,7 @@ function ModuleResultPanel({
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">
-              {isMy ? 'ပြီးစီးချိန်' : 'Completed'}: {formatCompletedTime(result.completedAt, language)}
+              {isMy ? 'ပြီးစီးချိန်' : 'Completed'}: {formatCompletedTime(result.completedAt, language, true)}
             </span>
             <span aria-hidden="true">·</span>
             <span className="font-mono tabular-nums">
@@ -528,21 +629,35 @@ function ModuleResultPanel({
             <button
               type="button"
               onClick={() => onRerun(false)}
-              disabled={isRunning}
+              disabled={isVisuallyRunning}
               className="inline-flex items-center gap-1 font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <RotateCw className="w-3 h-3 shrink-0" aria-hidden="true" />
-              <span>{isMy ? 'ပြန် Run (Cache)' : 'Re-run (Cache)'}</span>
+              <RotateCw
+                className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin text-sky-600 dark:text-sky-400' : ''}`}
+                aria-hidden="true"
+              />
+              <span>
+                {isVisuallyRunning
+                  ? isMy
+                    ? 'ပြန် Run နေ...'
+                    : 'Re-running...'
+                  : isMy
+                    ? 'ပြန် Run (Cache)'
+                    : 'Re-run (Cache)'}
+              </span>
             </button>
 
             {canForceRefresh && (
               <button
                 type="button"
                 onClick={() => onRerun(true)}
-                disabled={isRunning}
+                disabled={isVisuallyRunning}
                 className="inline-flex items-center gap-1 font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-45 cursor-pointer shrink-0 whitespace-nowrap"
               >
-                <RefreshCw className="w-3 h-3 shrink-0" aria-hidden="true" />
+                <RefreshCw
+                  className={`w-3 h-3 shrink-0 ${isVisuallyRunning ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
                 <span>{isMy ? 'Data အသစ်ယူမည်' : 'Refresh Live'}</span>
               </button>
             )}
@@ -556,6 +671,8 @@ function ModuleResultPanel({
           <span>{dataSources.join(' · ')}</span>
         </div>
       </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -659,10 +776,38 @@ export function DeepDiveWorkspaceView({
     setLimitInputDraft(formatCredits(effectiveSpendingLimit));
   }, [effectiveSpendingLimit]);
 
-  const [showCostBreakdown, setShowCostBreakdown] = useState<boolean>(false);
   const [pendingRun, setPendingRun] = useState<PendingRunTarget | null>(null);
-  const confirmPanelRef = useRef<HTMLDivElement | null>(null);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState<boolean>(false);
+  const [collapsedResultIds, setCollapsedResultIds] = useState<DeepDiveAnalysisId[]>([]);
+  const [jumpHighlightId, setJumpHighlightId] = useState<DeepDiveAnalysisId | null>(null);
+  const [moduleFeedbackById, setModuleFeedbackById] = useState<
+    Partial<Record<DeepDiveAnalysisId, ModuleRunFeedbackState>>
+  >({});
+  const [runFeedbackToast, setRunFeedbackToast] = useState<{
+    id: number;
+    tone: 'success' | 'error' | 'info';
+    title: string;
+    detail?: string;
+  } | null>(null);
+
+  const cardRefs = useRef<Partial<Record<DeepDiveAnalysisId, HTMLElement | null>>>({});
   const videoStudioCardRef = useRef<HTMLElement | null>(null);
+  const feedbackTimersRef = useRef<Record<string, number>>({});
+  const jumpHighlightTimerRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const trackedRunsRef = useRef<
+    Map<
+      DeepDiveAnalysisId,
+      {
+        mode: 'cache-local' | 'live';
+        isRerun: boolean;
+        startedAt: number;
+        priorUpdatedAt: string | null;
+      }
+    >
+  >(new Map());
+  const latestSlotsRef = useRef(workspaceState.slots);
+  latestSlotsRef.current = workspaceState.slots;
 
   // Phase 9.4: Final Report & Browser Local History Progressive Disclosure state
   const [showFinalReport, setShowFinalReport] = useState<boolean>(false);
@@ -676,14 +821,48 @@ export function DeepDiveWorkspaceView({
   );
   const finalReportRef = useRef<HTMLElement | null>(null);
 
-  // Cancel stale confirmation & snapshot inspection if product changes
+  const isCheckoutModalOpen = Boolean(pendingRun) || isBudgetModalOpen;
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(feedbackTimersRef.current).forEach((timerId) => window.clearTimeout(timerId));
+      if (jumpHighlightTimerRef.current !== null) {
+        window.clearTimeout(jumpHighlightTimerRef.current);
+      }
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Cancel stale confirmation, modal, collapse & snapshot inspection if product changes
   useEffect(() => {
     setPendingRun(null);
+    setIsBudgetModalOpen(false);
+    setCollapsedResultIds([]);
+    setJumpHighlightId(null);
+    setModuleFeedbackById({});
+    setRunFeedbackToast(null);
+    trackedRunsRef.current.clear();
     setInspectedHistoryId(null);
     setExpandedHistoryIds([]);
     setCopiedReportNotice(false);
     setCopiedTikTokLink(false);
   }, [canonicalProductId]);
+
+  // Escape closes Checkout / Budget Modal cleanly
+  useEffect(() => {
+    if (!isCheckoutModalOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPendingRun(null);
+        setIsBudgetModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCheckoutModalOpen]);
 
   useEffect(() => {
     const syncUrl = getTikTokShopProductUrl(product);
@@ -824,17 +1003,303 @@ export function DeepDiveWorkspaceView({
     }
   }, [pendingRun, workspaceState.selectedIds.length]);
 
-  const scrollToConfirmPanel = () => {
-    window.requestAnimationFrame(() => {
-      confirmPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+  const showRunToast = (
+    title: string,
+    detail: string | undefined,
+    tone: 'success' | 'error' | 'info' = 'success'
+  ) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    setRunFeedbackToast({ id: Date.now(), tone, title, detail });
+    toastTimerRef.current = window.setTimeout(() => {
+      setRunFeedbackToast(null);
+      toastTimerRef.current = null;
+    }, 4200);
   };
+
+  const finalizeVisualFeedback = (
+    ids: DeepDiveAnalysisId[],
+    mode: 'cache-local' | 'live',
+    isRerun: boolean
+  ) => {
+    const nowIso = new Date().toISOString();
+    const erroredIds: DeepDiveAnalysisId[] = [];
+    const succeededIds: DeepDiveAnalysisId[] = [];
+
+    for (const id of ids) {
+      const slot = latestSlotsRef.current[id];
+      trackedRunsRef.current.delete(id);
+      if (slot?.status === 'error') {
+        erroredIds.push(id);
+        setModuleFeedbackById((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      } else {
+        succeededIds.push(id);
+        setModuleFeedbackById((prev) => ({
+          ...prev,
+          [id]: {
+            phase: 'updated',
+            mode,
+            triggeredAt: Date.now(),
+            completedAtIso: slot?.result?.completedAt ?? nowIso,
+          },
+        }));
+        const clearKey = `clear:${id}`;
+        if (feedbackTimersRef.current[clearKey]) {
+          window.clearTimeout(feedbackTimersRef.current[clearKey]);
+        }
+        feedbackTimersRef.current[clearKey] = window.setTimeout(() => {
+          setModuleFeedbackById((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+          });
+          delete feedbackTimersRef.current[clearKey];
+        }, 3000);
+      }
+    }
+
+    if (erroredIds.length > 0) {
+      const firstDef = getDeepDiveOptionById(erroredIds[0]);
+      const modLabel = firstDef
+        ? `0${firstDef.order} · ${isMy ? firstDef.nameMy : firstDef.nameEn}`
+        : erroredIds[0];
+      showRunToast(
+        isMy
+          ? `${modLabel} လုပ်ဆောင်မှု မအောင်မြင်ပါ`
+          : `${modLabel} encountered an error`,
+        isMy
+          ? 'အသေးစိတ်ကို သက်ဆိုင်ရာကတ်တွင် ကြည့်နိုင်ပါသည်။'
+          : 'Check the module card for details.',
+        'error'
+      );
+      return;
+    }
+
+    if (succeededIds.length > 0) {
+      const timeText = formatCompletedTime(nowIso, language, true);
+      if (succeededIds.length === 1) {
+        const def = getDeepDiveOptionById(succeededIds[0]);
+        const label = def ? `0${def.order} · ${isMy ? def.nameMy : def.nameEn}` : succeededIds[0];
+        showRunToast(
+          isMy
+            ? `${label} ${isRerun ? 'ပြန် Run ပြီးပါပြီ' : 'Run ပြီးပါပြီ'}`
+            : `${label} ${isRerun ? 're-run complete' : 'completed'}`,
+          mode === 'live'
+            ? isMy
+              ? `Live Refresh / AI · ${timeText}`
+              : `Live Refreshed / AI · ${timeText}`
+            : isMy
+              ? `Cache / Local ပြန်သုံးထားသည် (0 cr) · ${timeText}`
+              : `Reused Cache / Local (0 cr) · ${timeText}`,
+          'success'
+        );
+      } else {
+        const nums = succeededIds
+          .map((id) => getDeepDiveOptionById(id))
+          .filter(Boolean)
+          .map((d) => `0${d!.order}`)
+          .join(' · ');
+        showRunToast(
+          isMy
+            ? `Analysis ${succeededIds.length} ခု (${nums}) ပြီးစီးပါပြီ`
+            : `${succeededIds.length} modules (${nums}) completed`,
+          mode === 'live'
+            ? isMy
+              ? `Live / AI ပါဝင်သည် · ${timeText}`
+              : `Includes Live / AI updates · ${timeText}`
+            : isMy
+              ? `Cache / Local (0 cr) · ${timeText}`
+              : `Cache / Local (0 cr) · ${timeText}`,
+          'success'
+        );
+      }
+    }
+  };
+
+  const triggerVisualRunFeedback = (
+    ids: DeepDiveAnalysisId[],
+    mode: 'cache-local' | 'live',
+    isRerun: boolean
+  ) => {
+    if (ids.length === 0) return;
+    const now = Date.now();
+    const nowIso = new Date(now).toISOString();
+
+    // Always auto-expand target module results so user immediately sees updates
+    setCollapsedResultIds((prev) => prev.filter((id) => !ids.includes(id)));
+
+    setModuleFeedbackById((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        next[id] = {
+          phase: 'pulsing',
+          mode,
+          triggeredAt: now,
+          completedAtIso: nowIso,
+        };
+      }
+      return next;
+    });
+
+    for (const id of ids) {
+      trackedRunsRef.current.set(id, {
+        mode,
+        isRerun,
+        startedAt: now,
+        priorUpdatedAt: latestSlotsRef.current[id]?.updatedAt ?? null,
+      });
+      const existingTimer = feedbackTimersRef.current[`pulse:${id}`];
+      if (existingTimer) {
+        window.clearTimeout(existingTimer);
+      }
+    }
+
+    // For instant cache/local runs, guarantee a smooth ~380ms visible feedback pulse even if React completes in <2ms
+    if (mode === 'cache-local') {
+      const batchKey = `pulse:${ids.join(',')}`;
+      if (feedbackTimersRef.current[batchKey]) {
+        window.clearTimeout(feedbackTimersRef.current[batchKey]);
+      }
+      feedbackTimersRef.current[batchKey] = window.setTimeout(() => {
+        const settled = ids.filter(
+          (id) =>
+            trackedRunsRef.current.has(id) && latestSlotsRef.current[id]?.status !== 'running'
+        );
+        if (settled.length > 0) {
+          finalizeVisualFeedback(settled, mode, isRerun);
+        }
+        delete feedbackTimersRef.current[batchKey];
+      }, 380);
+    }
+  };
+
+  // Watch async live/AI runs transitioning out of 'running' to finalize visual feedback cleanly
+  useEffect(() => {
+    if (trackedRunsRef.current.size === 0) return;
+    const readyToFinalize: Array<{
+      id: DeepDiveAnalysisId;
+      mode: 'cache-local' | 'live';
+      isRerun: boolean;
+      startedAt: number;
+    }> = [];
+
+    trackedRunsRef.current.forEach((meta, id) => {
+      const slot = workspaceState.slots[id];
+      if (!slot) return;
+      const changedTimestamp = slot.updatedAt !== null && slot.updatedAt !== meta.priorUpdatedAt;
+      if (slot.status !== 'running' && (changedTimestamp || slot.status === 'error')) {
+        readyToFinalize.push({
+          id,
+          mode: meta.mode,
+          isRerun: meta.isRerun,
+          startedAt: meta.startedAt,
+        });
+      }
+    });
+
+    if (readyToFinalize.length === 0) return;
+
+    // Group by mode so batch completions produce one crisp toast
+    const byMode = new Map<string, typeof readyToFinalize>();
+    for (const item of readyToFinalize) {
+      const key = `${item.mode}:${item.isRerun ? '1' : '0'}`;
+      const list = byMode.get(key) ?? [];
+      list.push(item);
+      byMode.set(key, list);
+    }
+
+    byMode.forEach((group) => {
+      const earliestStart = Math.min(...group.map((g) => g.startedAt));
+      const remainingMinPulseMs = Math.max(0, 360 - (Date.now() - earliestStart));
+      const ids = group.map((g) => g.id);
+      const mode = group[0].mode;
+      const isRerun = group[0].isRerun;
+
+      for (const id of ids) {
+        trackedRunsRef.current.delete(id);
+      }
+
+      if (remainingMinPulseMs > 0) {
+        const tKey = `settle:${ids.join(',')}`;
+        if (feedbackTimersRef.current[tKey]) {
+          window.clearTimeout(feedbackTimersRef.current[tKey]);
+        }
+        feedbackTimersRef.current[tKey] = window.setTimeout(() => {
+          finalizeVisualFeedback(ids, mode, isRerun);
+          delete feedbackTimersRef.current[tKey];
+        }, remainingMinPulseMs);
+      } else {
+        finalizeVisualFeedback(ids, mode, isRerun);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceState.slots, workspaceState.lastAttemptedRunAt]);
+
+  const handleJumpToCard = (id: DeepDiveAnalysisId) => {
+    const el = cardRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    setJumpHighlightId(id);
+    if (jumpHighlightTimerRef.current !== null) {
+      window.clearTimeout(jumpHighlightTimerRef.current);
+    }
+    jumpHighlightTimerRef.current = window.setTimeout(() => {
+      setJumpHighlightId(null);
+      jumpHighlightTimerRef.current = null;
+    }, 1500);
+  };
+
+  const cardsWithResultIds = useMemo(
+    () =>
+      DEEP_DIVE_ANALYSIS_OPTIONS.filter((opt) => Boolean(workspaceState.slots[opt.id]?.result)).map(
+        (opt) => opt.id
+      ),
+    [workspaceState.slots]
+  );
+
+  const allResultsCollapsed =
+    cardsWithResultIds.length > 0 &&
+    cardsWithResultIds.every((id) => collapsedResultIds.includes(id));
+
+  const handleToggleAllResultsCollapse = () => {
+    if (allResultsCollapsed) {
+      setCollapsedResultIds([]);
+    } else {
+      setCollapsedResultIds([...cardsWithResultIds]);
+    }
+  };
+
+  const handleToggleSingleResultCollapse = (id: DeepDiveAnalysisId) => {
+    setCollapsedResultIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const paidBlockedByBudgetStorage =
+    budgetStorageUnavailable && selectedCostEstimate.plannedKalodataApiCalls > 0;
+  const pendingPaidBlockedByBudgetStorage =
+    budgetStorageUnavailable && (pendingCostEstimate?.plannedKalodataApiCalls ?? 0) > 0;
 
   const handleRequestBatchRun = () => {
     if (!canRun || isAnyRunning) return;
-    if (!selectedCostEstimate.requiresExplicitConfirmation) {
-      // 0 Kalodata calls & 0 Gemini calls (100% local/cached) — execute directly with 0 paid APIs
+    const needsModal =
+      selectedCostEstimate.requiresExplicitConfirmation ||
+      selectedBudgetGuard.exceedsSpendingLimit ||
+      selectedBudgetGuard.exceedsLiveBalance ||
+      paidBlockedByBudgetStorage;
+    if (!needsModal) {
+      // 0 Kalodata calls & 0 Gemini calls (100% local/cached) — execute directly with immediate visual feedback
+      const ids = [...workspaceState.selectedIds];
+      const isRerun = ids.some((id) => Boolean(workspaceState.slots[id]?.result));
       setPendingRun(null);
+      setIsBudgetModalOpen(false);
+      triggerVisualRunFeedback(ids, 'cache-local', isRerun);
       onRunSelected(false);
       return;
     }
@@ -843,7 +1308,6 @@ export function DeepDiveWorkspaceView({
       analysisIds: [...workspaceState.selectedIds],
       forceRefresh: false,
     });
-    scrollToConfirmPanel();
   };
 
   const handleRequestSingleRun = (id: DeepDiveAnalysisId, forceRefresh = false) => {
@@ -852,8 +1316,11 @@ export function DeepDiveWorkspaceView({
       videoCreativeOptions,
     });
     if (!singleEst.requiresExplicitConfirmation) {
-      // 0 Kalodata calls & 0 Gemini calls (100% local/cached) — execute directly
+      // 0 Kalodata calls & 0 Gemini calls (100% local/cached) — execute directly with unmistakable visual feedback
+      const isRerun = Boolean(workspaceState.slots[id]?.result);
       setPendingRun(null);
+      setIsBudgetModalOpen(false);
+      triggerVisualRunFeedback([id], 'cache-local', isRerun);
       onRunSingle(id, forceRefresh, false);
       return;
     }
@@ -862,20 +1329,23 @@ export function DeepDiveWorkspaceView({
       analysisIds: [id],
       forceRefresh,
     });
-    scrollToConfirmPanel();
   };
-
-  const paidBlockedByBudgetStorage =
-    budgetStorageUnavailable && selectedCostEstimate.plannedKalodataApiCalls > 0;
-  const pendingPaidBlockedByBudgetStorage =
-    budgetStorageUnavailable && (pendingCostEstimate?.plannedKalodataApiCalls ?? 0) > 0;
 
   const handleConfirmPendingRun = () => {
     if (!pendingRun || !pendingCostEstimate || !pendingBudgetGuard) return;
     if (!pendingBudgetGuard.canProceedWithoutLimitChange) return;
     if (pendingPaidBlockedByBudgetStorage) return;
     const target = pendingRun;
+    const ids =
+      target.mode === 'batch' ? [...workspaceState.selectedIds] : [...target.analysisIds];
+    const isRerun = ids.some((id) => Boolean(workspaceState.slots[id]?.result));
+    const hasLiveOrAi =
+      pendingCostEstimate.plannedKalodataApiCalls > 0 || pendingCostEstimate.plannedGeminiCalls > 0;
+
     setPendingRun(null);
+    setIsBudgetModalOpen(false);
+    triggerVisualRunFeedback(ids, hasLiveOrAi ? 'live' : 'cache-local', isRerun);
+
     if (target.mode === 'batch') {
       onRunSelected(true);
     } else if (target.analysisIds[0]) {
@@ -996,7 +1466,7 @@ export function DeepDiveWorkspaceView({
       };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-28 sm:pb-24">
       {/* Top Navigation & Heading Row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
@@ -1159,7 +1629,7 @@ export function DeepDiveWorkspaceView({
         </div>
       </section>
 
-      {/* Manual Selection Controls & Live Selection Summary */}
+      {/* Manual Selection Controls, 01–09 Quick-Jump Bar & Result Collapse Controls */}
       <section aria-labelledby="deep-dive-selection-heading" className="space-y-4">
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1176,10 +1646,37 @@ export function DeepDiveWorkspaceView({
               <p className="font-mono text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
                 {copy.selectedCounter(selectedCount, totalCount)}
                 {completedCount > 0 ? ` · ${copy.completedCounter(completedCount)}` : ''}
+                {' · '}
+                {isMy
+                  ? `Limit ${formatCredits(effectiveSpendingLimit)} cr`
+                  : `Limit ${formatCredits(effectiveSpendingLimit)} cr`}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 max-w-full">
+              {cardsWithResultIds.length > 0 && (
+                <button
+                  type="button"
+                  data-testid="deep-dive-toggle-all-results"
+                  onClick={handleToggleAllResultsCollapse}
+                  className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {allResultsCollapsed ? (
+                    <ChevronsUpDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <ChevronsDownUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span>
+                    {allResultsCollapsed
+                      ? isMy
+                        ? 'ရလဒ်အားလုံး ဖွင့်မည်'
+                        : 'Expand All Results'
+                      : isMy
+                        ? 'ရလဒ်အားလုံး ခေါက်မည်'
+                        : 'Collapse All Results'}
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onSelectAll}
@@ -1199,18 +1696,102 @@ export function DeepDiveWorkspaceView({
             </div>
           </div>
 
-          <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 text-xs leading-relaxed">
-            {selectedOptionNames.length > 0 ? (
-              <div className="text-zinc-700 dark:text-zinc-300">
-                <span className="font-semibold text-zinc-950 dark:text-zinc-50">
-                  {copy.selectedListLabel} ({selectedCount}):
-                </span>{' '}
-                <span>{selectedOptionNames.join(' · ')}</span>
-              </div>
-            ) : (
-              <p className="text-zinc-500 dark:text-zinc-400">{copy.noneSelectedHint}</p>
-            )}
+          {/* 01–09 Quick-Jump Strip: See Selected / Completed / Running / Error at a Glance */}
+          <div
+            data-testid="deep-dive-quick-jump-bar"
+            className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2"
+          >
+            <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span>
+                {isMy
+                  ? 'အမြန်ခုန်ကြည့်ရန် (01–09) · နံပါတ်နှိပ်ပြီး သက်ဆိုင်ရာကတ်သို့ တိုက်ရိုက်သွားနိုင်သည်'
+                  : 'Quick Jump (01–09) · Click any number to jump straight to that module'}
+              </span>
+              <span className="hidden sm:inline font-mono tabular-nums">
+                {selectedOptionNames.length > 0
+                  ? `${selectedCount} ${isMy ? 'ရွေးထား' : 'selected'}`
+                  : isMy
+                    ? 'မရွေးရသေး'
+                    : '0 selected'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-5 sm:grid-cols-9 gap-1.5">
+              {DEEP_DIVE_ANALYSIS_OPTIONS.map((opt) => {
+                const isOptSelected = workspaceState.selectedIds.includes(opt.id);
+                const optSlot = workspaceState.slots[opt.id];
+                const optFeedback = moduleFeedbackById[opt.id];
+                const isOptRunning =
+                  optSlot?.status === 'running' || optFeedback?.phase === 'pulsing';
+                const isOptCompleted = optSlot?.status === 'completed';
+                const isOptError = optSlot?.status === 'error';
+                const optLabel = isMy ? opt.nameMy : opt.nameEn;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleJumpToCard(opt.id)}
+                    title={`0${opt.order}. ${optLabel}`}
+                    aria-label={`Jump to 0${opt.order}. ${optLabel}`}
+                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] px-2 py-1 text-xs font-mono tabular-nums font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                      isOptSelected
+                        ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                        : isOptCompleted
+                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/70 hover:border-emerald-400'
+                          : isOptError
+                            ? 'bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-900/70 hover:border-rose-400'
+                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+                    }`}
+                  >
+                    <span>0{opt.order}</span>
+                    {isOptRunning ? (
+                      <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
+                    ) : isOptError ? (
+                      <AlertCircle className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    ) : isOptCompleted ? (
+                      <Check
+                        className={`w-3 h-3 shrink-0 ${
+                          isOptSelected
+                            ? 'text-emerald-400 dark:text-emerald-700'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        }`}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Fail-Closed Budget Storage Notice (Only shown if persistent budget storage is unavailable) */}
+          {budgetStorageUnavailable && (
+            <div
+              role="alert"
+              data-testid="deep-dive-budget-storage-unavailable"
+              className="flex items-start gap-2.5 pt-3 border-t border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200"
+            >
+              <AlertCircle
+                className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
+                aria-hidden="true"
+              />
+              <div className="space-y-0.5 min-w-0">
+                <div className="font-semibold text-rose-950 dark:text-rose-100">
+                  {isMy
+                    ? 'Persistent Budget Storage မရရှိနိုင်ပါ — Paid Kalodata API ခေါ်ဆိုမှုကို ပိတ်ထားသည်'
+                    : 'Persistent Budget Storage Unavailable — Paid Kalodata Calls Blocked (Fail-Closed)'}
+                </div>
+                <p className="leading-relaxed text-rose-800 dark:text-rose-300">
+                  {isMy
+                    ? (budgetStorageErrorMy ??
+                      'ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Persistent Budget Storage မရရှိနိုင်သေးမချင်း Paid Kalodata API များကို ယာယီပိတ်ထားပါသည်။ Local / Cache ရှိပြီးသား Analysis (0 cr) များကို ဆက်လက်အသုံးပြုနိုင်ပါသည်။')
+                    : (budgetStorageErrorEn ??
+                      'Paid Kalodata API calls are safely blocked until persistent budget storage is available. Zero-cost local and cached analyses remain available.')}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 9 Independent Deep Dive Analysis Option Cards (Progressive Disclosure Preserved) */}
@@ -1218,6 +1799,9 @@ export function DeepDiveWorkspaceView({
           {DEEP_DIVE_ANALYSIS_OPTIONS.map((option) => {
             const isSelected = workspaceState.selectedIds.includes(option.id);
             const isExpanded = workspaceState.expandedIds.includes(option.id);
+            const isResultCollapsed = collapsedResultIds.includes(option.id);
+            const runFeedback = moduleFeedbackById[option.id] ?? null;
+            const isJumpHighlighted = jumpHighlightId === option.id;
             const slot: DeepDiveAnalysisSlotState = workspaceState.slots[option.id] ?? {
               analysisId: option.id,
               status: 'idle',
@@ -1228,8 +1812,13 @@ export function DeepDiveWorkspaceView({
               statusNoteMy: 'အဆင်သင့် — ဤ Analysis ကို တစ်ခုချင်း သို့မဟုတ် ရွေးချယ်ပြီး Run နိုင်ပါသည်။',
             };
             const isRunning = slot.status === 'running';
+            const isVisuallyRunning = isRunning || runFeedback?.phase === 'pulsing';
+            const isRecentlyUpdated = !isVisuallyRunning && runFeedback?.phase === 'updated';
             const hasRunResult = Boolean(slot.result || slot.error);
-            const statusDisplay = getExecutionStatusDisplay(slot.status, isMy);
+            const statusDisplay = getExecutionStatusDisplay(
+              isVisuallyRunning ? 'running' : slot.status,
+              isMy
+            );
             const isVideoStudioCard = option.id === 'ad-video-creative-blueprint';
 
             const name = isMy ? option.nameMy : option.nameEn;
@@ -1248,15 +1837,27 @@ export function DeepDiveWorkspaceView({
             return (
               <article
                 key={option.id}
-                ref={isVideoStudioCard ? videoStudioCardRef : undefined}
+                id={`deep-dive-card-${option.id}`}
+                ref={(el) => {
+                  cardRefs.current[option.id] = el;
+                  if (isVideoStudioCard) {
+                    videoStudioCardRef.current = el;
+                  }
+                }}
                 data-analysis-id={option.id}
                 data-execution-status={slot.status}
-                className={`bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden transition-colors ${
+                className={`bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden transition-all duration-300 ${
                   isVideoStudioCard ? 'lg:col-span-2' : ''
                 } ${
-                  isSelected
-                    ? 'border-zinc-900 dark:border-zinc-200'
-                    : 'border-zinc-200/90 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                  isRecentlyUpdated
+                    ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/25 dark:ring-emerald-400/25'
+                    : isVisuallyRunning
+                      ? 'border-sky-500 dark:border-sky-400 ring-2 ring-sky-500/25 dark:ring-sky-400/25'
+                      : isJumpHighlighted
+                        ? 'border-zinc-950 dark:border-zinc-100 ring-2 ring-zinc-900/25 dark:ring-zinc-100/30'
+                        : isSelected
+                          ? 'border-zinc-900 dark:border-zinc-200'
+                          : 'border-zinc-200/90 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
                 {/* Default Compact Visible Area */}
@@ -1294,7 +1895,7 @@ export function DeepDiveWorkspaceView({
                     <VideoCreativeConfigBar
                       product={product}
                       options={videoCreativeOptions}
-                      disabled={isRunning}
+                      disabled={isVisuallyRunning}
                       onChange={handleVideoCreativeOptionsChange}
                       language={language}
                     />
@@ -1319,12 +1920,24 @@ export function DeepDiveWorkspaceView({
                       </span>
 
                       <span
-                        className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${statusDisplay.toneClass}`}
+                        className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${
+                          isRecentlyUpdated
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : statusDisplay.toneClass
+                        }`}
                       >
-                        {isRunning && (
+                        {isVisuallyRunning ? (
                           <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
-                        )}
-                        <span>{statusDisplay.label}</span>
+                        ) : isRecentlyUpdated ? (
+                          <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        ) : null}
+                        <span>
+                          {isRecentlyUpdated
+                            ? isMy
+                              ? 'အပ်ဒိတ်ပြီး'
+                              : 'Updated'
+                            : statusDisplay.label}
+                        </span>
                       </span>
 
                       {(() => {
@@ -1351,26 +1964,36 @@ export function DeepDiveWorkspaceView({
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Per-Module Execute / Re-run Action (routed through Phase 9.3 Pre-Run Confirmation for paid/AI calls) */}
+                      {/* Per-Module Execute / Re-run Action (routed through Pre-Run Checkout Modal for paid/AI calls) */}
                       <button
                         type="button"
                         onClick={() => handleRequestSingleRun(option.id, false)}
-                        disabled={isRunning}
-                        className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 disabled:cursor-not-allowed rounded-md transition-colors cursor-pointer whitespace-nowrap"
+                        disabled={isVisuallyRunning}
+                        className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed ${
+                          isRecentlyUpdated
+                            ? 'text-emerald-900 dark:text-emerald-100 bg-emerald-100 dark:bg-emerald-950/70'
+                            : 'text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                        }`}
                       >
-                        {isRunning ? (
-                          <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
+                        {isVisuallyRunning ? (
+                          <Loader2 className="w-3 h-3 animate-spin shrink-0 text-sky-600 dark:text-sky-400" aria-hidden="true" />
+                        ) : isRecentlyUpdated ? (
+                          <Check className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                         ) : hasRunResult ? (
                           <RotateCw className="w-3 h-3 shrink-0" aria-hidden="true" />
                         ) : (
                           <Play className="w-3 h-3 shrink-0" aria-hidden="true" />
                         )}
                         <span>
-                          {isRunning
+                          {isVisuallyRunning
                             ? copy.runningBtn
-                            : hasRunResult
-                              ? copy.rerunSingleBtn
-                              : copy.runSingleBtn}
+                            : isRecentlyUpdated
+                              ? isMy
+                                ? 'ပြီးပါပြီ'
+                                : 'Updated'
+                              : hasRunResult
+                                ? copy.rerunSingleBtn
+                                : copy.runSingleBtn}
                         </span>
                       </button>
 
@@ -1465,11 +2088,14 @@ export function DeepDiveWorkspaceView({
                   </div>
                 )}
 
-                {/* Per-Module Isolated Execution Output (Result / Unavailable / Error) */}
+                {/* Per-Module Isolated Execution Output (Collapsible Result / Unavailable / Error) */}
                 {(slot.result || slot.error) && (
                   <ModuleResultPanel
                     slot={slot}
                     language={language}
+                    isCollapsed={isResultCollapsed}
+                    onToggleCollapse={() => handleToggleSingleResultCollapse(option.id)}
+                    runFeedback={runFeedback}
                     onRerun={(forceRefresh) => handleRequestSingleRun(option.id, forceRefresh)}
                     onApplyConceptToBrief={
                       isVideoStudioCard
@@ -1495,570 +2121,78 @@ export function DeepDiveWorkspaceView({
         </div>
       </section>
 
-      {/* Phase 9.3: Minimal Pre-Run Cost Control, Spending Limit, Inline Confirmation & Post-Run Summary */}
-      <section
-        aria-label="Deep Dive cost management and execution controls"
-        className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4"
-      >
-        {/* Row 1: Pre-Run Cost Summary (Strictly Separating Kalodata Credits vs Gemini AI Billing) & Spending Limit */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
-          {/* Kalodata Credits Column */}
-          <div className="space-y-1 min-w-0">
-            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              {isMy ? 'Kalodata ခန့်မှန်းကုန်ကျစရိတ်' : 'Kalodata Estimated Cost'}
-            </div>
-            <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-              {formatCredits(selectedCostEstimate.estimatedCredits)} cr{' '}
-              <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                ({formatUsd(selectedCostEstimate.estimatedUsd)})
-              </span>
-            </div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+      {/* Compact Post-Run Summary: Estimated vs Actual Cost, Cache Reuse, API Calls & Remaining Budget */}
+      {workspaceState.lastRunSummary && (
+        <section
+          aria-label="Last Deep Dive Run Summary"
+          data-testid="deep-dive-post-run-summary"
+          className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl p-4 sm:p-5 space-y-2.5 text-xs"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-semibold text-zinc-900 dark:text-zinc-100">
               {isMy
-                ? `API ${selectedCostEstimate.plannedKalodataApiCalls} ကြိမ် · Cache/Local ${selectedCostEstimate.cachedOrLocalModuleCount}${selectedCostEstimate.sharedDeduplicatedModuleCount > 0 ? ` · Shared ${selectedCostEstimate.sharedDeduplicatedModuleCount}` : ''}`
-                : `${selectedCostEstimate.plannedKalodataApiCalls} API call(s) · Cache/Local ${selectedCostEstimate.cachedOrLocalModuleCount}${selectedCostEstimate.sharedDeduplicatedModuleCount > 0 ? ` · Shared ${selectedCostEstimate.sharedDeduplicatedModuleCount}` : ''}`}
-            </div>
+                ? 'နောက်ဆုံး Run ရလဒ် — ခန့်မှန်း vs အမှန်တကယ် ကုန်ကျစရိတ်'
+                : 'Last Run Summary — Estimated vs Actual Cost'}
+            </span>
+            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+              {formatCompletedTime(workspaceState.lastRunSummary.completedAt, language, true)}
+            </span>
           </div>
 
-          {/* Gemini AI Billing Column (Strictly Separate — NEVER Free) */}
-          <div className="space-y-1 min-w-0 md:border-l md:border-zinc-100 md:dark:border-zinc-800 md:pl-4">
-            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-              {isMy ? 'Gemini AI API Billing (သီးခြား)' : 'Gemini AI API Billing (Separate)'}
+          <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">
+                {isMy ? 'Kalodata (ခန့်မှန်း → အမှန်)' : 'Kalodata (Est. → Actual)'}
+              </dt>
+              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                {formatCredits(workspaceState.lastRunSummary.estimatedKalodataCredits)} cr →{' '}
+                {formatCredits(workspaceState.lastRunSummary.actualKalodataCredits)} cr (
+                {formatUsd(workspaceState.lastRunSummary.actualKalodataUsd)})
+              </dd>
             </div>
-            {selectedCostEstimate.plannedGeminiCalls > 0 ? (
-              <>
-                <div className="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400 tabular-nums">
-                  {isMy
-                    ? `${selectedCostEstimate.plannedGeminiCalls} AI Call · ခန့်မှန်း/မတွက်နိုင်သေး`
-                    : `${selectedCostEstimate.plannedGeminiCalls} AI Call · Est. / Unavailable`}
-                </div>
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                  {isMy
-                    ? 'Token usage နှင့် Google Gemini Pricing အပေါ်မူတည်သည် (အခမဲ့ မဟုတ်ပါ)'
-                    : 'Depends on token usage & Google Gemini pricing (NOT free)'}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-mono text-sm font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
-                  {isMy ? '0 AI Calls' : '0 AI Calls'}
-                </div>
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Option #8 မရွေးထားပါ' : 'Option #8 not selected'}
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Spending Limit & Remaining Budget Control */}
-          <div className="space-y-1.5 min-w-0 md:border-l md:border-zinc-100 md:dark:border-zinc-800 md:pl-4">
-            <div className="flex items-center justify-between gap-2">
-              <label
-                htmlFor="deep-dive-spending-limit"
-                className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400"
-              >
-                {isMy ? 'Spending Limit (Credits)' : 'Spending Limit (Credits)'}
-              </label>
-              <span
-                className={`font-mono text-[11px] tabular-nums font-medium ${
-                  selectedBudgetGuard.exceedsSpendingLimit
-                    ? 'text-rose-700 dark:text-rose-400'
-                    : 'text-emerald-700 dark:text-emerald-400'
-                }`}
-              >
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">
+                {isMy ? 'API Calls နှင့် Cache Reuse' : 'API Calls & Cache Reuse'}
+              </dt>
+              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                 {isMy
-                  ? `ကျန် Budget: ${formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)} cr`
-                  : `Remaining: ${formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)} cr`}
-              </span>
+                  ? `API ${workspaceState.lastRunSummary.actualKalodataApiCalls} · Cache/Local ${workspaceState.lastRunSummary.cacheOrLocalReuseCount} · Shared ${workspaceState.lastRunSummary.deduplicatedSharedCallsCount}`
+                  : `API ${workspaceState.lastRunSummary.actualKalodataApiCalls} · Cache/Local ${workspaceState.lastRunSummary.cacheOrLocalReuseCount} · Shared ${workspaceState.lastRunSummary.deduplicatedSharedCallsCount}`}
+              </dd>
             </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <input
-                id="deep-dive-spending-limit"
-                type="number"
-                min={MIN_SPENDING_LIMIT_CREDITS}
-                max={MAX_SPENDING_LIMIT_CREDITS}
-                step={0.1}
-                value={limitInputDraft}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setLimitInputDraft(val);
-                  const parsed = Number.parseFloat(val);
-                  if (Number.isFinite(parsed) && parsed >= MIN_SPENDING_LIMIT_CREDITS) {
-                    handleSpendingLimitUpdate(parsed);
-                  }
-                }}
-                onBlur={() => {
-                  const parsed = Number.parseFloat(limitInputDraft);
-                  if (!Number.isFinite(parsed) || parsed < MIN_SPENDING_LIMIT_CREDITS) {
-                    setLimitInputDraft(formatCredits(effectiveSpendingLimit));
-                  } else {
-                    handleSpendingLimitUpdate(parsed);
-                  }
-                }}
-                className="w-20 min-h-[32px] px-2 py-1 text-xs font-mono tabular-nums text-zinc-950 dark:text-zinc-50 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-md focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
-              />
-              {SPENDING_LIMIT_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => handleSpendingLimitUpdate(preset)}
-                  className={`min-h-[32px] px-2 py-1 text-[11px] font-mono tabular-nums rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
-                    Math.abs(effectiveSpendingLimit - preset) < 1e-6
-                      ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
-                  }`}
-                >
-                  {formatCredits(preset)}
-                </button>
-              ))}
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">
+                {isMy ? 'Gemini AI API (သီးခြား)' : 'Gemini AI API (Separate)'}
+              </dt>
+              <dd className="font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums mt-0.5">
+                {workspaceState.lastRunSummary.actualGeminiCalls > 0
+                  ? (() => {
+                      const tok = workspaceState.lastRunSummary.geminiTokenUsage?.totalTokens;
+                      return typeof tok === 'number'
+                        ? `${workspaceState.lastRunSummary.actualGeminiCalls} call · ${tok.toLocaleString('en-US')} tok · ${isMy ? 'ခန့်မှန်း/မတွက်နိုင်သေး' : 'Est./Unavailable'}`
+                        : `${workspaceState.lastRunSummary.actualGeminiCalls} call · ${isMy ? 'ခန့်မှန်း/မတွက်နိုင်သေး' : 'Est./Unavailable'}`;
+                    })()
+                  : '0 calls'}
+              </dd>
             </div>
-
-            {liveBalanceCredits !== null && (
-              <div className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
-                {isMy
-                  ? `Kalodata Balance: ${formatCredits(liveBalanceCredits)} cr`
-                  : `Kalodata Balance: ${formatCredits(liveBalanceCredits)} cr`}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Dedicated 1.0 Credit Review Insight Warning (Only when uncached paid call is planned) */}
-        {selectedCostEstimate.hasHighCostReviewInsight && (
-          <div
-            role="status"
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-amber-200/80 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200"
-          >
-            <div className="flex items-start gap-2 min-w-0">
-              <AlertTriangle
-                className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
-                aria-hidden="true"
-              />
-              <p className="leading-relaxed">
-                {isMy
-                  ? `Review Insight (Option #6) သည် Cache မရှိသေးသဖြင့် Kalodata Comment Insight API ${KALODATA_COMMENT_INSIGHT_CREDIT.toFixed(1)} credit (${formatUsd(KALODATA_COMMENT_INSIGHT_CREDIT * KALODATA_USD_PER_CREDIT)}) ထပ်မံကုန်ကျပါမည်။ မလိုအပ်ပါက ဖြုတ်ပြီး ကုန်ကျစရိတ်လျှော့နိုင်ပါသည်။`
-                  : `Review Insight (Option #6) is uncached and adds ${KALODATA_COMMENT_INSIGHT_CREDIT.toFixed(1)} Kalodata credit (${formatUsd(KALODATA_COMMENT_INSIGHT_CREDIT * KALODATA_USD_PER_CREDIT)}). Remove it to lower cost if not needed.`}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onToggleOption('customer-review-intelligence')}
-              disabled={isAnyRunning}
-              className="inline-flex items-center justify-center gap-1 min-h-[34px] max-w-full px-3 py-1 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
-            >
-              <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>
-                {isMy ? 'Review Insight ဖြုတ်မည် (-1.0 cr)' : 'Remove Review Insight (-1.0 cr)'}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Phase 9.3.1: Fail-Closed Persistent Budget Storage Unavailable Banner */}
-        {budgetStorageUnavailable && (
-          <div
-            role="alert"
-            data-testid="deep-dive-budget-storage-unavailable"
-            className="flex items-start gap-2.5 pt-3 border-t border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200"
-          >
-            <AlertCircle
-              className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
-              aria-hidden="true"
-            />
-            <div className="space-y-0.5 min-w-0">
-              <div className="font-semibold text-rose-950 dark:text-rose-100">
-                {isMy
-                  ? 'Persistent Budget Storage မရရှိနိုင်ပါ — Paid Kalodata API ခေါ်ဆိုမှုကို ပိတ်ထားသည်'
-                  : 'Persistent Budget Storage Unavailable — Paid Kalodata Calls Blocked (Fail-Closed)'}
-              </div>
-              <p className="leading-relaxed text-rose-800 dark:text-rose-300">
-                {isMy
-                  ? (budgetStorageErrorMy ??
-                    'ကုန်ကျစရိတ်လုံခြုံရေးအတွက် Persistent Budget Storage မရရှိနိုင်သေးမချင်း Paid Kalodata API များကို ယာယီပိတ်ထားပါသည်။ Local / Cache ရှိပြီးသား Analysis (0 cr) များကို ဆက်လက်အသုံးပြုနိုင်ပါသည်။')
-                  : (budgetStorageErrorEn ??
-                    'Paid Kalodata API calls are safely blocked until persistent budget storage is available. Zero-cost local and cached analyses remain available.')}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Hard Spending Limit / Live Balance Warning */}
-        {(selectedBudgetGuard.exceedsSpendingLimit || selectedBudgetGuard.exceedsLiveBalance) && (
-          <div
-            role="alert"
-            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-rose-200/80 dark:border-rose-900/60 text-xs text-rose-900 dark:text-rose-200"
-          >
-            <div className="flex items-start gap-2 min-w-0">
-              <AlertCircle
-                className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
-                aria-hidden="true"
-              />
-              <p className="leading-relaxed">
-                {selectedBudgetGuard.exceedsSpendingLimit
-                  ? isMy
-                    ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(selectedCostEstimate.estimatedCredits)} cr) သည် ကျန်ရှိသော Spending Limit (${formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)} cr) ထက် ကျော်လွန်နေသဖြင့် Paid API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။ Analysis အချို့ဖြုတ်ပါ သို့မဟုတ် Limit တိုးပါ။`
-                    : `Estimated cost (${formatCredits(selectedCostEstimate.estimatedCredits)} cr) exceeds your remaining Spending Limit (${formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)} cr). Paid API calls are blocked until you remove analyses or raise the limit.`
-                  : isMy
-                    ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(selectedCostEstimate.estimatedCredits)} cr) သည် လက်ရှိ Kalodata Balance (${formatCredits(selectedBudgetGuard.liveBalanceCredits ?? 0)} cr) ထက် ကျော်လွန်နေပါသည်။`
-                    : `Estimated cost (${formatCredits(selectedCostEstimate.estimatedCredits)} cr) exceeds your live Kalodata credit balance (${formatCredits(selectedBudgetGuard.liveBalanceCredits ?? 0)} cr).`}
-              </p>
-            </div>
-            {selectedBudgetGuard.exceedsSpendingLimit && (
-              <button
-                type="button"
-                onClick={() =>
-                  handleSpendingLimitUpdate(selectedBudgetGuard.recommendedMinimumLimit)
-                }
-                className="inline-flex items-center justify-center min-h-[34px] max-w-full px-3 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
-              >
-                {isMy
-                  ? `Limit ကို ${formatCredits(selectedBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
-                  : `Raise Limit to ${formatCredits(selectedBudgetGuard.recommendedMinimumLimit)} cr`}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Progressive Disclosure: Per-Analysis API, Data & Cost Breakdown (With Inline Remove to Reduce Cost) */}
-        {selectedCount > 0 && (
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2.5">
-            <button
-              type="button"
-              onClick={() => setShowCostBreakdown((prev) => !prev)}
-              aria-expanded={showCostBreakdown}
-              aria-controls="deep-dive-cost-breakdown"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer"
-            >
-              <span>
-                {showCostBreakdown
-                  ? isMy
-                    ? `ကုန်ကျစရိတ် အသေးစိတ် ပိတ်မည် (${selectedCount})`
-                    : `Hide Cost Breakdown (${selectedCount})`
-                  : isMy
-                    ? `ကုန်ကျစရိတ်နှင့် API အသေးစိတ် ကြည့်မည် (${selectedCount})`
-                    : `Show API & Cost Breakdown (${selectedCount})`}
-              </span>
-              {showCostBreakdown ? (
-                <ChevronUp className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              )}
-            </button>
-
-            {showCostBreakdown && (
-              <div
-                id="deep-dive-cost-breakdown"
-                className="overflow-x-auto border-t border-zinc-100 dark:border-zinc-800/70 pt-2"
-              >
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-zinc-200/80 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      <th className="py-1.5 pr-3 font-medium">
-                        {isMy ? 'Analysis' : 'Analysis'}
-                      </th>
-                      <th className="py-1.5 px-2 font-medium">
-                        {isMy ? 'API / Source' : 'API / Source'}
-                      </th>
-                      <th className="py-1.5 px-2 font-medium hidden sm:table-cell">
-                        {isMy ? 'အသုံးပြုမည့် Data' : 'Data Used'}
-                      </th>
-                      <th className="py-1.5 px-2 font-medium text-right">
-                        {isMy ? 'ခန့်မှန်းစရိတ်' : 'Est. Cost'}
-                      </th>
-                      <th className="py-1.5 pl-2 font-medium text-right">
-                        {isMy ? 'လုပ်ဆောင်ချက်' : 'Action'}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-                    {selectedCostEstimate.modules.map((item) => {
-                      const def = getDeepDiveOptionById(item.analysisId);
-                      const label = def ? (isMy ? def.nameMy : def.nameEn) : item.analysisId;
-                      return (
-                        <tr key={item.analysisId} className="align-top">
-                          <td className="py-2 pr-3 font-medium text-zinc-900 dark:text-zinc-100">
-                            {label}
-                          </td>
-                          <td className="py-2 px-2 text-[11px] text-zinc-600 dark:text-zinc-300">
-                            {isMy ? item.apiLabelMy : item.apiLabelEn}
-                          </td>
-                          <td className="py-2 px-2 text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">
-                            {isMy ? item.dataUsedMy : item.dataUsedEn}
-                          </td>
-                          <td className="py-2 px-2 text-right font-mono text-[11px] tabular-nums whitespace-nowrap text-zinc-900 dark:text-zinc-100">
-                            {formatModuleCostShort(item, isMy)}
-                          </td>
-                          <td className="py-2 pl-2 text-right whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => onToggleOption(item.analysisId)}
-                              disabled={isAnyRunning}
-                              className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-rose-700 dark:hover:text-rose-400 disabled:opacity-40 cursor-pointer"
-                            >
-                              {isMy ? 'ဖြုတ်မည်' : 'Remove'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Inline Explicit Pre-Run Confirmation Panel (Zero Modal Dialogs — Required Before Any Paid/AI API Call) */}
-        {pendingRun && pendingCostEstimate && pendingBudgetGuard && (
-          <div
-            ref={confirmPanelRef}
-            data-testid="deep-dive-pre-run-confirmation"
-            role="region"
-            aria-label={
-              isMy ? 'Run မလုပ်မီ ကုန်ကျစရိတ် အတည်ပြုချက်' : 'Pre-run cost confirmation'
-            }
-            className="pt-3.5 border-t border-zinc-300 dark:border-zinc-700 space-y-3 text-xs"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-2 min-w-0">
-                <ShieldCheck
-                  className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5"
-                  aria-hidden="true"
-                />
-                <div className="space-y-0.5 min-w-0">
-                  <div className="font-semibold text-zinc-950 dark:text-zinc-50">
-                    {isMy
-                      ? 'Run မလုပ်မီ ကုန်ကျစရိတ် အတည်ပြုပါ (Paid / AI API)'
-                      : 'Confirm Paid / AI API Execution Before Running'}
-                  </div>
-                  <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                    {isMy
-                      ? `ရွေးထားသည့် Analysis ${pendingCostEstimate.analysisIds.length} ခုကို Run ရန် အောက်ပါ ခန့်မှန်းစရိတ်ကို အတည်ပြုပါ — အတည်မပြုမချင်း Paid API မခေါ်ပါ။`
-                      : `Review estimated cost for ${pendingCostEstimate.analysisIds.length} analysis module(s) — no paid or AI API is called until you confirm.`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-lg p-3">
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Kalodata Credits' : 'Kalodata Credits'}
-                </dt>
-                <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                  {formatCredits(pendingCostEstimate.estimatedCredits)} cr (
-                  {formatUsd(pendingCostEstimate.estimatedUsd)}) ·{' '}
-                  {pendingCostEstimate.plannedKalodataApiCalls} API
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Gemini AI API (သီးခြား)' : 'Gemini AI API (Separate)'}
-                </dt>
-                <dd className="font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums mt-0.5">
-                  {pendingCostEstimate.plannedGeminiCalls > 0
-                    ? isMy
-                      ? `${pendingCostEstimate.plannedGeminiCalls} call · ခန့်မှန်း/မတွက်နိုင်သေး`
-                      : `${pendingCostEstimate.plannedGeminiCalls} call · Est. / Unavailable`
-                    : '0 calls'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Run ပြီးကျန်မည့် Budget' : 'Budget After Run'}
-                </dt>
-                <dd
-                  className={`font-mono font-semibold tabular-nums mt-0.5 ${
-                    pendingBudgetGuard.exceedsSpendingLimit
-                      ? 'text-rose-700 dark:text-rose-400'
-                      : 'text-emerald-700 dark:text-emerald-400'
-                  }`}
-                >
-                  {formatCredits(Math.max(0, pendingBudgetGuard.remainingBudgetAfterRun))} /{' '}
-                  {formatCredits(pendingBudgetGuard.spendingLimitCredits)} cr
-                </dd>
-              </div>
-            </dl>
-
-            {(pendingBudgetGuard.exceedsSpendingLimit || pendingBudgetGuard.exceedsLiveBalance) && (
-              <div
-                role="alert"
-                data-testid="deep-dive-confirm-limit-alert"
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 rounded-lg text-xs text-rose-900 dark:text-rose-200"
-              >
-                <div className="flex items-start gap-2 min-w-0">
-                  <AlertCircle
-                    className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
-                    aria-hidden="true"
-                  />
-                  <p className="leading-relaxed">
-                    {pendingBudgetGuard.exceedsSpendingLimit
-                      ? isMy
-                        ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) သည် ကျန်ရှိသော Spending Limit (${formatCredits(pendingBudgetGuard.remainingBudgetBeforeRun)} cr) ထက် ကျော်လွန်နေသဖြင့် Paid API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။`
-                        : `Estimated cost (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) exceeds your remaining Spending Limit (${formatCredits(pendingBudgetGuard.remainingBudgetBeforeRun)} cr). Paid API execution is blocked.`
-                      : isMy
-                        ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) သည် လက်ရှိ Kalodata Balance (${formatCredits(pendingBudgetGuard.liveBalanceCredits ?? 0)} cr) ထက် ကျော်လွန်နေပါသည်။`
-                        : `Estimated cost (${formatCredits(pendingCostEstimate.estimatedCredits)} cr) exceeds your live Kalodata credit balance (${formatCredits(pendingBudgetGuard.liveBalanceCredits ?? 0)} cr).`}
-                  </p>
-                </div>
-                {pendingBudgetGuard.exceedsSpendingLimit && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleSpendingLimitUpdate(pendingBudgetGuard.recommendedMinimumLimit)
-                    }
-                    className="inline-flex items-center justify-center min-h-[32px] max-w-full px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0"
-                  >
-                    {isMy
-                      ? `Limit ကို ${formatCredits(pendingBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
-                      : `Raise Limit to ${formatCredits(pendingBudgetGuard.recommendedMinimumLimit)} cr`}
-                  </button>
+            <div>
+              <dt className="text-zinc-500 dark:text-zinc-400">
+                {isMy ? 'ကျန်ရှိသော Budget' : 'Remaining Budget'}
+              </dt>
+              <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
+                {formatCredits(workspaceState.lastRunSummary.remainingBudgetCredits)} /{' '}
+                {formatCredits(workspaceState.lastRunSummary.spendingLimitCredits)} cr
+                {workspaceState.lastRunSummary.liveBalanceAfter !== null && (
+                  <span className="text-zinc-500 dark:text-zinc-400 font-normal">
+                    {' '}
+                    · Bal {formatCredits(workspaceState.lastRunSummary.liveBalanceAfter)}
+                  </span>
                 )}
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingRun(null)}
-                className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-              >
-                {isMy ? 'မလုပ်တော့ပါ (Cancel)' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmPendingRun}
-                disabled={
-                  isAnyRunning ||
-                  !pendingBudgetGuard.canProceedWithoutLimitChange ||
-                  pendingPaidBlockedByBudgetStorage
-                }
-                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>
-                  {isMy ? 'အတည်ပြုပြီး Run မည်' : 'Confirm & Run'}
-                </span>
-              </button>
+              </dd>
             </div>
-          </div>
-        )}
-
-        {/* Primary Batch Action Row */}
-        {!pendingRun && (
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1 min-w-0">
-              <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100">
-                {canRun ? copy.selectedCounter(selectedCount, totalCount) : copy.runDisabledHint}
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                {copy.runEngineNote}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleRequestBatchRun}
-              disabled={
-                !canRun ||
-                isAnyRunning ||
-                selectedBudgetGuard.exceedsSpendingLimit ||
-                selectedBudgetGuard.exceedsLiveBalance ||
-                paidBlockedByBudgetStorage
-              }
-              className="inline-flex items-center justify-center gap-2 min-h-[42px] max-w-full px-5 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-center leading-snug sm:shrink-0 w-full sm:w-auto"
-            >
-              {isAnyRunning ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
-              ) : (
-                <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              )}
-              <span>
-                {isAnyRunning
-                  ? copy.runBtn(selectedCount, true)
-                  : selectedCount > 0 && selectedCostEstimate.requiresExplicitConfirmation
-                    ? isMy
-                      ? `စရိတ်စစ်ပြီး Run မည် (${selectedCount})`
-                      : `Review & Run (${selectedCount})`
-                    : copy.runBtn(selectedCount, false)}
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Post-Run Summary: Estimated vs Actual Cost, Cache Reuse, API Calls & Remaining Budget */}
-        {workspaceState.lastRunSummary && (
-          <div
-            data-testid="deep-dive-post-run-summary"
-            className="pt-3.5 border-t border-zinc-200/80 dark:border-zinc-800 space-y-2 text-xs"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {isMy
-                  ? 'နောက်ဆုံး Run ရလဒ် — ခန့်မှန်း vs အမှန်တကယ် ကုန်ကျစရိတ်'
-                  : 'Last Run Summary — Estimated vs Actual Cost'}
-              </span>
-              <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
-                {formatCompletedTime(workspaceState.lastRunSummary.completedAt, language)}
-              </span>
-            </div>
-
-            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Kalodata (ခန့်မှန်း → အမှန်)' : 'Kalodata (Est. → Actual)'}
-                </dt>
-                <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                  {formatCredits(workspaceState.lastRunSummary.estimatedKalodataCredits)} cr →{' '}
-                  {formatCredits(workspaceState.lastRunSummary.actualKalodataCredits)} cr (
-                  {formatUsd(workspaceState.lastRunSummary.actualKalodataUsd)})
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'API Calls နှင့် Cache Reuse' : 'API Calls & Cache Reuse'}
-                </dt>
-                <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                  {isMy
-                    ? `API ${workspaceState.lastRunSummary.actualKalodataApiCalls} · Cache/Local ${workspaceState.lastRunSummary.cacheOrLocalReuseCount} · Shared ${workspaceState.lastRunSummary.deduplicatedSharedCallsCount}`
-                    : `API ${workspaceState.lastRunSummary.actualKalodataApiCalls} · Cache/Local ${workspaceState.lastRunSummary.cacheOrLocalReuseCount} · Shared ${workspaceState.lastRunSummary.deduplicatedSharedCallsCount}`}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'Gemini AI API (သီးခြား)' : 'Gemini AI API (Separate)'}
-                </dt>
-                <dd className="font-mono font-semibold text-sky-700 dark:text-sky-400 tabular-nums mt-0.5">
-                  {workspaceState.lastRunSummary.actualGeminiCalls > 0
-                    ? (() => {
-                        const tok = workspaceState.lastRunSummary.geminiTokenUsage?.totalTokens;
-                        return typeof tok === 'number'
-                          ? `${workspaceState.lastRunSummary.actualGeminiCalls} call · ${tok.toLocaleString('en-US')} tok · ${isMy ? 'ခန့်မှန်း/မတွက်နိုင်သေး' : 'Est./Unavailable'}`
-                          : `${workspaceState.lastRunSummary.actualGeminiCalls} call · ${isMy ? 'ခန့်မှန်း/မတွက်နိုင်သေး' : 'Est./Unavailable'}`;
-                      })()
-                    : '0 calls'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-zinc-500 dark:text-zinc-400">
-                  {isMy ? 'ကျန်ရှိသော Budget' : 'Remaining Budget'}
-                </dt>
-                <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
-                  {formatCredits(workspaceState.lastRunSummary.remainingBudgetCredits)} /{' '}
-                  {formatCredits(workspaceState.lastRunSummary.spendingLimitCredits)} cr
-                  {workspaceState.lastRunSummary.liveBalanceAfter !== null && (
-                    <span className="text-zinc-500 dark:text-zinc-400 font-normal">
-                      {' '}
-                      · Bal {formatCredits(workspaceState.lastRunSummary.liveBalanceAfter)}
-                    </span>
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        )}
-      </section>
+          </dl>
+        </section>
+      )}
 
       {/* Phase 9.4: Consolidated Final Deep Dive Report (Inline Progressive Disclosure, Zero Modals) */}
       {(() => {
@@ -2745,6 +2879,613 @@ export function DeepDiveWorkspaceView({
           </div>
         )}
       </section>
+
+      {/* Non-blocking Floating Run Feedback Toast + Sticky Bottom Action Bar (Option A) */}
+      <div className="sticky bottom-2 sm:bottom-3 z-30 space-y-2 pointer-events-none">
+        {runFeedbackToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            data-testid="deep-dive-run-toast"
+            className={`pointer-events-auto mx-auto max-w-2xl flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border shadow-md backdrop-blur-md text-xs transition-all ${
+              runFeedbackToast.tone === 'error'
+                ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                : 'bg-zinc-950/95 dark:bg-zinc-100/95 border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {runFeedbackToast.tone === 'error' ? (
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" aria-hidden="true" />
+              )}
+              <div className="min-w-0 truncate">
+                <span className="font-semibold">{runFeedbackToast.title}</span>
+                {runFeedbackToast.detail && (
+                  <span
+                    className={`ml-2 font-mono text-[11px] tabular-nums ${
+                      runFeedbackToast.tone === 'error'
+                        ? 'text-rose-700 dark:text-rose-300'
+                        : 'text-zinc-300 dark:text-zinc-600'
+                    }`}
+                  >
+                    {runFeedbackToast.detail}
+                  </span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRunFeedbackToast(null)}
+              aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
+              className="p-1 opacity-75 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {/* Sticky Bottom Action Bar: Always Visible Selection, Live Cost & Direct Run */}
+        <div
+          data-testid="deep-dive-sticky-bar"
+          role="region"
+          aria-label={isMy ? 'Deep Dive အမြန် Run ဘား' : 'Deep Dive sticky action bar'}
+          className="pointer-events-auto bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-300/90 dark:border-zinc-700/90 rounded-xl shadow-lg px-3.5 py-2.5 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2.5"
+        >
+          {/* Left Zone: Selected Module Numbers (Click × to Deselect) + Live Cost */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-x-auto">
+            {selectedCount > 0 ? (
+              <>
+                <div className="flex items-center gap-1 shrink-0">
+                  {workspaceState.selectedIds
+                    .map((id) => getDeepDiveOptionById(id))
+                    .filter((opt): opt is NonNullable<typeof opt> => Boolean(opt))
+                    .sort((a, b) => a.order - b.order)
+                    .map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => onToggleOption(opt.id)}
+                        disabled={isAnyRunning}
+                        title={
+                          isMy
+                            ? `0${opt.order}. ${opt.nameMy} ဖြုတ်မည်`
+                            : `Remove 0${opt.order}. ${opt.nameEn}`
+                        }
+                        className="inline-flex items-center gap-0.5 min-h-[28px] px-2 py-0.5 text-[11px] font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                      >
+                        <span>0{opt.order}</span>
+                        <X className="w-2.5 h-2.5 opacity-70" aria-hidden="true" />
+                      </button>
+                    ))}
+                </div>
+
+                <span className="text-zinc-300 dark:text-zinc-700 shrink-0" aria-hidden="true">
+                  ·
+                </span>
+
+                <div className="flex items-center gap-1.5 text-xs font-mono tabular-nums whitespace-nowrap shrink-0">
+                  <span
+                    className={`font-semibold ${
+                      selectedBudgetGuard.exceedsSpendingLimit ||
+                      selectedBudgetGuard.exceedsLiveBalance ||
+                      paidBlockedByBudgetStorage
+                        ? 'text-rose-700 dark:text-rose-400'
+                        : selectedCostEstimate.estimatedCredits > 0
+                          ? 'text-zinc-950 dark:text-zinc-50'
+                          : 'text-emerald-700 dark:text-emerald-400'
+                    }`}
+                  >
+                    {formatCredits(selectedCostEstimate.estimatedCredits)} cr
+                  </span>
+                  {selectedCostEstimate.estimatedCredits > 0 && (
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:inline">
+                      ({formatUsd(selectedCostEstimate.estimatedUsd)})
+                    </span>
+                  )}
+                  {selectedCostEstimate.plannedGeminiCalls > 0 && (
+                    <span className="text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                      +{selectedCostEstimate.plannedGeminiCalls} AI
+                    </span>
+                  )}
+                  {(selectedBudgetGuard.exceedsSpendingLimit ||
+                    selectedBudgetGuard.exceedsLiveBalance) && (
+                    <AlertTriangle
+                      className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0"
+                      aria-label={isMy ? 'Spending Limit ကျော်လွန်နေသည်' : 'Exceeds Spending Limit'}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                <span className="sm:hidden font-mono tabular-nums">
+                  {isMy ? '0/9 ရွေးထား' : '0/9 selected'}
+                </span>
+                <span className="hidden sm:inline">
+                  {isMy
+                    ? 'Analysis (01–09) ရွေးချယ်ပါ သို့မဟုတ် ကတ်တစ်ခုချင်းမှ Run နှိပ်ပါ'
+                    : 'Select modules (01–09) or click Run on any card'}
+                </span>
+              </p>
+            )}
+          </div>
+
+          {/* Right Zone: Budget Button, Clear & Primary Run CTA */}
+          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+            <button
+              type="button"
+              data-testid="deep-dive-open-budget-modal-btn"
+              onClick={() => setIsBudgetModalOpen(true)}
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              title={isMy ? 'Spending Limit နှင့် ကုန်ကျစရိတ် စစ်ဆေးရန်' : 'Spending Limit & Cost Details'}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="font-mono tabular-nums text-[11px]">
+                {formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)}/
+                {formatCredits(effectiveSpendingLimit)} cr
+              </span>
+            </button>
+
+            {selectedCount > 0 && (
+              <button
+                type="button"
+                onClick={onClearAll}
+                disabled={isAnyRunning}
+                className="min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-45 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+              >
+                {isMy ? 'ဖြုတ်' : 'Clear'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              data-testid="deep-dive-sticky-run-btn"
+              onClick={handleRequestBatchRun}
+              disabled={!canRun || isAnyRunning}
+              className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3.5 sm:px-4 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+            >
+              {isAnyRunning ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden="true" />
+              ) : (
+                <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              )}
+              <span>
+                {isAnyRunning
+                  ? isMy
+                    ? 'လုပ်ဆောင်နေ...'
+                    : 'Running...'
+                  : selectedCount === 0
+                    ? isMy
+                      ? 'Run မည်'
+                      : 'Run'
+                    : selectedCostEstimate.requiresExplicitConfirmation ||
+                        selectedBudgetGuard.exceedsSpendingLimit ||
+                        selectedBudgetGuard.exceedsLiveBalance ||
+                        paidBlockedByBudgetStorage
+                      ? isMy
+                        ? `စစ်ပြီး Run (${selectedCount})`
+                        : `Review & Run (${selectedCount})`
+                      : isMy
+                        ? `Run Selected (${selectedCount})`
+                        : `Run Selected (${selectedCount})`}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Centered Checkout & Budget Control Pop-up Modal (Option A) */}
+      {isCheckoutModalOpen &&
+        (() => {
+          const isConfirmationMode = Boolean(pendingRun && pendingCostEstimate && pendingBudgetGuard);
+          const modalEstimate = isConfirmationMode ? pendingCostEstimate! : selectedCostEstimate;
+          const modalBudgetGuard = isConfirmationMode ? pendingBudgetGuard! : selectedBudgetGuard;
+          const modalBlockedByStorage = isConfirmationMode
+            ? pendingPaidBlockedByBudgetStorage
+            : paidBlockedByBudgetStorage;
+          const canRemoveModulesInModal = !pendingRun || pendingRun.mode === 'batch';
+
+          const closeModal = () => {
+            setPendingRun(null);
+            setIsBudgetModalOpen(false);
+          };
+
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-[2px]"
+              onClick={closeModal}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="deep-dive-checkout-modal-title"
+                data-testid="deep-dive-pre-run-confirmation"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full sm:max-w-xl max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs"
+              >
+                {/* Modal Header */}
+                <div className="px-5 py-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-start justify-between gap-3 shrink-0">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <ShieldCheck
+                      className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5"
+                      aria-hidden="true"
+                    />
+                    <div className="space-y-0.5 min-w-0">
+                      <h2
+                        id="deep-dive-checkout-modal-title"
+                        className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug"
+                      >
+                        {isConfirmationMode
+                          ? isMy
+                            ? 'Run မလုပ်မီ ကုန်ကျစရိတ် အတည်ပြုပါ (Paid / AI API)'
+                            : 'Confirm Paid / AI API Execution Before Running'
+                          : isMy
+                            ? 'Deep Dive Budget နှင့် ကုန်ကျစရိတ် ထိန်းချုပ်ရန်'
+                            : 'Deep Dive Budget & Cost Controls'}
+                      </h2>
+                      <p className="text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        {isConfirmationMode
+                          ? isMy
+                            ? `Analysis ${modalEstimate.analysisIds.length} ခုအတွက် အောက်ပါ ခန့်မှန်းစရိတ်ကို စစ်ဆေးအတည်ပြုပါ — အတည်မပြုမချင်း Paid API မခေါ်ပါ။`
+                            : `Review estimated cost for ${modalEstimate.analysisIds.length} analysis module(s) — no paid or AI API is called until you confirm.`
+                          : isMy
+                            ? 'Spending Limit ချိန်ညှိပြီး ရွေးချယ်ထားသော Analysis ကုန်ကျစရိတ်များကို စစ်ဆေးနိုင်ပါသည်။'
+                            : 'Adjust your Spending Limit and review live API/cost estimates for selected modules.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    aria-label={isMy ? 'ပိတ်မည်' : 'Close dialog'}
+                    className="inline-flex items-center justify-center min-h-[32px] min-w-[32px] text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    <X className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </div>
+
+                {/* Modal Scrollable Body */}
+                <div className="px-5 py-4 overflow-y-auto space-y-4">
+                  {/* Cost & Billing Summary Grid (Strictly Separating Kalodata Credits vs Gemini AI Billing) */}
+                  <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-50/90 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-3.5">
+                    <div className="space-y-0.5">
+                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {isMy ? 'Kalodata Credits' : 'Kalodata Credits'}
+                      </dt>
+                      <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                        {formatCredits(modalEstimate.estimatedCredits)} cr{' '}
+                        <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                          ({formatUsd(modalEstimate.estimatedUsd)})
+                        </span>
+                      </dd>
+                      <dd className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {modalEstimate.plannedKalodataApiCalls} API · Cache/Local{' '}
+                        {modalEstimate.cachedOrLocalModuleCount}
+                      </dd>
+                    </div>
+
+                    <div className="space-y-0.5 sm:border-l sm:border-zinc-200/80 sm:dark:border-zinc-800 sm:pl-3">
+                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {isMy ? 'Gemini AI API (သီးခြား)' : 'Gemini AI API (Separate)'}
+                      </dt>
+                      {modalEstimate.plannedGeminiCalls > 0 ? (
+                        <>
+                          <dd className="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400 tabular-nums">
+                            {isMy
+                              ? `${modalEstimate.plannedGeminiCalls} call · ခန့်မှန်း/မတွက်နိုင်သေး`
+                              : `${modalEstimate.plannedGeminiCalls} call · Est. / Unavailable`}
+                          </dd>
+                          <dd className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                            {isMy
+                              ? 'Google Gemini pricing အပေါ်မူတည်သည် (အခမဲ့ မဟုတ်ပါ)'
+                              : 'Depends on token usage & Google Gemini pricing (NOT free)'}
+                          </dd>
+                        </>
+                      ) : (
+                        <dd className="font-mono text-sm font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                          0 calls
+                        </dd>
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5 sm:border-l sm:border-zinc-200/80 sm:dark:border-zinc-800 sm:pl-3">
+                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {isMy ? 'Run ပြီးကျန်မည့် Budget' : 'Budget After Run'}
+                      </dt>
+                      <dd
+                        className={`font-mono text-sm font-semibold tabular-nums ${
+                          modalBudgetGuard.exceedsSpendingLimit
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : 'text-emerald-700 dark:text-emerald-400'
+                        }`}
+                      >
+                        {formatCredits(Math.max(0, modalBudgetGuard.remainingBudgetAfterRun))} /{' '}
+                        {formatCredits(modalBudgetGuard.spendingLimitCredits)} cr
+                      </dd>
+                      {liveBalanceCredits !== null && (
+                        <dd className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                          Kalodata Bal: {formatCredits(liveBalanceCredits)} cr
+                        </dd>
+                      )}
+                    </div>
+                  </dl>
+
+                  {/* Module List Inside Modal (With Inline Remove to Lower Cost Instantly) */}
+                  {modalEstimate.modules.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                        <span>
+                          {isMy
+                            ? `ပါဝင်သော Analysis များ (${modalEstimate.modules.length})`
+                            : `Included Modules (${modalEstimate.modules.length})`}
+                        </span>
+                        <span>{isMy ? 'ခန့်မှန်းစရိတ်' : 'Est. Cost'}</span>
+                      </div>
+
+                      <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 border border-zinc-200/80 dark:border-zinc-800 rounded-xl overflow-hidden">
+                        {modalEstimate.modules.map((item) => {
+                          const def = getDeepDiveOptionById(item.analysisId);
+                          const label = def ? (isMy ? def.nameMy : def.nameEn) : item.analysisId;
+                          return (
+                            <div
+                              key={item.analysisId}
+                              className="px-3.5 py-2.5 flex items-center justify-between gap-3 bg-white dark:bg-zinc-900"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-medium text-zinc-950 dark:text-zinc-50 truncate">
+                                  {def ? (
+                                    <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 mr-1.5">
+                                      0{def.order}.
+                                    </span>
+                                  ) : null}
+                                  {label}
+                                </div>
+                                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                                  {isMy ? item.apiLabelMy : item.apiLabelEn}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="font-mono text-[11px] tabular-nums font-medium text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+                                  {formatModuleCostShort(item, isMy)}
+                                </span>
+                                {canRemoveModulesInModal && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleOption(item.analysisId)}
+                                    disabled={isAnyRunning}
+                                    aria-label={isMy ? `${label} ဖြုတ်မည်` : `Remove ${label}`}
+                                    className="inline-flex items-center justify-center min-h-[26px] min-w-[26px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" aria-hidden="true" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-zinc-500 dark:text-zinc-400">
+                      {copy.noneSelectedHint}
+                    </p>
+                  )}
+
+                  {/* Dedicated 1.0 Credit Review Insight Warning */}
+                  {modalEstimate.hasHighCostReviewInsight && (
+                    <div
+                      role="status"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/60 rounded-xl text-xs text-amber-900 dark:text-amber-200"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <AlertTriangle
+                          className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+                          aria-hidden="true"
+                        />
+                        <p className="leading-relaxed">
+                          {isMy
+                            ? `Review Insight (Option #6) သည် Cache မရှိသေးသဖြင့် Kalodata Comment Insight API ${KALODATA_COMMENT_INSIGHT_CREDIT.toFixed(1)} credit (${formatUsd(KALODATA_COMMENT_INSIGHT_CREDIT * KALODATA_USD_PER_CREDIT)}) ထပ်မံကုန်ကျပါမည်။`
+                            : `Review Insight (Option #6) is uncached and adds ${KALODATA_COMMENT_INSIGHT_CREDIT.toFixed(1)} Kalodata credit (${formatUsd(KALODATA_COMMENT_INSIGHT_CREDIT * KALODATA_USD_PER_CREDIT)}).`}
+                        </p>
+                      </div>
+                      {canRemoveModulesInModal && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleOption('customer-review-intelligence')}
+                          disabled={isAnyRunning}
+                          className="inline-flex items-center justify-center gap-1 min-h-[32px] px-2.5 py-1 text-xs font-medium text-amber-950 dark:text-amber-100 bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 border border-amber-300 dark:border-amber-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span>
+                            {isMy ? 'ဖြုတ်မည် (-1.0 cr)' : 'Remove (-1.0 cr)'}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Fail-Closed Budget Storage Alert inside Modal */}
+                  {modalBlockedByStorage && (
+                    <div
+                      role="alert"
+                      className="flex items-start gap-2 p-3 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 rounded-xl text-xs text-rose-900 dark:text-rose-200"
+                    >
+                      <AlertCircle
+                        className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <p className="leading-relaxed">
+                        {isMy
+                          ? (budgetStorageErrorMy ??
+                            'Persistent Budget Storage မရရှိနိုင်သေးသဖြင့် Paid Kalodata API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။')
+                          : (budgetStorageErrorEn ??
+                            'Paid Kalodata API calls are safely blocked until persistent budget storage is available.')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Hard Spending Limit / Live Balance Alert */}
+                  {(modalBudgetGuard.exceedsSpendingLimit || modalBudgetGuard.exceedsLiveBalance) && (
+                    <div
+                      role="alert"
+                      data-testid="deep-dive-confirm-limit-alert"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-900/60 rounded-xl text-xs text-rose-900 dark:text-rose-200"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <AlertCircle
+                          className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5"
+                          aria-hidden="true"
+                        />
+                        <p className="leading-relaxed">
+                          {modalBudgetGuard.exceedsSpendingLimit
+                            ? isMy
+                              ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(modalEstimate.estimatedCredits)} cr) သည် ကျန်ရှိသော Spending Limit (${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr) ထက် ကျော်လွန်နေသဖြင့် Paid API ခေါ်ဆိုမှုကို ပိတ်ထားပါသည်။`
+                              : `Estimated cost (${formatCredits(modalEstimate.estimatedCredits)} cr) exceeds your remaining Spending Limit (${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr). Paid API execution is blocked.`
+                            : isMy
+                              ? `ခန့်မှန်းကုန်ကျစရိတ် (${formatCredits(modalEstimate.estimatedCredits)} cr) သည် လက်ရှိ Kalodata Balance (${formatCredits(modalBudgetGuard.liveBalanceCredits ?? 0)} cr) ထက် ကျော်လွန်နေပါသည်။`
+                              : `Estimated cost (${formatCredits(modalEstimate.estimatedCredits)} cr) exceeds your live Kalodata credit balance (${formatCredits(modalBudgetGuard.liveBalanceCredits ?? 0)} cr).`}
+                        </p>
+                      </div>
+                      {modalBudgetGuard.exceedsSpendingLimit && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleSpendingLimitUpdate(modalBudgetGuard.recommendedMinimumLimit)
+                          }
+                          className="inline-flex items-center justify-center min-h-[32px] px-2.5 py-1 text-xs font-medium text-rose-950 dark:text-rose-100 bg-rose-100/80 dark:bg-rose-950/60 hover:bg-rose-200/80 border border-rose-300 dark:border-rose-800 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          {isMy
+                            ? `Limit ကို ${formatCredits(modalBudgetGuard.recommendedMinimumLimit)} cr သို့ တိုးမည်`
+                            : `Raise Limit to ${formatCredits(modalBudgetGuard.recommendedMinimumLimit)} cr`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Spending Limit Adjustment Controls Right Inside the Checkout Modal */}
+                  <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="deep-dive-spending-limit"
+                        className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+                      >
+                        {isMy ? 'Spending Limit (Credits)' : 'Spending Limit (Credits)'}
+                      </label>
+                      <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {isMy
+                          ? `ကျန် Budget: ${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr`
+                          : `Remaining: ${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <input
+                        id="deep-dive-spending-limit"
+                        type="number"
+                        min={MIN_SPENDING_LIMIT_CREDITS}
+                        max={MAX_SPENDING_LIMIT_CREDITS}
+                        step={0.1}
+                        value={limitInputDraft}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLimitInputDraft(val);
+                          const parsed = Number.parseFloat(val);
+                          if (Number.isFinite(parsed) && parsed >= MIN_SPENDING_LIMIT_CREDITS) {
+                            handleSpendingLimitUpdate(parsed);
+                          }
+                        }}
+                        onBlur={() => {
+                          const parsed = Number.parseFloat(limitInputDraft);
+                          if (!Number.isFinite(parsed) || parsed < MIN_SPENDING_LIMIT_CREDITS) {
+                            setLimitInputDraft(formatCredits(effectiveSpendingLimit));
+                          } else {
+                            handleSpendingLimitUpdate(parsed);
+                          }
+                        }}
+                        className="w-24 min-h-[34px] px-2.5 py-1 text-xs font-mono tabular-nums text-zinc-950 dark:text-zinc-50 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                      />
+                      {SPENDING_LIMIT_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleSpendingLimitUpdate(preset)}
+                          className={`min-h-[34px] px-2.5 py-1 text-[11px] font-mono tabular-nums rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                            Math.abs(effectiveSpendingLimit - preset) < 1e-6
+                              ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
+                              : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
+                          }`}
+                        >
+                          {formatCredits(preset)} cr
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="px-5 py-3.5 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="inline-flex items-center justify-center min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    {isConfirmationMode
+                      ? isMy
+                        ? 'မလုပ်တော့ပါ (Cancel)'
+                        : 'Cancel'
+                      : isMy
+                        ? 'ပိတ်မည်'
+                        : 'Done'}
+                  </button>
+
+                  {isConfirmationMode ? (
+                    <button
+                      type="button"
+                      onClick={handleConfirmPendingRun}
+                      disabled={
+                        isAnyRunning ||
+                        !modalBudgetGuard.canProceedWithoutLimitChange ||
+                        modalBlockedByStorage
+                      }
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{isMy ? 'အတည်ပြုပြီး Run မည်' : 'Confirm & Run'}</span>
+                    </button>
+                  ) : selectedCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBudgetModalOpen(false);
+                        handleRequestBatchRun();
+                      }}
+                      disabled={
+                        isAnyRunning ||
+                        !modalBudgetGuard.canProceedWithoutLimitChange ||
+                        modalBlockedByStorage
+                      }
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <Play className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>
+                        {modalEstimate.requiresExplicitConfirmation
+                          ? isMy
+                            ? `အတည်ပြုပြီး Run (${selectedCount})`
+                            : `Review & Run (${selectedCount})`
+                          : isMy
+                            ? `Run Selected (${selectedCount})`
+                            : `Run Selected (${selectedCount})`}
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
