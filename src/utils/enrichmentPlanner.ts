@@ -357,7 +357,7 @@ export function planProductEnrichment(
       estimatedUsd: roundUsd(KALODATA_PRODUCT_DETAIL_CREDIT * KALODATA_USD_PER_CREDIT),
       apiCalls: 1,
       reasonEn: '1 Kalodata Product Detail API call (0.1 credit) — adds Creator Count, Price Range, Review Count, Videos & Delivery.',
-      reasonMy: 'Kalodata Product Detail API ၁ ကြိမ် (0.1 credit) — Creator Count၊ ဈေးနှုန်းအပိုင်းအခြား၊ Review အရေအတွက်နှင့် Video ဒေတာများ ဖြည့်ပေးပါမည်။',
+      reasonMy: 'Kalodata Product Detail API 1 ကြိမ် (0.1 credit) — Creator Count၊ ဈေးနှုန်းအပိုင်းအခြား၊ Review အရေအတွက်နှင့် Video ဒေတာများ ဖြည့်ပေးပါမည်။',
     };
   }
 
@@ -424,8 +424,8 @@ export function planProductEnrichment(
         ? `1 Kalodata Shop Detail API call for Shop #${effectiveShopId} (0.1 credit) — shared automatically with all products from this shop.`
         : 'Up to 1 Kalodata Shop Detail API call (0.1 credit) after Product Detail resolves Shop ID (reused free if already cached).',
       reasonMy: effectiveShopId
-        ? `Shop #${effectiveShopId} အတွက် Shop Detail API ၁ ကြိမ် (0.1 credit) — ဤဆိုင်၏ အခြား Product များတွင်လည်း အလိုအလျောက် ပြန်အသုံးပြုပေးပါမည်။`
-        : 'Product Detail မှ Shop ID ရရှိပြီးနောက် Shop Detail API ၁ ကြိမ် (0.1 credit) ခေါ်ပါမည် (Cache ရှိပြီးသားဆို 0 credits)။',
+        ? `Shop #${effectiveShopId} အတွက် Shop Detail API 1 ကြိမ် (0.1 credit) — ဤဆိုင်၏ အခြား Product များတွင်လည်း အလိုအလျောက် ပြန်အသုံးပြုပေးပါမည်။`
+        : 'Product Detail မှ Shop ID ရရှိပြီးနောက် Shop Detail API 1 ကြိမ် (0.1 credit) ခေါ်ပါမည် (Cache ရှိပြီးသားဆို 0 credits)။',
     };
   }
 
@@ -439,7 +439,7 @@ export function planProductEnrichment(
       estimatedUsd: 0,
       apiCalls: 0,
       reasonEn: 'Not selected (Review Insight API costs 1.0 credit per product).',
-      reasonMy: 'မရွေးချယ်ထားပါ (Review Insight API သည် Product ၁ ခုလျှင် 1.0 credit ကုန်ကျသည်)။',
+      reasonMy: 'မရွေးချယ်ထားပါ (Review Insight API သည် Product 1 ခုလျှင် 1.0 credit ကုန်ကျသည်)။',
     };
   } else if (!coverage.hasKalodataId) {
     layers.reviewInsights = {
@@ -483,7 +483,7 @@ export function planProductEnrichment(
       estimatedUsd: roundUsd(KALODATA_COMMENT_INSIGHT_CREDIT * KALODATA_USD_PER_CREDIT),
       apiCalls: 1,
       reasonEn: '1 Kalodata Comment Insight API call (1.0 credit) — extracts real buyer likes, dislikes, complaints, quality cautions & buyer needs.',
-      reasonMy: 'Kalodata Comment Insight API ၁ ကြိမ် (1.0 credit) — ဝယ်သူများ၏ တကယ့် Review အားသာချက်၊ Complaint နှင့် လိုအပ်ချက်များကို ရယူပါမည်။',
+      reasonMy: 'Kalodata Comment Insight API 1 ကြိမ် (1.0 credit) — ဝယ်သူများ၏ တကယ့် Review အားသာချက်၊ Complaint နှင့် လိုအပ်ချက်များကို ရယူပါမည်။',
     };
   }
 
@@ -816,7 +816,7 @@ export function mergeEnrichmentIntoProduct(
     ? `Kalodata Product Detail verified ${creatorNumber!.toLocaleString('en-US')} active promoting creator(s), ${nextMetrics.videoNumber ?? '—'} shoppable video(s), and ${nextMetrics.liveNumber ?? '—'} livestream(s). Competition level assessed as ${competitionLevel}.`
     : product.competitionDetailEn;
   const competitionDetailMy = hasVerifiedComp
-    ? `Kalodata Product Detail အတည်ပြုချက် — ကြော်ငြာနေသော Creator ${creatorNumber!.toLocaleString('en-US')} ဦး၊ Video ${nextMetrics.videoNumber ?? '—'} ခုနှင့် Live ${nextMetrics.liveNumber ?? '—'} ကြိမ် ရှိပါသည် (ပြိုင်ဆိုင်မှုအဆင့်: ${competitionLevel})။`
+    ? `Kalodata Product Detail အတည်ပြုချက် — Promote လုပ်နေသော Creator ${creatorNumber!.toLocaleString('en-US')} ဦး၊ Video ${nextMetrics.videoNumber ?? '—'} ခုနှင့် Live ${nextMetrics.liveNumber ?? '—'} ကြိမ် ရှိပါသည် (ပြိုင်ဆိုင်မှုအဆင့်: ${competitionLevel})။`
     : product.competitionDetailMy;
 
   const shopAffShare =

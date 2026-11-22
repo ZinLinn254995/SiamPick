@@ -57,7 +57,7 @@ export const VIDEO_MARKET_SCOPE_NOTE_EN =
   'Detected from Myanmar-language text or explicit Myanmar hashtags/keywords in Thailand TikTok Shop promotional videos only. Does not infer buyer nationality, ethnicity, or non-Thailand location.';
 
 export const VIDEO_MARKET_SCOPE_NOTE_MY =
-  'Thailand TikTok Shop ရှိ ကြော်ငြာ TikTok Video Caption / Hashtag / Creator စာသားများထဲမှ မြန်မာဘာသာစကား ပါဝင်မှုကိုသာ စစ်ဆေးအတည်ပြုထားပါသည်။ ဝယ်သူ၏ လူမျိုး၊ နိုင်ငံသား သို့မဟုတ် တည်နေရာကို မကောက်ချက်ချပါ။';
+  'Thailand TikTok Shop ရှိ TikTok Video Caption / Hashtag / Creator စာသားများထဲမှ မြန်မာဘာသာစကား ပါဝင်မှုကိုသာ စစ်ဆေးအတည်ပြုထားပါသည်။ ဝယ်သူ၏ လူမျိုး၊ နိုင်ငံသား သို့မဟုတ် တည်နေရာကို မကောက်ချက်ချပါ။';
 
 // Explicit Myanmar-specific hashtags & unambiguous English/romanized Burmese terms for video captions/hashtags.
 // Strictly avoids ambiguous 2-letter codes like "my" or "mm" (millimeter).

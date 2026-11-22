@@ -9,7 +9,6 @@ import {
   GitCompareArrows,
   Globe,
   History,
-  Loader2,
   PauseCircle,
   PlayCircle,
   RotateCcw,
@@ -116,6 +115,8 @@ import {
 } from './utils/singleProductHistoryStorage';
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { ResearchResultCardSkeleton, StatusLegendPopover } from './components/visual';
 import { ResearchSettingsPanel } from './components/ResearchSettingsPanel';
 import { ScoringRubricPanel } from './components/ScoringRubricPanel';
 import { ResearchResultCard } from './components/ResearchResultCard';
@@ -1689,6 +1690,28 @@ export default function App() {
     [visibleProducts, liveEvaluations]
   );
 
+  // Read-only rank by totalScore across the FULL batch result set (ignores filters and tabs; ties share a rank)
+  const batchScoreRanks = useMemo(() => {
+    const total = liveResults.length;
+    const ranks = new Map<string, { rank: number; total: number }>();
+    if (total === 0) return ranks;
+    const entries = liveResults.map((product) => ({
+      id: product.id,
+      score: liveEvaluations.get(product.id)?.totalScore ?? null,
+    }));
+    for (const entry of entries) {
+      if (entry.score === null) continue;
+      let higherCount = 0;
+      for (const peer of entries) {
+        if (peer.score !== null && peer.score > entry.score) {
+          higherCount += 1;
+        }
+      }
+      ranks.set(entry.id, { rank: higherCount + 1, total });
+    }
+    return ranks;
+  }, [liveResults, liveEvaluations]);
+
   const handleExportVisibleCsv = () => {
     if (visibleProducts.length === 0) return;
     const csv = buildProductsExportCsv(visibleProducts, {
@@ -1971,7 +1994,7 @@ export default function App() {
             <section className="max-w-3xl">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1
-                  className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 text-balance ${
+                  className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 text-balance ${
                     language === 'my'
                       ? 'tracking-normal leading-[1.35]'
                       : 'tracking-tight leading-[1.18]'
@@ -2086,9 +2109,9 @@ export default function App() {
               aria-labelledby="results-section-heading"
               className="mt-12 scroll-mt-20"
             >
-              {/* Section Title + Session Timestamp */}
-              <div className="flex flex-wrap items-baseline justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-                <div className="flex items-baseline gap-2.5">
+              {/* Section Title + Status Legend + Session Timestamp */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+                <div className="flex flex-wrap items-center gap-2.5">
                   <h2
                     id="results-section-heading"
                     className={`font-display text-xl font-bold text-zinc-950 dark:text-zinc-50 ${
@@ -2100,6 +2123,7 @@ export default function App() {
                   <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                     ({visibleProducts.length})
                   </span>
+                  <StatusLegendPopover language={language} />
                 </div>
 
                 {researchedAt && !isHunting && (
@@ -2107,6 +2131,15 @@ export default function App() {
                     {t.savedResearchDateLabel}: {formatResearchDate(researchedAt, language)}
                   </span>
                 )}
+              </div>
+
+              {/* Screen-reader live region announcing research progress & completion */}
+              <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                {isHunting
+                  ? t.huntingLoadingTitle
+                  : liveResults.length > 0
+                    ? `${t.resultsSectionHeading}: ${visibleProducts.length}`
+                    : ''}
               </div>
 
               {/* Transparent 7-Factor Product Scoring Engine Guide & Strategy Weights */}
@@ -2148,7 +2181,7 @@ export default function App() {
                   </div>
 
                   <div className="w-full xl:w-72 space-y-1 shrink-0">
-                    <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center justify-between text-xs">
                       <span className="text-zinc-500 dark:text-zinc-400">
                         {t.commissionWeight}{' '}
                         <strong className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
@@ -2267,7 +2300,7 @@ export default function App() {
 
                   {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
                     lastCostSummary && (
-                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] tabular-nums text-zinc-700 dark:text-zinc-300">
+                      <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
                         <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
                           {lastCostSummary.researchMode === 'deep'
                             ? t.modeDeepTitle
@@ -2369,6 +2402,8 @@ export default function App() {
                   comparedIds={comparedLiveProductIds}
                   onOpenReport={handleOpenResultReport}
                   onToggleCompare={handleToggleCompareLiveProduct}
+                  products={liveResults}
+                  evaluations={liveEvaluations}
                   language={language}
                 />
               )}
@@ -2435,7 +2470,7 @@ export default function App() {
                           {t.myanmarVideoDiscoveryBarTitle}
                         </span>
                         <span
-                          className={`font-mono text-[11px] font-semibold ${
+                          className={`font-mono text-xs font-semibold ${
                             vStats.stopReason === 'target-reached'
                               ? 'text-emerald-700 dark:text-emerald-400'
                               : 'text-amber-700 dark:text-amber-400'
@@ -2447,7 +2482,7 @@ export default function App() {
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 font-mono tabular-nums">
                         <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatPagesScanned}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2455,7 +2490,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatVideosScanned}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2463,7 +2498,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatMatchedVideos}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2471,7 +2506,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
-                          <div className="font-sans text-[10px] text-emerald-800 dark:text-emerald-300 truncate">
+                          <div className="font-sans text-xs text-emerald-800 dark:text-emerald-300 truncate">
                             {t.myanmarVideoStatCollectedProducts}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
@@ -2479,7 +2514,7 @@ export default function App() {
                           </div>
                         </div>
                         <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                          <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                             {t.myanmarVideoStatSkippedNonAff}
                           </div>
                           <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
@@ -2489,7 +2524,7 @@ export default function App() {
                       </div>
 
                       {hasShortfall && (
-                        <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                           {t.myanmarVideoShortfallNotice}
                         </p>
                       )}
@@ -2507,7 +2542,7 @@ export default function App() {
                       <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {t.myanmarDiscoveryBarTitle}
                       </span>
-                      <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                      <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                         {t.myanmarStatReviewsInspected}:{' '}
                         <strong className="text-zinc-900 dark:text-zinc-100">{stats.totalReviewsInspected}</strong>
                       </span>
@@ -2515,7 +2550,7 @@ export default function App() {
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 font-mono tabular-nums">
                       <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                           {t.myanmarStatCandidatesFound}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2523,7 +2558,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                           {t.myanmarStatCheckedReviews}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2531,7 +2566,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                           {t.myanmarStatReviewsAvailable}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
@@ -2539,7 +2574,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-2.5 py-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/50">
-                        <div className="font-sans text-[10px] text-amber-800 dark:text-amber-300 truncate">
+                        <div className="font-sans text-xs text-amber-800 dark:text-amber-300 truncate">
                           {t.myanmarStatReviewUnavailable}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
@@ -2547,7 +2582,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                        <div className="font-sans text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
                           {t.myanmarStatNoMyanmarReview}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
@@ -2555,7 +2590,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
-                        <div className="font-sans text-[10px] text-emerald-800 dark:text-emerald-300 truncate">
+                        <div className="font-sans text-xs text-emerald-800 dark:text-emerald-300 truncate">
                           {t.myanmarStatMatchedProducts}
                         </div>
                         <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
@@ -2565,7 +2600,7 @@ export default function App() {
                     </div>
 
                     {isPartial && (
-                      <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                      <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                         {t.myanmarDiscoveryPartialNotice}
                       </p>
                     )}
@@ -2576,37 +2611,50 @@ export default function App() {
               {/* Results Body: Loading vs Empty Ready State vs Filtered Empty vs Live Card Grid */}
               <div className="mt-6">
                 {isHunting ? (
-                  <div className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-6 py-16 text-center">
-                    <div className="w-11 h-11 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 inline-flex items-center justify-center mb-4">
-                      <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-                    </div>
-                    <h3 className="font-display text-base sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-                      {t.huntingLoadingTitle}
-                    </h3>
-                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-lg mx-auto leading-relaxed">
-                      {t.huntingLoadingDesc}
-                    </p>
-                    {activeHuntConfig && (
-                      <div className="mt-5 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-4 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 text-xs text-zinc-700 dark:text-zinc-300">
-                        <span className="font-medium text-zinc-950 dark:text-zinc-50">
-                          {activeHuntConfig.market}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span>{activeCategoryLabel}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="font-mono tabular-nums font-medium text-zinc-950 dark:text-zinc-50">
-                          {activeHuntConfig.quantity} {t.quantityProductsUnit}
-                        </span>
+                  <div className="space-y-5">
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50">
+                          {t.huntingLoadingTitle}
+                        </h3>
+                        <p className="text-xs sm:text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                          {t.huntingLoadingDesc}
+                        </p>
+                        {activeHuntConfig && (
+                          <div className="pt-1 inline-flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-700 dark:text-zinc-300">
+                            <span className="font-medium text-zinc-950 dark:text-zinc-50">
+                              {activeHuntConfig.market}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span>{activeCategoryLabel}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-mono tabular-nums font-medium text-zinc-950 dark:text-zinc-50">
+                              {activeHuntConfig.quantity} {t.quantityProductsUnit}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div className="mt-6">
+
                       <button
                         type="button"
                         onClick={handleCancelHunting}
-                        className="inline-flex items-center gap-1.5 min-h-[38px] px-4 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors cursor-pointer"
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
                       >
                         {t.huntingCancelBtn}
                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Array.from(
+                        { length: Math.min(6, Math.max(3, activeHuntConfig?.quantity ?? 6)) },
+                        (_, idx) => (
+                          <ResearchResultCardSkeleton key={`result-skeleton-${idx}`} />
+                        )
+                      )}
                     </div>
                   </div>
                 ) : liveResults.length === 0 ? (
@@ -2749,6 +2797,7 @@ export default function App() {
                         }
                         isCompared={comparedLiveProductIds.has(product.id)}
                         onToggleCompare={handleToggleCompareLiveProduct}
+                        rankInfo={batchScoreRanks.get(product.id)}
                         language={language}
                       />
                     ))}
@@ -2761,46 +2810,89 @@ export default function App() {
       </main>
 
       {/* Compact Cross-View Comparison Tray Bar (appears only when user selects products to compare) */}
-      {compareItems.length > 0 && !comparisonModalOpen && (
-        <div className="sticky bottom-3 z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none">
-          <div className="pointer-events-auto bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 min-w-0">
-              <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-              <span className="font-medium truncate">
-                {t.compareBarTitle}:{' '}
-                <strong className="font-mono tabular-nums">{compareItems.length}</strong>
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 max-w-full">
-              <button
-                type="button"
-                onClick={() => setCompareItems([])}
-                className="px-2.5 py-1.5 text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+      {(() => {
+        const showMobileBottomNav =
+          activeView !== 'deep-dive' &&
+          !activeReport &&
+          !comparisonModalOpen &&
+          !backupModalOpen;
+        return (
+          <>
+            {compareItems.length > 0 && !comparisonModalOpen && (
+              <div
+                className={`sticky z-30 mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8 pointer-events-none ${
+                  showMobileBottomNav
+                    ? 'bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-3'
+                    : 'bottom-[max(0.75rem,env(safe-area-inset-bottom))]'
+                }`}
               >
-                {t.compareClearBtn}
-              </button>
-              <button
-                type="button"
-                onClick={() => setComparisonModalOpen(true)}
-                className="inline-flex items-center gap-1.5 min-h-[34px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <span>
-                  {t.compareOpenBtn} ({compareItems.length})
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="pointer-events-auto bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl px-4 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                    <span className="font-medium truncate">
+                      {t.compareBarTitle}:{' '}
+                      <strong className="font-mono tabular-nums">{compareItems.length}</strong>
+                    </span>
+                  </div>
 
-      {/* Quiet Minimal Footer */}
-      <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <span>{t.footerNote}</span>
-          <span>{t.marketScope}</span>
-        </div>
-      </footer>
+                  <div className="flex flex-wrap items-center gap-2 max-w-full">
+                    <button
+                      type="button"
+                      onClick={() => setCompareItems([])}
+                      className="min-h-[40px] px-2.5 py-1.5 text-zinc-300 hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      {t.compareClearBtn}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setComparisonModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      <span>
+                        {t.compareOpenBtn} ({compareItems.length})
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quiet Minimal Footer (extra bottom clearance on mobile only when fixed MobileBottomNav is visible) */}
+            <footer
+              className={`border-t border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 ${
+                showMobileBottomNav
+                  ? 'pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-0'
+                  : 'pb-[env(safe-area-inset-bottom)]'
+              }`}
+            >
+              <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <span>{t.footerNote}</span>
+                <span>{t.marketScope}</span>
+              </div>
+            </footer>
+
+            {/* Mobile Fixed Bottom Tab Bar (below md — shown only on main pages, hidden while drawers/modals/Deep Dive are open) */}
+            {showMobileBottomNav && (
+              <MobileBottomNav
+                activeView={activeView}
+                shortlistCount={savedRecords.length}
+                historyCount={researchHistory.length + singleProductHistory.length}
+                onSelectDiscover={handleGoHome}
+                onSelectHistory={() => {
+                  setHistoryInitialTab('records');
+                  setActiveView('history');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onSelectSaved={() => {
+                  setActiveView('saved');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                language={language}
+              />
+            )}
+          </>
+        );
+      })()}
 
       {/* Phase 5: Multi-Product Side-by-Side Comparison Modal (Results + Saved + History) */}
       <ProductComparisonModal

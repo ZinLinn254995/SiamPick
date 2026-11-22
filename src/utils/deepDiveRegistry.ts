@@ -432,7 +432,7 @@ export function buildSmartVideoCreativeTemplates(
       reasonEn:
         'Home, kitchen & gadget products convert quickest via visual 15s problem-to-solution demos.',
       reasonMy:
-        'အိမ်သုံး/Gadget ဖြစ်၍ ပြဿနာပြပြီး ၁၅ စက္ကန့်အတွင်း လက်တွေ့ဖြေရှင်းပြပုံက ဝယ်လိုအားအမြန်ဆုံး။',
+        'အိမ်သုံး/Gadget ဖြစ်၍ ပြဿနာပြပြီး 15 စက္ကန့်အတွင်း လက်တွေ့ဖြေရှင်းပြပုံက ဝယ်လိုအားအမြန်ဆုံး။',
       patch: {
         videoStyle: 'faceless-hands',
         duration: '15s',
@@ -527,7 +527,7 @@ export function buildSmartVideoCreativeTemplates(
     specEn: 'Hands-Only · 15s · Friendly · Basket CTA',
     specMy: 'Hands-Only · 15s · သူငယ်ချင်းလို · တောင်းဝါ',
     reasonEn: 'Film alone with 1 phone showing only hands & product — easiest 15s edit.',
-    reasonMy: 'မျက်နှာမပြဘဲ ဖုန်း ၁ လုံးတည်း လက်နဲ့ကိုင်ပြ အမြန်ရိုက်တင်လိုသူများအတွက်။',
+    reasonMy: 'မျက်နှာမပြဘဲ ဖုန်း 1 လုံးတည်း လက်နဲ့ကိုင်ပြ အမြန်ရိုက်တင်လိုသူများအတွက်။',
     patch: {
       videoStyle: 'faceless-hands',
       duration: '15s',
@@ -546,7 +546,7 @@ export function buildSmartVideoCreativeTemplates(
     specEn: 'AI Video · 15s · Veo / Kling Cinematic',
     specMy: 'AI Video · 15s · Veo / Kling Prompt',
     reasonEn: 'Ready-to-paste 9:16 Veo/Kling prompts per scene — no camera filming required.',
-    reasonMy: 'ကိုယ်တိုင်မရိုက်ဘဲ Veo / Kling AI Video Prompt များဖြင့် ကြော်ငြာဖန်တီးရန်။',
+    reasonMy: 'ကိုယ်တိုင်မရိုက်ဘဲ Veo / Kling AI Video Prompt များဖြင့် AI Content ဖန်တီးရန်။',
     patch: {
       videoStyle: 'ai-video',
       duration: '15s',
@@ -645,7 +645,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeEn:
       'A clear, factual product snapshot helping you understand the product condition and variant structure before promoting.',
     expectedOutcomeMy:
-      'Product ၏ လက်ရှိအခြေအနေနှင့် အသေးစိတ်ဖွဲ့စည်းပုံကို မကြော်ငြာမီ ရှင်းလင်းစွာ နားလည်နိုင်မည်ဖြစ်သည်။',
+      'Product ၏ လက်ရှိအခြေအနေနှင့် အသေးစိတ်ဖွဲ့စည်းပုံကို Promote မလုပ်မီ ရှင်းလင်းစွာ နားလည်နိုင်မည်ဖြစ်သည်။',
     requiredDataSourcesEn:
       'Existing research product payload + Kalodata Product Detail API (when missing from Fast Mode).',
     requiredDataSourcesMy:
@@ -760,7 +760,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     whatItDoesEn:
       'Maps how crowded the affiliate landscape is for this product, who drives the majority of sales, and whether new creators still have room to break in.',
     whatItDoesMy:
-      'ဤ Product ကို Creator မည်မျှ ကြော်ငြာနေသည်၊ မည်သူတို့က ရောင်းအားအများဆုံးရနေသည်နှင့် Creator အသစ်များ ဝင်ရောက်ယှဉ်ပြိုင်ရန် အခွင့်အလမ်းရှိမရှိကို စစ်ဆေးပေးပါသည်။',
+      'ဤ Product ကို Creator မည်မျှ Promote လုပ်နေသည်၊ မည်သူတို့က ရောင်းအားအများဆုံးရနေသည်နှင့် Creator အသစ်များ ဝင်ရောက်ယှဉ်ပြိုင်ရန် အလားအလာရှိမရှိကို စစ်ဆေးပေးပါသည်။',
     whatItChecksEn: [
       'Number of Creators Promoting the Product',
       'Top Performing Creators',
@@ -889,11 +889,11 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     nameEn: 'Market & Competitor Comparison',
     nameMy: 'Market & Competitor Comparison (ပြိုင်ဘက်နှိုင်းယှဉ်မှု)',
     shortDescriptionEn: 'Compare similar products on price, sales, commission, and overall market positioning.',
-    shortDescriptionMy: 'အလားတူ Product များနှင့် ဈေးနှုန်း၊ ရောင်းအား၊ ကော်မရှင်နှင့် အခွင့်အလမ်းများကို နှိုင်းယှဉ်စစ်ဆေးရန်။',
+    shortDescriptionMy: 'အလားတူ Product များနှင့် ဈေးနှုန်း၊ ရောင်းအား၊ ကော်မရှင်နှင့် အလားအလာများကို နှိုင်းယှဉ်စစ်ဆေးရန်။',
     whatItDoesEn:
       'Benchmarks your selected product against peer and competing Thailand TikTok Shop products to identify whether this listing or a rival offers the stronger affiliate opportunity.',
     whatItDoesMy:
-      'ရွေးချယ်ထားသော Product ကို ထိုင်း TikTok Shop ရှိ အလားတူပြိုင်ဘက် Product များနှင့် နှိုင်းယှဉ်ပြီး ဘယ် Product က ပိုကောင်းသည့် Affiliate အခွင့်အလမ်းရှိသလဲ စစ်ဆေးပေးပါသည်။',
+      'ရွေးချယ်ထားသော Product ကို ထိုင်း TikTok Shop ရှိ အလားတူပြိုင်ဘက် Product များနှင့် နှိုင်းယှဉ်ပြီး ဘယ် Product က ပိုကောင်းသည့် Affiliate အလားအလာရှိသလဲ စစ်ဆေးပေးပါသည်။',
     whatItChecksEn: [
       'Similar / Peer Products',
       'Price Comparison',
@@ -908,7 +908,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
       'Sales (ရောင်းအား) နှိုင်းယှဉ်မှု',
       'Commission (ကော်မရှင်) နှိုင်းယှဉ်မှု',
       'Competitor Performance (ပြိုင်ဘက်စွမ်းဆောင်ရည်)',
-      'ဘယ် Product က ပိုကောင်းတဲ့ အခွင့်အရေးရှိသလဲ',
+      'ဘယ် Product က ပိုကောင်းတဲ့ အလားအလာရှိသလဲ',
     ],
     expectedOutcomeEn:
       'Side-by-side market positioning showing whether your product is competitively priced and rewarded versus category peers.',
@@ -917,7 +917,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     requiredDataSourcesEn:
       'Same-category peer products already present in the current Research Results session (100% local comparison).',
     requiredDataSourcesMy:
-      'လက်ရှိ Research Results Session ရှိ Category တူ Product များ (100% Local နှိုင်းယှဉ်မှု)။',
+      'လက်ရှိ ရှာဖွေမှုရလဒ် Session ရှိ Category တူ Product များ (100% Local နှိုင်းယှဉ်မှု)။',
     estimatedCostNoteEn:
       'Zero credit impact (0 cr) — compares strictly against already-fetched same-category peer products in your current session with zero extra API calls.',
     estimatedCostNoteMy:
@@ -936,11 +936,11 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     shortDescriptionEn:
       'Pure business decision: synthesize verified data into Go/No-Go verdict, strengths, risks, target buyer psychology, and channel strategy.',
     shortDescriptionMy:
-      'လုပ်သင့်/မလုပ်သင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့် — Data များပေါင်းစပ်ပြီး Verdict၊ အားသာချက်/အန္တရာယ်၊ ပစ်မှတ်ဝယ်သူနှင့် ဈေးကွက်ဗျူဟာ သုံးသပ်ရန်။',
+      'လုပ်သင့်/မလုပ်သင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့် — Data များပေါင်းစပ်ပြီး Verdict၊ အားသာချက်/စိုးရိမ်ချက်၊ ပစ်မှတ်ဝယ်သူနှင့် ဈေးကွက်ဗျူဟာ သုံးသပ်ရန်။',
     whatItDoesEn:
       'Synthesizes verified product metrics and completed Deep Dive data (#01–#07) strictly into a business Go/No-Go decision, target buyer profile, risk audit, and promotion channel strategy. (For video scripts, titles, hashtags, and competitor video teardowns, use Module #09.)',
     whatItDoesMy:
-      'ရရှိထားသော တကယ့် Product Data နှင့် Deep Dive (#01–#07) ရလဒ်များကို ပေါင်းစပ်ပြီး ဤ Product ကို ကြော်ငြာသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက်၊ ပစ်မှတ်ဝယ်သူ၊ အန္တရာယ်နှင့် ဈေးကွက်ဗျူဟာကို သီးသန့်သုံးသပ်ပေးပါသည်။ (Video Script၊ Title နှင့် Hashtag များအတွက် Module #09 ကို အသုံးပြုပါ။)',
+      'ရရှိထားသော တကယ့် Product Data နှင့် Deep Dive (#01–#07) ရလဒ်များကို ပေါင်းစပ်ပြီး ဤ Product ကို Promote လုပ်သင့်/မလုပ်သင့် စီးပွားရေးဆုံးဖြတ်ချက်၊ ပစ်မှတ်ဝယ်သူ၊ စိုးရိမ်ချက်နှင့် ဈေးကွက်ဗျူဟာကို သီးသန့်သုံးသပ်ပေးပါသည်။ (Video Script၊ Title နှင့် Hashtag များအတွက် Module #09 ကို အသုံးပြုပါ။)',
     whatItChecksEn: [
       'Product Opportunity Score Context',
       'Data-Backed Strengths & Weaknesses',
@@ -950,9 +950,9 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
       'Go / No-Go Verdict & Next Action',
     ],
     whatItChecksMy: [
-      'Product Opportunity Score သုံးသပ်ချက်',
+      'အလားအလာအမှတ် သုံးသပ်ချက်',
       'Data အခြေခံ အားသာချက် / အားနည်းချက်',
-      'ပြိုင်ဆိုင်မှု၊ အမြတ်နှင့် Compliance အန္တရာယ်များ',
+      'ပြိုင်ဆိုင်မှု၊ အမြတ်နှင့် Compliance စိုးရိမ်ချက်များ',
       'ပစ်မှတ်ဝယ်သူအုပ်စုနှင့် ဝယ်ယူမှုစိတ်ပညာ',
       'Affiliate Channel နှင့် ဈေးကွက်ဝင်ရောက်ဗျူဟာ',
       'လုပ်သင့် / မလုပ်သင့် ဆုံးဖြတ်ချက် (Go / No-Go)',
@@ -960,7 +960,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     expectedOutcomeEn:
       'A crisp, unbiased business Go/No-Go recommendation grounded strictly in verified metrics—without diluting into generic video ideas.',
     expectedOutcomeMy:
-      'ဤ Product ကို အချိန်နှင့်ငွေ ရင်းနှီးပြီး ကြော်ငြာသင့်/မသင့် တိကျရှင်းလင်းသော စီးပွားရေးဆုံးဖြတ်ချက် ရရှိမည်ဖြစ်သည်။',
+      'ဤ Product ကို အချိန်နှင့်ငွေ ရင်းနှီးပြီး Promote လုပ်သင့်/မလုပ်သင့် တိကျရှင်းလင်းသော စီးပွားရေးဆုံးဖြတ်ချက် ရရှိမည်ဖြစ်သည်။',
     requiredDataSourcesEn:
       'Verified product metrics + results from completed Deep Dive modules (#01–#07) + server-side Gemini AI synthesis endpoint.',
     requiredDataSourcesMy:
@@ -968,7 +968,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     estimatedCostNoteEn:
       '0 Kalodata credits (reuses already-fetched data), PLUS 1 server-side Gemini AI API call (billed separately by Google Gemini API — NOT free). Output is clearly labeled as AI Interpretation.',
     estimatedCostNoteMy:
-      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်သော်လည်း Server-side Gemini AI API Call ၁ ကြိမ်အတွက် Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိပါမည် (အခမဲ့ မဟုတ်ပါ)။ ရလဒ်ကို AI Interpretation ဟု ရှင်းလင်းစွာ ခွဲခြားဖော်ပြပါမည်။',
+      'Kalodata Credit 0 cr (ရှိပြီးသား Data ကိုသာ အသုံးပြုသည်) ဖြစ်သော်လည်း Server-side Gemini AI API Call 1 ကြိမ်အတွက် Google Gemini API ကုန်ကျစရိတ် သီးခြားရှိပါမည် (အခမဲ့ မဟုတ်ပါ)။ ရလဒ်ကို AI Interpretation ဟု ရှင်းလင်းစွာ ခွဲခြားဖော်ပြပါမည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'AI strictly NEVER fabricates missing metrics. Whenever inputs (e.g., reviews, videos, or creator shares) are incomplete, AI explicitly explains those data limitations and lowers confidence accordingly.',
@@ -979,15 +979,15 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     id: 'ad-video-creative-blueprint',
     order: 9,
     nameEn: 'AI Ad Video Creative Studio',
-    nameMy: 'AI Ad Video Creative Studio (ကြော်ငြာ Video ဖန်တီးမှုနှင့် SEO)',
+    nameMy: 'AI Content Video Studio (Video ဖန်တီးမှုနှင့် SEO)',
     shortDescriptionEn:
       'Ad video production blueprint: study winning competitor videos, generate 3 concepts, 5 hooks, timed shooting script, SEO titles/keywords/hashtags & policy guard.',
     shortDescriptionMy:
-      'ကြော်ငြာ Video ဖန်တီးရန် သီးသန့် — အခြားသူများ၏ ရောင်းကောင်း Video လေ့လာချက်၊ Concept ၃ မျိုး၊ 3-Sec Hook ၅ ခု၊ အချိန်အတိအကျ Script၊ Title/Keyword/Hashtag နှင့် Policy သတိပေးချက်များ။',
+      'AI Content Video ဖန်တီးရန် သီးသန့် — အခြားသူများ၏ ရောင်းကောင်း Video လေ့လာချက်၊ Concept 3 မျိုး၊ 3-Sec Hook 5 ခု၊ အချိန်အတိအကျ Script၊ Title/Keyword/Hashtag နှင့် Policy သတိပေးချက်များ။',
     whatItDoesEn:
       'Turns your chosen product (and optional real top-selling Thailand TikTok Shop competitor videos) into a ready-to-shoot ad video production pack: competitor teardown, 3 winning concepts, 5 scroll-stopping 3-second hooks, scene-by-scene shooting script, TikTok SEO titles/keywords/hashtags, and ad compliance guard.',
     whatItDoesMy:
-      'ရွေးချယ်ထားသော Product နှင့် (ရွေးချယ်ပါက) ထိုင်း TikTok Shop ရှိ ရောင်းအားအကောင်းဆုံး ပြိုင်ဘက် Video များကို လေ့လာပြီး ချက်ချင်းရိုက်ကူးတင်နိုင်မည့် Concept ၃ မျိုး၊ 3-Sec Hook ၅ ခု၊ Scene အလိုက် Script၊ Title/Keywords/Hashtags နှင့် Policy စည်းကမ်းသတိပေးချက်များ ထုတ်ပေးပါသည်။',
+      'ရွေးချယ်ထားသော Product နှင့် (ရွေးချယ်ပါက) ထိုင်း TikTok Shop ရှိ ရောင်းအားအကောင်းဆုံး ပြိုင်ဘက် Video များကို လေ့လာပြီး ချက်ချင်းရိုက်ကူးတင်နိုင်မည့် Concept 3 မျိုး၊ 3-Sec Hook 5 ခု၊ Scene အလိုက် Script၊ Title/Keywords/Hashtags နှင့် Policy စည်းကမ်းသတိပေးချက်များ ထုတ်ပေးပါသည်။',
     whatItChecksEn: [
       'Optional Competitor Top-Selling Video Scan (+0.1 cr, 24h cached)',
       'Winning Competitor Patterns & Creative Differentiation Gap',
@@ -1000,16 +1000,16 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     whatItChecksMy: [
       'ရောင်းအားအကောင်းဆုံး ပြိုင်ဘက် Video များ စစ်ဆေးလေ့လာမှု (ရွေးချယ်မှ +0.1 cr · 24h Cache)',
       'အခြားသူများ အောင်မြင်နေသည့် Pattern နှင့် ကိုယ်ဖောက်ထွက်နိုင်မည့် Creative Gap',
-      'ကြော်ငြာ Video Concept / ပုံစံ ၃ မျိုး',
-      'ပထမ ၃ စက္ကန့်အတွင်း ဆွဲဆောင်မည့် 3-Second Hook ၅ ခု (စကား + ရိုက်ကွက်)',
+      'AI Content Video Concept / ပုံစံ 3 မျိုး',
+      'ပထမ 3 စက္ကန့်အတွင်း ဆွဲဆောင်မည့် 3-Second Hook 5 ခု (စကား + ရိုက်ကွက်)',
       'စက္ကန့်အလိုက် Scene-by-Scene Script + စာတန်းထိုး + ရိုက်ကွက်/AI Prompt',
-      'TikTok SEO Pack (Title ၃ ပုံစံ၊ Search Keywords၊ ခွဲခြားထားသော Hashtags)',
-      'TikTok Shop ကြော်ငြာစည်းကမ်းနှင့် ရှောင်ရမည့်စကားလုံး သတိပေးချက်',
+      'TikTok SEO Pack (Title 3 ပုံစံ၊ Search Keywords၊ ခွဲခြားထားသော Hashtags)',
+      'TikTok Shop မူဝါဒစည်းကမ်းနှင့် ရှောင်ရမည့်စကားလုံး သတိပေးချက်',
     ],
     expectedOutcomeEn:
       'A complete, copy-ready ad video production & TikTok SEO blueprint tailored to your chosen language (Thai+Burmese or Burmese), shooting style (UGC / Hands-Only / AI Video), and video length.',
     expectedOutcomeMy:
-      'ကိုယ်ရွေးထားသော ဘာသာစကား (ထိုင်း+မြန်မာ သို့မဟုတ် မြန်မာ)၊ ရိုက်ကူးပုံစံ (UGC / Hands-Only / AI Video) နှင့် အချိန်အတိုင်း ချက်ချင်းကူးယူရိုက်တင်နိုင်မည့် ကြော်ငြာ Video Blueprint အပြည့်အစုံ ရရှိမည်ဖြစ်သည်။',
+      'ကိုယ်ရွေးထားသော ဘာသာစကား (ထိုင်း+မြန်မာ သို့မဟုတ် မြန်မာ)၊ ရိုက်ကူးပုံစံ (UGC / Hands-Only / AI Video) နှင့် အချိန်အတိုင်း ချက်ချင်းကူးယူရိုက်တင်နိုင်မည့် AI Content Video Blueprint အပြည့်အစုံ ရရှိမည်ဖြစ်သည်။',
     requiredDataSourcesEn:
       'Product details & thumbnail + completed Deep Dive buyer/review insights + server-side Gemini AI + optional Kalodata Video Rank API (0.1 cr only when Competitor Video Scan toggle is ON and uncached).',
     requiredDataSourcesMy:
@@ -1017,7 +1017,7 @@ export const DEEP_DIVE_ANALYSIS_OPTIONS: readonly DeepDiveAnalysisDefinition[] =
     estimatedCostNoteEn:
       'Default: 0 Kalodata credits + 1 server-side Gemini AI call (separate Gemini billing). Optional Competitor Video Scan toggle adds +0.1 Kalodata credit (24h cached -> 0 cr on repeat).',
     estimatedCostNoteMy:
-      'မူလ: Kalodata 0 cr + Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။ ပြိုင်ဘက် Video များပါ စစ်ဆေးလိုပါက Toggle ဖွင့်မှ +0.1 Kalodata cr (24h Cache) ကုန်ကျပါမည်။',
+      'မူလ: Kalodata 0 cr + Server-side Gemini AI Call 1 ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။ ပြိုင်ဘက် Video များပါ စစ်ဆေးလိုပါက Toggle ဖွင့်မှ +0.1 Kalodata cr (24h Cache) ကုန်ကျပါမည်။',
     costSensitivity: 'low',
     missingDataBehaviorEn:
       'When Competitor Video Scan is OFF (or if Kalodata returns 0 matching videos), Gemini NEVER fabricates fake TikTok video links or views—it explicitly states no competitor videos were scanned and builds the creative blueprint strictly from verified product & review data.',

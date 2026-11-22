@@ -203,7 +203,7 @@ function buildProductOverviewSection(
     return buildSectionFromSingleModule({
       id: 'product-overview',
       titleEn: '1. Product Overview',
-      titleMy: '၁။ Product အကျဉ်းချုပ် (Product Overview)',
+      titleMy: '1. Product အကျဉ်းချုပ်',
       analysisId: 'product-intelligence',
       slots,
       notRunNoteEn: '',
@@ -257,17 +257,17 @@ function buildProductOverviewSection(
   return {
     id: 'product-overview',
     titleEn: '1. Product Overview',
-    titleMy: '၁။ Product အကျဉ်းချုပ် (Product Overview)',
+    titleMy: '1. Product အကျဉ်းချုပ်',
     sourceAnalysisIds: ['product-intelligence'],
     availability: 'partial',
     dataStatus: evaluation.verifiedCount > 0 ? 'verified' : 'unverified',
     isAiInterpretation: false,
     headlineEn: 'Baseline Research Profile (Product Intelligence module not run yet)',
-    headlineMy: 'အခြေခံ Research Profile (Product Intelligence ကို မ Run ရသေးပါ)',
+    headlineMy: 'အခြေခံ ရှာဖွေမှု Profile (Product Intelligence ကို မ Run ရသေးပါ)',
     summaryEn:
       'Showing verified baseline fields from initial research. Run Product Intelligence (#1) to inspect SKU variants, price range, and extended product detail.',
     summaryMy:
-      'မူရင်း Research မှ အတည်ပြုပြီး အခြေခံအချက်အလက်များကိုသာ ပြသထားပါသည်။ SKU၊ ဈေးနှုန်းအပိုင်းအခြားနှင့် အသေးစိတ်အတွက် Product Intelligence (#1) ကို Run နိုင်ပါသည်။',
+      'မူရင်း ရှာဖွေမှုမှ အတည်ပြုပြီး အခြေခံအချက်အလက်များကိုသာ ပြသထားပါသည်။ SKU၊ ဈေးနှုန်းအပိုင်းအခြားနှင့် အသေးစိတ်အတွက် Product Intelligence (#1) ကို Run နိုင်ပါသည်။',
     metrics: baselineMetrics,
     highlightsEn: [],
     highlightsMy: [],
@@ -278,7 +278,7 @@ function buildProductOverviewSection(
       'Product Intelligence (#1) ကို မ Run ရသေးသဖြင့် SKU နှင့် Product Detail အသေးစိတ်များ မပါဝင်သေးပါ။',
     ],
     dataSourcesEn: ['Baseline Research Product Data'],
-    dataSourcesMy: ['မူရင်း Research Product Data'],
+    dataSourcesMy: ['မူရင်း ရှာဖွေမှု Product Data'],
     lastUpdatedAt: product.researchedAt ?? null,
   };
 }
@@ -293,7 +293,7 @@ function buildCompetitionSection(
     return buildNotRunSection({
       id: 'competition',
       titleEn: '4. Competition & Market Position',
-      titleMy: '၄။ ပြိုင်ဆိုင်မှုနှင့် ဈေးကွက်အနေအထား (Competition)',
+      titleMy: '4. ပြိုင်ဆိုင်မှုနှင့် ဈေးကွက်အနေအထား',
       sourceAnalysisIds: ['creator-competition-analysis', 'market-competitor-comparison'],
       noteEn:
         'Neither Creator Competition (#4) nor Market Competitor Comparison (#7) has been run yet.',
@@ -336,7 +336,7 @@ function buildCompetitionSection(
   return {
     id: 'competition',
     titleEn: '4. Competition & Market Position',
-    titleMy: '၄။ ပြိုင်ဆိုင်မှုနှင့် ဈေးကွက်အနေအထား (Competition)',
+    titleMy: '4. ပြိုင်ဆိုင်မှုနှင့် ဈေးကွက်အနေအထား',
     sourceAnalysisIds: ['creator-competition-analysis', 'market-competitor-comparison'],
     availability,
     dataStatus,
@@ -418,7 +418,7 @@ function buildRisksSection(
   return {
     id: 'risks',
     titleEn: '7. Risks & Data Limitations',
-    titleMy: '၇။ အန္တရာယ်များနှင့် Data ကန့်သတ်ချက်များ (Risks)',
+    titleMy: '7. စိုးရိမ်ချက်များနှင့် Data ကန့်သတ်ချက်များ',
     sourceAnalysisIds: DEEP_DIVE_ANALYSIS_OPTIONS.map((o) => o.id),
     availability: hasContent ? (notRunNamesEn.length > 0 ? 'partial' : 'available') : 'unavailable',
     dataStatus: evaluation.verifiedCount > 0 ? 'verified' : 'estimated',
@@ -429,12 +429,12 @@ function buildRisksSection(
         : `No explicit risk flags detected · ${notRunNamesEn.length} module(s) not yet run`,
     headlineMy:
       dedupedRisksMy.length > 0
-        ? `သတိပြုရန်အချက် ${dedupedRisksMy.length} ချက် · မ Run ရသေးသော Module ${notRunNamesMy.length} ခု`
-        : `အထူးသတိပြုရန်အချက် မတွေ့ရသေးပါ · မ Run ရသေးသော Module ${notRunNamesMy.length} ခု`,
+        ? `စိုးရိမ်ချက် ${dedupedRisksMy.length} ချက် · မ Run ရသေးသော Module ${notRunNamesMy.length} ခု`
+        : `အထူးစိုးရိမ်ချက် မတွေ့ရသေးပါ · မ Run ရသေးသော Module ${notRunNamesMy.length} ခု`,
     summaryEn:
       'Aggregates verified risks, customer complaints (if Review Insight ran), and explicit unavailable/unrun data gaps so decisions are never based on hidden omissions.',
     summaryMy:
-      'အတည်ပြုပြီး အန္တရာယ်အချက်များ၊ ဝယ်သူအခက်အခဲများ (Review Insight Run ထားပါက) နှင့် မရရှိသေး/မ Run ရသေးသော Data ကွက်လပ်များကို ပွင့်လင်းစွာ စုစည်းဖော်ပြထားပါသည်။',
+      'အတည်ပြုပြီး စိုးရိမ်ချက်များ၊ ဝယ်သူအခက်အခဲများ (Review Insight Run ထားပါက) နှင့် မရရှိသေး/မ Run ရသေးသော Data ကွက်လပ်များကို ပွင့်လင်းစွာ စုစည်းဖော်ပြထားပါသည်။',
     metrics: [
       {
         key: 'riskCount',
@@ -527,7 +527,7 @@ export function buildDeepDiveFinalReport(params: {
     buildSectionFromSingleModule({
       id: 'market-opportunity',
       titleEn: '2. Market Opportunity',
-      titleMy: '၂။ ဈေးကွက်အခွင့်အလမ်း (Market Opportunity)',
+      titleMy: '2. ဈေးကွက်အလားအလာ',
       analysisId: 'sales-market-intelligence',
       slots,
       notRunNoteEn:
@@ -538,7 +538,7 @@ export function buildDeepDiveFinalReport(params: {
     buildSectionFromSingleModule({
       id: 'affiliate-profit',
       titleEn: '3. Affiliate Profit',
-      titleMy: '၃။ Affiliate အမြတ်တွက်ချက်မှု (Affiliate Profit)',
+      titleMy: '3. Affiliate အမြတ်တွက်ချက်မှု',
       analysisId: 'affiliate-profit-analysis',
       slots,
       notRunNoteEn:
@@ -550,7 +550,7 @@ export function buildDeepDiveFinalReport(params: {
     buildSectionFromSingleModule({
       id: 'video-insights',
       titleEn: '5. Video Insights',
-      titleMy: '၅။ Video နှင့် Content သုံးသပ်ချက် (Video Insights)',
+      titleMy: '5. Video နှင့် Content သုံးသပ်ချက်',
       analysisId: 'video-intelligence',
       slots,
       notRunNoteEn:
@@ -561,7 +561,7 @@ export function buildDeepDiveFinalReport(params: {
     buildSectionFromSingleModule({
       id: 'customer-reviews',
       titleEn: '6. Customer Reviews (Opt-in)',
-      titleMy: '၆။ ဝယ်သူ Review သုံးသပ်ချက် (Customer Reviews)',
+      titleMy: '6. ဝယ်သူ Review သုံးသပ်ချက်',
       analysisId: 'customer-review-intelligence',
       slots,
       notRunNoteEn:
@@ -573,26 +573,26 @@ export function buildDeepDiveFinalReport(params: {
     buildSectionFromSingleModule({
       id: 'ai-recommendations',
       titleEn: '8. AI Business Recommendation (Go / No-Go)',
-      titleMy: '၈။ AI စီးပွားရေးဆုံးဖြတ်ချက် (Go / No-Go)',
+      titleMy: '8. AI စီးပွားရေးဆုံးဖြတ်ချက် (Go / No-Go)',
       analysisId: 'ai-strategic-recommendation',
       slots,
       isAiInterpretation: true,
       notRunNoteEn:
         'AI Strategic Recommendation (#8) has not been run yet (0 Kalodata cr · requires 1 separate server-side Gemini AI API call). No AI verdict is fabricated.',
       notRunNoteMy:
-        'AI Strategic Recommendation (#8) ကို မ Run ရသေးပါ (0 Kalodata cr · သီးခြား Server-side Gemini AI API ၁ ကြိမ်လိုအပ်)။ AI အကြံပြုချက်ကို အတုအယောင် ဖန်တီးမပြပါ။',
+        'AI Strategic Recommendation (#8) ကို မ Run ရသေးပါ (0 Kalodata cr · သီးခြား Server-side Gemini AI API 1 ကြိမ်လိုအပ်)။ AI အကြံပြုချက်ကို အတုအယောင် ဖန်တီးမပြပါ။',
     }),
     buildSectionFromSingleModule({
       id: 'video-creative-blueprint',
       titleEn: '9. Ad Video Creative & SEO Blueprint (AI Studio)',
-      titleMy: '၉။ ကြော်ငြာ Video ဖန်တီးမှုနှင့် SEO Blueprint (AI Studio)',
+      titleMy: '9. AI Content Video ဖန်တီးမှုနှင့် SEO Blueprint',
       analysisId: 'ad-video-creative-blueprint',
       slots,
       isAiInterpretation: true,
       notRunNoteEn:
         'AI Ad Video Creative Studio (#9) has not been run yet (0 Kalodata cr default or +0.1 cr with Competitor Video Scan · 1 Gemini AI call). No scripts or competitor videos are fabricated.',
       notRunNoteMy:
-        'AI Ad Video Creative Studio (#9) ကို မ Run ရသေးပါ (မူလ 0 Kalodata cr သို့မဟုတ် ပြိုင်ဘက် Video စစ်ဆေးပါက +0.1 cr · Gemini AI ၁ ကြိမ်)။ Script နှင့် ပြိုင်ဘက် Video များကို အတုအယောင် ဖန်တီးမပြပါ။',
+        'AI Content Video Studio (#9) ကို မ Run ရသေးပါ (မူလ 0 Kalodata cr သို့မဟုတ် ပြိုင်ဘက် Video စစ်ဆေးပါက +0.1 cr · Gemini AI 1 ကြိမ်)။ Script နှင့် ပြိုင်ဘက် Video များကို အတုအယောင် ဖန်တီးမပြပါ။',
     }),
   ];
 

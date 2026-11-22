@@ -150,7 +150,7 @@ export function ProductComparisonModal({
                   <>
                     <p>{t.compareModalSubtitle}</p>
                     {matrix.hasDistinctProductIds && (
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
                         {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
                       </p>
                     )}
@@ -268,7 +268,7 @@ export function ProductComparisonModal({
                         className="px-3.5 sm:px-4 py-3.5 sm:py-4 min-w-[200px] sm:min-w-[240px] max-w-[280px] sm:max-w-[300px] align-top border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0"
                       >
                         <div className="space-y-2.5">
-                          <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400 font-normal">
+                          <div className="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400 font-normal">
                             <span className="truncate">
                               {isMy ? col.item.sourceLabelMy : col.item.sourceLabelEn}
                             </span>
@@ -295,7 +295,7 @@ export function ProductComparisonModal({
                             ) : (
                               <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center">
                                 <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1" aria-hidden="true" />
-                                <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                                <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
                                   {t.cardImageUnverified}
                                 </span>
                               </div>
@@ -306,7 +306,7 @@ export function ProductComparisonModal({
                             <div className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 line-clamp-2 leading-snug">
                               {displayName}
                             </div>
-                            <div className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400 truncate">
+                            <div className="text-xs font-normal text-zinc-500 dark:text-zinc-400 truncate">
                               {p.shopName}
                             </div>
                           </div>
@@ -334,7 +334,7 @@ export function ProductComparisonModal({
                     >
                       <div>{isMy ? row.labelMy : row.labelEn}</div>
                       {row.isDifferent && (
-                        <div className="mt-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                        <div className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                           {t.compareDiffTag}
                         </div>
                       )}

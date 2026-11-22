@@ -587,8 +587,8 @@ test('Phase 9.4.4: Final Report compiles all 8 sections honestly (never hiding/f
 
   const mdMy = buildDeepDiveReportMarkdown(fullReport, 'my');
   assert.ok(mdMy.includes('Deep Dive စုစည်းအစီရင်ခံစာ'));
-  assert.ok(mdMy.includes('၁။ Product အကျဉ်းချုပ်'));
-  assert.ok(mdMy.includes('၈။ AI စီးပွားရေးဆုံးဖြတ်ချက်'));
+  assert.ok(mdMy.includes('1. Product အကျဉ်းချုပ်'));
+  assert.ok(mdMy.includes('8. AI စီးပွားရေးဆုံးဖြတ်ချက်'));
 
   // JSON export is valid & scrubs sensitive keys
   const jsonStr = buildDeepDiveReportJson(fullReport);

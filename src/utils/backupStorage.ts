@@ -611,7 +611,7 @@ export function parseAndValidateSiamPickBackup(rawJson: string): BackupParseResu
         errorEn:
           'This looks like a SiamPick Export JSON report (analytics summary), not a SiamPick Backup file. Please use a file created with "Download Backup".',
         errorMy:
-          'ဤဖိုင်သည် Product Report Export JSON ဖိုင်ဖြစ်ပြီး Backup ဖိုင်မဟုတ်ပါ။ "Backup ဖိုင်သိမ်းမည်" ဖြင့် ထုတ်ထားသော Backup (.json) ဖိုင်ကို ရွေးချယ်ပါ။',
+          'ဤဖိုင်သည် အစီရင်ခံစာ Export JSON ဖိုင်ဖြစ်ပြီး Backup ဖိုင်မဟုတ်ပါ။ "Backup ဖိုင်သိမ်းမည်" ဖြင့် ထုတ်ထားသော Backup (.json) ဖိုင်ကို ရွေးချယ်ပါ။',
       };
     }
     return {

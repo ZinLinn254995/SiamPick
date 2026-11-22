@@ -330,8 +330,8 @@ export function persistResearchHistory(records: ResearchHistoryRecord[]): Storag
         ? 'Browser localStorage quota is full. Previous Research History was kept intact — please delete older History records to save new runs.'
         : 'Unable to persist Research History to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser localStorage နေရာပြည့်နေပါသည်။ အရင် History များကို အလိုအလျောက်မဖျက်ထားပါ — Research အသစ်သိမ်းရန် အဟောင်းဖြစ်သော History အချို့ကို ရွေးချယ်ဖျက်ပေးပါ။'
-        : 'Research History ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
+        ? 'Browser localStorage နေရာပြည့်နေပါသည်။ အရင် မှတ်တမ်းများကို အလိုအလျောက်မဖျက်ထားပါ — ရှာဖွေမှု အသစ်သိမ်းရန် အဟောင်းဖြစ်သော မှတ်တမ်းအချို့ကို ရွေးချယ်ဖျက်ပေးပါ။'
+        : 'ရှာဖွေမှု မှတ်တမ်းကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }
 }
@@ -488,8 +488,8 @@ export function persistLatestResearchSession(
         ? 'Browser localStorage quota is full — latest Research Results could not be cached.'
         : 'Unable to persist latest Research Results to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser localStorage နေရာပြည့်နေသောကြောင့် နောက်ဆုံး Research Result ကို သိမ်းဆည်း၍ မရပါ။'
-        : 'နောက်ဆုံး Research Result ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
+        ? 'Browser localStorage နေရာပြည့်နေသောကြောင့် နောက်ဆုံး ရှာဖွေမှုရလဒ်ကို သိမ်းဆည်း၍ မရပါ။'
+        : 'နောက်ဆုံး ရှာဖွေမှုရလဒ်ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }
 }

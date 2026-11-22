@@ -262,7 +262,7 @@ function persistEnrichmentCache(cache: EnrichmentCacheEnvelopeV1): StorageWriteR
         ? 'Browser localStorage quota is full — enriched Kalodata data could not be saved locally. Delete older Research History records to free space.'
         : 'Unable to save enriched Kalodata data to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် ဖြည့်စွက်ထားသော Kalodata ဒေတာကို သိမ်းဆည်း၍ မရပါ။ Research History အဟောင်းအချို့ကို ဖျက်ပြီး နေရာလွတ်ဖန်တီးပါ။'
+        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် ဖြည့်စွက်ထားသော Kalodata ဒေတာကို သိမ်းဆည်း၍ မရပါ။ ရှာဖွေမှု မှတ်တမ်း အဟောင်းအချို့ကို ဖျက်ပြီး နေရာလွတ်ဖန်တီးပါ။'
         : 'ဖြည့်စွက်ထားသော Kalodata ဒေတာကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }

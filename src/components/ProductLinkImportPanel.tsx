@@ -419,7 +419,7 @@ export function ProductLinkImportPanel({
             </p>
             {inspectResult?.resolvedUrl &&
               inspectResult.resolvedUrl !== inspectResult.extractedInputUrl && (
-                <p className="font-mono text-[11px] opacity-75 break-all">
+                <p className="font-mono text-xs opacity-75 break-all">
                   {t.linkImportResolvedUrlLabel}: {inspectResult.resolvedUrl}
                 </p>
               )}
@@ -495,7 +495,7 @@ export function ProductLinkImportPanel({
                 type="button"
                 onClick={handleClear}
                 aria-label={t.linkImportClearBtn}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
               >
                 <X className="w-3 h-3" aria-hidden="true" />
                 <span>{t.linkImportClearBtn}</span>
@@ -504,7 +504,7 @@ export function ProductLinkImportPanel({
               <button
                 type="button"
                 onClick={handlePasteClipboard}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg cursor-pointer"
               >
                 <ClipboardPaste className="w-3 h-3" aria-hidden="true" />
                 <span>{t.linkImportPasteBtn}</span>
@@ -533,7 +533,7 @@ export function ProductLinkImportPanel({
       </form>
 
       {clipboardNotice && (
-        <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
           {t.linkImportClipboardUnavailableNote}
         </p>
       )}
@@ -598,7 +598,7 @@ export function ProductLinkImportPanel({
               </div>
 
               {inspectResult.canonicalUrl && isSafeHttpUrl(inspectResult.canonicalUrl) && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-600 dark:text-zinc-400 pt-0.5">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400 pt-0.5">
                   <span>{t.linkImportCanonicalUrlLabel}:</span>
                   <a
                     href={inspectResult.canonicalUrl}
@@ -613,7 +613,7 @@ export function ProductLinkImportPanel({
               )}
 
               {inspectResult.redirectHops.length > 1 && (
-                <p className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
+                <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
                   {t.linkImportRedirectChainLabel}: {inspectResult.redirectHops.length} hop(s)
                 </p>
               )}
@@ -869,7 +869,7 @@ export function ProductLinkImportPanel({
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono text-zinc-500 dark:text-zinc-400">
                       <span className="font-sans font-medium text-zinc-700 dark:text-zinc-300">
                         {getCategoryLabel(p.category, language, { short: true })}
                       </span>
@@ -898,7 +898,7 @@ export function ProductLinkImportPanel({
                         </strong>
                       </span>
                       <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">·</span>
-                      <span className="font-mono text-[11px] tabular-nums text-emerald-700 dark:text-emerald-400">
+                      <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
                         {activeSingleEvaluation.verifiedCount} verified · {activeSingleEvaluation.unavailableCount} unavailable
                       </span>
                     </div>
@@ -908,7 +908,7 @@ export function ProductLinkImportPanel({
                 {/* Key Metrics Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-xs">
                   <div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {t.linkImportPriceLabel}
                     </div>
                     <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
@@ -916,7 +916,7 @@ export function ProductLinkImportPanel({
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {t.linkImportSalesLabel}
                     </div>
                     <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
@@ -924,7 +924,7 @@ export function ProductLinkImportPanel({
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {t.linkImportRevenueLabel}
                     </div>
                     <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
@@ -934,7 +934,7 @@ export function ProductLinkImportPanel({
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {t.linkImportCommissionLabel}
                     </div>
                     <div className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
@@ -942,7 +942,7 @@ export function ProductLinkImportPanel({
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
                       {t.linkImportScoreLabel}
                     </div>
                     <div className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
@@ -953,7 +953,7 @@ export function ProductLinkImportPanel({
 
                 {/* Honest Unavailable Data Notice */}
                 {missingNotes.length > 0 && (
-                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                     <strong className="text-zinc-800 dark:text-zinc-200">
                       {t.linkImportUnavailableHeading}:
                     </strong>{' '}

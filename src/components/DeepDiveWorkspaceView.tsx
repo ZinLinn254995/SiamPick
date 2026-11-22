@@ -10,7 +10,9 @@ import {
   ChevronUp,
   ChevronsDownUp,
   ChevronsUpDown,
+  Clapperboard,
   Clock,
+  Coins,
   Copy,
   Download,
   ExternalLink,
@@ -19,13 +21,19 @@ import {
   ImageOff,
   Layers,
   Loader2,
+  MessageSquareText,
+  Package,
   Play,
   RefreshCw,
   RotateCw,
+  Scale,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Trash2,
+  TrendingUp,
+  Users,
+  Video,
   X,
 } from 'lucide-react';
 import type {
@@ -128,6 +136,27 @@ function getOriginModeLabel(mode: ResearchMode, language: Language): string {
   if (mode === 'deep') return t.modeDeepTitle;
   if (mode === 'balanced') return t.modeBalancedTitle;
   return t.modeFastTitle;
+}
+
+const DEEP_DIVE_CHIP_ICONS: Record<DeepDiveAnalysisId, typeof Package> = {
+  'product-intelligence': Package,
+  'sales-market-intelligence': TrendingUp,
+  'affiliate-profit-analysis': Coins,
+  'creator-competition-analysis': Users,
+  'video-intelligence': Video,
+  'customer-review-intelligence': MessageSquareText,
+  'market-competitor-comparison': Scale,
+  'ai-strategic-recommendation': Sparkles,
+  'ad-video-creative-blueprint': Clapperboard,
+};
+
+function formatClockTimeHms(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
 }
 
 function formatCompletedTime(
@@ -256,7 +285,7 @@ function ModuleResultPanel({
             <div className="space-y-0.5 min-w-0">
               <div className="font-semibold text-rose-900 dark:text-rose-200">
                 {isMy ? 'Analysis လုပ်ဆောင်မှု မအောင်မြင်ပါ' : 'Analysis Failed'}
-                <span className="font-mono text-[11px] font-normal text-rose-700 dark:text-rose-300 ml-1.5">
+                <span className="font-mono text-xs font-normal text-rose-700 dark:text-rose-300 ml-1.5">
                   ({slot.error.code})
                 </span>
               </div>
@@ -280,7 +309,7 @@ function ModuleResultPanel({
           </button>
         </div>
 
-        <div className="text-[11px] text-rose-700/90 dark:text-rose-300/80">
+        <div className="text-xs text-rose-700/90 dark:text-rose-300/80">
           {result
             ? isMy
               ? 'အခြား Deep Dive Analysis များကို ထိခိုက်မှုမရှိပါ — အရင်ရရှိထားသော ရလဒ်ကို အောက်တွင် ဆက်လက်ထိန်းသိမ်းထားပါသည်။'
@@ -315,7 +344,7 @@ function ModuleResultPanel({
         }`}
       >
         {/* Collapsible Result Summary Bar + Unmistakable Re-run Feedback */}
-        <div className="px-4 py-2.5 flex items-center justify-between gap-2 text-[11px]">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-zinc-500 dark:text-zinc-400">
             {isVisuallyRunning ? (
               <span className="inline-flex items-center gap-1.5 font-semibold text-sky-700 dark:text-sky-400">
@@ -368,7 +397,7 @@ function ModuleResultPanel({
             onClick={onToggleCollapse}
             aria-expanded={!isCollapsed}
             aria-controls={`deep-dive-result-body-${slot.analysisId}`}
-            className="inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+            className="inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer shrink-0 whitespace-nowrap"
           >
             <span>
               {isCollapsed
@@ -407,20 +436,20 @@ function ModuleResultPanel({
                   <span className="font-semibold">
                     {result.analysisId === 'ad-video-creative-blueprint'
                       ? isMy
-                        ? 'AI Ad Video Creative Studio (ကြော်ငြာ Video ဖန်တီးမှု Blueprint)'
+                        ? 'AI Content Creative Studio (Video ဖန်တီးမှု Blueprint)'
                         : 'AI Ad Video Creative Studio (Production & SEO Blueprint)'
                       : isMy
-                        ? 'AI Business Decision (လုပ်သင့်/မလုပ်သင့် ဗျူဟာဆုံးဖြတ်ချက်)'
+                        ? 'AI စီးပွားရေးဆုံးဖြတ်ချက် (လုပ်သင့်/မလုပ်သင့်)'
                         : 'AI Business Decision (Strategic Go / No-Go)'}
                   </span>
               <span className="text-sky-800/90 dark:text-sky-300/90">
                 {' — '}
                 {result.analysisId === 'ad-video-creative-blueprint'
                   ? isMy
-                    ? 'ကြော်ငြာ Video ရိုက်ကူးတင်ရန်အတွက် Script၊ Hooks၊ SEO Title/Keywords/Hashtags နှင့် စည်းကမ်းသတိပေးချက်များကို Gemini AI မှ ထုတ်ပေးထားပါသည်။'
+                    ? 'AI Content Video ရိုက်ကူးတင်ရန်အတွက် Script၊ Hooks၊ SEO Title/Keywords/Hashtags နှင့် မူဝါဒသတိပေးချက်များကို Gemini မှ ထုတ်ပေးထားပါသည်။'
                     : 'Actionable ad video production blueprint (concepts, hooks, script, TikTok SEO & policy guard) generated by Gemini AI.'
                   : isMy
-                    ? 'အတည်ပြုပြီး Market Data (#01–#07) အပေါ် အခြေခံ၍ ဤ Product ကို ကြော်ငြာသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့်ဖြစ်ပါသည်။'
+                    ? 'အတည်ပြုပြီး Market Data (#01–#07) အပေါ် အခြေခံ၍ ဤကုန်ပစ္စည်းကို စမ်းသပ်ရောင်းချသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့်ဖြစ်ပါသည်။'
                     : 'Pure business Go/No-Go synthesis grounded in verified market data (#01–#07) — separate from ad video production (#09).'}
               </span>
             </div>
@@ -440,7 +469,7 @@ function ModuleResultPanel({
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2.5 pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/80">
           {result.metrics.map((metric) => (
             <div key={metric.key} className="min-w-0">
-              <dt className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <dt className="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="truncate">{isMy ? metric.labelMy : metric.labelEn}</span>
                 <span className={`font-medium shrink-0 ${getDataStatusStyle(metric.status)}`}>
                   {t.dataStatusLabels[metric.status]}
@@ -457,7 +486,7 @@ function ModuleResultPanel({
       {/* Competitor Comparison Table (Option #7) */}
       {result.competitorRows && result.competitorRows.length > 0 && (
         <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/80 overflow-x-auto">
-          <table className="w-full text-left border-collapse text-[11px]">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
                 <th className="py-1.5 pr-2 font-medium">#</th>
@@ -520,14 +549,14 @@ function ModuleResultPanel({
                       href={vid.videoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 shrink-0"
+                      className="inline-flex items-center gap-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 shrink-0"
                     >
                       <span>{isMy ? 'ဖွင့်မည်' : 'Open'}</span>
                       <ExternalLink className="w-3 h-3" aria-hidden="true" />
                     </a>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
                   {vid.creatorHandle && <span>@{vid.creatorHandle.replace(/^@+/, '')}</span>}
                   {vid.views !== null && <span>{vid.views.toLocaleString('en-US')} views</span>}
                   {vid.salesVolume !== null && <span>{vid.salesVolume.toLocaleString('en-US')} sold</span>}
@@ -573,7 +602,7 @@ function ModuleResultPanel({
 
       {/* Honest Unavailable / Limitations Disclosure */}
       {unavailableNotes.length > 0 && (
-        <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-1 text-[11px] text-amber-800 dark:text-amber-300/90">
+        <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-1 text-xs text-amber-800 dark:text-amber-300/90">
           <div className="font-semibold">
             {isMy ? 'မရရှိနိုင်သော Data / ကန့်သတ်ချက်များ' : 'Unavailable Data & Limitations'}
           </div>
@@ -588,7 +617,7 @@ function ModuleResultPanel({
       )}
 
       {/* Provenance Footer: Data Source, Data Status, Timestamp, Credits/Cache & Re-run */}
-      <div className="pt-2.5 border-t border-zinc-200/80 dark:border-zinc-800 flex flex-col gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+      <div className="pt-2.5 border-t border-zinc-200/80 dark:border-zinc-800 flex flex-col gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
             <span className={`font-semibold ${getDataStatusStyle(result.dataStatus)}`}>
@@ -789,9 +818,12 @@ export function DeepDiveWorkspaceView({
     title: string;
     detail?: string;
   } | null>(null);
+  const [liveRunAnnouncement, setLiveRunAnnouncement] = useState<string>('');
 
   const cardRefs = useRef<Partial<Record<DeepDiveAnalysisId, HTMLElement | null>>>({});
   const videoStudioCardRef = useRef<HTMLElement | null>(null);
+  const checkoutModalRef = useRef<HTMLDivElement | null>(null);
+  const lastFocusedBeforeModalRef = useRef<HTMLElement | null>(null);
   const feedbackTimersRef = useRef<Record<string, number>>({});
   const jumpHighlightTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -851,17 +883,70 @@ export function DeepDiveWorkspaceView({
     setCopiedTikTokLink(false);
   }, [canonicalProductId]);
 
-  // Escape closes Checkout / Budget Modal cleanly
+  // Escape closes Checkout / Budget Modal & traps keyboard focus inside dialog/bottom sheet
   useEffect(() => {
     if (!isCheckoutModalOpen) return;
+
+    lastFocusedBeforeModalRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const getFocusableElements = (): HTMLElement[] => {
+      const container = checkoutModalRef.current;
+      if (!container) return [];
+      return Array.from(
+        container.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el.offsetParent !== null || el.getClientRects().length > 0);
+    };
+
+    const rafId = window.requestAnimationFrame(() => {
+      const focusables = getFocusableElements();
+      if (focusables.length > 0) {
+        focusables[0].focus();
+      } else {
+        checkoutModalRef.current?.focus();
+      }
+    });
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setPendingRun(null);
         setIsBudgetModalOpen(false);
+        return;
+      }
+
+      if (event.key === 'Tab') {
+        const focusables = getFocusableElements();
+        if (focusables.length === 0) {
+          event.preventDefault();
+          checkoutModalRef.current?.focus();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+
+        if (event.shiftKey) {
+          if (!active || active === first || !checkoutModalRef.current?.contains(active)) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (!active || active === last || !checkoutModalRef.current?.contains(active)) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener('keydown', handleKeyDown);
+      if (lastFocusedBeforeModalRef.current?.isConnected) {
+        lastFocusedBeforeModalRef.current.focus();
+      }
+    };
   }, [isCheckoutModalOpen]);
 
   useEffect(() => {
@@ -1063,7 +1148,17 @@ export function DeepDiveWorkspaceView({
       }
     }
 
+    const hmsTime = formatClockTimeHms(nowIso);
+
     if (erroredIds.length > 0) {
+      const errNums = erroredIds
+        .map((id) => getDeepDiveOptionById(id))
+        .filter(Boolean)
+        .map((d) => `0${d!.order}`)
+        .join(', ');
+      setLiveRunAnnouncement(
+        t.deepDiveAriaFailed.replace('{nums}', errNums || erroredIds[0]).replace('{time}', hmsTime)
+      );
       const firstDef = getDeepDiveOptionById(erroredIds[0]);
       const modLabel = firstDef
         ? `0${firstDef.order} · ${isMy ? firstDef.nameMy : firstDef.nameEn}`
@@ -1081,6 +1176,16 @@ export function DeepDiveWorkspaceView({
     }
 
     if (succeededIds.length > 0) {
+      const okNums = succeededIds
+        .map((id) => getDeepDiveOptionById(id))
+        .filter(Boolean)
+        .map((d) => `0${d!.order}`)
+        .join(', ');
+      setLiveRunAnnouncement(
+        t.deepDiveAriaFinished
+          .replace('{nums}', okNums || succeededIds[0])
+          .replace('{time}', hmsTime)
+      );
       const timeText = formatCompletedTime(nowIso, language, true);
       if (succeededIds.length === 1) {
         const def = getDeepDiveOptionById(succeededIds[0]);
@@ -1129,6 +1234,13 @@ export function DeepDiveWorkspaceView({
     if (ids.length === 0) return;
     const now = Date.now();
     const nowIso = new Date(now).toISOString();
+
+    const runningNums = ids
+      .map((id) => getDeepDiveOptionById(id))
+      .filter(Boolean)
+      .map((d) => `0${d!.order}`)
+      .join(', ');
+    setLiveRunAnnouncement(t.deepDiveAriaRunning.replace('{nums}', runningNums || ids[0]));
 
     // Always auto-expand target module results so user immediately sees updates
     setCollapsedResultIds((prev) => prev.filter((id) => !ids.includes(id)));
@@ -1361,36 +1473,36 @@ export function DeepDiveWorkspaceView({
   const backLabel =
     originView === 'saved'
       ? isMy
-        ? 'သိမ်းထားသော Product များသို့ ပြန်သွားမည်'
+        ? 'သိမ်းထားသော ကုန်ပစ္စည်းများသို့ ပြန်သွားမည်'
         : 'Back to Saved Products'
       : originView === 'history'
         ? isMy
-          ? 'Research History သို့ ပြန်သွားမည်'
+          ? 'ရှာဖွေမှု မှတ်တမ်းသို့ ပြန်သွားမည်'
           : 'Back to Research History'
         : isMy
-          ? 'Research Results သို့ ပြန်သွားမည်'
+          ? 'ရှာဖွေမှု ရလဒ်များသို့ ပြန်သွားမည်'
           : 'Back to Research Results';
 
   const copy = isMy
     ? {
         heading: 'Deep Dive Analysis',
-        subheading: 'ရွေးချယ်ထားသော Product ကို အတည်ပြုပြီး API နှင့် ရှိပြီးသား Data များဖြင့် အသေးစိတ် စစ်ဆေးရန်',
-        infoTitle: 'Deep Dive Analysis အကြောင်း',
+        subheading: 'ရွေးချယ်ထားသော ကုန်ပစ္စည်းကို အတည်ပြုပြီး API နှင့် ရှိပြီးသားဒေတာများဖြင့် အသေးစိတ် စစ်ဆေးရန်',
+        infoTitle: 'Deep Dive အကြောင်း',
         infoBody:
-          'Deep Dive သည် Research Mode အသစ်တစ်ခု မဟုတ်ပါ။ Fast / Balanced / Deep Research မှ ရှာဖွေပြီးသား Product ကို ကိုယ်တိုင်ရွေးချယ်ပြီး လိုအပ်သော Analysis များကိုသာ တစ်ခုချင်း သို့မဟုတ် စုပေါင်း Run နိုင်ပါသည်။ ရှိပြီးသား Data နှင့် Cache ကို အရင်ပြန်သုံးပြီး မူရင်း Research Results၊ Ranking နှင့် Product Data များကို လုံးဝ မပြောင်းလဲပါ။',
-        openDetailBtn: 'Product Detail ကြည့်ရန်',
+          'Deep Dive သည် ရှာဖွေမှု Mode အသစ်တစ်ခု မဟုတ်ပါ။ Fast / Balanced / Deep Mode မှ ရှာဖွေပြီးသား ကုန်ပစ္စည်းကို ကိုယ်တိုင်ရွေးချယ်ပြီး လိုအပ်သော Analysis များကိုသာ တစ်ခုချင်း သို့မဟုတ် စုပေါင်း Run နိုင်ပါသည်။ ရှိပြီးသားဒေတာနှင့် Cache ကို အရင်ပြန်သုံးပြီး မူရင်းရှာဖွေမှုရလဒ်များနှင့် Ranking ကို လုံးဝ မပြောင်းလဲပါ။',
+        openDetailBtn: 'အစီရင်ခံစာ ကြည့်ရန်',
         productIdLabel: 'Product ID',
-        originModeLabel: 'မူရင်း Research Mode',
+        originModeLabel: 'မူရင်း ရှာဖွေမှု Mode',
         priceLabel: 'ဈေးနှုန်း',
         commissionLabel: 'ကော်မရှင်',
-        scoreLabel: '7-Factor Score',
+        scoreLabel: 'အလားအလာအမှတ်',
         selectionHeading: `Deep Dive Analysis ${totalCount} မျိုး (ကိုယ်တိုင်ရွေးချယ် Run ရန်)`,
         selectedCounter: (count: number, total: number) => `${total} ခုထဲမှ ${count} ခု ရွေးချယ်ထားသည်`,
         completedCounter: (count: number) => `ပြီးစီးပြီး ${count} ခု`,
         selectAllBtn: 'အားလုံးရွေးမည်',
         clearAllBtn: 'အားလုံးဖြုတ်မည်',
         selectedListLabel: 'ရွေးချယ်ထားသည်များ',
-        noneSelectedHint: 'စစ်ဆေးလိုသော Analysis အနည်းဆုံး ၁ ခုကို ရွေးချယ်ပါ သို့မဟုတ် ကတ်တစ်ခုချင်းစီမှ Run နှိပ်ပါ။',
+        noneSelectedHint: 'စစ်ဆေးလိုသော Analysis အနည်းဆုံး 1 ခုကို ရွေးချယ်ပါ သို့မဟုတ် ကတ်တစ်ခုချင်းစီမှ Run နှိပ်ပါ။',
         statusSelected: 'ရွေးထားသည်',
         statusNotSelected: 'မရွေးရသေး',
         detailsExpand: 'အသေးစိတ်',
@@ -1401,12 +1513,12 @@ export function DeepDiveWorkspaceView({
         highCostTag: 'Opt-in (1.0 cr · Cache မရှိမှ)',
         aiCostTag: '0 Kalodata cr · Gemini API စရိတ် သီးခြားရှိ',
         disclosureLabels: {
-          whatItDoes: '၁။ ဒီ Analysis က ဘာလုပ်ပေးနိုင်သလဲ',
-          whatItChecks: '၂။ စစ်ဆေးမည့် အချက်အလက်များ',
-          expectedOutcome: '၃။ ရရှိမည့် ရလဒ်',
-          requiredSources: '၄။ လိုအပ်နိုင်သည့် Data Source / API များ',
-          estimatedCost: '၅။ ခန့်မှန်းကုန်ကျစရိတ်နှင့် Credit သုံးစွဲမှု',
-          missingData: '၆။ Data မရရှိနိုင်သည့်အခါ ဖော်ပြပုံ',
+          whatItDoes: '1. ဒီ Analysis က ဘာလုပ်ပေးနိုင်သလဲ',
+          whatItChecks: '2. စစ်ဆေးမည့် အချက်အလက်များ',
+          expectedOutcome: '3. ရရှိမည့် ရလဒ်',
+          requiredSources: '4. လိုအပ်နိုင်သည့် Data Source / API များ',
+          estimatedCost: '5. ခန့်မှန်းကုန်ကျစရိတ်နှင့် Credit သုံးစွဲမှု',
+          missingData: '6. Data မရရှိနိုင်သည့်အခါ ဖော်ပြပုံ',
         },
         runBtn: (count: number, running: boolean) =>
           running
@@ -1414,9 +1526,9 @@ export function DeepDiveWorkspaceView({
             : count > 0
               ? `ရွေးထားသည့် Analysis (${count}) ခုကို Run မည်`
               : 'Analysis ရွေးချယ်ပြီးမှ Run နိုင်မည်',
-        runDisabledHint: 'စုပေါင်း Run ရန် Analysis အနည်းဆုံး ၁ ခုကို အရင်ရွေးချယ်ပါ။',
+        runDisabledHint: 'စုပေါင်း Run ရန် Analysis အနည်းဆုံး 1 ခုကို အရင်ရွေးချယ်ပါ။',
         runEngineNote:
-          'ရှိပြီးသား Data နှင့် Cache ကို ဦးစားပေးပြန်သုံးပါမည် · Review API သည် ရွေးချယ်မှသာ ခေါ်မည် · မူရင်း Ranking မပြောင်းလဲပါ။',
+          'ရှိပြီးသားဒေတာနှင့် Cache ကို ဦးစားပေးပြန်သုံးပါမည် · Review API သည် ရွေးချယ်မှသာ ခေါ်မည် · မူရင်း Ranking မပြောင်းလဲပါ။',
       }
     : {
         heading: 'Deep Dive Analysis',
@@ -1466,7 +1578,11 @@ export function DeepDiveWorkspaceView({
       };
 
   return (
-    <div className="space-y-6 pb-28 sm:pb-24">
+    <div className="space-y-6 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+      {/* Persistent polite live region announcing Deep Dive module run start/finish/error with exact HH:MM:SS */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {liveRunAnnouncement}
+      </div>
       {/* Top Navigation & Heading Row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
@@ -1492,7 +1608,7 @@ export function DeepDiveWorkspaceView({
       <section className="space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <h1
-            className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+            className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
               isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
             }`}
           >
@@ -1542,11 +1658,11 @@ export function DeepDiveWorkspaceView({
                   {copy.originModeLabel}: {originModeLabel}
                 </span>
                 <span aria-hidden="true">·</span>
-                <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                   {copy.productIdLabel}: {canonicalProductId}
                 </span>
                 {originalProductId !== canonicalProductId && (
-                  <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+                  <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
                     ({originalProductId})
                   </span>
                 )}
@@ -1560,13 +1676,13 @@ export function DeepDiveWorkspaceView({
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
               <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
                 <div>
-                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
+                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
                   <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                     {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                     {copy.commissionLabel}
                   </dt>
                   <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
@@ -1576,7 +1692,7 @@ export function DeepDiveWorkspaceView({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
+                  <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
                   <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                     {evaluation.totalScore}/100
                   </dd>
@@ -1701,7 +1817,7 @@ export function DeepDiveWorkspaceView({
             data-testid="deep-dive-quick-jump-bar"
             className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2"
           >
-            <div className="flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
               <span>
                 {isMy
                   ? 'အမြန်ခုန်ကြည့်ရန် (01–09) · နံပါတ်နှိပ်ပြီး သက်ဆိုင်ရာကတ်သို့ တိုက်ရိုက်သွားနိုင်သည်'
@@ -1716,7 +1832,7 @@ export function DeepDiveWorkspaceView({
               </span>
             </div>
 
-            <div className="grid grid-cols-5 sm:grid-cols-9 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-1.5">
               {DEEP_DIVE_ANALYSIS_OPTIONS.map((opt) => {
                 const isOptSelected = workspaceState.selectedIds.includes(opt.id);
                 const optSlot = workspaceState.slots[opt.id];
@@ -1726,6 +1842,8 @@ export function DeepDiveWorkspaceView({
                 const isOptCompleted = optSlot?.status === 'completed';
                 const isOptError = optSlot?.status === 'error';
                 const optLabel = isMy ? opt.nameMy : opt.nameEn;
+                const shortChipName = t.deepDiveChipShortNames[opt.id];
+                const ChipIcon = DEEP_DIVE_CHIP_ICONS[opt.id];
 
                 return (
                   <button
@@ -1734,7 +1852,7 @@ export function DeepDiveWorkspaceView({
                     onClick={() => handleJumpToCard(opt.id)}
                     title={`0${opt.order}. ${optLabel}`}
                     aria-label={`Jump to 0${opt.order}. ${optLabel}`}
-                    className={`inline-flex items-center justify-center gap-1 min-h-[34px] px-2 py-1 text-xs font-mono tabular-nums font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer min-w-0 ${
                       isOptSelected
                         ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                         : isOptCompleted
@@ -1744,7 +1862,11 @@ export function DeepDiveWorkspaceView({
                             : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
                     }`}
                   >
-                    <span>0{opt.order}</span>
+                    <ChipIcon className="w-3.5 h-3.5 shrink-0 opacity-80" aria-hidden="true" />
+                    <span className="font-mono tabular-nums font-semibold shrink-0">
+                      0{opt.order}
+                    </span>
+                    <span className="truncate">{shortChipName}</span>
                     {isOptRunning ? (
                       <Loader2 className="w-3 h-3 animate-spin shrink-0" aria-hidden="true" />
                     ) : isOptError ? (
@@ -1876,7 +1998,7 @@ export function DeepDiveWorkspaceView({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+                          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
                             0{option.order}.
                           </span>
                           <span className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
@@ -1955,7 +2077,7 @@ export function DeepDiveWorkspaceView({
                             <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">
                               ·
                             </span>
-                            <span className={`text-[11px] font-mono tabular-nums font-medium ${toneClass}`}>
+                            <span className={`text-xs font-mono tabular-nums font-medium ${toneClass}`}>
                               {formatModuleCostShort(modEst, isMy)}
                             </span>
                           </>
@@ -2134,12 +2256,12 @@ export function DeepDiveWorkspaceView({
                 ? 'နောက်ဆုံး Run ရလဒ် — ခန့်မှန်း vs အမှန်တကယ် ကုန်ကျစရိတ်'
                 : 'Last Run Summary — Estimated vs Actual Cost'}
             </span>
-            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
               {formatCompletedTime(workspaceState.lastRunSummary.completedAt, language, true)}
             </span>
           </div>
 
-          <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-[11px]">
+          <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
             <div>
               <dt className="text-zinc-500 dark:text-zinc-400">
                 {isMy ? 'Kalodata (ခန့်မှန်း → အမှန်)' : 'Kalodata (Est. → Actual)'}
@@ -2272,7 +2394,7 @@ export function DeepDiveWorkspaceView({
                     className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
                   >
                     {isMy
-                      ? 'Deep Dive စုစည်းအစီရင်ခံစာ (Final Report)'
+                      ? 'Deep Dive စုစည်းအစီရင်ခံစာ'
                       : 'Consolidated Deep Dive Final Report'}
                   </h2>
                 </div>
@@ -2299,7 +2421,7 @@ export function DeepDiveWorkspaceView({
                     <>
                       <span aria-hidden="true">·</span>
                       <span>
-                        {isMy ? 'Updated' : 'Updated'}:{' '}
+                        {isMy ? 'အပ်ဒိတ်' : 'Updated'}:{' '}
                         {formatCompletedTime(finalReport.lastUpdatedAt, language)}
                       </span>
                     </>
@@ -2326,7 +2448,7 @@ export function DeepDiveWorkspaceView({
                             ? 'ကူးယူပြီး'
                             : 'Copied'
                           : isMy
-                            ? 'Report ကူးယူမည်'
+                            ? 'အစီရင်ခံစာ ကူးယူမည်'
                             : 'Copy Report'}
                       </span>
                     </button>
@@ -2364,10 +2486,10 @@ export function DeepDiveWorkspaceView({
                   <span>
                     {isReportExpanded
                       ? isMy
-                        ? 'Report ပိတ်မည်'
+                        ? 'အစီရင်ခံစာ ပိတ်မည်'
                         : 'Hide Report'
                       : isMy
-                        ? 'Final Report ကြည့်မည်'
+                        ? 'စုစည်းအစီရင်ခံစာ ကြည့်မည်'
                         : 'View Final Report'}
                   </span>
                   {isReportExpanded ? (
@@ -2389,7 +2511,7 @@ export function DeepDiveWorkspaceView({
                   <Clock className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" aria-hidden="true" />
                   <span>
                     {isMy
-                      ? `History မှတ်တမ်း (${formatCompletedTime(inspectedHistoryRecord.analyzedAt, language)}) ကို ပြန်ကြည့်နေပါသည် — API မခေါ်ပါ။`
+                      ? `မှတ်တမ်း (${formatCompletedTime(inspectedHistoryRecord.analyzedAt, language)}) ကို ပြန်ကြည့်နေပါသည် — API မခေါ်ပါ။`
                       : `Inspecting historical snapshot from ${formatCompletedTime(inspectedHistoryRecord.analyzedAt, language)} — 0 API calls.`}
                   </span>
                 </div>
@@ -2411,42 +2533,42 @@ export function DeepDiveWorkspaceView({
                 {/* Decision Overview Strip */}
                 <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800/80 text-xs">
                   <div>
-                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {isMy ? '7-Factor Score' : '7-Factor Score'}
+                    <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'အလားအလာအမှတ်' : '7-Factor Score'}
                     </dt>
                     <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                       {finalReport.overallScore}/100{' '}
-                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
                         ({finalReport.confidencePct}%)
                       </span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {isMy ? 'AI Verdict (သီးခြား)' : 'AI Verdict (Separate)'}
+                    <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'AI ဆုံးဖြတ်ချက် (သီးခြား)' : 'AI Verdict (Separate)'}
                     </dt>
                     <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 mt-0.5">
                       {finalReport.aiVerdict ?? (isMy ? 'မ Run ရသေး' : 'Not Run')}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {isMy ? 'Kalodata စရိတ် (Report)' : 'Kalodata Cost (Report)'}
+                    <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {isMy ? 'Kalodata စရိတ် (အစီရင်ခံစာ)' : 'Kalodata Cost (Report)'}
                     </dt>
                     <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
                       {formatCredits(finalReport.totalKalodataCreditsUsed)} cr{' '}
-                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
                         ({formatUsd(finalReport.totalKalodataUsdUsed)})
                       </span>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                       {isMy ? 'Gemini AI Calls (သီးခြား)' : 'Gemini AI Calls (Separate)'}
                     </dt>
                     <dd className="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400 tabular-nums mt-0.5">
                       {finalReport.totalGeminiApiCalls}{' '}
-                      <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
                         {finalReport.totalGeminiApiCalls > 0
                           ? isMy
                             ? '· ခန့်မှန်း/မတွက်နိုင်သေး'
@@ -2481,7 +2603,7 @@ export function DeepDiveWorkspaceView({
                             <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
                               {secTitle}
                             </h3>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                               <span className={`font-semibold ${getDataStatusStyle(sec.dataStatus)}`}>
                                 {t.dataStatusLabels[sec.dataStatus]}
                               </span>
@@ -2517,7 +2639,7 @@ export function DeepDiveWorkspaceView({
                                 type="button"
                                 onClick={() => handleRequestSingleRun(primaryRunId, false)}
                                 disabled={isAnyRunning}
-                                className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                                className="inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-45 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                               >
                                 <Play className="w-3 h-3 shrink-0" aria-hidden="true" />
                                 <span>{isMy ? 'Run မည်' : 'Run'}</span>
@@ -2538,7 +2660,7 @@ export function DeepDiveWorkspaceView({
                           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/70">
                             {sec.metrics.map((metric) => (
                               <div key={`${sec.id}-${metric.key}`} className="min-w-0">
-                                <dt className="flex items-center justify-between gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                <dt className="flex items-center justify-between gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                                   <span className="truncate">
                                     {isMy ? metric.labelMy : metric.labelEn}
                                   </span>
@@ -2567,7 +2689,7 @@ export function DeepDiveWorkspaceView({
                         )}
 
                         {secNotes.length > 0 && (
-                          <div className="text-[11px] text-amber-800 dark:text-amber-300/90 space-y-0.5">
+                          <div className="text-xs text-amber-800 dark:text-amber-300/90 space-y-0.5">
                             {secNotes.slice(0, 3).map((note, idx) => (
                               <p key={`${sec.id}-n-${idx}`} className="leading-relaxed">
                                 • {note}
@@ -2577,7 +2699,7 @@ export function DeepDiveWorkspaceView({
                         )}
 
                         {secSources.length > 0 && (
-                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                          <div className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                             <span className="font-medium text-zinc-700 dark:text-zinc-300">
                               Source:
                             </span>{' '}
@@ -2590,14 +2712,14 @@ export function DeepDiveWorkspaceView({
                 </div>
 
                 {/* Consolidated Report Sources Footer */}
-                <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <div className="pt-3 border-t border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">
                     {isMy ? 'Report Data Sources:' : 'Report Data Sources:'}
                   </span>{' '}
                   {(isMy ? finalReport.allDataSourcesMy : finalReport.allDataSourcesEn).length > 0
                     ? (isMy ? finalReport.allDataSourcesMy : finalReport.allDataSourcesEn).join(' · ')
                     : isMy
-                      ? 'Baseline Research Product Data (Deep Dive Module များ မ Run ရသေးပါ)'
+                      ? 'မူလရှာဖွေမှု ဒေတာ (Deep Dive Module များ မ Run ရသေးပါ)'
                       : 'Baseline Research Product Data (no Deep Dive modules executed yet)'}
                 </div>
               </div>
@@ -2624,7 +2746,7 @@ export function DeepDiveWorkspaceView({
                 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
               >
                 {isMy
-                  ? 'Deep Dive Analysis မှတ်တမ်း (Analysis History)'
+                  ? 'Deep Dive မှတ်တမ်း'
                   : 'Deep Dive Analysis History'}
               </h2>
             </div>
@@ -2742,7 +2864,7 @@ export function DeepDiveWorkspaceView({
                                 : ''}
                             </span>
                           </div>
-                          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                          <div className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                             <span>
                               {rec.analysisIds
                                 .map((id) => {
@@ -2753,7 +2875,7 @@ export function DeepDiveWorkspaceView({
                             </span>
                           </div>
                           {recSources.length > 0 && (
-                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            <div className="text-xs text-zinc-500 dark:text-zinc-400">
                               <span className="font-medium text-zinc-700 dark:text-zinc-300">
                                 Sources:
                               </span>{' '}
@@ -2777,7 +2899,7 @@ export function DeepDiveWorkspaceView({
                                 });
                               }
                             }}
-                            className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-[11px] font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
+                            className={`inline-flex items-center gap-1 min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
                               isInspected
                                 ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                                 : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
@@ -2789,7 +2911,7 @@ export function DeepDiveWorkspaceView({
                                   ? 'ကြည့်နေသည်'
                                   : 'Viewing'
                                 : isMy
-                                  ? 'Report တွင်ကြည့်မည်'
+                                  ? 'အစီရင်ခံစာတွင် ကြည့်မည်'
                                   : 'Inspect in Report'}
                             </span>
                           </button>
@@ -2804,7 +2926,7 @@ export function DeepDiveWorkspaceView({
                               )
                             }
                             aria-expanded={isExpandedRec}
-                            className="inline-flex items-center gap-1 min-h-[30px] px-2 py-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-md cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center gap-1 min-h-[30px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 rounded-md cursor-pointer whitespace-nowrap"
                           >
                             <span>{isExpandedRec ? (isMy ? 'ပိတ်' : 'Hide') : isMy ? 'အသေးစိတ်' : 'Details'}</span>
                             {isExpandedRec ? (
@@ -2833,7 +2955,7 @@ export function DeepDiveWorkspaceView({
                       </div>
 
                       {isExpandedRec && rec.moduleEntries.length > 0 && (
-                        <div className="pt-2 pl-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-1.5 text-[11px]">
+                        <div className="pt-2 pl-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-1.5 text-xs">
                           {rec.moduleEntries.map((entry) => {
                             const opt = getDeepDiveOptionById(entry.analysisId);
                             const modName = opt
@@ -2881,7 +3003,7 @@ export function DeepDiveWorkspaceView({
       </section>
 
       {/* Non-blocking Floating Run Feedback Toast + Sticky Bottom Action Bar (Option A) */}
-      <div className="sticky bottom-2 sm:bottom-3 z-30 space-y-2 pointer-events-none">
+      <div className="sticky bottom-[env(safe-area-inset-bottom)] z-30 pb-2 sm:pb-3 space-y-2 pointer-events-none">
         {runFeedbackToast && (
           <div
             role="status"
@@ -2903,7 +3025,7 @@ export function DeepDiveWorkspaceView({
                 <span className="font-semibold">{runFeedbackToast.title}</span>
                 {runFeedbackToast.detail && (
                   <span
-                    className={`ml-2 font-mono text-[11px] tabular-nums ${
+                    className={`ml-2 font-mono text-xs tabular-nums ${
                       runFeedbackToast.tone === 'error'
                         ? 'text-rose-700 dark:text-rose-300'
                         : 'text-zinc-300 dark:text-zinc-600'
@@ -2952,7 +3074,7 @@ export function DeepDiveWorkspaceView({
                             ? `0${opt.order}. ${opt.nameMy} ဖြုတ်မည်`
                             : `Remove 0${opt.order}. ${opt.nameEn}`
                         }
-                        className="inline-flex items-center gap-0.5 min-h-[28px] px-2 py-0.5 text-[11px] font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-0.5 min-h-[28px] px-2 py-0.5 text-xs font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:text-rose-800 dark:hover:text-rose-300 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <span>0{opt.order}</span>
                         <X className="w-2.5 h-2.5 opacity-70" aria-hidden="true" />
@@ -2979,12 +3101,12 @@ export function DeepDiveWorkspaceView({
                     {formatCredits(selectedCostEstimate.estimatedCredits)} cr
                   </span>
                   {selectedCostEstimate.estimatedCredits > 0 && (
-                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:inline">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:inline">
                       ({formatUsd(selectedCostEstimate.estimatedUsd)})
                     </span>
                   )}
                   {selectedCostEstimate.plannedGeminiCalls > 0 && (
-                    <span className="text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                    <span className="text-xs font-medium text-sky-700 dark:text-sky-400">
                       +{selectedCostEstimate.plannedGeminiCalls} AI
                     </span>
                   )}
@@ -3021,7 +3143,7 @@ export function DeepDiveWorkspaceView({
               title={isMy ? 'Spending Limit နှင့် ကုန်ကျစရိတ် စစ်ဆေးရန်' : 'Spending Limit & Cost Details'}
             >
               <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span className="font-mono tabular-nums text-[11px]">
+              <span className="font-mono tabular-nums text-xs">
                 {formatCredits(selectedBudgetGuard.remainingBudgetBeforeRun)}/
                 {formatCredits(effectiveSpendingLimit)} cr
               </span>
@@ -3097,15 +3219,22 @@ export function DeepDiveWorkspaceView({
               onClick={closeModal}
             >
               <div
+                ref={checkoutModalRef}
+                tabIndex={-1}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="deep-dive-checkout-modal-title"
                 data-testid="deep-dive-pre-run-confirmation"
                 onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-xl max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs"
+                className="w-full sm:max-w-xl max-h-[85vh] sm:max-h-[90vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs focus:outline-none"
               >
+                {/* Mobile Bottom-Sheet Drag Handle Indicator */}
+                <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0" aria-hidden="true">
+                  <span className="w-10 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700" />
+                </div>
+
                 {/* Modal Header */}
-                <div className="px-5 py-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-start justify-between gap-3 shrink-0">
+                <div className="px-5 py-3.5 sm:py-4 border-b border-zinc-200/80 dark:border-zinc-800 flex items-start justify-between gap-3 shrink-0">
                   <div className="flex items-start gap-2.5 min-w-0">
                     <ShieldCheck
                       className="w-4 h-4 text-zinc-900 dark:text-zinc-100 shrink-0 mt-0.5"
@@ -3140,34 +3269,34 @@ export function DeepDiveWorkspaceView({
                     type="button"
                     onClick={closeModal}
                     aria-label={isMy ? 'ပိတ်မည်' : 'Close dialog'}
-                    className="inline-flex items-center justify-center min-h-[32px] min-w-[32px] text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer shrink-0"
+                    className="inline-flex items-center justify-center min-h-[40px] min-w-[40px] text-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer shrink-0"
                   >
                     <X className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
 
                 {/* Modal Scrollable Body */}
-                <div className="px-5 py-4 overflow-y-auto space-y-4">
+                <div className="flex-1 min-h-0 px-5 py-4 overflow-y-auto space-y-4">
                   {/* Cost & Billing Summary Grid (Strictly Separating Kalodata Credits vs Gemini AI Billing) */}
                   <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-zinc-50/90 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 rounded-xl p-3.5">
                     <div className="space-y-0.5">
-                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                         {isMy ? 'Kalodata Credits' : 'Kalodata Credits'}
                       </dt>
                       <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                         {formatCredits(modalEstimate.estimatedCredits)} cr{' '}
-                        <span className="text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                        <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
                           ({formatUsd(modalEstimate.estimatedUsd)})
                         </span>
                       </dd>
-                      <dd className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                      <dd className="text-xs font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
                         {modalEstimate.plannedKalodataApiCalls} API · Cache/Local{' '}
                         {modalEstimate.cachedOrLocalModuleCount}
                       </dd>
                     </div>
 
                     <div className="space-y-0.5 sm:border-l sm:border-zinc-200/80 sm:dark:border-zinc-800 sm:pl-3">
-                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                         {isMy ? 'Gemini AI API (သီးခြား)' : 'Gemini AI API (Separate)'}
                       </dt>
                       {modalEstimate.plannedGeminiCalls > 0 ? (
@@ -3177,7 +3306,7 @@ export function DeepDiveWorkspaceView({
                               ? `${modalEstimate.plannedGeminiCalls} call · ခန့်မှန်း/မတွက်နိုင်သေး`
                               : `${modalEstimate.plannedGeminiCalls} call · Est. / Unavailable`}
                           </dd>
-                          <dd className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                          <dd className="text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
                             {isMy
                               ? 'Google Gemini pricing အပေါ်မူတည်သည် (အခမဲ့ မဟုတ်ပါ)'
                               : 'Depends on token usage & Google Gemini pricing (NOT free)'}
@@ -3191,7 +3320,7 @@ export function DeepDiveWorkspaceView({
                     </div>
 
                     <div className="space-y-0.5 sm:border-l sm:border-zinc-200/80 sm:dark:border-zinc-800 sm:pl-3">
-                      <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                         {isMy ? 'Run ပြီးကျန်မည့် Budget' : 'Budget After Run'}
                       </dt>
                       <dd
@@ -3205,7 +3334,7 @@ export function DeepDiveWorkspaceView({
                         {formatCredits(modalBudgetGuard.spendingLimitCredits)} cr
                       </dd>
                       {liveBalanceCredits !== null && (
-                        <dd className="text-[11px] font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                        <dd className="text-xs font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
                           Kalodata Bal: {formatCredits(liveBalanceCredits)} cr
                         </dd>
                       )}
@@ -3215,7 +3344,7 @@ export function DeepDiveWorkspaceView({
                   {/* Module List Inside Modal (With Inline Remove to Lower Cost Instantly) */}
                   {modalEstimate.modules.length > 0 ? (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                         <span>
                           {isMy
                             ? `ပါဝင်သော Analysis များ (${modalEstimate.modules.length})`
@@ -3236,19 +3365,19 @@ export function DeepDiveWorkspaceView({
                               <div className="min-w-0">
                                 <div className="font-medium text-zinc-950 dark:text-zinc-50 truncate">
                                   {def ? (
-                                    <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 mr-1.5">
+                                    <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 mr-1.5">
                                       0{def.order}.
                                     </span>
                                   ) : null}
                                   {label}
                                 </div>
-                                <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                                <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                                   {isMy ? item.apiLabelMy : item.apiLabelEn}
                                 </div>
                               </div>
 
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-mono text-[11px] tabular-nums font-medium text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+                                <span className="font-mono text-xs tabular-nums font-medium text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
                                   {formatModuleCostShort(item, isMy)}
                                 </span>
                                 {canRemoveModulesInModal && (
@@ -3370,11 +3499,11 @@ export function DeepDiveWorkspaceView({
                     <div className="flex items-center justify-between gap-2">
                       <label
                         htmlFor="deep-dive-spending-limit"
-                        className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+                        className="text-xs font-medium text-zinc-600 dark:text-zinc-300"
                       >
                         {isMy ? 'Spending Limit (Credits)' : 'Spending Limit (Credits)'}
                       </label>
-                      <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                      <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
                         {isMy
                           ? `ကျန် Budget: ${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr`
                           : `Remaining: ${formatCredits(modalBudgetGuard.remainingBudgetBeforeRun)} cr`}
@@ -3412,7 +3541,7 @@ export function DeepDiveWorkspaceView({
                           key={preset}
                           type="button"
                           onClick={() => handleSpendingLimitUpdate(preset)}
-                          className={`min-h-[34px] px-2.5 py-1 text-[11px] font-mono tabular-nums rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`min-h-[34px] px-2.5 py-1 text-xs font-mono tabular-nums rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                             Math.abs(effectiveSpendingLimit - preset) < 1e-6
                               ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                               : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
@@ -3426,7 +3555,7 @@ export function DeepDiveWorkspaceView({
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-5 py-3.5 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 shrink-0">
+                <div className="px-5 pt-3.5 pb-[calc(0.875rem+env(safe-area-inset-bottom))] sm:pb-3.5 border-t border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={closeModal}

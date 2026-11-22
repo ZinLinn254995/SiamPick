@@ -302,7 +302,7 @@ function evaluateSalesPerformance(
       status: 'unavailable',
       normalizedScore: null,
       evidenceEn: 'Verified Kalodata sales volume is unavailable; weight redistributed proportionally.',
-      evidenceMy: 'Kalodata ရောင်းအားအရေအတွက် မရရှိနိုင်သေးပါ — Weight ကို ရရှိထားသောအချက်များကြား အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+      evidenceMy: 'Kalodata ရောင်းအားအရေအတွက် မရရှိနိုင်သေးပါ — အလေးချိန်ကို ရရှိထားသောအချက်များကြား အချိုးကျပြန်ခွဲဝေထားပါသည်။',
       metricDisplayEn: 'Unavailable',
       metricDisplayMy: 'Unavailable',
     };
@@ -363,7 +363,7 @@ function evaluateRevenuePerformance(
       status: 'unavailable',
       normalizedScore: null,
       evidenceEn: 'Verified Kalodata THB revenue is unavailable; weight redistributed proportionally.',
-      evidenceMy: 'Kalodata ရောင်းချဝင်ငွေ (THB) မရရှိနိုင်သေးပါ — Weight ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+      evidenceMy: 'Kalodata ရောင်းချဝင်ငွေ (THB) မရရှိနိုင်သေးပါ — အလေးချိန်ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
       metricDisplayEn: 'Unavailable',
       metricDisplayMy: 'Unavailable',
     };
@@ -423,7 +423,7 @@ function evaluateRevenueGrowth(
       status: 'unavailable',
       normalizedScore: null,
       evidenceEn: 'Kalodata revenue growth rate is unavailable; weight redistributed proportionally.',
-      evidenceMy: 'Kalodata ဝင်ငွေတိုးတက်နှုန်း မရရှိနိုင်သေးပါ — Weight ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+      evidenceMy: 'Kalodata ဝင်ငွေတိုးတက်နှုန်း မရရှိနိုင်သေးပါ — အလေးချိန်ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
       metricDisplayEn: 'Unavailable',
       metricDisplayMy: 'Unavailable',
     };
@@ -484,7 +484,7 @@ function evaluateCommissionPotential(
       status: 'unavailable',
       normalizedScore: null,
       evidenceEn: 'Verified affiliate commission rate is unavailable; weight redistributed proportionally.',
-      evidenceMy: 'အတည်ပြုပြီး Affiliate Commission Rate မရရှိနိုင်သေးပါ — Weight ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+      evidenceMy: 'အတည်ပြုပြီး Affiliate Commission Rate မရရှိနိုင်သေးပါ — အလေးချိန်ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
       metricDisplayEn: 'Unavailable',
       metricDisplayMy: 'Unavailable',
     };
@@ -578,7 +578,7 @@ function evaluateCompetition(
       evidenceEn:
         'Unavailable — Kalodata Creator Count was not returned in this mode (requires Balanced/Deep Product Detail). Weight redistributed proportionally.',
       evidenceMy:
-        'Unavailable — ဤ Mode တွင် Kalodata Creator Count မပါဝင်ပါ (Balanced/Deep Product Detail လိုအပ်သည်)။ Weight ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+        'Unavailable — ဤ Mode တွင် Kalodata Creator Count မပါဝင်ပါ (Balanced/Deep Product Detail လိုအပ်သည်)။ အလေးချိန်ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
       metricDisplayEn: 'Unavailable',
       metricDisplayMy: 'Unavailable',
     };
@@ -668,7 +668,7 @@ function evaluateCompetition(
       : '';
   const yieldNoteMy =
     revPerCreator !== null && salesPerCreator !== null
-      ? ` (Creator ၁ ဦးပျမ်းမျှ ~${formatThbShort(revPerCreator)} · ~${Math.round(salesPerCreator).toLocaleString('en-US')} ခု)`
+      ? ` (Creator 1 ဦးပျမ်းမျှ ~${formatThbShort(revPerCreator)} · ~${Math.round(salesPerCreator).toLocaleString('en-US')} ခု)`
       : '';
 
   return {
@@ -704,7 +704,7 @@ function evaluateMarketDemand(
         status: 'unavailable',
         normalizedScore: null,
         evidenceEn: 'Market demand evidence is unavailable; weight redistributed proportionally.',
-        evidenceMy: 'Market Demand အထောက်အထား မရရှိနိုင်သေးပါ — Weight ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
+        evidenceMy: 'ဈေးကွက်လိုအပ်ချက် အထောက်အထား မရရှိနိုင်သေးပါ — အလေးချိန်ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။',
         metricDisplayEn: 'Unavailable',
         metricDisplayMy: 'Unavailable',
       };
@@ -1269,7 +1269,7 @@ export function evaluateProductOpportunity(
       `${unavailableCount} scoring factor(s) unavailable (${missingNames}) — ${redistributedWeightPct}% base weight redistributed across available factors.`
     );
     weaknessesMy.push(
-      `အချက် ${unavailableCount} ချက် (${missingNames}) ဒေတာမရရှိသေး၍ Base Weight ${redistributedWeightPct}% ကို ရရှိထားသောအချက်များကြား အချိုးကျပြန်ခွဲဝေထားပါသည်။`
+      `အချက် ${unavailableCount} ချက် (${missingNames}) ဒေတာမရရှိသေး၍ မူလအလေးချိန် ${redistributedWeightPct}% ကို ရရှိထားသောအချက်များကြား မျှတစွာပြန်ခွဲဝေထားပါသည်။`
     );
   }
   if (weaknessesEn.length === 0 && sortedAvailable.length > 0) {
@@ -1284,7 +1284,7 @@ export function evaluateProductOpportunity(
       `Missing data caution: ${redistributedWeightPct}% of scoring weight was redistributed because data was unavailable. Review Confidence (${confidenceLevel}, ${confidencePct}%) before committing.`
     );
     risksMy.push(
-      `ဒေတာမပြည့်စုံမှုသတိပြုချက် — မရရှိသေးသောအချက်များ၏ Weight ${redistributedWeightPct}% ကို ပြန်ခွဲဝေထားသဖြင့် Score တစ်ခုတည်းမကြည့်ဘဲ Confidence (${confidenceLevel} · ${confidencePct}%) နှင့် တွဲဖက်စစ်ဆေးပါ။`
+      `ဒေတာမပြည့်စုံမှုသတိပြုချက် — မရရှိသေးသောအချက်များ၏ အလေးချိန် ${redistributedWeightPct}% ကို ပြန်ခွဲဝေထားသဖြင့် အမှတ်တစ်ခုတည်းမကြည့်ဘဲ ဒေတာယုံကြည်မှု (${confidenceLevel} · ${confidencePct}%) နှင့် တွဲဖက်စစ်ဆေးပါ။`
     );
   }
   const growthVal = product.kalodataMetrics?.revenueGrowthRate;
@@ -1302,25 +1302,25 @@ export function evaluateProductOpportunity(
       `High creator crowding (${creatorsVal.toLocaleString('en-US')} promoting creators) may require sharper creative differentiation.`
     );
     risksMy.push(
-      `Creator ${creatorsVal.toLocaleString('en-US')} ဦးကျော် ကြော်ငြာနေ၍ ပြိုင်ဆိုင်မှုမြင့်မားနိုင်သည်။`
+      `Creator ${creatorsVal.toLocaleString('en-US')} ဦးကျော် Promote လုပ်နေ၍ ပြိုင်ဆိုင်မှုမြင့်မားနိုင်သည်။`
     );
   }
   if (product.kalodataMetrics?.deliveryType?.toLowerCase() === 'global') {
     risksEn.push('Cross-border Global shipping detected — longer Thailand delivery times can raise return/cancellation risk.');
-    risksMy.push('Global / Cross-border ပို့ဆောင်မှုဖြစ်သဖြင့် ပို့ဆောင်ချိန်ကြာမြင့်နိုင်ပြီး Return Risk မြင့်နိုင်သည်။');
+    risksMy.push('Global / Cross-border ပို့ဆောင်မှုဖြစ်သဖြင့် ပို့ဆောင်ချိန်ကြာမြင့်နိုင်ပြီး ပြန်အပ်နိုင်ခြေ စိုးရိမ်ချက် မြင့်နိုင်သည်။');
   }
   const aiFactor = criteria.find((c) => c.key === 'aiContentSuitability');
   if (aiFactor && (aiFactor.verification === 'unverified' || (aiFactor.normalizedScore ?? 0) < 55)) {
     risksEn.push('AI creative visual suitability is unverified or constrained — verify real product visual assets before scaling ads.');
-    risksMy.push('AI ကြော်ငြာဖန်တီးရန် သင့်တော်မှု မသေချာသေးပါ — ကြော်ငြာမလုပ်မီ Product ပုံစံအစစ်ကို စစ်ဆေးပါ။');
+    risksMy.push('AI Content ဖန်တီးရန် သင့်တော်မှု မသေချာသေးပါ — Content မဖန်တီးမီ ကုန်ပစ္စည်းပုံစံအစစ်ကို စစ်ဆေးပါ။');
   }
   if (risksEn.length === 0) {
     risksEn.push('Verify live TikTok Shop Thailand open-plan affiliate rate and stock availability before filming.');
-    risksMy.push('ဗီဒီယိုမရိုက်မီ TikTok Shop Thailand Creator Center တွင် လက်ရှိ Commission Rate နှင့် Stock ကို ထပ်မံစစ်ဆေးပါ။');
+    risksMy.push('ဗီဒီယိုမရိုက်မီ TikTok Shop Thailand Creator Center တွင် လက်ရှိ ကော်မရှင်နှုန်းနှင့် Stock ကို ထပ်မံစစ်ဆေးပါ။');
   }
 
   const confidenceExplanationEn = `${confidenceLevel} Confidence (${confidencePct}% weighted reliability): ${verifiedCount} Verified, ${estimatedCount} Estimated, ${unverifiedCount} Unverified, ${unavailableCount} Unavailable out of 7 factors.${redistributedWeightPct > 0 ? ` ${redistributedWeightPct}% unavailable weight redistributed proportionally.` : ' All 7 scoring factors evaluated directly with zero missing-data redistribution.'}`;
-  const confidenceExplanationMy = `${confidenceLevel} Confidence (ယုံကြည်စိတ်ချရမှု ${confidencePct}%) — အချက် ၇ ချက်အနက် Verified ${verifiedCount} ချက်၊ Estimated ${estimatedCount} ချက်၊ Unverified ${unverifiedCount} ချက်၊ Unavailable ${unavailableCount} ချက်။${redistributedWeightPct > 0 ? ` မရရှိသောအချက်၏ Weight ${redistributedWeightPct}% ကို အချိုးကျပြန်ခွဲဝေထားပါသည်။` : ' အချက် ၇ ချက်လုံး ဒေတာအပြည့်အစုံဖြင့် တွက်ချက်ထားပါသည်။'}`;
+  const confidenceExplanationMy = `${confidenceLevel} Confidence (ယုံကြည်စိတ်ချရမှု ${confidencePct}%) — အချက် 7 ချက်အနက် အတည်ပြုပြီး ${verifiedCount} ချက်၊ ခန့်မှန်း ${estimatedCount} ချက်၊ အတည်မပြုရသေး ${unverifiedCount} ချက်၊ မရရှိနိုင်ပါ ${unavailableCount} ချက်။${redistributedWeightPct > 0 ? ` မရရှိသောအချက်၏ အလေးချိန် ${redistributedWeightPct}% ကို မျှတစွာပြန်ခွဲဝေထားပါသည်။` : ' အချက် 7 ချက်လုံး ဒေတာအပြည့်အစုံဖြင့် တွက်ချက်ထားပါသည်။'}`;
 
   return {
     totalScore,

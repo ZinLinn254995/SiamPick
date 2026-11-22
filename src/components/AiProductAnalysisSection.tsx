@@ -311,7 +311,7 @@ export function AiProductAnalysisSection({
               <span className="text-amber-700 dark:text-amber-400">{t.aiBadgeFallback}</span>
             )
           ) : (
-            <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{t.aiBadgeReady}</span>
+            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{t.aiBadgeReady}</span>
           )}
         </div>
       </div>
@@ -441,13 +441,13 @@ export function AiProductAnalysisSection({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
             {liveDataBasis.slice(0, 4).map((fact) => (
               <div key={fact.key} className="text-xs">
-                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? fact.labelMy : fact.labelEn}
                 </div>
                 <div className="font-mono text-xs font-medium text-zinc-900 dark:text-zinc-100 tabular-nums truncate">
                   {isMy ? fact.valueMy : fact.valueEn}
                 </div>
-                <div className={`text-[10px] font-medium ${statusTextColor(fact.status)}`}>
+                <div className={`text-xs font-medium ${statusTextColor(fact.status)}`}>
                   {t.dataStatusLabels[fact.status]}
                 </div>
               </div>
@@ -493,7 +493,7 @@ export function AiProductAnalysisSection({
                   content={t.aiDataSeparationNote}
                 />
               </div>
-              <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                 {t.cardConfidence}: {t.confidenceLabels[analysis.overallDataConfidence]}
               </span>
             </div>
@@ -501,13 +501,13 @@ export function AiProductAnalysisSection({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2.5 pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70">
               {analysis.dataBasis.map((fact) => (
                 <div key={fact.key} className="min-w-0">
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                     {isMy ? fact.labelMy : fact.labelEn}
                   </div>
                   <div className="font-mono text-xs font-medium text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
                     {isMy ? fact.valueMy : fact.valueEn}
                   </div>
-                  <div className={`text-[10px] font-medium ${statusTextColor(fact.status)}`}>
+                  <div className={`text-xs font-medium ${statusTextColor(fact.status)}`}>
                     {t.dataStatusLabels[fact.status]}
                   </div>
                 </div>
@@ -608,7 +608,7 @@ export function AiProductAnalysisSection({
                     {t.aiSecSalesRevenue}
                   </h5>
                   <span
-                    className={`text-[11px] font-medium shrink-0 ${statusTextColor(analysis.salesAndRevenueStatus)}`}
+                    className={`text-xs font-medium shrink-0 ${statusTextColor(analysis.salesAndRevenueStatus)}`}
                   >
                     {t.dataStatusLabels[analysis.salesAndRevenueStatus]}
                   </span>
@@ -624,7 +624,7 @@ export function AiProductAnalysisSection({
                     {t.aiSecGrowthPotential}
                   </h5>
                   <span
-                    className={`text-[11px] font-medium shrink-0 ${statusTextColor(analysis.growthPotentialStatus)}`}
+                    className={`text-xs font-medium shrink-0 ${statusTextColor(analysis.growthPotentialStatus)}`}
                   >
                     {t.dataStatusLabels[analysis.growthPotentialStatus]}
                   </span>
@@ -640,7 +640,7 @@ export function AiProductAnalysisSection({
                     {t.aiSecCommissionPotential}
                   </h5>
                   <span
-                    className={`text-[11px] font-medium shrink-0 ${statusTextColor(analysis.commissionPotentialStatus)}`}
+                    className={`text-xs font-medium shrink-0 ${statusTextColor(analysis.commissionPotentialStatus)}`}
                   >
                     {t.dataStatusLabels[analysis.commissionPotentialStatus]}
                   </span>
@@ -656,7 +656,7 @@ export function AiProductAnalysisSection({
                     {t.aiSecCompetition}
                   </h5>
                   <span
-                    className={`text-[11px] font-medium shrink-0 ${statusTextColor(analysis.competitionStatus)}`}
+                    className={`text-xs font-medium shrink-0 ${statusTextColor(analysis.competitionStatus)}`}
                   >
                     {t.dataStatusLabels[analysis.competitionStatus]}
                   </span>
@@ -674,7 +674,7 @@ export function AiProductAnalysisSection({
                   <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiSecTargetCustomer}
                   </h5>
-                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400 shrink-0">
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-400 shrink-0">
                     {t.aiInferenceBadge} · {t.dataStatusLabels[analysis.targetCustomerStatus]}
                   </span>
                 </div>
@@ -737,14 +737,14 @@ export function AiProductAnalysisSection({
                     <h5 className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.aiSecAdSuitability}
                     </h5>
-                    <div className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+                    <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                       {t.aiAdFormatLabels[analysis.aiContentSuitability.adFormat] ??
                         t.aiAdFormatBeauty}
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right text-[11px]">
+                <div className="text-right text-xs">
                   <div className="font-semibold text-zinc-950 dark:text-zinc-50">
                     {t.aiVideoLabels[analysis.aiContentSuitability.suitabilityRating]}
                   </div>
@@ -762,7 +762,7 @@ export function AiProductAnalysisSection({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-zinc-200/80 dark:border-zinc-800/80">
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-zinc-800 dark:text-zinc-200">
+                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                     {t.aiAdAnglesHeading}
                   </div>
                   <ul className="space-y-1 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-zinc-400">
@@ -776,7 +776,7 @@ export function AiProductAnalysisSection({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
+                  <div className="text-xs font-semibold text-amber-800 dark:text-amber-300">
                     {t.aiAdCautionsHeading}
                   </div>
                   <ul className="space-y-1 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 marker:text-amber-600">
@@ -792,7 +792,7 @@ export function AiProductAnalysisSection({
             </div>
 
             {/* Footer Metadata + Explicit Manual Re-Analyze Control */}
-            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono tabular-nums">
                 <span>
                   {t.aiAnalyzedAtLabel}: {formatResearchDateTime(analysis.analyzedAt, language)}
@@ -856,7 +856,7 @@ export function AiProductAnalysisSection({
                 <div className="divide-y divide-zinc-200/80 dark:divide-zinc-800/80">
                   {previousAnalyses.map((prevItem, idx) => (
                     <div key={`${prevItem.dataFingerprint}-${idx}`} className="py-2.5 first:pt-0 last:pb-0 space-y-1">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                         <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
                           {formatResearchDateTime(prevItem.analyzedAt, language)} ·{' '}
                           {t.confidenceLabels[prevItem.overallDataConfidence]}

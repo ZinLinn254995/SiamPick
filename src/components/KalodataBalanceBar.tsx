@@ -1,4 +1,4 @@
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import type { Language } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
 import type { KalodataBalanceState } from '../hooks/useKalodataBalance';
@@ -35,9 +35,9 @@ export function KalodataBalanceBar({ language, balanceState }: KalodataBalanceBa
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-2.5 min-w-0">
           {loading ? (
-            <Loader2
-              className="w-4 h-4 text-zinc-500 dark:text-zinc-400 animate-spin shrink-0 mt-0.5"
+            <span
               aria-hidden="true"
+              className="w-4 h-4 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse shrink-0 mt-0.5"
             />
           ) : status?.ok ? (
             <CheckCircle2
@@ -57,13 +57,23 @@ export function KalodataBalanceBar({ language, balanceState }: KalodataBalanceBa
                 {t.kalodataSectionLabel}
               </span>
               <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">·</span>
-              <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">
+              <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500">
                 GET /openapi/v1/credit/balance
               </span>
             </div>
 
             {loading ? (
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">{t.kalodataChecking}</p>
+              <div className="flex items-center gap-2 pt-0.5" role="status" aria-live="polite">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-4 w-28 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse"
+                />
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3.5 w-20 rounded bg-zinc-200/80 dark:bg-zinc-800/80 animate-pulse"
+                />
+                <span className="sr-only">{t.kalodataChecking}</span>
+              </div>
             ) : status?.ok ? (
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
                 <span className="text-zinc-600 dark:text-zinc-400">
@@ -78,7 +88,7 @@ export function KalodataBalanceBar({ language, balanceState }: KalodataBalanceBa
                 {status.fields.map((entry) => (
                   <span
                     key={entry.key}
-                    className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums"
+                    className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums"
                   >
                     {formatFieldLabel(entry.key)}:{' '}
                     <span className="text-zinc-800 dark:text-zinc-200">{String(entry.value)}</span>
@@ -91,7 +101,7 @@ export function KalodataBalanceBar({ language, balanceState }: KalodataBalanceBa
                   {errorMessage}
                 </p>
                 {(status?.upstreamCode || status?.errorCategory) && (
-                  <p className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500">
+                  <p className="font-mono text-xs text-zinc-400 dark:text-zinc-500">
                     {[
                       status.httpStatus ? `HTTP ${status.httpStatus}` : null,
                       status.upstreamCode ? `Code: ${status.upstreamCode}` : null,
@@ -111,7 +121,7 @@ export function KalodataBalanceBar({ language, balanceState }: KalodataBalanceBa
           type="button"
           onClick={() => void refreshBalance()}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-60 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+          className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-60 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           <span>{t.kalodataCheckBtn}</span>

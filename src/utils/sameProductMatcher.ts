@@ -347,7 +347,7 @@ export function computeEarlyMoverAssessment(input: EarlyMoverInput): EarlyMoverA
       signalsMy.push(`Creator ${candidate.creatorNumber} ဦး ပြိုင်နေပြီဖြစ်၍ ခြေလှမ်းဦးရန် ခက်နိုင်`);
     } else {
       signalsEn.push(`${candidate.creatorNumber} creators currently promoting`);
-      signalsMy.push(`လက်ရှိ Creator ${candidate.creatorNumber} ဦး ကြော်ငြာနေ`);
+      signalsMy.push(`လက်ရှိ Creator ${candidate.creatorNumber} ဦး Promote လုပ်နေ`);
     }
   }
 
@@ -438,7 +438,7 @@ export function computeEarlyMoverAssessment(input: EarlyMoverInput): EarlyMoverA
   } else {
     score -= 4;
     signalsEn.push('Zero recorded 30d sales (brand-new / untested listing)');
-    signalsMy.push('၃၀ ရက်အတွင်း ရောင်းအား 0 ဖြစ်နေသေး (Listing အသစ်စက်စက်)');
+    signalsMy.push('30 ရက်အတွင်း ရောင်းအား 0 ဖြစ်နေသေး (Listing အသစ်စက်စက်)');
   }
 
   const clampedScore = Math.max(0, Math.min(100, Math.round(score)));

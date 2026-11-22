@@ -734,7 +734,7 @@ test('End-to-end Deep Dive engine runs 08 + 09 together cleanly, populates 9-sec
   assert.equal(sec9.isAiInterpretation, true);
 
   const md = buildDeepDiveReportMarkdown(report, 'my');
-  assert.match(md, /၉။ ကြော်ငြာ Video ဖန်တီးမှုနှင့် SEO Blueprint/);
+  assert.match(md, /9\. AI Content Video ဖန်တီးမှုနှင့် SEO Blueprint/);
 
   // History record & hydration preserves Module 09 cleanly
   const record = createDeepDiveHistoryRecord({

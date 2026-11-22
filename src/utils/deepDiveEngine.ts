@@ -641,7 +641,7 @@ export function estimateDeepDiveExecutionCost(
         noteEn:
           '0 Kalodata credits — uses 1 server-side Gemini AI API call (Cost: Estimated / Unavailable; billed separately by Google Gemini API — NOT free).',
         noteMy:
-          'Kalodata Credit 0 cr — Server-side Gemini AI API Call ၁ ကြိမ် (ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး · Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။',
+          'Kalodata Credit 0 cr — Server-side Gemini AI API Call 1 ကြိမ် (ကုန်ကျစရိတ်: ခန့်မှန်း/မတွက်နိုင်သေး · Google Gemini API မှ သီးခြားကောက်ခံသည် — အခမဲ့ မဟုတ်ပါ)။',
       });
       continue;
     }
@@ -666,7 +666,7 @@ export function estimateDeepDiveExecutionCost(
           separateAiBilling: true,
           reusesExistingOrCache: false,
           noteEn: `Optional Competitor Video Scan (+${KALODATA_CREDITS_PER_100_ROWS} Kalodata cr if uncached, 0 cr on 24h cache hit) PLUS 1 server-side Gemini AI call (separate Gemini billing).`,
-          noteMy: `ပြိုင်ဘက် Video စစ်ဆေးမှု (+${KALODATA_CREDITS_PER_100_ROWS} Kalodata cr · 24h Cache ရှိပါက 0 cr) နှင့် Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။`,
+          noteMy: `ပြိုင်ဘက် Video စစ်ဆေးမှု (+${KALODATA_CREDITS_PER_100_ROWS} Kalodata cr · 24h Cache ရှိပါက 0 cr) နှင့် Server-side Gemini AI Call 1 ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။`,
         });
       } else {
         modules.push({
@@ -685,7 +685,7 @@ export function estimateDeepDiveExecutionCost(
           noteEn:
             '0 Kalodata credits (Competitor Video Scan OFF) — uses 1 server-side Gemini AI API call (separate Google Gemini API billing).',
           noteMy:
-            'Kalodata Credit 0 cr (ပြိုင်ဘက် Video စစ်ဆေးမှု ပိတ်ထားသည်) — Server-side Gemini AI Call ၁ ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။',
+            'Kalodata Credit 0 cr (ပြိုင်ဘက် Video စစ်ဆေးမှု ပိတ်ထားသည်) — Server-side Gemini AI Call 1 ကြိမ် (Gemini စရိတ် သီးခြားရှိ)။',
         });
       }
       continue;
@@ -809,8 +809,8 @@ export function estimateDeepDiveExecutionCost(
           ? 'Shares deduplicated Product Detail call with another selected module (0 extra cr).'
           : `Uses 1 verified Product Detail API call (${KALODATA_PRODUCT_DETAIL_CREDIT} cr, shared across modules).`,
         noteMy: alreadyCounted
-          ? 'အခြား Module နှင့် Product Detail API ၁ ကြိမ်တည်း မျှဝေသုံးမည် (0 extra cr)။'
-          : `Product Detail API ၁ ကြိမ် (${KALODATA_PRODUCT_DETAIL_CREDIT} cr) ခေါ်ပြီး Module များအကြား မျှဝေသုံးမည်။`,
+          ? 'အခြား Module နှင့် Product Detail API 1 ကြိမ်တည်း မျှဝေသုံးမည် (0 extra cr)။'
+          : `Product Detail API 1 ကြိမ် (${KALODATA_PRODUCT_DETAIL_CREDIT} cr) ခေါ်ပြီး Module များအကြား မျှဝေသုံးမည်။`,
       });
     }
   }
@@ -1072,7 +1072,7 @@ async function ensureLayerOnSession(
           creditsUsed: 0,
           reusedFromCache: true,
           sourceLabelEn: 'Existing Research Product Data',
-          sourceLabelMy: 'ရှိပြီးသား Research Product Data',
+          sourceLabelMy: 'ရှိပြီးသား ရှာဖွေမှု Product Data',
         };
       }
       if (!forceRefresh && cached.productDetail) {
@@ -1328,7 +1328,7 @@ async function executeProductIntelligence(
   let creditsUsed = 0;
   let reusedFromCache = true;
   const dataSourcesEn = ['Existing Research Product Data'];
-  const dataSourcesMy = ['ရှိပြီးသား Research Product Data'];
+  const dataSourcesMy = ['ရှိပြီးသား ရှာဖွေမှု Product Data'];
 
   if (needsDetail && isValidKalodataId(session.workingProduct.kalodataMetrics?.productId)) {
     const fetched = await ensureLayerOnSession(session, 'productDetail', forceRefresh);
@@ -1778,7 +1778,7 @@ function executeAffiliateProfitAnalysis(session: DeepDiveBatchSession): DeepDive
     {
       key: 'earn10',
       labelEn: '10 Sales Scenario',
-      labelMy: '၁၀ ခု ရောင်းရလျှင်',
+      labelMy: '10 ခု ရောင်းရလျှင်',
       valueEn: fmtThbDecimal(earn10),
       valueMy: fmtThbDecimal(earn10),
       status: 'estimated',
@@ -1786,7 +1786,7 @@ function executeAffiliateProfitAnalysis(session: DeepDiveBatchSession): DeepDive
     {
       key: 'earn50',
       labelEn: '50 Sales Scenario',
-      labelMy: '၅၀ ခု ရောင်းရလျှင်',
+      labelMy: '50 ခု ရောင်းရလျှင်',
       valueEn: fmtThbDecimal(earn50),
       valueMy: fmtThbDecimal(earn50),
       status: 'estimated',
@@ -1794,7 +1794,7 @@ function executeAffiliateProfitAnalysis(session: DeepDiveBatchSession): DeepDive
     {
       key: 'earn100',
       labelEn: '100 Sales Scenario',
-      labelMy: '၁၀၀ ခု ရောင်းရလျှင်',
+      labelMy: '100 ခု ရောင်းရလျှင်',
       valueEn: fmtThbDecimal(earn100),
       valueMy: fmtThbDecimal(earn100),
       status: 'estimated',
@@ -1816,7 +1816,7 @@ function executeAffiliateProfitAnalysis(session: DeepDiveBatchSession): DeepDive
           : []),
       ],
       bulletsMy: [
-        `၁၀ ခု → ${fmtThbDecimal(earn10)} · ၅၀ ခု → ${fmtThbDecimal(earn50)} · ၁၀၀ ခု → ${fmtThbDecimal(earn100)} · ၅၀၀ ခု → ${fmtThbDecimal(earn500)}`,
+        `10 ခု → ${fmtThbDecimal(earn10)} · 50 ခု → ${fmtThbDecimal(earn50)} · 100 ခု → ${fmtThbDecimal(earn100)} · 500 ခု → ${fmtThbDecimal(earn500)}`,
         ...(hasMinMax && minPerSale !== null && maxPerSale !== null
           ? [
               `SKU ဈေးနှုန်းအပိုင်းအခြား (${fmtThb(m!.minPriceThb)}–${fmtThb(m!.maxPriceThb)}) အရ တစ်ခုလျှင် ${fmtThbDecimal(minPerSale)} မှ ${fmtThbDecimal(maxPerSale)} အထိ ရနိုင်သည်။`,
@@ -1834,14 +1834,14 @@ function executeAffiliateProfitAnalysis(session: DeepDiveBatchSession): DeepDive
     headlineEn: `${fmtThbDecimal(perSaleThb)} / sale (${fmtPct(commissionPct)} on ${fmtThbDecimal(price)})`,
     headlineMy: `တစ်ခုလျှင် ${fmtThbDecimal(perSaleThb)} (${fmtThbDecimal(price)} ၏ ${fmtPct(commissionPct)})`,
     summaryEn: `At ${fmtThbDecimal(price)} and ${fmtPct(commissionPct)} commission, each verified sale earns ${fmtThbDecimal(perSaleThb)} (${fmtThbDecimal(earn100)} per 100 sales before platform vouchers/returns).`,
-    summaryMy: `ဈေးနှုန်း ${fmtThbDecimal(price)} နှင့် ကော်မရှင် ${fmtPct(commissionPct)} အရ တစ်ခုရောင်းရလျှင် ${fmtThbDecimal(perSaleThb)} ရရှိမည် (၁၀၀ ခုရောင်းရလျှင် ${fmtThbDecimal(earn100)})။`,
+    summaryMy: `ဈေးနှုန်း ${fmtThbDecimal(price)} နှင့် ကော်မရှင် ${fmtPct(commissionPct)} အရ တစ်ခုရောင်းရလျှင် ${fmtThbDecimal(perSaleThb)} ရရှိမည် (100 ခုရောင်းရလျှင် ${fmtThbDecimal(earn100)})။`,
     metrics,
     sections,
     unavailableNotesEn: [
       'Real-time TikTok Shop Flash Sale / Seller Voucher discount adjustments and return deductions are Unavailable in Kalodata API — verify live checkout price before promoting.',
     ],
     unavailableNotesMy: [
-      'TikTok Shop Flash Sale / Voucher လျှော့ဈေးနှင့် Return နှုတ်ဖြတ်မှုများသည် Kalodata API တွင် မပါဝင်ပါ (Unavailable) — မကြော်ငြာမီ TikTok Shop တွင် တိုက်ရိုက်စစ်ဆေးပါ။',
+      'TikTok Shop Flash Sale / Voucher လျှော့ဈေးနှင့် Return နှုတ်ဖြတ်မှုများသည် Kalodata API တွင် မပါဝင်ပါ (Unavailable) — Promote မလုပ်မီ TikTok Shop တွင် တိုက်ရိုက်စစ်ဆေးပါ။',
     ],
     dataSourcesEn,
     dataSourcesMy,
@@ -1924,7 +1924,7 @@ async function executeCreatorCompetitionAnalysis(
         : 'Crowded affiliate field — differentiation via strong creative hooks is required.';
   const entryMy =
     level === 'Low'
-      ? 'ဝင်ရောက်ယှဉ်ပြိုင်ရန် အခွင့်အလမ်းကောင်း — Promote လုပ်နေသော Creator အရေအတွက် နည်းပါးသေးသည်။'
+      ? 'ဝင်ရောက်ယှဉ်ပြိုင်ရန် အလားအလာကောင်း — Promote လုပ်နေသော Creator အရေအတွက် နည်းပါးသေးသည်။'
       : level === 'Moderate'
         ? 'ပြိုင်ဆိုင်မှု အသင့်အတင့် — Video Hook ကောင်းကောင်းဖြင့် ယှဉ်ပြိုင်နိုင်သည်။'
         : 'ပြိုင်ဆိုင်မှု ပြင်းထန် — ထူးခြားသော Video ပုံစံဖြင့်သာ ခွဲထွက်နိုင်မည်။';
@@ -2346,7 +2346,7 @@ function executeMarketCompetitorComparison(
   const target = session.workingProduct;
   const targetCanonicalId = getCanonicalProductId(target);
   const dataSourcesEn = ['Current Research Results Session Peers (0 cr)'];
-  const dataSourcesMy = ['လက်ရှိ Research Results ရှိ Category တူ Product များ (0 cr)'];
+  const dataSourcesMy = ['လက်ရှိ ရှာဖွေမှုရလဒ်ရှိ Category တူ Product များ (0 cr)'];
 
   // Deduplicate same-category peers strictly excluding target itself
   const seen = new Set<string>([targetCanonicalId]);
@@ -2370,7 +2370,7 @@ function executeMarketCompetitorComparison(
       summaryEn:
         'No other products from the same category are available in the current Research Results session. No extra Kalodata API calls were made.',
       summaryMy:
-        'လက်ရှိ Research Results ထဲတွင် Category တူ အခြား Product မရှိသေးပါ။ ထပ်မံ API မခေါ်ထားပါ (0 cr)။',
+        'လက်ရှိ ရှာဖွေမှုရလဒ်ထဲတွင် Category တူ အခြား Product မရှိသေးပါ။ ထပ်မံ API မခေါ်ထားပါ (0 cr)။',
       metrics: [],
       sections: [],
       unavailableNotesEn: [
@@ -2532,7 +2532,7 @@ function executeMarketCompetitorComparison(
       ? `This product leads ${sameCategoryPeers.length} same-category peer(s) in your current Research Results (${targetScore}/100).${avgPeerRev !== null ? ` Peer average GMV is ${fmtThb(avgPeerRev)}.` : ''}`
       : `Compared against ${sameCategoryPeers.length} same-category peer(s). Top-ranked peer is "${topPeer.product.name}" (${topPeer.score}/100 vs your ${targetScore}/100).`,
     summaryMy: isLeader
-      ? `လက်ရှိ Research Results ရှိ Category တူ ပြိုင်ဘက် ${sameCategoryPeers.length} ခုထဲတွင် အမှတ်အမြင့်ဆုံး (${targetScore}/100) ဖြစ်ပါသည်။`
+      ? `လက်ရှိ ရှာဖွေမှုရလဒ်ရှိ Category တူ ပြိုင်ဘက် ${sameCategoryPeers.length} ခုထဲတွင် အမှတ်အမြင့်ဆုံး (${targetScore}/100) ဖြစ်ပါသည်။`
       : `Category တူ ပြိုင်ဘက် ${sameCategoryPeers.length} ခုနှင့် နှိုင်းယှဉ်ထားပါသည်။ ထိပ်ဆုံးပြိုင်ဘက်မှာ “${topPeer.product.nameMy}” (${topPeer.score}/100) ဖြစ်ပြီး ဤ Product မှာ ${targetScore}/100 ရရှိထားပါသည်။`,
     metrics,
     sections: [],
@@ -2644,7 +2644,7 @@ async function executeAiStrategicRecommendation(
     {
       id: 'ai-risks',
       titleEn: 'Potential Risks to Watch',
-      titleMy: 'သတိပြုရမည့် အန္တရာယ်များ',
+      titleMy: 'သတိပြုရမည့် စိုးရိမ်ချက်များ',
       status: 'estimated',
       bulletsEn: s.risksEn,
       bulletsMy: s.risksMy,
@@ -2669,7 +2669,7 @@ async function executeAiStrategicRecommendation(
       'Verified Product Data + Completed Deep Dive Modules #01–#07 (0 Kalodata cr)',
     ],
     dataSourcesMy: [
-      `Gemini AI စီးပွားရေးဆုံးဖြတ်ချက် (${s.modelUsed} · Gemini API ၁ ကြိမ် · AI API စရိတ် သီးခြားရှိသည်)`,
+      `Gemini AI စီးပွားရေးဆုံးဖြတ်ချက် (${s.modelUsed} · Gemini API 1 ကြိမ် · AI API စရိတ် သီးခြားရှိသည်)`,
       'အတည်ပြုပြီး Product Data + Deep Dive (#01–#07) ရလဒ်များ (0 Kalodata cr)',
     ],
     apiCallsMade: 0,
@@ -2791,7 +2791,7 @@ async function executeAdVideoCreativeBlueprint(
     {
       id: 'vc-concepts-hooks',
       titleEn: 'Top Concepts & 3-Second Hooks',
-      titleMy: 'ကြော်ငြာ Video Concept နှင့် 3-Second Hooks',
+      titleMy: 'AI Content Video Concept နှင့် 3-Second Hooks',
       status: 'estimated',
       bulletsEn: [
         ...bp.concepts.slice(0, 3).map((c) => `[${c.formatLabel}] ${c.titleEn}: ${c.angleSummaryEn}`),
@@ -2839,7 +2839,7 @@ async function executeAdVideoCreativeBlueprint(
       : ['Verified Product Data + Deep Dive Buyer Insights (0 Kalodata cr)']),
   ];
   const dataSourcesMy = [
-    `Gemini AI Creative Studio (${bp.modelUsed} · Gemini API ၁ ကြိမ် · AI စရိတ် သီးခြားရှိ)`,
+    `Gemini AI Creative Studio (${bp.modelUsed} · Gemini API 1 ကြိမ် · AI စရိတ် သီးခြားရှိ)`,
     ...(bp.competitorScanStatus === 'scanned'
       ? [
           reusedCache

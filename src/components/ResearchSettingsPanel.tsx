@@ -526,7 +526,7 @@ export function ResearchSettingsPanel({
       {/* Fixed Specifications Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-5 border-b border-zinc-100 dark:border-zinc-800/70">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
             <Lock className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
             <span>{t.settingMarketLabel}</span>
             <InfoPopover
@@ -542,7 +542,7 @@ export function ResearchSettingsPanel({
         </div>
 
         <div className="space-y-1">
-          <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{t.settingPriceLabel}</div>
+          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t.settingPriceLabel}</div>
           <div className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50">
             {t.settingPriceValue}{' '}
             <span className="font-mono text-xs font-normal text-zinc-400 dark:text-zinc-500 tabular-nums">
@@ -552,7 +552,7 @@ export function ResearchSettingsPanel({
         </div>
 
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+          <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-500 dark:text-zinc-400">
             <span>{t.strategyLabel}</span>
             <InfoPopover
               variant="help"
@@ -636,7 +636,7 @@ export function ResearchSettingsPanel({
 
             {/* Live 7-Factor Weight Breakdown (Always Sums to 100) */}
             <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="font-medium text-zinc-700 dark:text-zinc-300">{t.scoringStrategyActiveLabel}</span>
                 <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                   {t.scoringTotalWeightLabel}: {totalWeight}/100
@@ -648,12 +648,12 @@ export function ResearchSettingsPanel({
                     key={key}
                     className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70"
                   >
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate" title={t.factorLabels[key]}>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate" title={t.factorLabels[key]}>
                       {t.factorLabels[key]}
                     </div>
                     <div className="mt-0.5 font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                       {liveWeights[key]}
-                      <span className="text-[11px] font-normal text-zinc-400 dark:text-zinc-500"> pts</span>
+                      <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500"> pts</span>
                     </div>
                   </div>
                 ))}
@@ -669,7 +669,7 @@ export function ResearchSettingsPanel({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{t.settingCategoryLabel}</span>
-              <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                 ({selectedCategories.length} {t.selectedCategoriesCountLabel})
               </span>
               <InfoPopover
@@ -680,7 +680,7 @@ export function ResearchSettingsPanel({
               />
             </div>
             <span
-              className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums"
+              className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums"
               data-testid="category-catalog-counts"
             >
               {catalogCountSummary}
@@ -824,7 +824,7 @@ export function ResearchSettingsPanel({
                   <span className="text-xs font-medium truncate">{label}</span>
                 </span>
                 <span
-                  className={`font-mono text-[10px] tabular-nums shrink-0 ${
+                  className={`font-mono text-xs tabular-nums shrink-0 ${
                     !entry.selectable
                       ? entry.apiSupportStatus === 'unsupported'
                         ? 'text-red-400'
@@ -849,7 +849,7 @@ export function ResearchSettingsPanel({
         {selectedParentL1Ids.length > 0 && (
           <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+              <div className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400">
                 <Layers className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
                 <span>{t.subcategorySectionLabel}</span>
                 {selectedSubcategoryIds.length > 0 && (
@@ -872,7 +872,7 @@ export function ResearchSettingsPanel({
                 />
               </div>
 
-              <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-3 text-xs">
                 {selectedSubcategoryIds.length > 0 && (
                   <button
                     type="button"
@@ -903,7 +903,7 @@ export function ResearchSettingsPanel({
                       type="button"
                       onClick={() => onToggleSubcategory(sub.id)}
                       aria-pressed={active}
-                      className={`px-2.5 py-1 text-[11px] font-medium rounded-md border transition-colors cursor-pointer ${
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
                         active
                           ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
                           : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
@@ -958,7 +958,7 @@ export function ResearchSettingsPanel({
             </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg focus-within:border-zinc-900 min-h-[44px] w-full sm:w-40 shrink-0">
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
                 {t.customQuantityLabel}
               </span>
               <input
@@ -1064,7 +1064,7 @@ export function ResearchSettingsPanel({
             />
           </div>
           {plan.usesGeminiAnalysis && (
-            <span className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
               {t.geminiAnalysisActiveLabel}
             </span>
           )}
@@ -1150,7 +1150,7 @@ export function ResearchSettingsPanel({
                   type="button"
                   tabIndex={-1}
                   onClick={() => onResearchModeChange(item.id)}
-                  className="text-left font-mono text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500 cursor-pointer"
+                  className="text-left font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500 cursor-pointer"
                 >
                   {item.modePlan.plannedApiCalls} {t.plannedCallsLabel} · ≈{' '}
                   {formatUsd(item.modePlan.estimatedUsd)}
@@ -1218,7 +1218,7 @@ export function ResearchSettingsPanel({
                 />
                 <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200">
                   {t.includeReviewInsightsLabel}{' '}
-                  <span className="font-mono text-[11px] text-amber-700 dark:text-amber-400">
+                  <span className="font-mono text-xs text-amber-700 dark:text-amber-400">
                     (+{formatCredits(Math.min(effectiveDeepDiveCap, DEEP_COMMENT_INSIGHT_CAP))} cr)
                   </span>
                 </span>
@@ -1245,7 +1245,7 @@ export function ResearchSettingsPanel({
               title={t.myanmarFilterPopoverTitle}
               content={t.myanmarFilterPopoverDesc}
             />
-            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 hidden sm:inline">
+            <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:inline">
               · {t.myanmarFilterSubLabel}
             </span>
           </div>
@@ -1259,7 +1259,7 @@ export function ResearchSettingsPanel({
             className="inline-flex items-center gap-2 shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-lg py-0.5"
           >
             <span
-              className={`font-mono text-[11px] font-semibold tabular-nums ${
+              className={`font-mono text-xs font-semibold tabular-nums ${
                 myanmarLanguageOnly ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
               }`}
             >
@@ -1292,7 +1292,7 @@ export function ResearchSettingsPanel({
                 title={t.myanmarVideoScanPagesLabel}
                 content={t.myanmarVideoScanPagesHint}
               />
-              <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 tabular-nums">
+              <span className="font-mono text-xs text-emerald-700 dark:text-emerald-400 tabular-nums">
                 (≤{(effectiveVideoScanPages * KALODATA_MAX_PAGE_SIZE).toLocaleString('en-US')} videos · ≤
                 {formatCredits(effectiveVideoScanPages * KALODATA_VIDEO_RANK_CREDIT_PER_100)} cr)
               </span>
@@ -1386,13 +1386,13 @@ export function ResearchSettingsPanel({
                 onBlur={handleLimitBlur}
                 className="w-full text-right font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums bg-transparent focus:outline-none"
               />
-              <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">cr</span>
+              <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono">cr</span>
             </div>
           </div>
         </div>
 
         {/* Crisp 1-Line Call Breakdown & Last Actual Cost */}
-        <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-600 dark:text-zinc-400 tabular-nums">
+        <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
           <span className="font-sans font-medium text-zinc-800 dark:text-zinc-200">{modeSummary}</span>
           <span aria-hidden="true">·</span>
           <span>{callBreakdownText}</span>

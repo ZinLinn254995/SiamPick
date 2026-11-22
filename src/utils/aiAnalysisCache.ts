@@ -189,7 +189,7 @@ function persistAiAnalysisCacheMap(
         ? 'Browser localStorage quota is full — AI analysis could not be cached locally. Delete older Research History records to free space.'
         : 'Unable to save AI analysis cache to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် AI Analysis ကို သိမ်းဆည်း၍ မရပါ။ Research History အဟောင်းအချို့ကို ဖျက်ပြီး နေရာလွတ်ဖန်တီးပါ။'
+        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် AI Analysis ကို သိမ်းဆည်း၍ မရပါ။ ရှာဖွေမှု မှတ်တမ်း အဟောင်းအချို့ကို ဖျက်ပြီး နေရာလွတ်ဖန်တီးပါ။'
         : 'AI Analysis ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }

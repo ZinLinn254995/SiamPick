@@ -233,8 +233,8 @@ export function persistSavedProductsWithStatus(records: SavedProductRecord[]): S
         ? 'Browser storage quota is full. Delete older Research History records to free space without losing your Saved Products.'
         : 'Unable to save products to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser Storage နေရာပြည့်နေပါသည်။ Saved Products မပျောက်စေဘဲ နေရာလွတ်ရရန် အဟောင်းဖြစ်သော Research History အချို့ကို ဖျက်ပေးပါ။'
-        : 'Browser localStorage ထဲသို့ Saved Products သိမ်းဆည်း၍ မရပါ။',
+        ? 'Browser Storage နေရာပြည့်နေပါသည်။ သိမ်းထားသော ကုန်ပစ္စည်းများ မပျောက်စေဘဲ နေရာလွတ်ရရန် အဟောင်းဖြစ်သော ရှာဖွေမှု မှတ်တမ်းအချို့ကို ဖျက်ပေးပါ။'
+        : 'Browser localStorage ထဲသို့ သိမ်းထားသော ကုန်ပစ္စည်းများကို သိမ်းဆည်း၍ မရပါ။',
     };
   }
 }
@@ -263,7 +263,7 @@ export function formatResearchDate(isoString: string, language: Language): strin
   if (Number.isNaN(date.getTime())) return isoString;
 
   try {
-    return new Intl.DateTimeFormat(language === 'my' ? 'my-MM' : 'en-US', {
+    return new Intl.DateTimeFormat(language === 'my' ? 'my-MM-u-nu-latn' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -278,7 +278,7 @@ export function formatResearchDateTime(isoString: string, language: Language): s
   if (Number.isNaN(date.getTime())) return isoString;
 
   try {
-    return new Intl.DateTimeFormat(language === 'my' ? 'my-MM' : 'en-US', {
+    return new Intl.DateTimeFormat(language === 'my' ? 'my-MM-u-nu-latn' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

@@ -278,8 +278,8 @@ function persistEnvelope(envelope: DeepDiveHistoryEnvelopeV1): StorageWriteResul
         ? 'Browser localStorage quota is full — Deep Dive History could not be saved. Delete older history records to free space.'
         : 'Unable to save Deep Dive History to browser localStorage.',
       errorMy: quotaExceeded
-        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် Deep Dive History ကို သိမ်းဆည်း၍ မရပါ။ နေရာလွတ်ရန် History အဟောင်းအချို့ကို ဖျက်ပေးပါ။'
-        : 'Deep Dive History ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
+        ? 'Browser localStorage နေရာပြည့်နေသဖြင့် Deep Dive မှတ်တမ်းကို သိမ်းဆည်း၍ မရပါ။ နေရာလွတ်ရန် မှတ်တမ်းအဟောင်းအချို့ကို ဖျက်ပေးပါ။'
+        : 'Deep Dive မှတ်တမ်းကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }
 }

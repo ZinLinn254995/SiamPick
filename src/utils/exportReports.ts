@@ -633,7 +633,7 @@ export function buildCompleteTextReport(params: {
     `- Strengths: ${(isMy ? evaluation.strengthsMy : evaluation.strengthsEn)?.join(' / ') || 'Unavailable'}`,
     `- Weaknesses: ${(isMy ? evaluation.weaknessesMy : evaluation.weaknessesEn)?.join(' / ') || 'Unavailable'}`,
     ``,
-    `9. ${isMy ? 'အန္တရာယ်များနှင့် ကြော်ငြာအခွင့်အလမ်းများ (Risks & Opportunities)' : 'Risks & Opportunities'}`,
+    `9. ${isMy ? 'စိုးရိမ်ချက်များနှင့် အလားအလာများ (Risks & Opportunities)' : 'Risks & Opportunities'}`,
     `- Key Risks: ${(isMy ? evaluation.risksMy : evaluation.risksEn)?.join(' / ') || 'Unavailable'}`,
     `- Product Risks: ${((isMy ? product.generalRisksMy : product.generalRisksEn) ?? []).join(' / ') || 'Unavailable'}`,
     `- AI Video Ideas:`,

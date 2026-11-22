@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Bookmark,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Download,
   ExternalLink,
   ImageOff,
   Layers,
+  MoreHorizontal,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
@@ -22,11 +25,9 @@ import {
   MyanmarSignalSource,
   OpportunityEvaluation,
   ProductDecision,
-  ProductDecisionVerdict,
   ProductEnrichmentExecutionSummary,
   ResearchProduct,
   RiskSeverity,
-  ScoreTier,
   VerificationState,
 } from '../types/product';
 import {
@@ -65,6 +66,17 @@ import { AiProductAnalysisSection } from './AiProductAnalysisSection';
 import { DataEnrichmentSection } from './DataEnrichmentSection';
 import { SameProductHunterSection } from './SameProductHunterSection';
 import { InfoPopover } from './InfoPopover';
+import {
+  MiniBar,
+  type MiniBarTone,
+  ScoreRing,
+  Sparkline,
+  StatCard,
+  StatusDot,
+  StatusLegendPopover,
+  TrendDelta,
+  VerdictBadge,
+} from './visual';
 
 interface ResearchReportDrawerProps {
   product: ResearchProduct | null;
@@ -102,24 +114,11 @@ function verificationColorClass(status: VerificationState): string {
   return 'text-red-700 dark:text-red-400';
 }
 
-function tierTextColor(tier: ScoreTier): string {
-  if (tier === 'priority-test') return 'text-emerald-700 dark:text-emerald-400';
-  if (tier === 'investigate-further') return 'text-amber-700 dark:text-amber-400';
-  return 'text-zinc-600 dark:text-zinc-400';
-}
-
 function dataStatusColorClass(status: DataStatus): string {
   if (status === 'verified') return 'text-emerald-700 dark:text-emerald-400';
   if (status === 'estimated') return 'text-amber-700 dark:text-amber-400';
   if (status === 'unverified') return 'text-zinc-500 dark:text-zinc-400';
   return 'text-zinc-400 dark:text-zinc-500';
-}
-
-function decisionVerdictColor(verdict: ProductDecisionVerdict): string {
-  if (verdict === 'recommended') return 'text-emerald-700 dark:text-emerald-400';
-  if (verdict === 'worth-testing') return 'text-zinc-900 dark:text-zinc-100';
-  if (verdict === 'need-more-data') return 'text-amber-700 dark:text-amber-400';
-  return 'text-red-700 dark:text-red-400';
 }
 
 export function ResearchReportDrawer({
@@ -147,12 +146,49 @@ export function ResearchReportDrawer({
   const [resolvedTikTokUrl, setResolvedTikTokUrl] = useState<string | null>(() =>
     getTikTokShopProductUrl(product)
   );
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [expandedChips, setExpandedChips] = useState<{
+    strengths: boolean;
+    weaknesses: boolean;
+    risks: boolean;
+  }>({ strengths: false, weaknesses: false, risks: false });
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const [activeTabId, setActiveTabId] = useState<string>('rep-overview');
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setCopied(false);
     setCopiedTikTokLink(false);
     setActiveAiAnalysis(null);
+    setDetailsOpen(false);
+    setExpandedChips({ strengths: false, weaknesses: false, risks: false });
+    setActionsMenuOpen(false);
+    setActiveTabId('rep-overview');
   }, [product?.id]);
+
+  useEffect(() => {
+    const activeButton = tabRefs.current[activeTabId];
+    if (activeButton && typeof activeButton.scrollIntoView === 'function') {
+      activeButton.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      });
+    }
+  }, [activeTabId]);
+
+  useEffect(() => {
+    if (!actionsMenuOpen) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setActionsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [actionsMenuOpen]);
 
   useEffect(() => {
     const syncUrl = getTikTokShopProductUrl(product);
@@ -174,11 +210,17 @@ export function ResearchReportDrawer({
   useEffect(() => {
     if (!product) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (actionsMenuOpen) {
+          setActionsMenuOpen(false);
+        } else {
+          onClose();
+        }
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [product, onClose]);
+  }, [product, onClose, actionsMenuOpen]);
 
   if (!product) return null;
 
@@ -392,6 +434,7 @@ export function ResearchReportDrawer({
     : t.dataStatusLabels.unavailable;
 
   const jumpToSection = (sectionId: string) => {
+    setActiveTabId(sectionId);
     document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -481,7 +524,7 @@ export function ResearchReportDrawer({
                 <button
                   type="button"
                   onClick={() => onOpenDeepDive(product)}
-                  className="inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>Deep Dive</span>
@@ -491,245 +534,603 @@ export function ResearchReportDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label={t.reportClose}
-                className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                className="w-10 h-10 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
 
-          {/* 10-Link Quick-Jump Section Navigation */}
-          <nav
-            aria-label="Report sections"
-            className="px-5 sm:px-7 pb-2.5 flex items-center gap-4 overflow-x-auto text-xs font-medium text-zinc-500 dark:text-zinc-400"
-          >
-            {(
-              [
-                { id: 'rep-overview', label: t.reportJumpSummary },
-                { id: 'rep-decision', label: t.reportTabDecision },
-                { id: 'rep-market-data', label: t.reportTabMarketData },
-                { id: 'rep-enrichment', label: t.enrichJumpLabel },
-                { id: 'rep-same-product', label: isMy ? 'ဆိုင်တူ Link ရှာ' : 'Same Product' },
-                { id: 'rep-score', label: t.scoringJumpLabel },
-                { id: 'rep-ai-analysis', label: t.aiJumpLabel },
-                { id: 'rep-reviews', label: t.reportJumpReviews },
-                { id: 'rep-risks', label: t.reportJumpRisks },
-                { id: 'rep-video', label: t.reportJumpVideo },
-                { id: 'rep-sources', label: t.reportJumpSources },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => jumpToSection(item.id)}
-                className="hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap shrink-0 py-0.5"
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
+          {/* Quick-Jump Section Navigation with right-edge gradient fade, scroll-snap & active auto-scroll */}
+          <div className="relative">
+            <nav
+              aria-label="Report sections"
+              className="px-5 sm:px-7 pr-10 sm:pr-12 flex items-center gap-4 overflow-x-auto snap-x snap-mandatory scroll-pl-5 sm:scroll-pl-7 text-xs font-medium text-zinc-500 dark:text-zinc-400"
+            >
+              {(
+                [
+                  { id: 'rep-overview', label: t.reportJumpSummary },
+                  { id: 'rep-decision', label: t.reportTabDecision },
+                  { id: 'rep-market-data', label: t.reportTabMarketData },
+                  { id: 'rep-enrichment', label: t.enrichJumpLabel },
+                  { id: 'rep-same-product', label: isMy ? 'ဆိုင်တူ Link ရှာ' : 'Same Product' },
+                  { id: 'rep-score', label: t.scoringJumpLabel },
+                  { id: 'rep-ai-analysis', label: t.aiJumpLabel },
+                  { id: 'rep-reviews', label: t.reportJumpReviews },
+                  { id: 'rep-risks', label: t.reportJumpRisks },
+                  { id: 'rep-video', label: t.reportJumpVideo },
+                  { id: 'rep-sources', label: t.reportJumpSources },
+                ] as const
+              ).map((item) => {
+                const isActive = activeTabId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    ref={(el) => {
+                      tabRefs.current[item.id] = el;
+                    }}
+                    type="button"
+                    onClick={() => jumpToSection(item.id)}
+                    aria-current={isActive ? 'location' : undefined}
+                    className={`snap-start inline-flex items-center min-h-[40px] py-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                      isActive
+                        ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100 font-semibold'
+                        : 'border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-zinc-900 to-transparent"
+            />
+          </div>
         </div>
 
         {/* Scrollable Dossier */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-6 space-y-8">
-          {/* 1. Product Dossier Hero Summary */}
-          <div
-            id="rep-overview"
-            className="scroll-mt-4 grid grid-cols-1 md:grid-cols-12 gap-5 items-start"
-          >
-            <div className="md:col-span-5 space-y-2">
-              <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                {imageConfig.canRender && imageConfig.src ? (
-                  <>
-                    <ProductImage
-                      src={imageConfig.src}
-                      fallbackSrc={imageConfig.fallbackSrc}
-                      productId={imageConfig.productId}
-                      alt={product.name}
-                      title={displayName}
-                      unavailableLabel={t.cardImageUnverified}
-                    />
-                    {imageSourceNote && (
-                      <div className="absolute bottom-2 right-2">
-                        <InfoPopover
-                          variant="info"
-                          label={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
-                          title={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
-                          content={imageSourceNote}
-                          className="bg-white/90 dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300 shadow-xs hover:bg-white dark:hover:bg-zinc-800"
-                        />
+        <div
+          ref={scrollContainerRef}
+          onScroll={() => {
+            const container = scrollContainerRef.current;
+            if (!container) return;
+            const sectionIds = [
+              'rep-overview',
+              'rep-decision',
+              'rep-market-data',
+              'rep-enrichment',
+              'rep-same-product',
+              'rep-score',
+              'rep-ai-analysis',
+              'rep-reviews',
+              'rep-risks',
+              'rep-video',
+              'rep-sources',
+            ];
+            const containerTop = container.getBoundingClientRect().top;
+            let currentId = sectionIds[0];
+            for (const secId of sectionIds) {
+              const el = document.getElementById(secId);
+              if (!el) continue;
+              const offset = el.getBoundingClientRect().top - containerTop;
+              if (offset <= 88) {
+                currentId = secId;
+              }
+            }
+            setActiveTabId((prev) => (prev === currentId ? prev : currentId));
+          }}
+          className="flex-1 overflow-y-auto px-5 sm:px-7 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-[calc(4.5rem+env(safe-area-inset-bottom))] space-y-8"
+        >
+          {/* 1. Product Dossier Summary Header (3-second scan) */}
+          {(() => {
+            const hasRevenueGrowth =
+              typeof km?.revenueGrowthRate === 'number' &&
+              Number.isFinite(km.revenueGrowthRate);
+            const rawDateRange = km?.dateRange?.trim() || null;
+            const trendPeriodLabel =
+              rawDateRange === 'last7Day'
+                ? t.periodLast7Day
+                : rawDateRange === 'last30Day'
+                  ? t.periodLast30Day
+                  : rawDateRange;
+            // Only show Sparkline when >= 3 actual points exist; Kalodata summary only provides avg/peak (2 stats)
+            const salesTrendPoints: number[] = [];
+
+            const sortedCriteria = [...evaluation.criteria].sort((a, b) => {
+              const weightDiff = b.effectiveWeight - a.effectiveWeight;
+              if (weightDiff !== 0) return weightDiff;
+              return b.baseWeight - a.baseWeight;
+            });
+
+            const strengthsList = isMy ? evaluation.strengthsMy : evaluation.strengthsEn;
+            const weaknessesList = isMy ? evaluation.weaknessesMy : evaluation.weaknessesEn;
+            const risksList = isMy ? evaluation.risksMy : evaluation.risksEn;
+            const decisionCautions = isMy
+              ? decisionSummary.cautionsMy
+              : decisionSummary.cautionsEn;
+            const decisionReason = isMy
+              ? decisionSummary.reasonMy
+              : decisionSummary.reasonEn;
+
+            const confidenceToneClass =
+              evaluation.confidencePct >= 75
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : evaluation.confidencePct >= 50
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-zinc-600 dark:text-zinc-400';
+
+            const chipGroups = [
+              {
+                key: 'strengths' as const,
+                heading: t.scoringStrengthsHeading,
+                items: strengthsList,
+                headingClass: 'text-emerald-800 dark:text-emerald-300',
+                chipClass:
+                  'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200/90 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200',
+                btnClass:
+                  'text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/50',
+              },
+              {
+                key: 'weaknesses' as const,
+                heading: t.scoringWeaknessesHeading,
+                items: weaknessesList,
+                headingClass: 'text-amber-800 dark:text-amber-300',
+                chipClass:
+                  'bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/90 dark:border-amber-800/70 text-amber-900 dark:text-amber-200',
+                btnClass:
+                  'text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70 hover:bg-amber-50 dark:hover:bg-amber-950/50',
+              },
+              {
+                key: 'risks' as const,
+                heading: t.scoringRisksHeading,
+                items: risksList,
+                headingClass: 'text-red-800 dark:text-red-300',
+                chipClass:
+                  'bg-red-50/90 dark:bg-red-950/40 border-red-200/90 dark:border-red-800/70 text-red-900 dark:text-red-200',
+                btnClass:
+                  'text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-50 dark:hover:bg-red-950/50',
+              },
+            ].filter((group) => group.items.length > 0);
+
+            return (
+              <div id="rep-overview" className="scroll-mt-4 space-y-6">
+                {/* A. Hero Row */}
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-5">
+                  <div className="flex items-start gap-3.5 sm:gap-4 min-w-0 flex-1 w-full">
+                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 border border-zinc-200/80 dark:border-zinc-800">
+                      {imageConfig.canRender && imageConfig.src ? (
+                        <>
+                          <ProductImage
+                            src={imageConfig.src}
+                            fallbackSrc={imageConfig.fallbackSrc}
+                            productId={imageConfig.productId}
+                            alt={product.name}
+                            title={displayName}
+                            unavailableLabel={t.cardImageUnverified}
+                          />
+                          {imageSourceNote && (
+                            <div className="absolute bottom-1.5 right-1.5">
+                              <InfoPopover
+                                variant="info"
+                                label={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
+                                title={isMy ? 'ပုံအရင်းအမြစ်' : 'Image source'}
+                                content={imageSourceNote}
+                                className="bg-white/90 dark:bg-zinc-900/90 text-zinc-700 dark:text-zinc-300 shadow-xs hover:bg-white dark:hover:bg-zinc-800"
+                              />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                          <ImageOff
+                            className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1"
+                            aria-hidden="true"
+                          />
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                            {t.cardImageUnverified}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        {categoryLabel} · {subCategory}
+                        {product.shopName ? ` · ${product.shopName}` : ''}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-5 text-center">
-                    <ImageOff className="w-6 h-6 text-zinc-400 dark:text-zinc-500 mb-2" aria-hidden="true" />
-                    <div className="inline-flex items-center gap-1">
-                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{t.cardImageUnverified}</p>
-                      {imageSourceNote && (
-                        <InfoPopover
-                          variant="info"
-                          label={t.cardImageUnverified}
-                          title={t.cardImageUnverified}
-                          content={imageSourceNote}
+
+                      <h2
+                        id="research-report-title"
+                        className="font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
+                      >
+                        {displayName}
+                      </h2>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        <VerdictBadge
+                          verdict={decisionSummary.verdict}
+                          size="lg"
+                          language={language}
+                          className="!whitespace-normal"
                         />
+                        <StatusLegendPopover language={language} />
+                      </div>
+
+                      {tiktokShopUrl && (
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <a
+                            href={tiktokShopUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors whitespace-nowrap"
+                          >
+                            <span>{t.drawerOpenTikTokShop}</span>
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(tiktokShopUrl);
+                                setCopiedTikTokLink(true);
+                                setTimeout(() => setCopiedTikTokLink(false), 1600);
+                              } catch {
+                                // Ignore clipboard errors in restricted contexts
+                              }
+                            }}
+                            title={t.drawerTikTokLinkAria}
+                            aria-label={t.drawerTikTokLinkAria}
+                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            {copiedTikTokLink ? (
+                              <Check
+                                className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                            )}
+                            <span>
+                              {copiedTikTokLink ? t.drawerCopiedLink : t.drawerCopyTikTokLink}
+                            </span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
 
-            <div className="md:col-span-7 flex flex-col justify-between space-y-4">
-              <div>
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {categoryLabel} · {subCategory} ·{' '}
-                  {product.brand ? `${product.brand} · ` : ''}
-                  {product.shopName} ({product.dispatchHub})
-                </div>
-                <h2
-                  id="research-report-title"
-                  className="mt-1.5 font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug text-balance"
-                >
-                  {displayName}
-                </h2>
-                <p className={`mt-1.5 text-xs font-medium ${tierTextColor(evaluation.tier)}`}>
-                  {t.scoringTierRanges[evaluation.tier]} · {t.scoringTierLabels[evaluation.tier]}
-                </p>
-                {tiktokShopUrl && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <a
-                      href={tiktokShopUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 min-h-[36px] px-3.5 py-1.5 text-xs font-semibold text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      <span>
-                        {isMy
-                          ? 'TikTok Shop တွင် တိုက်ရိုက်ကြည့်ရန်'
-                          : 'Open on TikTok Shop'}
-                      </span>
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(tiktokShopUrl);
-                          setCopiedTikTokLink(true);
-                          setTimeout(() => setCopiedTikTokLink(false), 1600);
-                        } catch {
-                          // Ignore clipboard errors in restricted contexts
-                        }
-                      }}
-                      title={isMy ? 'TikTok Shop လင့်ခ်ကူးယူရန်' : 'Copy TikTok Shop link'}
-                      aria-label={isMy ? 'TikTok Shop လင့်ခ်ကူးယူရန်' : 'Copy TikTok Shop link'}
-                      className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      {copiedTikTokLink ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      )}
-                      <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'လင့်ခ်ကူး' : 'Copy')}</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* At-a-Glance Decision Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-zinc-200 dark:border-zinc-800">
-                <div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.cardPrice}</div>
-                  {product.priceThb !== null && product.priceThb > 0 ? (
-                    <div className="mt-0.5">
-                      <div className="font-mono text-base font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                        {formatThb(product.priceThb)}
+                  {/* ScoreRing + Data Confidence */}
+                  <div className="w-full sm:w-auto flex sm:flex-col items-center justify-between sm:justify-start gap-4 sm:gap-2 p-3.5 sm:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800 shrink-0">
+                    <ScoreRing
+                      value={evaluation.totalScore}
+                      size={88}
+                      label={t.cardOpportunityScore}
+                    />
+                    <div className="text-right sm:text-center">
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {t.cardConfidence}
                       </div>
                       <div
-                        className={`text-[11px] font-medium ${dataStatusColorClass(effectivePriceStatus)}`}
+                        className={`font-mono text-lg font-bold tabular-nums leading-tight ${confidenceToneClass}`}
                       >
-                        {t.dataStatusLabels[effectivePriceStatus]}
+                        {evaluation.confidencePct}%
+                      </div>
+                      <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {t.confidenceLabels[evaluation.confidenceLevel]}
                       </div>
                     </div>
-                  ) : (
-                    <div className="mt-0.5 text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                      {t.dataStatusLabels[effectivePriceStatus]}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.cardCommission}</div>
-                  <div className="mt-0.5 font-mono text-base font-semibold tabular-nums">
-                    {hasVerifiedCommission && product.commissionRate !== null ? (
-                      <span className="text-emerald-700 dark:text-emerald-400">{product.commissionRate}%</span>
-                    ) : (
-                      <span className="font-sans text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                        {t.dataStatusLabels[effectiveCommissionStatus]}
-                      </span>
-                    )}
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.cardOpportunityScore}</div>
-                  <div className="mt-0.5 font-mono text-base font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                    {evaluation.totalScore}
-                    <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">/100</span>
-                  </div>
+                {/* B. 4 StatCards */}
+                <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+                  {/* 1. Price */}
+                  <StatCard
+                    label={t.cardPrice}
+                    value={
+                      product.priceThb !== null && product.priceThb > 0
+                        ? formatThb(product.priceThb)
+                        : t.drawerNoData
+                    }
+                    tone="zinc"
+                    icon={
+                      <StatusDot
+                        status={effectivePriceStatus}
+                        language={language}
+                        size="md"
+                      />
+                    }
+                  />
+
+                  {/* 2. Commission rate + baht per sale */}
+                  <StatCard
+                    label={t.cardCommission}
+                    value={
+                      hasVerifiedCommission && product.commissionRate !== null
+                        ? `${product.commissionRate}%`
+                        : t.drawerNoData
+                    }
+                    sub={
+                      earningPerOrderThb !== null
+                        ? `${formatThb(earningPerOrderThb)} ${t.drawerPerSaleUnit}`
+                        : undefined
+                    }
+                    tone={
+                      hasVerifiedCommission && product.commissionRate !== null
+                        ? 'emerald'
+                        : 'zinc'
+                    }
+                    icon={
+                      <StatusDot
+                        status={effectiveCommissionStatus}
+                        language={language}
+                        size="md"
+                      />
+                    }
+                  />
+
+                  {/* 3. Sales / Revenue + Sparkline & TrendDelta */}
+                  <StatCard
+                    label={t.bestStatSales}
+                    value={
+                      km?.salesVolume !== null && km?.salesVolume !== undefined
+                        ? km.salesVolume.toLocaleString()
+                        : km?.revenueThb !== null && km?.revenueThb !== undefined
+                          ? formatThb(km.revenueThb)
+                          : t.drawerNoData
+                    }
+                    unit={
+                      km?.salesVolume !== null && km?.salesVolume !== undefined
+                        ? t.bestSoldUnit
+                        : undefined
+                    }
+                    sub={
+                      km?.salesVolume !== null &&
+                      km?.salesVolume !== undefined &&
+                      km?.revenueThb !== null &&
+                      km?.revenueThb !== undefined
+                        ? formatThb(km.revenueThb)
+                        : undefined
+                    }
+                    tone="zinc"
+                    icon={
+                      salesTrendPoints.length >= 3 || hasRevenueGrowth ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {salesTrendPoints.length >= 3 && (
+                            <Sparkline
+                              points={salesTrendPoints}
+                              tone={
+                                hasRevenueGrowth
+                                  ? (km?.revenueGrowthRate ?? 0) >= 0
+                                    ? 'emerald'
+                                    : 'red'
+                                  : undefined
+                              }
+                              width={52}
+                              height={20}
+                            />
+                          )}
+                          {hasRevenueGrowth && (
+                            <TrendDelta
+                              pct={km?.revenueGrowthRate}
+                              period={trendPeriodLabel}
+                            />
+                          )}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+
+                  {/* 4. Competition (graceful "no data") */}
+                  <StatCard
+                    label={t.bestStatCompetition}
+                    value={
+                      !competitionUnavailable &&
+                      km?.creatorNumber !== null &&
+                      km?.creatorNumber !== undefined
+                        ? km.creatorNumber.toLocaleString()
+                        : !competitionUnavailable
+                          ? t.competitionLabels[product.competitionLevel]
+                          : t.drawerNoData
+                    }
+                    unit={
+                      !competitionUnavailable &&
+                      km?.creatorNumber !== null &&
+                      km?.creatorNumber !== undefined
+                        ? t.bestCreatorsUnit
+                        : undefined
+                    }
+                    sub={
+                      !competitionUnavailable &&
+                      km?.creatorNumber !== null &&
+                      km?.creatorNumber !== undefined
+                        ? t.competitionLabels[product.competitionLevel]
+                        : undefined
+                    }
+                    tone={
+                      competitionUnavailable
+                        ? 'zinc'
+                        : product.competitionLevel === 'Low'
+                          ? 'emerald'
+                          : product.competitionLevel === 'Moderate'
+                            ? 'amber'
+                            : 'red'
+                    }
+                    icon={
+                      <StatusDot
+                        status={
+                          competitionUnavailable
+                            ? 'unavailable'
+                            : (competitionFactor?.verification ?? 'estimated')
+                        }
+                        language={language}
+                        size="md"
+                      />
+                    }
+                  />
                 </div>
 
-                <div>
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.cardConfidence}</div>
-                  <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                    {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
-                    <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums">
-                      ({evaluation.confidencePct}%)
+                {/* C. Why this score (MiniBar rows sorted by weight + StatusDot) */}
+                <div className="p-4 rounded-xl bg-zinc-50/80 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-800 space-y-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                      {t.drawerWhyScoreHeading}
+                    </h3>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {strategyFocusLabel}
                     </span>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* 2. Phase 5: Multi-Signal Final Decision Summary */}
-          <section
-            id="rep-decision"
-            className="scroll-mt-4 pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-3"
-          >
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                {t.decisionSummaryHeading}
-              </h3>
-              <span
-                className={`text-xs font-semibold ${decisionVerdictColor(decisionSummary.verdict)}`}
-              >
-                {t.decisionVerdictLabels[decisionSummary.verdict]}
-              </span>
-            </div>
-
-            <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800/80 space-y-3 text-xs">
-              <p className="text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
-                {isMy ? decisionSummary.reasonMy : decisionSummary.reasonEn}
-              </p>
-
-              {(isMy ? decisionSummary.cautionsMy : decisionSummary.cautionsEn).length > 0 && (
-                <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/70 space-y-1">
-                  <div className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
-                    {t.decisionCautionsLabel}
+                  <div className="space-y-2.5">
+                    {sortedCriteria.map((item) => {
+                      const scoreVal = item.wasRedistributed ? null : item.normalizedScore;
+                      const barTone: MiniBarTone =
+                        scoreVal === null
+                          ? 'zinc'
+                          : scoreVal >= 70
+                            ? 'emerald'
+                            : scoreVal >= 40
+                              ? 'amber'
+                              : 'red';
+                      return (
+                        <div key={item.key} className="flex items-center gap-2.5 min-w-0">
+                          <StatusDot
+                            status={item.verification}
+                            language={language}
+                            size="sm"
+                          />
+                          <MiniBar
+                            className="flex-1"
+                            value={scoreVal}
+                            max={100}
+                            tone={barTone}
+                            label={t.factorShortLabels[item.key]}
+                            weightPct={
+                              item.wasRedistributed ? item.baseWeight : item.effectiveWeight
+                            }
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <ul className="space-y-1 text-zinc-600 dark:text-zinc-400 leading-relaxed list-disc pl-4 marker:text-amber-600">
-                    {(isMy ? decisionSummary.cautionsMy : decisionSummary.cautionsEn).map(
-                      (caution, idx) => (
-                        <li key={`${idx}-${caution}`}>{caution}</li>
-                      )
-                    )}
-                  </ul>
                 </div>
-              )}
-            </div>
-          </section>
+
+                {/* D. Strengths / Weaknesses / Risks compact chip groups */}
+                {chipGroups.length > 0 && (
+                  <div className="space-y-3">
+                    {chipGroups.map((group) => {
+                      const isExpanded = expandedChips[group.key];
+                      const visibleItems = isExpanded
+                        ? group.items
+                        : group.items.slice(0, 3);
+                      const hiddenCount = group.items.length - 3;
+
+                      return (
+                        <div key={group.key} className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className={`text-xs font-semibold ${group.headingClass}`}>
+                              {group.heading}
+                            </h4>
+                            <span className="font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                              {group.items.length}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {visibleItems.map((line, idx) => (
+                              <span
+                                key={`${group.key}-${idx}-${line}`}
+                                className={`inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs leading-snug ${group.chipClass}`}
+                              >
+                                {line}
+                              </span>
+                            ))}
+
+                            {hiddenCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedChips((prev) => ({
+                                    ...prev,
+                                    [group.key]: !prev[group.key],
+                                  }))
+                                }
+                                className={`inline-flex items-center min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${group.btnClass}`}
+                              >
+                                {isExpanded
+                                  ? t.drawerShowLess
+                                  : `+${hiddenCount} ${t.drawerMoreUnit}`}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* E. Collapsed "Details" Accordion (AI decision reason & cautions, closed by default) */}
+                <section
+                  id="rep-decision"
+                  className="scroll-mt-4 rounded-xl border border-zinc-200/90 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    aria-expanded={detailsOpen}
+                    aria-controls="rep-decision-details"
+                    onClick={() => setDetailsOpen((prev) => !prev)}
+                    className="w-full min-h-[44px] px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-zinc-100/80 dark:hover:bg-zinc-800/70 transition-colors cursor-pointer"
+                  >
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
+                      <span className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                        {t.drawerDetailsAccordion}
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {t.decisionSummaryHeading}
+                      </span>
+                    </div>
+                    {detailsOpen ? (
+                      <ChevronUp
+                        className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0"
+                        aria-hidden="true"
+                      />
+                    ) : (
+                      <ChevronDown
+                        className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </button>
+
+                  {detailsOpen && (
+                    <div
+                      id="rep-decision-details"
+                      className="px-4 pb-4 pt-3 border-t border-zinc-200/80 dark:border-zinc-800 space-y-3 text-[13px]"
+                    >
+                      <p className="text-zinc-800 dark:text-zinc-200 leading-relaxed font-medium">
+                        {decisionReason}
+                      </p>
+
+                      {decisionCautions.length > 0 && (
+                        <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/70 space-y-1.5">
+                          <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                            {t.decisionCautionsLabel}
+                          </div>
+                          <ul className="space-y-1.5 text-zinc-600 dark:text-zinc-400 leading-relaxed list-disc pl-4 marker:text-amber-600">
+                            {decisionCautions.map((caution, idx) => (
+                              <li key={`${idx}-${caution}`}>{caution}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              </div>
+            );
+          })()}
 
           {/* 2b. Phase 9: Myanmar Video / Review Evidence & Status (Thailand TikTok Shop Only) */}
           {(myanmarInfo.matched ||
@@ -775,7 +1176,7 @@ export function ResearchReportDrawer({
                   {/* Confirmed Myanmar Promotional Videos (Video-First Discovery) */}
                   {isVideoBacked && (
                     <div className="space-y-1.5">
-                      <div className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                      <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                         {t.myanmarVideoEvidenceHeading}
                       </div>
                       <ul className="space-y-2">
@@ -784,7 +1185,7 @@ export function ResearchReportDrawer({
                             key={`my-video-${vid.videoId}-${idx}`}
                             className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 space-y-1"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                                   {vid.creatorHandle ||
@@ -821,7 +1222,7 @@ export function ResearchReportDrawer({
                                   href={vid.videoUrl!}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-900 dark:text-zinc-100 hover:underline"
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-zinc-900 dark:text-zinc-100 hover:underline"
                                 >
                                   <span>{t.myanmarVideoOpenLinkLabel}</span>
                                   <ExternalLink className="w-3 h-3" aria-hidden="true" />
@@ -836,7 +1237,7 @@ export function ResearchReportDrawer({
 
                   {/* Honest Review Check Counts (when reviews were checked) */}
                   {myanmarInfo.totalReviewsChecked > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-zinc-700 dark:text-zinc-300 tabular-nums">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-zinc-700 dark:text-zinc-300 tabular-nums">
                       <span>
                         <strong className="text-zinc-950 dark:text-zinc-50">{myanmarInfo.matchedReviewCount}</strong>{' '}
                         {t.myanmarReviewsMatchedLabel}
@@ -864,7 +1265,7 @@ export function ResearchReportDrawer({
                   {/* Confirmed Myanmar-Language Review Quotes */}
                   {myanmarInfo.matchedReviews && myanmarInfo.matchedReviews.length > 0 ? (
                     <div className="space-y-1.5">
-                      <div className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                      <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                         {t.myanmarEvidenceHeading}
                       </div>
                       <ul className="space-y-2">
@@ -873,7 +1274,7 @@ export function ResearchReportDrawer({
                             key={`my-review-${idx}`}
                             className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 space-y-1"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                                   {t.myanmarMatchTypeLabels[rv.matchType]}
@@ -905,7 +1306,7 @@ export function ResearchReportDrawer({
 
                   {/* Honest Per-Source Availability Matrix */}
                   <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/70 space-y-1.5">
-                    <div className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    <div className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                       {t.myanmarSourcesHeading}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -927,7 +1328,7 @@ export function ResearchReportDrawer({
                             <span className="text-zinc-700 dark:text-zinc-300 truncate">
                               {t.myanmarSourceLabels[srcKey]}
                             </span>
-                            <span className={`font-mono text-[11px] font-medium shrink-0 ${statusColor}`}>
+                            <span className={`font-mono text-xs font-medium shrink-0 ${statusColor}`}>
                               {t.myanmarAvailabilityLabels[st.availability]}
                             </span>
                           </div>
@@ -937,7 +1338,7 @@ export function ResearchReportDrawer({
                   </div>
 
                   {/* Strict Thailand-Only Market Disclaimer */}
-                  <p className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  <p className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/70 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                     {isMy ? myanmarInfo.marketScopeNoteMy : myanmarInfo.marketScopeNoteEn}
                   </p>
                 </div>
@@ -962,14 +1363,14 @@ export function ResearchReportDrawer({
                   </span>
                 </p>
               </div>
-              <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                 {km?.dateRange ?? t.dataStatusLabels.unavailable}
               </span>
             </div>
 
             <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800/80 text-xs">
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{isMy ? 'ရောင်းအား' : 'Sales Volume'}</dt>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">{isMy ? 'ရောင်းအား' : 'Sales Volume'}</dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                   {typeof km?.salesVolume === 'number'
                     ? km.salesVolume.toLocaleString('en-US')
@@ -977,7 +1378,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'ဝင်ငွေ (GMV)' : 'Revenue (THB)'}
                 </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -987,7 +1388,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'ဝင်ငွေတိုးတက်နှုန်း' : 'Revenue Growth'}
                 </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -997,7 +1398,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Creator အရေအတွက်' : 'Creator Count'}
                 </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -1007,7 +1408,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.cardCommission}</dt>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">{t.cardCommission}</dt>
                 <dd className="mt-0.5 font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
                   {hasVerifiedCommission && product.commissionRate !== null
                     ? `${product.commissionRate}%`
@@ -1015,7 +1416,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Video ဝင်ငွေ' : 'Video Revenue'}
                 </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -1025,7 +1426,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Live ဝင်ငွေ' : 'Live Revenue'}
                 </dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
@@ -1035,7 +1436,7 @@ export function ResearchReportDrawer({
                 </dd>
               </div>
               <div>
-                <dt className="text-[11px] text-zinc-500 dark:text-zinc-400">{isMy ? 'ဆိုင် GMV' : 'Shop GMV'}</dt>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">{isMy ? 'ဆိုင် GMV' : 'Shop GMV'}</dt>
                 <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                   {typeof km?.shopRevenueThb === 'number'
                     ? formatThb(km.shopRevenueThb)
@@ -1169,7 +1570,7 @@ export function ResearchReportDrawer({
                         </span>
                         <span className="truncate">{t.factorLabels[item.key]}</span>
                         {metricDisplay && (
-                          <span className="ml-1 font-mono text-[11px] font-normal text-zinc-500 dark:text-zinc-400 tabular-nums truncate">
+                          <span className="ml-1 font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums truncate">
                             · {metricDisplay}
                           </span>
                         )}
@@ -1180,7 +1581,7 @@ export function ResearchReportDrawer({
                           content={
                             <div className="space-y-1.5">
                               <p>{evidence}</p>
-                              <p className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                              <p className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                                 {t.scoringBaseWeightLabel}: {item.baseWeight} pts
                                 {weightAdjusted
                                   ? ` → ${t.scoringEffectiveWeightLabel}: ${item.effectiveWeight.toFixed(1)} pts`
@@ -1196,7 +1597,7 @@ export function ResearchReportDrawer({
                           {t.criterionVerificationLabels[item.verification]}
                         </span>
                         {item.wasRedistributed || item.earnedPoints === null ? (
-                          <span className="font-mono text-[11px] text-amber-700 dark:text-amber-400 tabular-nums">
+                          <span className="font-mono text-xs text-amber-700 dark:text-amber-400 tabular-nums">
                             {t.scoringRedistributedLabel}
                           </span>
                         ) : (
@@ -1281,7 +1682,7 @@ export function ResearchReportDrawer({
 
           {/* 7. Phase 3: Gemini AI Product Analysis (Explicitly Separated from Verified Kalodata Market Data) */}
           <div className="space-y-1">
-            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{t.reportAiTag}</div>
+            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t.reportAiTag}</div>
             <AiProductAnalysisSection
               product={product}
               evaluation={evaluation}
@@ -1764,56 +2165,90 @@ export function ResearchReportDrawer({
           </section>
         </div>
 
-        {/* Sticky Decision & Export Footer */}
-        <div className="shrink-0 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-7 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCopyReport}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-3.5 py-2 text-xs font-medium text-zinc-800 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-                  <span>{t.reportCopied}</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>{t.reportCopy}</span>
-                </>
+        {/* F. Sticky Decision & Export Footer */}
+        <div className="sticky bottom-[env(safe-area-inset-bottom)] shrink-0 z-10 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-7 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* "..." Overflow menu for Copy / CSV / JSON */}
+            <div ref={actionsMenuRef} className="relative shrink-0">
+              <button
+                type="button"
+                aria-label={t.drawerMoreActions}
+                aria-haspopup="menu"
+                aria-expanded={actionsMenuOpen}
+                onClick={() => setActionsMenuOpen((prev) => !prev)}
+                className="w-11 min-h-[44px] inline-flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <MoreHorizontal className="w-5 h-5" aria-hidden="true" />
+              </button>
+
+              {actionsMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label={t.drawerMoreActions}
+                  className="absolute bottom-full mb-2 left-0 z-20 min-w-[192px] py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 shadow-xl"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleCopyReport();
+                      setActionsMenuOpen(false);
+                    }}
+                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    {copied ? (
+                      <>
+                        <Check
+                          className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>{t.reportCopied}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                        <span>{t.reportCopy}</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleExportSingleCsv();
+                      setActionsMenuOpen(false);
+                    }}
+                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                    <span>{t.exportCsvBtn}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleExportSingleJson();
+                      setActionsMenuOpen(false);
+                    }}
+                    className="w-full min-h-[40px] px-3.5 py-2 flex items-center gap-2.5 text-left text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+                    <span>{t.exportJsonBtn}</span>
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={handleExportSingleCsv}
-              aria-label={t.exportCsvBtn}
-              className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.reportExportCsv}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleExportSingleJson}
-              aria-label={t.exportJsonBtn}
-              className="inline-flex items-center justify-center gap-1 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <Download className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.reportExportJson}</span>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 sm:flex-1">
+            {/* Reject = Secondary */}
             <button
               type="button"
               onClick={() => onReject(product.id)}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 py-2 text-sm font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                 isRejected
                   ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40'
+                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40'
               }`}
             >
               {isRejected ? (
@@ -1828,23 +2263,24 @@ export function ResearchReportDrawer({
                 </>
               )}
             </button>
-
-            <button
-              type="button"
-              onClick={() => onSave(product.id)}
-              className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[42px] px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
-                isSaved
-                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white hover:bg-emerald-800 dark:hover:bg-emerald-500'
-                  : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
-              }`}
-            >
-              <Bookmark
-                className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`}
-                aria-hidden="true"
-              />
-              <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
-            </button>
           </div>
+
+          {/* Save = Primary full-width */}
+          <button
+            type="button"
+            onClick={() => onSave(product.id)}
+            className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+              isSaved
+                ? 'bg-emerald-700 dark:bg-emerald-600 text-white hover:bg-emerald-800 dark:hover:bg-emerald-500'
+                : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
+            }`}
+          >
+            <Bookmark
+              className={`w-4 h-4 shrink-0 ${isSaved ? 'fill-current' : ''}`}
+              aria-hidden="true"
+            />
+            <span>{isSaved ? t.btnSavedProduct : t.btnSaveProduct}</span>
+          </button>
         </div>
       </div>
     </div>

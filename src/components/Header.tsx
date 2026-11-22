@@ -1,4 +1,4 @@
-import { Bookmark, Coins, Globe, HardDrive, History, Loader2, Moon, Sun } from 'lucide-react';
+import { Bookmark, Coins, Globe, HardDrive, Moon, Sun } from 'lucide-react';
 import { AppView, CategoryFilter, Language } from '../types/product';
 import { TRANSLATIONS } from '../i18n/translations';
 import type { KalodataBalanceState } from '../hooks/useKalodataBalance';
@@ -54,7 +54,7 @@ export function Header({
   const hasNumericBalance = Boolean(balanceStatus?.ok && balanceStatus.balance !== null);
   const rawBalanceNumber = hasNumericBalance
     ? formatCompactHeaderBalance(balanceStatus!.balance!)
-    : '--';
+    : '—';
   const unitFull = balanceStatus?.unit ? balanceStatus.unit : 'credits';
   const unitShort = /^credits?$/i.test(unitFull) ? 'cr' : unitFull;
 
@@ -78,16 +78,16 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-30 bg-[#FAFAFA]/95 dark:bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-200/80 dark:border-zinc-800/80 overflow-x-clip transition-colors">
-      <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-5">
+      <div className="max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2.5 sm:gap-5">
         {/* Zone 1: Brand Wordmark + Quiet Unboxed Credit Balance */}
-        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3.5 min-w-0 shrink-0">
           <a
             href="#top"
             onClick={(e) => {
               e.preventDefault();
               onGoHome();
             }}
-            className="font-display text-base sm:text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-sm"
+            className="inline-flex items-center min-h-[40px] font-display text-base sm:text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 rounded-sm"
           >
             SiamPick
           </a>
@@ -103,35 +103,44 @@ export function Header({
             onClick={() => void refreshBalance()}
             disabled={balanceLoading}
             title={balanceTitle}
-            aria-label={balanceTitle}
-            className="inline-flex items-center gap-1.5 px-1.5 py-1 -mx-1 rounded-md text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-950 dark:hover:text-zinc-100 disabled:opacity-60 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            aria-label={balanceLoading ? t.creditsLoadingLabel : balanceTitle}
+            className="inline-flex items-center gap-1.5 min-h-[40px] px-2 py-1.5 -mx-1 rounded-lg text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-950 dark:hover:text-zinc-100 disabled:opacity-75 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
           >
             {balanceLoading ? (
-              <Loader2
-                className="w-3.5 h-3.5 text-zinc-400 animate-spin shrink-0"
-                aria-hidden="true"
-              />
+              <span className="inline-flex items-center gap-1.5" aria-busy="true">
+                <span
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse shrink-0"
+                />
+                <span
+                  aria-hidden="true"
+                  className="h-3.5 w-12 rounded bg-zinc-200 dark:bg-zinc-800 animate-pulse"
+                />
+                <span className="sr-only">{t.creditsLoadingLabel}</span>
+              </span>
             ) : (
-              <Coins
-                className={`w-3.5 h-3.5 shrink-0 ${
-                  hasNumericBalance
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-amber-600 dark:text-amber-400'
-                }`}
-                aria-hidden="true"
-              />
-            )}
-            <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-              {balanceLoading ? '...' : rawBalanceNumber}
-            </span>
-            {!balanceLoading && hasNumericBalance && (
               <>
-                <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 xl:hidden">
-                  {unitShort}
+                <Coins
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    hasNumericBalance
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}
+                  aria-hidden="true"
+                />
+                <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {rawBalanceNumber}
                 </span>
-                <span className="hidden xl:inline font-mono text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {unitFull}
-                </span>
+                {hasNumericBalance && (
+                  <>
+                    <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 xl:hidden">
+                      {unitShort}
+                    </span>
+                    <span className="hidden xl:inline font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                      {unitFull}
+                    </span>
+                  </>
+                )}
               </>
             )}
           </button>
@@ -145,7 +154,7 @@ export function Header({
           <button
             type="button"
             onClick={() => onSelectCategory('all')}
-            className={`py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
+            className={`inline-flex items-center min-h-[40px] py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
               activeView === 'hunting' && activeCategory === 'all'
                 ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100'
                 : 'border-transparent hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -156,7 +165,7 @@ export function Header({
           <button
             type="button"
             onClick={onFocusStrategy}
-            className="hidden lg:inline-flex py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 border-transparent hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-300 dark:hover:border-zinc-700"
+            className="hidden lg:inline-flex items-center min-h-[40px] py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 border-transparent hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-300 dark:hover:border-zinc-700"
           >
             {t.navCategories} &amp; {t.navStrategy}
           </button>
@@ -164,7 +173,7 @@ export function Header({
             type="button"
             onClick={onToggleHistoryView}
             aria-current={activeView === 'history' ? 'page' : undefined}
-            className={`py-1 inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
+            className={`inline-flex items-center gap-1 min-h-[40px] py-1 whitespace-nowrap shrink-0 transition-colors cursor-pointer border-b-2 ${
               activeView === 'history'
                 ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100'
                 : 'border-transparent hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -177,7 +186,7 @@ export function Header({
           </button>
         </nav>
 
-        {/* Zone 3: Quiet Ghost Utility Controls + Single Primary Saved Action */}
+        {/* Zone 3: Quiet Ghost Utility Controls + Desktop Primary Saved Action (Mobile uses bottom tab bar) */}
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Compact Single-Button Language Toggle (Ghost style — no heavy box) */}
           <button
@@ -185,9 +194,9 @@ export function Header({
             onClick={() => onChangeLanguage(isMy ? 'en' : 'my')}
             title={languageToggleLabel}
             aria-label={languageToggleLabel}
-            className="inline-flex items-center gap-1 min-h-[34px] sm:min-h-[36px] px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            className="inline-flex items-center justify-center gap-1 min-h-[40px] min-w-[40px] px-2.5 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
           >
-            <Globe className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
+            <Globe className="w-4 h-4 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
             <span>{isMy ? 'မြန်မာ' : 'EN'}</span>
           </button>
 
@@ -198,7 +207,7 @@ export function Header({
             aria-pressed={isDark}
             aria-label={themeToggleLabel}
             title={themeToggleLabel}
-            className="inline-flex items-center justify-center w-[34px] h-[34px] sm:w-[36px] sm:h-[36px] rounded-lg text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
           >
             {isDark ? (
               <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
@@ -214,43 +223,26 @@ export function Header({
               onClick={onOpenBackupModal}
               title={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
               aria-label={isMy ? 'Backup နှင့် Restore' : 'Backup & Restore'}
-              className="inline-flex items-center gap-1.5 min-h-[34px] sm:min-h-[36px] px-2 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] min-w-[40px] px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
             >
-              <HardDrive className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+              <HardDrive className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
               <span className="hidden xl:inline">{isMy ? 'Backup' : 'Backup'}</span>
             </button>
           )}
 
-          {/* Mobile-Only Ghost History Button (Tablet md+ has History in center nav) */}
-          <button
-            type="button"
-            onClick={onToggleHistoryView}
-            aria-pressed={activeView === 'history'}
-            aria-label={`${t.navHistory} (${historyCount})`}
-            title={`${t.navHistory} (${historyCount})`}
-            className={`md:hidden inline-flex items-center gap-1 min-h-[34px] px-2 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              activeView === 'history'
-                ? 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-50'
-                : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
-            }`}
-          >
-            <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span className="font-mono tabular-nums text-[11px]">{historyCount}</span>
-          </button>
-
-          {/* Subtle separator before primary CTA on sm+ */}
+          {/* Subtle separator before primary CTA on md+ */}
           <span
-            className="hidden sm:block h-4 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5 shrink-0"
+            className="hidden md:block h-4 w-px bg-zinc-200 dark:bg-zinc-800 mx-0.5 shrink-0"
             aria-hidden="true"
           />
 
-          {/* Single Primary CTA: Saved Products */}
+          {/* Single Primary CTA: Saved Products (Tablet md+ — mobile uses bottom tab bar) */}
           <button
             type="button"
             onClick={onToggleSavedView}
             aria-pressed={activeView === 'saved'}
             aria-label={`${t.shortlistBtn} (${shortlistCount})`}
-            className={`inline-flex items-center gap-1.5 min-h-[34px] sm:min-h-[36px] px-2.5 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-medium rounded-lg active:scale-[0.99] transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
+            className={`hidden md:inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 text-[13px] font-medium rounded-lg active:scale-[0.99] transition-all whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950 ${
               activeView === 'saved'
                 ? 'bg-emerald-700 text-white hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500'
                 : 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white'
@@ -260,7 +252,7 @@ export function Header({
               className={`w-3.5 h-3.5 shrink-0 ${activeView === 'saved' ? 'fill-current' : ''}`}
               aria-hidden="true"
             />
-            <span className="hidden sm:inline">{t.shortlistBtn}</span>
+            <span>{t.shortlistBtn}</span>
             <span className="font-mono tabular-nums opacity-80">({shortlistCount})</span>
           </button>
         </div>

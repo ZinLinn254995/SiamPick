@@ -71,7 +71,7 @@ function renderPointList(
       {points.map((pt, idx) => (
         <li key={`${idx}-${pt.point}`}>
           <span>{pt.point}</span>{' '}
-          <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 tabular-nums">
+          <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
             ({isMy ? `${pt.mentions} ကြိမ်` : `${pt.mentions}x`})
           </span>
         </li>
@@ -487,7 +487,7 @@ export function DataEnrichmentSection({
           />
         </div>
 
-        <div className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0 text-left sm:text-right">
+        <div className="text-xs font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0 text-left sm:text-right">
           <div>
             {t.enrichVerificationLabel}:{' '}
             <strong className={verificationCount >= 2 ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-800 dark:text-zinc-200'}>
@@ -520,7 +520,7 @@ export function DataEnrichmentSection({
               }
             />
           </div>
-          <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
             {t.spendingLimitLabel}: {formatCredits(spendingLimitCredits)} {t.creditsUnit}
           </span>
         </div>
@@ -593,7 +593,7 @@ export function DataEnrichmentSection({
                     <div className="min-w-0">
                       <div className="font-medium leading-tight">{item.label}</div>
                       <div
-                        className={`mt-0.5 font-mono text-[11px] tabular-nums ${
+                        className={`mt-0.5 font-mono text-xs tabular-nums ${
                           item.present
                             ? 'text-emerald-700 dark:text-emerald-400'
                             : item.cachedAvailable
@@ -614,7 +614,7 @@ export function DataEnrichmentSection({
             {/* Live Cost & Deduplication Summary Row */}
             {hasAnySelected && (
               <div className="pt-2.5 border-t border-zinc-200/80 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="font-mono text-[11px] text-zinc-700 dark:text-zinc-300 tabular-nums space-x-3">
+                <div className="font-mono text-xs text-zinc-700 dark:text-zinc-300 tabular-nums space-x-3">
                   <span>
                     {t.plannedCallsLabel}: <strong className="text-zinc-950 dark:text-zinc-50">{plan.plannedApiCalls}</strong>
                   </span>
@@ -720,7 +720,7 @@ export function DataEnrichmentSection({
         {/* Execution Summary Banner */}
         {lastSummary && (
           <div className="p-3 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-950 dark:text-emerald-200 space-y-1">
-            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] tabular-nums">
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs tabular-nums">
               <span className="font-sans font-semibold">
                 {isMy ? 'ဒေတာဖြည့်စွက်မှု ပြီးစီးပါပြီ' : 'Enrichment completed'}
               </span>
@@ -735,7 +735,7 @@ export function DataEnrichmentSection({
               </span>
             </div>
             {lastSummary.layerErrors && (
-              <ul className="space-y-0.5 text-amber-900 dark:text-amber-200 text-[11px] pt-1">
+              <ul className="space-y-0.5 text-amber-900 dark:text-amber-200 text-xs pt-1">
                 {Object.entries(lastSummary.layerErrors).map(([k, err]) =>
                   err ? <li key={k}>• {isMy ? err.my : err.en}</li> : null
                 )}
@@ -770,7 +770,7 @@ export function DataEnrichmentSection({
             </h4>
           </div>
           <span
-            className={`text-[11px] font-medium ${coverage.hasProductDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}
+            className={`text-xs font-medium ${coverage.hasProductDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-500 dark:text-zinc-400'}`}
           >
             {coverage.hasProductDetail ? t.dataStatusLabels.verified : t.enrichNotEnrichedYet}
           </span>
@@ -815,7 +815,7 @@ export function DataEnrichmentSection({
             )}
           </div>
           <span
-            className={`text-[11px] font-medium ${coverage.hasShopDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}`}
+            className={`text-xs font-medium ${coverage.hasShopDetail ? 'text-emerald-700 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'}`}
           >
             {coverage.hasShopDetail ? t.dataStatusLabels.verified : unavailableText}
           </span>
@@ -859,7 +859,7 @@ export function DataEnrichmentSection({
               />
             )}
           </div>
-          <div className="flex items-center gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-xs">
             {ri && ri.commentsAnalyzed > 0 && (
               <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">
                 {ri.commentsAnalyzed} {isMy ? 'မှတ်ချက်' : 'comments'}

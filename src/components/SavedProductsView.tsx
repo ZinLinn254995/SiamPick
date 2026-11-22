@@ -219,7 +219,7 @@ export function SavedProductsView({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
                 id="saved-products-heading"
-                className={`font-display text-2xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
                   isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
                 }`}
               >
@@ -234,7 +234,7 @@ export function SavedProductsView({
                 content={
                   <>
                     <p>{t.savedViewSubtitle}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
                       {t.savedStorageNote}
                     </p>
                   </>
@@ -334,46 +334,52 @@ export function SavedProductsView({
       ) : (
         <>
           {/* Filter, Summary & Sort Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 min-w-0">
               {presentCategories.length <= 4 ? (
-                <div
-                  className="inline-flex max-w-full items-center p-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
-                  role="group"
-                  aria-label={t.settingCategoryLabel}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setCategoryFilter('all')}
-                    className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                      categoryFilter === 'all'
-                        ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                    }`}
+                <div className="relative max-w-full min-w-0">
+                  <div
+                    className="flex max-w-full items-center p-1 pr-7 sm:pr-1 bg-zinc-200/70 dark:bg-zinc-700/70 rounded-lg overflow-x-auto"
+                    role="group"
+                    aria-label={t.settingCategoryLabel}
                   >
-                    {t.categoryAll}
-                  </button>
-                  {presentCategories.map((catId) => (
                     <button
-                      key={catId}
                       type="button"
-                      onClick={() => setCategoryFilter(catId)}
-                      className={`min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                        categoryFilter === catId
+                      onClick={() => setCategoryFilter('all')}
+                      className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        categoryFilter === 'all'
                           ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
                           : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                       }`}
                     >
-                      {getCategoryLabel(catId, language, { short: true })}
+                      {t.categoryAll}
                     </button>
-                  ))}
+                    {presentCategories.map((catId) => (
+                      <button
+                        key={catId}
+                        type="button"
+                        onClick={() => setCategoryFilter(catId)}
+                        className={`min-h-[40px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                          categoryFilter === catId
+                            ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                            : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                        }`}
+                      >
+                        {getCategoryLabel(catId, language, { short: true })}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-200/95 dark:from-zinc-800/95 to-transparent sm:hidden"
+                  />
                 </div>
               ) : (
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
                   aria-label={t.settingCategoryLabel}
-                  className="min-h-[38px] px-3 py-1.5 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                  className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
                 >
                   <option value="all">{t.categoryAll}</option>
                   {presentCategories.map((catId) => (
@@ -389,15 +395,15 @@ export function SavedProductsView({
               </span>
             </div>
 
-            <div className="flex items-center gap-2.5 self-start sm:self-auto">
-              <label htmlFor="saved-sort" className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
+              <label htmlFor="saved-sort" className="text-xs font-medium text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
                 {t.sortLabel}
               </label>
               <select
                 id="saved-sort"
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
-                className="min-h-[38px] px-3 py-1.5 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
               >
                 <option value="newest">{t.savedSortNewest}</option>
                 <option value="score-desc">{t.sortScoreDesc}</option>
@@ -456,7 +462,7 @@ export function SavedProductsView({
                         ) : (
                           <div className="flex flex-col items-center justify-center p-4 text-center">
                             <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500 mb-1.5" aria-hidden="true" />
-                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">
                               {t.cardImageUnverified}
                             </span>
                           </div>
@@ -512,7 +518,7 @@ export function SavedProductsView({
                                     {formatThb(product.priceThb)}
                                   </span>{' '}
                                   <span
-                                    className={`text-[11px] font-medium ${dataStatusColorClass(effectivePriceStatus)}`}
+                                    className={`text-xs font-medium ${dataStatusColorClass(effectivePriceStatus)}`}
                                   >
                                     ({t.dataStatusLabels[effectivePriceStatus]})
                                   </span>
@@ -541,7 +547,7 @@ export function SavedProductsView({
                               <span className="text-zinc-500 dark:text-zinc-400 mr-1.5">{t.cardConfidence}:</span>
                               <span className="font-medium text-zinc-900 dark:text-zinc-100">
                                 {t.confidenceLabels[evaluation.confidenceLevel]}{' '}
-                                <span className="font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums">
+                                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                                   ({evaluation.confidencePct}%)
                                 </span>
                               </span>
@@ -555,7 +561,7 @@ export function SavedProductsView({
 
                           {/* Saved Research Sources */}
                           <div className="space-y-1">
-                            <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                            <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                               {t.savedSourcesLabel}
                             </div>
                             {record.sources.length === 0 ? (
@@ -586,7 +592,7 @@ export function SavedProductsView({
                                           <ExternalLink className="w-3 h-3" aria-hidden="true" />
                                         </a>
                                       ) : (
-                                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
+                                        <span className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap shrink-0">
                                           {t.sourcePendingLink}
                                         </span>
                                       )}

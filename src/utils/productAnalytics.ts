@@ -163,7 +163,7 @@ export function deriveProductDecisionSummary(
       `${evaluation.unavailableCount} scoring factor(s) are currently unavailable (${evaluation.redistributedWeightPct} pts redistributed). Enrich missing data before scaling.`
     );
     cautionsMy.push(
-      `အချက်အလက် ${evaluation.unavailableCount} ခု မရရှိသေးပါ (Weight ${evaluation.redistributedWeightPct} မှတ် ပြန်ခွဲဝေထားသည်) — ကြော်ငြာငွေမသုံးမီ ဒေတာဖြည့်စွက်စစ်ဆေးပါ။`
+      `အချက်အလက် ${evaluation.unavailableCount} ခု မရရှိသေးပါ (အလေးချိန် ${evaluation.redistributedWeightPct} မှတ် ပြန်ခွဲဝေထားသည်) — ဘတ်ဂျက်မသုံးမီ ဒေတာဖြည့်စွက်စစ်ဆေးပါ။`
     );
   }
   if (creatorCount === null) {
@@ -178,7 +178,7 @@ export function deriveProductDecisionSummary(
       `High creator crowding (${creatorCount.toLocaleString('en-US')} active creators) requires a distinct creative hook.`
     );
     cautionsMy.push(
-      `Creator ${creatorCount.toLocaleString('en-US')} ဦးအထိ များပြားသဖြင့် ကွဲပြားသော ကြော်ငြာ Angle လိုအပ်ပါမည်။`
+      `Creator ${creatorCount.toLocaleString('en-US')} ဦးအထိ များပြားသဖြင့် ကွဲပြားသော Content Angle လိုအပ်ပါမည်။`
     );
   }
   if (!hasVerifiedCommission) {
@@ -241,7 +241,7 @@ export function deriveProductDecisionSummary(
         : `Combined Sales, Commission, Growth, and Competition fundamentals are weak (${evaluation.totalScore}/100) — better affiliate candidates are likely available.`;
     reasonMy =
       aiVerdict === 'skip'
-        ? `Score (${evaluation.totalScore}/100) နှင့် AI သုံးသပ်ချက် (Skip) တို့အရ အခြား Product များနှင့်ယှဉ်လျှင် အကျိုးအမြတ်နှင့် အန္တရာယ်အချိုး မသင့်တော်ပါ။`
+        ? `ရမှတ် (${evaluation.totalScore}/100) နှင့် AI သုံးသပ်ချက် (Skip) တို့အရ အခြား Product များနှင့်ယှဉ်လျှင် အကျိုးအမြတ်ထက် စိုးရိမ်ချက် ပိုများနေပါသည်။`
         : `ရောင်းအား၊ Commission၊ တိုးတက်နှုန်းနှင့် ပြိုင်ဆိုင်မှု စုပေါင်းအခြေအနေ အားနည်းနေသဖြင့် (${evaluation.totalScore}/100) လောလောဆယ် မရွေးချယ်သင့်ပါ။`;
   }
   // 3. Recommended — strong score + high/solid confidence + verified sales/revenue + acceptable commission & competition + non-negative AI
@@ -283,7 +283,7 @@ export function deriveProductDecisionSummary(
     }
 
     reasonEn = `Promising opportunity (${evaluation.totalScore}/100) suitable for a small creative test${watchNotesEn.length > 0 ? `, while monitoring ${watchNotesEn.join(' and ')}` : ''}.`;
-    reasonMy = `အလားအလာကောင်းသော Product (${evaluation.totalScore}/100) ဖြစ်၍ စမ်းသပ်ကြော်ငြာရန် သင့်တော်ပါသည်${watchNotesMy.length > 0 ? ` (${watchNotesMy.join('၊ ')} ကို စောင့်ကြည့်ပါ)` : ''}။`;
+    reasonMy = `အလားအလာကောင်းသော ကုန်ပစ္စည်း (${evaluation.totalScore}/100) ဖြစ်၍ စမ်းသပ်ရောင်းချရန် သင့်တော်ပါသည်${watchNotesMy.length > 0 ? ` (${watchNotesMy.join('၊ ')} ကို စောင့်ကြည့်ပါ)` : ''}။`;
   }
 
   return {
@@ -592,7 +592,7 @@ export function computeBestProductSelections(
       : makeInsufficient(
           'bestOverall',
           'No product currently has enough verified data (≥4 verified factors and Medium/High confidence) to safely declare Best Overall.',
-          'လက်ရှိရလဒ်များတွင် အတည်ပြုဒေတာ (အနည်းဆုံး ၄ ချက်နှင့် Medium/High Confidence) လုံလောက်သည့် Product မရှိသေးသဖြင့် Best Overall မသတ်မှတ်ပါ။'
+          'လက်ရှိရလဒ်များတွင် အတည်ပြုဒေတာ (အနည်းဆုံး 4 ချက်နှင့် Medium/High Confidence) လုံလောက်သည့် ကုန်ပစ္စည်း မရှိသေးသဖြင့် အကောင်းဆုံး မသတ်မှတ်ပါ။'
         );
 
   // 2. Best Sales Potential (requires verified Kalodata sales or revenue)
@@ -788,7 +788,7 @@ export function computeBestProductSelections(
       : makeInsufficient(
           'bestAiContentPotential',
           'No product currently has a verified product photo and clear visual profile sufficient to declare Best AI Content Potential.',
-          'အတည်ပြုဓာတ်ပုံနှင့် AI ကြော်ငြာသင့်တော်မှု အထောက်အထား လုံလောက်သော Product မရှိသေးပါ။'
+          'အတည်ပြုဓာတ်ပုံနှင့် AI Content သင့်တော်မှု အထောက်အထား လုံလောက်သော ကုန်ပစ္စည်း မရှိသေးပါ။'
         );
 
   // 6. Highest Data Confidence (requires >= 60% confidence and >= 3 verified criteria)
@@ -819,7 +819,7 @@ export function computeBestProductSelections(
       : makeInsufficient(
           'highestDataConfidence',
           'All visible products currently have low data coverage (<60% confidence). Enrich Product & Shop Detail to raise confidence.',
-          'လက်ရှိ Product များအားလုံး ဒေတာပြည့်စုံမှု ၆၀% အောက်ဖြစ်နေသဖြင့် Product & Shop Detail ထပ်ဖြည့်ရန် လိုအပ်ပါသည်။'
+          'လက်ရှိ ကုန်ပစ္စည်းများအားလုံး ဒေတာပြည့်စုံမှု 60% အောက်ဖြစ်နေသဖြင့် Product & Shop Detail ထပ်ဖြည့်ရန် လိုအပ်ပါသည်။'
         );
 
   return [
@@ -1104,7 +1104,7 @@ export function buildProductComparisonMatrix(
       if (partsEn.length === 0) return { en: 'Unavailable', my: 'Unavailable' };
       return { en: partsEn.join(' · '), my: partsMy.join(' · ') };
     }),
-    makeRow('aiSuitability', 'AI Content Suitability', 'AI ကြော်ငြာ သင့်တော်မှု', (c) => {
+    makeRow('aiSuitability', 'AI Content Suitability', 'AI Content သင့်တော်မှု', (c) => {
       const band = getEffectiveAiSuitabilityBand(c.item.product, c.evaluation);
       const aiScore = getAvailableCriterionScore(c.evaluation, 'aiContentSuitability');
       const formatEn =
@@ -1151,7 +1151,7 @@ export function buildProductComparisonMatrix(
       if (en.length === 0) return { en: 'Unavailable', my: 'Unavailable' };
       return { en: en.join(' · '), my: my.join(' · ') };
     }),
-    makeRow('risks', 'Key Risks', 'အဓိက အန္တရာယ်များ', (c) => {
+    makeRow('risks', 'Key Risks', 'အဓိက စိုးရိမ်ချက်များ', (c) => {
       const en =
         c.aiAnalysis?.risksAndDrawbacksEn.slice(0, 2) ??
         c.evaluation.risksEn.slice(0, 2);

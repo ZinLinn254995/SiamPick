@@ -102,7 +102,7 @@ function MetricDeltaCell({
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center gap-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 tabular-nums whitespace-nowrap">
+      <div className="flex items-center gap-1 font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums whitespace-nowrap">
         <span>{formatSingle(metric.oldValue)}</span>
         <ArrowRight className="w-2.5 h-2.5 text-zinc-400 dark:text-zinc-500 shrink-0" aria-hidden="true" />
         <span className="text-zinc-900 dark:text-zinc-100 font-medium">{formatSingle(metric.newValue)}</span>
@@ -308,7 +308,7 @@ export function ResearchComparisonPanel({
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                      <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                         <th className="py-3 px-4">{t.compareColProduct}</th>
                         <th className="py-3 px-4">{t.compareColSales}</th>
                         <th className="py-3 px-4">{t.compareColRevenue}</th>
@@ -331,7 +331,7 @@ export function ResearchComparisonPanel({
                               <div className="font-medium text-zinc-950 dark:text-zinc-50 group-hover:underline line-clamp-2">
                                 {isMy ? row.nameMy : row.name}
                               </div>
-                              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                              <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
                                 <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
                                 {' · '}
                                 {row.shopName}
@@ -377,7 +377,7 @@ export function ResearchComparisonPanel({
                               unavailableLabel={t.dataStatusLabels.unavailable}
                               unchangedLabel={t.compareUnchanged}
                             />
-                            <div className="mt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500">
+                            <div className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
                               {t.confidenceLabels[row.olderConfidence]} →{' '}
                               {t.confidenceLabels[row.newerConfidence]}
                             </div>
@@ -406,7 +406,7 @@ export function ResearchComparisonPanel({
                       <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
                         {isMy ? row.nameMy : row.name}
                       </h3>
-                      <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                         <span className="font-mono text-zinc-400 dark:text-zinc-500">ID: {row.canonicalProductId}</span>
                         {' · '}
                         {row.shopName}
@@ -415,7 +415,7 @@ export function ResearchComparisonPanel({
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
                       <div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColSales}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColSales}</div>
                         <MetricDeltaCell
                           metric={row.sales}
                           kind="sales"
@@ -424,7 +424,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColRevenue}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColRevenue}</div>
                         <MetricDeltaCell
                           metric={row.revenue}
                           kind="revenue"
@@ -433,7 +433,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColGrowth}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColGrowth}</div>
                         <MetricDeltaCell
                           metric={row.growth}
                           kind="growth"
@@ -442,7 +442,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColCommission}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColCommission}</div>
                         <MetricDeltaCell
                           metric={row.commission}
                           kind="commission"
@@ -451,7 +451,7 @@ export function ResearchComparisonPanel({
                         />
                       </div>
                       <div>
-                        <div className="text-[11px] text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColScore}</div>
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-0.5">{t.compareColScore}</div>
                         <MetricDeltaCell
                           metric={row.score}
                           kind="score"

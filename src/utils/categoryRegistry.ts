@@ -145,11 +145,11 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
         'กางเกงใน', 'ชุดชั้นใน', 'บรา', 'บิกินี่', 'ถุงเท้า',
       ],
       formatLabelEn: 'AI Virtual Female Model Ad',
-      formatLabelMy: 'AI Virtual Female Model ကြော်ငြာ',
+      formatLabelMy: 'AI Virtual Female Model Content',
       strongFitReasonEn: 'clear wearable garment/bag silhouette fits AI virtual female model showcase',
       strongFitReasonMy: 'ဝတ်ဆင်ပုံထင်ရှားသော Fashion ပစ္စည်းဖြစ်၍ AI Virtual Female Model ပြသရန် သင့်တော်သည်',
       weakFitReasonEn: 'intimate/accessory or low-silhouette item poses policy/visual risk for AI virtual model try-on',
-      weakFitReasonMy: 'အတွင်းခံ/အသေးစားပစ္စည်းဖြစ်၍ AI Virtual Female Model ကြော်ငြာအတွက် ကန့်သတ်ချက်ရှိသည်',
+      weakFitReasonMy: 'အတွင်းခံ/အသေးစားပစ္စည်းဖြစ်၍ AI Virtual Female Model Content အတွက် ကန့်သတ်ချက်ရှိသည်',
     },
     aiProfile: {
       adFormat: 'ai-virtual-female-model',
@@ -166,19 +166,19 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       ],
       riskChecklistMy: [
         'Size မကိုက်၍ Return များနိုင်ခြေကို လျှော့ချရန် Size Chart တိကျမှုကို စစ်ဆေးပါ။',
-        'အထည်သားအထူအပါးနှင့် အရောင်ကွာဟမှုကို ကြော်ငြာမတင်မီ အတည်ပြုပါ။',
+        'အထည်သားအထူအပါးနှင့် အရောင်ကွာဟမှုကို Content မတင်မီ အတည်ပြုပါ။',
       ],
       affiliateStrategyFocusEn:
         'Lead with 3-outfit styling hooks or body-fit demos using a clean AI virtual model; pin size & height references in captions to reduce returns.',
       affiliateStrategyFocusMy:
-        'AI Virtual Model ဖြင့် ဝတ်ဆင်ပုံ ၃ မျိုးပြသသည့် ဗီဒီယိုတိုများဖြင့် စတင်ပြီး Return လျှော့ချရန် Size/အရပ် အညွှန်းကို Caption တွင် ထည့်ပါ။',
+        'AI Virtual Model ဖြင့် ဝတ်ဆင်ပုံ 3 မျိုးပြသသည့် ဗီဒီယိုတိုများဖြင့် စတင်ပြီး Return လျှော့ချရန် Size/အရပ် အညွှန်းကို Caption တွင် ထည့်ပါ။',
       creativeAnglesEn: [
         'AI virtual model 360-degree drape & daily Thai outfit styling showcase.',
         'Office-to-weekend outfit transition highlighting neckline, cut, and colorways.',
       ],
       creativeAnglesMy: [
         'AI Virtual Model ဖြင့် နေ့စဉ်ဝတ်ဆင်ပုံနှင့် အထည်ကျပုံ 360° ပြသမှု။',
-        'ရုံးတက်နှင့် အပြင်ထွက် ၂ မျိုးလုံးဝတ်နိုင်ပုံ ဖက်ရှင်ပြောင်းလဲပြသမှု။',
+        'ရုံးတက်နှင့် အပြင်ထွက် 2 မျိုးလုံးဝတ်နိုင်ပုံ ဖက်ရှင်ပြောင်းလဲပြသမှု။',
       ],
       cautionsEn: [
         'Keep AI model framing consistent with actual garment length, color, and fabric sheen.',
@@ -226,7 +226,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
         'sample', 'ซอง', 'รีฟิล', 'สำลี', 'ทิชชู่', 'มีดโกน',
       ],
       formatLabelEn: 'Product-Only 3D Commercial',
-      formatLabelMy: 'Product-only 3D Commercial ကြော်ငြာ',
+      formatLabelMy: 'Product-only 3D Commercial Content',
       strongFitReasonEn: 'clear hero beauty packaging/texture fits product-only 3D commercial renders',
       strongFitReasonMy: 'Packaging နှင့် Texture ထင်ရှားသော Beauty ပစ္စည်းဖြစ်၍ Product-only 3D Commercial ဖန်တီးရန် သင့်တော်သည်',
       weakFitReasonEn: 'pouch/consumable/utility format limits hero-packaging 3D commercial impact',
@@ -267,7 +267,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       ],
       cautionsMy: [
         'အလွန်အကျွံ Before/After ပြောင်းလဲမှုများနှင့် ဆေးဘက်ဆိုင်ရာ ကုသမှုအာမခံချက်များ မသုံးပါနှင့်။',
-        'ကြော်ငြာမတင်မီ ထိုင်း FDA (อย.) မှတ်ပုံတင်နှင့် Brand အစစ်အမှန်ကို စစ်ဆေးပါ။',
+        'Content မတင်မီ ထိုင်း FDA (อย.) မှတ်ပုံတင်နှင့် Brand အစစ်အမှန်ကို စစ်ဆေးပါ။',
       ],
     },
   },
@@ -340,13 +340,13 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Hook viewers within 3 seconds with a live stress test or real-world problem fix; highlight verified specs, compatibility, and local Thailand warranty.',
       affiliateStrategyFocusMy:
-        'ပထမ ၃ စက္ကန့်အတွင်း လက်တွေ့စမ်းသပ်ပြသမှုဖြင့် ဆွဲဆောင်ပြီး Spec တိကျမှုနှင့် ထိုင်းပြည်တွင်း Warranty ကို အသားပေးပါ။',
+        'ပထမ 3 စက္ကန့်အတွင်း လက်တွေ့စမ်းသပ်ပြသမှုဖြင့် ဆွဲဆောင်ပြီး Spec တိကျမှုနှင့် ထိုင်းပြည်တွင်း Warranty ကို အသားပေးပါ။',
       creativeAnglesEn: [
         '3-second problem-to-spec live test showing speed, output, or convenience in action.',
         'Side-by-side comparison vs standard accessory highlighting compact build and key specs.',
       ],
       creativeAnglesMy: [
-        '၃ စက္ကန့်အတွင်း အမြန်နှုန်း/စွမ်းဆောင်ရည် လက်တွေ့စမ်းသပ်ပြသမှု။',
+        '3 စက္ကန့်အတွင်း အမြန်နှုန်း/စွမ်းဆောင်ရည် လက်တွေ့စမ်းသပ်ပြသမှု။',
         'သာမန်ပစ္စည်းနှင့် ယှဉ်ပြပြီး ဒီဇိုင်းကျစ်လျစ်မှုနှင့် Spec အားသာချက် မိတ်ဆက်မှု။',
       ],
       cautionsEn: [
@@ -428,7 +428,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Open with a relatable Thai condo/home clutter or cleaning pain point and show a fast 10-second transformation; emphasize easy setup and bundle value.',
       affiliateStrategyFocusMy:
-        'အိမ်ခန်းရှုပ်ပွမှု သို့မဟုတ် သန့်ရှင်းရေးအခက်အခဲဖြင့် စတင်ပြီး ၁၀ စက္ကန့်အတွင်း ပြောင်းလဲပုံကို လက်တွေ့ပြသပါ။',
+        'အိမ်ခန်းရှုပ်ပွမှု သို့မဟုတ် သန့်ရှင်းရေးအခက်အခဲဖြင့် စတင်ပြီး 10 စက္ကန့်အတွင်း ပြောင်းလဲပုံကို လက်တွေ့ပြသပါ။',
       creativeAnglesEn: [
         'Before/after Thai condo organization makeover showing instant space gain.',
         'ASMR-style cleaning or setup sequence demonstrating effortless daily use.',
@@ -683,7 +683,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Use sensory ASMR pour/crunch hooks in the first 2 seconds and bundle multi-flavor packs to raise average order value and affiliate earnings per click.',
       affiliateStrategyFocusMy:
-        'ပထမ ၂ စက္ကန့်အတွင်း ASMR ဖျော်စပ်/စားသုံးမှုဖြင့် ဆွဲဆောင်ပြီး Order တန်ဖိုးမြှင့်ရန် Multi-pack / Combo တွဲဖက်ရောင်းချပါ။',
+        'ပထမ 2 စက္ကန့်အတွင်း ASMR ဖျော်စပ်/စားသုံးမှုဖြင့် ဆွဲဆောင်ပြီး Order တန်ဖိုးမြှင့်ရန် Multi-pack / Combo တွဲဖက်ရောင်းချပါ။',
       creativeAnglesEn: [
         'Sensory ASMR pour, mix, or crunch close-up with quick preparation steps.',
         'Cafe-at-home cost-per-cup or family snack-pack value breakdown.',
@@ -745,7 +745,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       strongFitReasonEn: 'practical parenting time-savers and gentle safety demos earn strong parent trust and repeat buys',
       strongFitReasonMy: 'မိဘများအတွက် အချိန်သက်သာပြီး ဘေးကင်းသော ကလေးသုံးပစ္စည်းဖြစ်၍ လက်တွေ့ Demo ဖြင့် ယုံကြည်မှုရနိုင်သည်',
       weakFitReasonEn: 'regulated infant formula/medical items carry strict platform ad restrictions',
-      weakFitReasonMy: 'မွေးကင်းစနို့မှုန့်/ဆေးဝါးများသည် ကြော်ငြာမူဝါဒတင်းကျပ်သော အမျိုးအစားဖြစ်သည်',
+      weakFitReasonMy: 'မွေးကင်းစနို့မှုန့်/ဆေးဝါးများသည် ပလက်ဖောင်းမူဝါဒတင်းကျပ်သော အမျိုးအစားဖြစ်သည်',
     },
     aiProfile: {
       adFormat: 'lifestyle-usage-demo',
@@ -782,7 +782,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       ],
       cautionsMy: [
         'ဆရာဝန်အတည်ပြုချက်မရှိသော ကလေးကျန်းမာရေးအာမခံချက်များ မသုံးပါနှင့်။',
-        'TikTok Child-safety ကြော်ငြာစည်းကမ်းများကို တိကျစွာလိုက်နာပါ။',
+        'TikTok Child-safety Content စည်းကမ်းများကို တိကျစွာလိုက်နာပါ။',
       ],
     },
   },
@@ -849,13 +849,13 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Demonstrate a 5-minute home workout or 10-second outdoor setup; highlight portability, grip stability, and weather resistance.',
       affiliateStrategyFocusMy:
-        '၅ မိနစ် အိမ်တွင်းလေ့ကျင့်ခန်း သို့မဟုတ် ၁၀ စက္ကန့် Camping တပ်ဆင်ပုံကို လက်တွေ့ပြသပြီး သယ်ဆောင်ရလွယ်ကူမှုကို အသားပေးပါ။',
+        '5 မိနစ် အိမ်တွင်းလေ့ကျင့်ခန်း သို့မဟုတ် 10 စက္ကန့် Camping တပ်ဆင်ပုံကို လက်တွေ့ပြသပြီး သယ်ဆောင်ရလွယ်ကူမှုကို အသားပေးပါ။',
       creativeAnglesEn: [
         'Fast 10-second setup & real-use action clip at home or outdoors.',
         'Durability, grip, and portability test tailored for Thailand weather.',
       ],
       creativeAnglesMy: [
-        'အိမ်တွင်း/ပြင်ပတွင် ၁၀ စက္ကန့်အတွင်း အသုံးပြုပြသသည့် Action ဗီဒီယို။',
+        'အိမ်တွင်း/ပြင်ပတွင် 10 စက္ကန့်အတွင်း အသုံးပြုပြသသည့် Action ဗီဒီယို။',
         'ခံနိုင်ရည်၊ ချော်ထွက်မှုကာကွယ်ခြင်းနှင့် သယ်ဆောင်ရလွယ်ကူမှု စမ်းသပ်ပြသခြင်း။',
       ],
       cautionsEn: [
@@ -933,13 +933,13 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Prioritize universal-fit accessories with obvious 5-second visual results (water-beading wax, sunshade heat drop, pothole mount test) tailored to Bangkok traffic & weather.',
       affiliateStrategyFocusMy:
-        'ကား/ဆိုင်ကယ်အများစုနှင့် ကိုက်ညီသော ပစ္စည်းများကို ရွေးချယ်ပြီး ၅ စက္ကန့်အတွင်း ရလဒ်ထင်ရှားသော Demo ဖြင့် ရောင်းချပါ။',
+        'ကား/ဆိုင်ကယ်အများစုနှင့် ကိုက်ညီသော ပစ္စည်းများကို ရွေးချယ်ပြီး 5 စက္ကန့်အတွင်း ရလဒ်ထင်ရှားသော Demo ဖြင့် ရောင်းချပါ။',
       creativeAnglesEn: [
         '5-second before/after water-beading, stain removal, or heat-shield test.',
         'Real Thai road/commute POV showing quick DIY installation and stability.',
       ],
       creativeAnglesMy: [
-        '၅ စက္ကန့်အတွင်း ရေမတင်ခြင်း/အစွန်းချွတ်ခြင်း/အပူကာကွယ်ခြင်း လက်တွေ့စမ်းသပ်မှု။',
+        '5 စက္ကန့်အတွင်း ရေမတင်ခြင်း/အစွန်းချွတ်ခြင်း/အပူကာကွယ်ခြင်း လက်တွေ့စမ်းသပ်မှု။',
         'ထိုင်းလမ်းမပေါ်တွင် လွယ်ကူစွာတပ်ဆင်အသုံးပြုပုံ POV ဗီဒီယို။',
       ],
       cautionsEn: [
@@ -1098,7 +1098,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
       affiliateStrategyFocusEn:
         'Use suspenseful 3-second unboxing or tactile play hooks; highlight official authenticity and gift-ready packaging during seasonal peaks.',
       affiliateStrategyFocusMy:
-        'စိတ်ဝင်စားဖွယ် ၃ စက္ကန့် Unboxing ဖြင့် စတင်ပြီး တရားဝင်အစစ်အမှန်ဖြစ်ကြောင်းနှင့် လက်ဆောင်ပေးရန်သင့်တော်မှုကို အသားပေးပါ။',
+        'စိတ်ဝင်စားဖွယ် 3 စက္ကန့် Unboxing ဖြင့် စတင်ပြီး တရားဝင်အစစ်အမှန်ဖြစ်ကြောင်းနှင့် လက်ဆောင်ပေးရန်သင့်တော်မှုကို အသားပေးပါ။',
       creativeAnglesEn: [
         'Fast unboxing reveal highlighting detail finish, texture, and giftability.',
         'Hands-on play or display desk-setup clip showing real scale and interactivity.',
@@ -1112,7 +1112,7 @@ export const UNIVERSAL_CATEGORIES: readonly UniversalCategoryDefinition[] = [
         'Clearly note recommended age range for toys containing small parts.',
       ],
       cautionsMy: [
-        'မူပိုင်ခွင့်မရှိသော Character အတုများကို လုံးဝမကြော်ငြာပါနှင့်။',
+        'မူပိုင်ခွင့်မရှိသော Character အတုများကို လုံးဝ Promote မလုပ်ပါနှင့်။',
         'အစိတ်အပိုင်းအသေးပါသော အရုပ်များတွင် သင့်တော်သောအသက်အရွယ်ကို ဖော်ပြပါ။',
       ],
     },

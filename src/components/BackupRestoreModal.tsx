@@ -208,7 +208,7 @@ export function BackupRestoreModal({
   const scopeLabels = [
     {
       key: 'includeSaved' as const,
-      title: isMy ? 'Saved Products (သိမ်းထားသော Product များ)' : 'Saved Products',
+      title: isMy ? 'သိမ်းထားသော ကုန်ပစ္စည်းများ' : 'Saved Products',
       localCount: `${localCounts.savedProducts}`,
       backupCount:
         parseResult && parseResult.ok ? `${parseResult.preview.counts.savedProducts}` : null,
@@ -216,7 +216,7 @@ export function BackupRestoreModal({
     {
       key: 'includeHistory' as const,
       title: isMy
-        ? 'Research History (သုတေသန မှတ်တမ်းများ)'
+        ? 'ရှာဖွေမှု မှတ်တမ်းများ'
         : 'Research History Sessions',
       localCount: `${localCounts.researchHistorySessions}`,
       backupCount:
@@ -227,7 +227,7 @@ export function BackupRestoreModal({
     {
       key: 'includeDeepDive' as const,
       title: isMy
-        ? 'Deep Dive Analysis History (အသေးစိတ် ခွဲခြမ်းမှုမှတ်တမ်း)'
+        ? 'Deep Dive မှတ်တမ်း'
         : 'Deep Dive Analysis History',
       localCount: `${localCounts.deepDiveRecords}`,
       backupCount:
@@ -236,7 +236,7 @@ export function BackupRestoreModal({
     {
       key: 'includeLatestSession' as const,
       title: isMy
-        ? 'Latest Hunting Results (နောက်ဆုံးရှာဖွေမှု ရလဒ်)'
+        ? 'နောက်ဆုံးရှာဖွေမှု ရလဒ်များ'
         : 'Latest Research Results',
       localCount: `${localCounts.latestSessionProducts}`,
       backupCount:
@@ -289,7 +289,7 @@ export function BackupRestoreModal({
             </div>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
               {isMy
-                ? 'Saved Products၊ Research History နှင့် AI/Kalodata ဒေတာများကို Backup ဖိုင် (.json) အဖြစ် သိမ်းဆည်းပြီး အချိန်မရွေး ပြန်လည်ထည့်သွင်းနိုင်ပါသည်။'
+                ? 'သိမ်းထားသော ကုန်ပစ္စည်းများ၊ ရှာဖွေမှု မှတ်တမ်းနှင့် AI/Kalodata ဒေတာများကို Backup ဖိုင် (.json) အဖြစ် သိမ်းဆည်းပြီး အချိန်မရွေး ပြန်လည်ထည့်သွင်းနိုင်ပါသည်။'
                 : 'Save a portable JSON backup of your Saved Products, Research History, Deep Dive analyses, and caches — or restore them cleanly anytime.'}
             </p>
           </div>
@@ -350,8 +350,8 @@ export function BackupRestoreModal({
               {/* Current Local Inventory */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {isMy ? 'Saved Products' : 'Saved Products'}
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {isMy ? 'သိမ်းထားသော' : 'Saved Products'}
                   </div>
                   <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.savedProducts}
@@ -359,8 +359,8 @@ export function BackupRestoreModal({
                 </div>
 
                 <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    {isMy ? 'History မှတ်တမ်း' : 'History Runs'}
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {isMy ? 'ရှာဖွေမှု မှတ်တမ်း' : 'History Runs'}
                   </div>
                   <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                     {localCounts.researchHistorySessions}
@@ -368,7 +368,7 @@ export function BackupRestoreModal({
                 </div>
 
                 <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
                     {isMy ? 'Deep Dive' : 'Deep Dives'}
                   </div>
                   <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -377,7 +377,7 @@ export function BackupRestoreModal({
                 </div>
 
                 <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
-                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
                     {isMy ? 'သိမ်းထားသည့် Cache' : 'Cached Items'}
                   </div>
                   <div className="mt-1 font-mono text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -390,7 +390,7 @@ export function BackupRestoreModal({
                 <div className="p-3.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-between gap-3">
                   <span>
                     {isMy
-                      ? 'လက်ရှိ Browser ထဲတွင် သိမ်းထားသော Product နှင့် History မရှိသေးပါ။'
+                      ? 'လက်ရှိ Browser ထဲတွင် သိမ်းထားသော ကုန်ပစ္စည်းနှင့် မှတ်တမ်း မရှိသေးပါ။'
                       : 'No Saved Products or Research History found in this browser yet.'}
                   </span>
                   <button
@@ -431,7 +431,7 @@ export function BackupRestoreModal({
                           {item.title}
                         </span>
                       </span>
-                      <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
+                      <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
                         {item.localCount}
                       </span>
                     </label>
@@ -452,7 +452,7 @@ export function BackupRestoreModal({
                     <div className="font-semibold">
                       {isMy ? 'Backup ဖိုင်ကို ဒေါင်းလုဒ်လုပ်ပြီးပါပြီ' : 'Backup file downloaded'}
                     </div>
-                    <p className="font-mono text-[11px] text-emerald-800 dark:text-emerald-300 truncate">
+                    <p className="font-mono text-xs text-emerald-800 dark:text-emerald-300 truncate">
                       {exportSuccessInfo.filename} ({formatByteSize(exportSuccessInfo.bytesUsed)})
                     </p>
                   </div>
@@ -582,7 +582,7 @@ export function BackupRestoreModal({
                             {selectedFileName ?? 'siampick-backup.json'}
                           </span>
                         </div>
-                        <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                           {isMy ? 'Backup ထုတ်ခဲ့သည့်အချိန်:' : 'Exported:'}{' '}
                           <span className="font-mono">
                             {formatResearchDateTime(parseResult.preview.exportedAt, language)}
@@ -594,7 +594,7 @@ export function BackupRestoreModal({
                       <button
                         type="button"
                         onClick={resetRestoreSelection}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
                       >
                         <RotateCcw className="w-3 h-3" aria-hidden="true" />
                         <span>{isMy ? 'အခြားဖိုင်ရွေးမည်' : 'Change file'}</span>
@@ -603,7 +603,7 @@ export function BackupRestoreModal({
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-200/70 dark:border-zinc-700/60 text-xs">
                       <div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                           Saved Products
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -611,15 +611,15 @@ export function BackupRestoreModal({
                         </span>
                       </div>
                       <div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
-                          {isMy ? 'History မှတ်တမ်း' : 'History Runs'}
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                          {isMy ? 'ရှာဖွေမှု မှတ်တမ်း' : 'History Runs'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
                           {parseResult.preview.counts.researchHistorySessions}
                         </span>
                       </div>
                       <div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                           Deep Dives
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -627,7 +627,7 @@ export function BackupRestoreModal({
                         </span>
                       </div>
                       <div>
-                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
                           {isMy ? 'Cache များ' : 'Cached Items'}
                         </span>
                         <span className="font-mono font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
@@ -638,7 +638,7 @@ export function BackupRestoreModal({
                     </div>
 
                     {parseResult.preview.skippedInvalidCount > 0 && (
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
                         {isMy
                           ? `ပုံစံမပြည့်စုံသော မှတ်တမ်း ${parseResult.preview.skippedInvalidCount} ခုကို ဘေးကင်းစေရန် ကျော်လွှားထားပါသည်။`
                           : `Skipped ${parseResult.preview.skippedInvalidCount} invalid or corrupted entry(s) for safety.`}
@@ -675,9 +675,9 @@ export function BackupRestoreModal({
                                     ? 'ပေါင်းထည့်မည် (Merge · အကြံပြု)'
                                     : 'Merge (Recommended)'}
                                 </div>
-                                <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                                   {isMy
-                                    ? 'လက်ရှိ Saved နှင့် History များကို မဖျက်ဘဲ Backup ထဲမှ မရှိသေးသည်များကို ထပ်ပေါင်းပေးမည်။'
+                                    ? 'လက်ရှိ သိမ်းထားသောစာရင်းနှင့် မှတ်တမ်းများကို မဖျက်ဘဲ Backup ထဲမှ မရှိသေးသည်များကို ထပ်ပေါင်းပေးမည်။'
                                     : 'Keeps your existing Products & History intact and adds missing items from the backup.'}
                                 </p>
                               </div>
@@ -703,7 +703,7 @@ export function BackupRestoreModal({
                                 <div className="font-semibold text-zinc-950 dark:text-zinc-50">
                                   {isMy ? 'အစားထိုးမည် (Replace)' : 'Replace Existing'}
                                 </div>
-                                <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                                   {isMy
                                     ? 'ရွေးချယ်ထားသော လက်ရှိဒေတာများကို Backup ဖိုင်ထဲကအတိုင်း အစားထိုးပြောင်းလဲမည်။'
                                     : 'Replaces the selected local sections with the exact contents of this backup.'}
@@ -715,14 +715,14 @@ export function BackupRestoreModal({
                       </div>
 
                       {restoreMode === 'replace' && (
-                        <div className="p-3 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2 text-[11px] text-amber-900 dark:text-amber-200">
+                        <div className="p-3 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2 text-xs text-amber-900 dark:text-amber-200">
                           <AlertTriangle
                             className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5"
                             aria-hidden="true"
                           />
                           <span>
                             {isMy
-                              ? 'Replace နည်းလမ်းသည် ရွေးချယ်ထားသော လက်ရှိ Saved Products / History များကို Backup ဖိုင်ဖြင့် အစားထိုးမည်ဖြစ်ပါသည်။'
+                              ? 'Replace နည်းလမ်းသည် ရွေးချယ်ထားသော လက်ရှိ သိမ်းထားသောစာရင်း / မှတ်တမ်းများကို Backup ဖိုင်ဖြင့် အစားထိုးမည်ဖြစ်ပါသည်။'
                               : 'Replace mode overwrites the selected local data sections with this backup file.'}
                           </span>
                         </div>
@@ -755,7 +755,7 @@ export function BackupRestoreModal({
                                   {item.title}
                                 </span>
                               </span>
-                              <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
+                              <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
                                 {item.backupCount ?? '0'}
                               </span>
                             </label>
@@ -797,10 +797,10 @@ export function BackupRestoreModal({
                               : 'Partially restored (browser storage limit reached)'}
                         </span>
                       </div>
-                      <ul className="space-y-1 text-[11px] pl-6 list-disc">
+                      <ul className="space-y-1 text-xs pl-6 list-disc">
                         <li>
                           {isMy
-                            ? `Saved Products: စုစုပေါင်း ${restoreOutcome.appliedCounts.savedProductsTotal} ခု`
+                            ? `သိမ်းထားသော ကုန်ပစ္စည်းများ: စုစုပေါင်း ${restoreOutcome.appliedCounts.savedProductsTotal} ခု`
                             : `Saved Products: ${restoreOutcome.appliedCounts.savedProductsTotal} total`}
                           {restoreOutcome.mode === 'merge' &&
                             restoreOutcome.appliedCounts.savedProductsAdded > 0 &&
@@ -810,7 +810,7 @@ export function BackupRestoreModal({
                         </li>
                         <li>
                           {isMy
-                            ? `Research History: စုစုပေါင်း ${restoreOutcome.appliedCounts.historyTotal} ကြိမ်`
+                            ? `ရှာဖွေမှု မှတ်တမ်း: စုစုပေါင်း ${restoreOutcome.appliedCounts.historyTotal} ကြိမ်`
                             : `Research History: ${restoreOutcome.appliedCounts.historyTotal} session(s)`}
                           {restoreOutcome.mode === 'merge' &&
                             restoreOutcome.appliedCounts.historyAdded > 0 &&
@@ -826,7 +826,7 @@ export function BackupRestoreModal({
                       </ul>
 
                       {restoreOutcome.writeErrors.length > 0 && (
-                        <div className="pt-1 text-[11px] text-red-700 dark:text-red-300 space-y-1">
+                        <div className="pt-1 text-xs text-red-700 dark:text-red-300 space-y-1">
                           {restoreOutcome.writeErrors.map((err, i) => (
                             <p key={i}>{isMy ? err.errorMy ?? err.errorEn : err.errorEn}</p>
                           ))}

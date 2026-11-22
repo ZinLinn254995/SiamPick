@@ -135,12 +135,12 @@ const QUICK_SUGGESTION_PRESETS: ReadonlyArray<{
     labelEn: 'Emphasize Price / Bundle Deal',
     labelMy: 'ဈေးတန်မှု / Bundle အသားပေး',
     textEn: 'Emphasize the low price per unit / bundle value right in the opening 3 seconds.',
-    textMy: 'ပထမ ၃ စက္ကန့်အတွင်း ဈေးတန်မှုနှင့် တစ်ခုကျသင့်ငွေ/Bundle တန်ဖိုးကို အဓိကအသားပေးပြောပေးပါ။',
+    textMy: 'ပထမ 3 စက္ကန့်အတွင်း ဈေးတန်မှုနှင့် တစ်ခုကျသင့်ငွေ/Bundle တန်ဖိုးကို အဓိကအသားပေးပြောပေးပါ။',
   },
   {
     id: 'one-phone-easy',
     labelEn: 'Easy 1-Phone Home Shoot',
-    labelMy: 'ဖုန်း ၁ လုံးတည်း အိမ်တွင်းရိုက်လွယ်',
+    labelMy: 'ဖုန်း 1 လုံးတည်း အိမ်တွင်းရိုက်လွယ်',
     textEn: 'Keep every shot simple enough to film alone at home with 1 smartphone and window light.',
     textMy: 'အိမ်တွင်းသဘာဝအလင်းရောင်နှင့် ဖုန်းတစ်လုံးတည်း တစ်ယောက်တည်းရိုက်ရလွယ်မည့် Shot များသာ ထည့်ပေးပါ။',
   },
@@ -242,7 +242,7 @@ export function VideoCreativeConfigBar({
   };
 
   const segBtn = (active: boolean) =>
-    `min-h-[28px] px-2 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
+    `min-h-[28px] px-2 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
       active
         ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
@@ -292,7 +292,7 @@ export function VideoCreativeConfigBar({
               type="button"
               disabled={disabled}
               onClick={handleReset}
-              className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45"
+              className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45"
             >
               <RotateCcw className="w-3 h-3 shrink-0" aria-hidden="true" />
               <span>{isMy ? 'ပြန်ညှိမည်' : 'Reset'}</span>
@@ -301,7 +301,7 @@ export function VideoCreativeConfigBar({
         </div>
 
         {normalized.includeCompetitorVideos && (
-          <div className="pl-5 flex flex-col sm:flex-row sm:items-center gap-1.5 text-[11px]">
+          <div className="pl-5 flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs">
             <label
               htmlFor="deep-dive-video-custom-keyword"
               className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
@@ -328,17 +328,17 @@ export function VideoCreativeConfigBar({
 
       {/* Row 1.5: Smart Product-Aware Setting Templates (1-Click Apply · 0 cr local) */}
       <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
           <div className="inline-flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
             <Wand2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
             <span>
               {isMy
-                ? 'ဒီ Product အတွက် အကြံပြု Setting Templates (၁ ချက်နှိပ်ရွေး · 0 cr)'
+                ? 'ဒီကုန်ပစ္စည်းအတွက် အကြံပြု Setting Templates (1 ချက်နှိပ်ရွေး · 0 cr)'
                 : 'Smart Setting Templates for This Product (1-Click · 0 cr)'}
             </span>
           </div>
           {appliedTemplateId && (
-            <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
               {isMy
                 ? 'Template ထည့်ပြီး · အောက်တွင် စိတ်ကြိုက်ပြန်ညှိနိုင်သည်'
                 : 'Template applied · fine-tune any setting below'}
@@ -362,7 +362,7 @@ export function VideoCreativeConfigBar({
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-[11px] leading-snug flex items-center gap-1 min-w-0">
+                  <div className="font-semibold text-xs leading-snug flex items-center gap-1 min-w-0">
                     {tpl.isRecommended && (
                       <Star
                         className={`w-3 h-3 shrink-0 ${
@@ -378,7 +378,7 @@ export function VideoCreativeConfigBar({
                   <div className="flex items-center gap-1 shrink-0">
                     {tpl.isRecommended && (
                       <span
-                        className={`text-[10px] font-medium whitespace-nowrap ${
+                        className={`text-xs font-medium whitespace-nowrap ${
                           isActive
                             ? 'text-amber-200 dark:text-amber-700'
                             : 'text-amber-700 dark:text-amber-400'
@@ -391,7 +391,7 @@ export function VideoCreativeConfigBar({
                   </div>
                 </div>
                 <div
-                  className={`text-[10px] font-mono leading-snug ${
+                  className={`text-xs font-mono leading-snug ${
                     isActive
                       ? 'text-zinc-300 dark:text-zinc-700'
                       : 'text-zinc-500 dark:text-zinc-400'
@@ -400,7 +400,7 @@ export function VideoCreativeConfigBar({
                   {isMy ? tpl.specMy : tpl.specEn}
                 </div>
                 <p
-                  className={`text-[11px] leading-snug ${
+                  className={`text-xs leading-snug ${
                     isActive
                       ? 'text-zinc-200 dark:text-zinc-800'
                       : 'text-zinc-600 dark:text-zinc-400'
@@ -415,7 +415,7 @@ export function VideoCreativeConfigBar({
       </div>
 
       {/* Row 2: Primary Creative Selectors (4 Languages · 7 Production Styles · 5 Lengths) */}
-      <div className="space-y-2 text-[11px]">
+      <div className="space-y-2 text-xs">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-zinc-500 dark:text-zinc-400 font-medium w-14 shrink-0">
             {isMy ? 'ဘာသာ:' : 'Script:'}
@@ -484,7 +484,7 @@ export function VideoCreativeConfigBar({
           type="button"
           onClick={() => setShowAdvanced((prev) => !prev)}
           aria-expanded={showAdvanced}
-          className="w-full flex items-center justify-between gap-2 text-left text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
+          className="w-full flex items-center justify-between gap-2 text-left text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 cursor-pointer"
         >
           <span className="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
             <SlidersHorizontal className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
@@ -506,7 +506,7 @@ export function VideoCreativeConfigBar({
         </button>
 
         {showAdvanced && (
-          <div className="p-3 rounded-lg bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5 text-[11px]">
+          <div className="p-3 rounded-lg bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5 text-xs">
             {/* Tone & Vibe */}
             <div className="space-y-1">
               <div className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -578,7 +578,7 @@ export function VideoCreativeConfigBar({
                     type="button"
                     disabled={disabled}
                     onClick={() => update({ sellingFocuses: [] })}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+                    className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
                   >
                     {isMy ? 'ရှင်းမည်' : 'Clear'}
                   </button>
@@ -593,7 +593,7 @@ export function VideoCreativeConfigBar({
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleSellingFocus(focusKey)}
-                      className={`inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-[11px] font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
+                      className={`inline-flex items-center gap-1 min-h-[28px] px-2 py-1 text-xs font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 ${
                         selected
                           ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
                           : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
@@ -651,7 +651,7 @@ export function VideoCreativeConfigBar({
               </div>
             )}
 
-            <div className="pt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+            <div className="pt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {isMy
                 ? `လက်ရှိရွေးချယ်မှု: ${audienceLabel.my} · ${ctaLabel.my}`
                 : `Active: ${audienceLabel.en} · ${ctaLabel.en}`}
@@ -662,7 +662,7 @@ export function VideoCreativeConfigBar({
 
       {/* Row 4: Custom Suggestion / Creative Brief Box for Direct AI Instructions */}
       <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
-        <div className="flex items-center justify-between gap-2 text-[11px]">
+        <div className="flex items-center justify-between gap-2 text-xs">
           <label
             htmlFor="deep-dive-video-suggestion-box"
             className="inline-flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200"
@@ -675,7 +675,7 @@ export function VideoCreativeConfigBar({
             </span>
           </label>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="font-mono text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
+            <span className="font-mono text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
               {suggestionLen}/{MAX_VIDEO_CREATIVE_SUGGESTION_CHARS}
             </span>
             {suggestionLen > 0 && (
@@ -684,7 +684,7 @@ export function VideoCreativeConfigBar({
                 disabled={disabled}
                 onClick={() => update({ customSuggestion: '' })}
                 aria-label={isMy ? 'စာရှင်းမည်' : 'Clear suggestion'}
-                className="inline-flex items-center gap-0.5 text-[11px] text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer disabled:opacity-45"
+                className="inline-flex items-center gap-0.5 text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer disabled:opacity-45"
               >
                 <X className="w-3 h-3" aria-hidden="true" />
                 <span>{isMy ? 'ရှင်း' : 'Clear'}</span>
@@ -709,7 +709,7 @@ export function VideoCreativeConfigBar({
         />
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 whitespace-nowrap">
             {isMy ? 'အမြန်ထည့်ရန်:' : 'Quick add:'}
           </span>
           {QUICK_SUGGESTION_PRESETS.map((preset) => (
@@ -718,7 +718,7 @@ export function VideoCreativeConfigBar({
               type="button"
               disabled={disabled}
               onClick={() => appendQuickSuggestion(isMy ? preset.textMy : preset.textEn)}
-              className="min-h-[24px] px-2 py-0.5 text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45"
+              className="min-h-[24px] px-2 py-0.5 text-xs text-zinc-600 dark:text-zinc-300 bg-zinc-100/80 dark:bg-zinc-800/80 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45"
             >
               + {isMy ? preset.labelMy : preset.labelEn}
             </button>
@@ -792,7 +792,7 @@ export function DeepDiveVideoCreativePanel({
       <button
         type="button"
         onClick={() => void copyText(key, text)}
-        className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+        className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
       >
         {isCopied ? (
           <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
@@ -890,7 +890,7 @@ export function DeepDiveVideoCreativePanel({
   return (
     <div className="space-y-4 text-xs">
       {/* Applied Settings & Custom Brief Strip */}
-      <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+      <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">
             {isMy ? 'သုံးထားသော Settings:' : 'Generated with:'}
@@ -916,7 +916,7 @@ export function DeepDiveVideoCreativePanel({
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`min-h-[28px] px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+              className={`min-h-[28px] px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                 active
                   ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -936,11 +936,11 @@ export function DeepDiveVideoCreativePanel({
               <Video className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
               <span>
                 {isMy
-                  ? '၁။ ပြိုင်ဘက် ရောင်းကောင်း Video များနှင့် AI လေ့လာချက်'
+                  ? '1. ပြိုင်ဘက် ရောင်းကောင်း Video များနှင့် AI လေ့လာချက်'
                   : '1. Competitor Winning Videos & AI Teardown'}
               </span>
             </div>
-            <span className="font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            <span className="font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
               {blueprint.competitorScanStatus === 'scanned'
                 ? isMy
                   ? `Video ${blueprint.competitorVideos.length} ခု (${blueprint.competitorKeywordUsed ?? ''})`
@@ -967,13 +967,13 @@ export function DeepDiveVideoCreativePanel({
                       href={vid.videoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 shrink-0 whitespace-nowrap"
+                      className="inline-flex items-center gap-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 shrink-0 whitespace-nowrap"
                     >
                       <span>{isMy ? 'TikTok ကြည့်ရန်' : 'Watch'}</span>
                       <ExternalLink className="w-3 h-3" aria-hidden="true" />
                     </a>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 font-mono tabular-nums">
                     {vid.creatorHandle && <span>@{vid.creatorHandle.replace(/^@+/, '')}</span>}
                     {vid.revenueThb !== null && (
                       <span className="font-semibold text-emerald-700 dark:text-emerald-400">
@@ -989,7 +989,7 @@ export function DeepDiveVideoCreativePanel({
                     {vid.durationSec !== null && <span>{vid.durationSec}s</span>}
                   </div>
                   {vid.hashtags.length > 0 && (
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                       {vid.hashtags.slice(0, 6).join(' ')}
                     </div>
                   )}
@@ -1035,7 +1035,7 @@ export function DeepDiveVideoCreativePanel({
               <Film className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
               <span>
                 {isMy
-                  ? `၂။ ကြော်ငြာ Video Concept ${blueprint.concepts.length} မျိုး`
+                  ? `2. AI Content Video Concept ${blueprint.concepts.length} မျိုး`
                   : `2. ${blueprint.concepts.length} Winning Ad Video Concepts`}
               </span>
             </div>
@@ -1045,11 +1045,11 @@ export function DeepDiveVideoCreativePanel({
                 <div key={concept.id} className="p-3 space-y-1.5">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 flex-1">
-                      <span className="font-mono text-[11px] text-zinc-400 dark:text-zinc-500 mr-1.5">
+                      <span className="font-mono text-xs text-zinc-400 dark:text-zinc-500 mr-1.5">
                         0{idx + 1}.
                       </span>
                       {isMy ? concept.titleMy : concept.titleEn}
-                      <span className="ml-2 font-mono text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                      <span className="ml-2 font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400">
                         · {concept.formatLabel}
                       </span>
                     </div>
@@ -1063,7 +1063,7 @@ export function DeepDiveVideoCreativePanel({
                               : `Write the full shooting script based on Concept "${concept.titleEn}" (${concept.formatLabel}): ${concept.angleSummaryEn}`
                           )
                         }
-                        className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
                       >
                         <span>
                           {isMy ? 'ဒီ Concept ဖြင့် Script ရေးမည်' : 'Use Concept in Brief'}
@@ -1075,7 +1075,7 @@ export function DeepDiveVideoCreativePanel({
                   <p className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
                     {isMy ? concept.angleSummaryMy : concept.angleSummaryEn}
                   </p>
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
                     {isMy ? 'ရောင်းထွက်စေသည့်အကြောင်းရင်း: ' : 'Why it converts: '}
                     {isMy ? concept.whyItConvertsMy : concept.whyItConvertsEn}
                   </p>
@@ -1090,11 +1090,11 @@ export function DeepDiveVideoCreativePanel({
                 <Sparkles className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
                 <span>
                   {isMy
-                    ? `၃။ ပထမ ၃ စက္ကန့်အတွင်း ဆွဲဆောင်မည့် Hook ${blueprint.hooks.length} ခု (A/B Test တွဲသုံးနိုင်)`
+                    ? `3. ပထမ 3 စက္ကန့်အတွင်း ဆွဲဆောင်မည့် Hook ${blueprint.hooks.length} ခု (A/B Test တွဲသုံးနိုင်)`
                     : `3. ${blueprint.hooks.length} Modular 3-Second Hooks (Swap into Scene 1)`}
                 </span>
               </div>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
                 {isMy
                   ? 'Hook တစ်ခုချင်းစီကို Script Scene 1 ထဲ လဲတပ်စမ်းနိုင် (0 cr)'
                   : 'Click any hook to swap live into Script Scene 1 (0 cr)'}
@@ -1112,7 +1112,7 @@ export function DeepDiveVideoCreativePanel({
                     }`}
                   >
                     <div className="space-y-1 min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                         <span className="font-mono tabular-nums font-semibold text-zinc-800 dark:text-zinc-200">
                           Hook #{idx + 1}
                         </span>
@@ -1130,11 +1130,11 @@ export function DeepDiveVideoCreativePanel({
                       <p className="font-medium text-zinc-950 dark:text-zinc-50 leading-snug">
                         “{hook.hookText}”
                       </p>
-                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                         {isMy ? 'အဓိပ္ပာယ်: ' : 'Meaning / Note: '}
                         {hook.meaningMy}
                       </p>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                         <span className="font-medium text-zinc-700 dark:text-zinc-300">
                           {isMy ? 'ရိုက်ကွက် (0–3s): ' : 'Visual (0–3s): '}
                         </span>
@@ -1150,7 +1150,7 @@ export function DeepDiveVideoCreativePanel({
                             setActiveTab('script');
                           }
                         }}
-                        className={`inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-[11px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                        className={`inline-flex items-center gap-1 min-h-[26px] px-2 py-0.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                           isActiveInScript
                             ? 'bg-emerald-700 dark:bg-emerald-500 text-white dark:text-zinc-950'
                             : 'text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -1183,7 +1183,7 @@ export function DeepDiveVideoCreativePanel({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="font-semibold text-zinc-900 dark:text-zinc-100">
               {isMy
-                ? `၄။ Scene အလိုက် ရိုက်ကူးရန် Script — ${blueprint.scriptTitle}`
+                ? `4. Scene အလိုက် ရိုက်ကူးရန် Script — ${blueprint.scriptTitle}`
                 : `4. Scene-by-Scene Shooting Script — ${blueprint.scriptTitle}`}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1215,7 +1215,7 @@ export function DeepDiveVideoCreativePanel({
             <div className="p-2.5 rounded-lg bg-zinc-100/80 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 space-y-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-semibold text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+                  <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
                     {isMy ? 'Scene 1 (0–3s) Hook ပြောင်းစမ်းရန်:' : 'Swap Scene 1 Opening Hook:'}
                   </span>
                   <div className="inline-flex flex-wrap items-center gap-1">
@@ -1227,7 +1227,7 @@ export function DeepDiveVideoCreativePanel({
                           type="button"
                           onClick={() => setSelectedHookIndex(idx)}
                           title={h.hookType}
-                          className={`min-h-[26px] px-2 py-0.5 text-[11px] font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`min-h-[26px] px-2 py-0.5 text-xs font-mono tabular-nums font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
                             active
                               ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
                               : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400'
@@ -1240,14 +1240,14 @@ export function DeepDiveVideoCreativePanel({
                   </div>
                 </div>
                 {activeHook && (
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
                     {activeHook.hookType}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 {isMy
-                  ? 'Body (Scene 2 မှ အဆုံးထိ) ကို ၁ ခါတည်းရိုက်ထားပြီး Scene 1 ကို Hook #1–#5 လဲတပ်၍ Video ၅ ပုဒ် A/B Test လုပ်နိုင်ပါသည် (API ထပ်မခေါ် · 0 cr)။'
+                  ? 'Body (Scene 2 မှ အဆုံးထိ) ကို 1 ခါတည်းရိုက်ထားပြီး Scene 1 ကို Hook #1–#5 လဲတပ်၍ Video 5 ပုဒ် A/B Test လုပ်နိုင်ပါသည် (API ထပ်မခေါ် · 0 cr)။'
                   : 'Film Scene 2–End ONCE as your shared Body + CTA, then swap Scene 1 with Hooks #1–#5 in CapCut for 5 A/B test ad variations (0 extra cr).'}
               </p>
             </div>
@@ -1262,7 +1262,7 @@ export function DeepDiveVideoCreativePanel({
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-[11px]">
+                  <div className="flex items-center gap-2 text-xs">
                     <span className="font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
                       {scene.timeRange}
                     </span>
@@ -1273,18 +1273,18 @@ export function DeepDiveVideoCreativePanel({
                       {scene.phaseLabel}
                     </span>
                     {idx === 0 && blueprint.hooks.length > 1 && (
-                      <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
                         {isMy ? '(ပြောင်းနိုင်)' : '(Swappable)'}
                       </span>
                     )}
                     {idx === 1 && blueprint.hooks.length > 1 && (
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">
                         {isMy ? '(ဘုံ Body စတင်)' : '(Shared Body starts)'}
                       </span>
                     )}
                   </div>
                   {scene.onScreenText && (
-                    <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                       {isMy ? 'စာတန်း: ' : 'Overlay: '}「{scene.onScreenText}」
                     </span>
                   )}
@@ -1295,13 +1295,13 @@ export function DeepDiveVideoCreativePanel({
                     {scene.voiceover}
                   </p>
                   {scene.voiceoverMy && (
-                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                       {scene.voiceoverMy}
                     </p>
                   )}
                 </div>
 
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   <span className="font-medium text-zinc-700 dark:text-zinc-300">
                     {isMy ? 'ကင်မရာ / ရိုက်ကွက်: ' : 'Camera / Shot: '}
                   </span>
@@ -1310,7 +1310,7 @@ export function DeepDiveVideoCreativePanel({
 
                 {scene.aiVideoPromptEn && (
                   <div className="pt-1.5 border-t border-zinc-100 dark:border-zinc-800/70 flex items-start justify-between gap-2">
-                    <p className="font-mono text-[11px] text-zinc-600 dark:text-zinc-300 leading-relaxed min-w-0 flex-1">
+                    <p className="font-mono text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed min-w-0 flex-1">
                       <span className="font-semibold text-zinc-800 dark:text-zinc-100">
                         AI Prompt:{' '}
                       </span>
@@ -1337,7 +1337,7 @@ export function DeepDiveVideoCreativePanel({
             <Hash className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
             <span>
               {isMy
-                ? '၅။ TikTok SEO Pack (Title၊ Keywords နှင့် Hashtags)'
+                ? '5. TikTok SEO Pack (Title၊ Keywords နှင့် Hashtags)'
                 : '5. TikTok SEO Publishing Pack (Titles, Keywords & Hashtags)'}
             </span>
           </div>
@@ -1347,14 +1347,14 @@ export function DeepDiveVideoCreativePanel({
             {blueprint.seoPack.titles.map((titleObj, idx) => (
               <div key={`${titleObj.style}-${idx}`} className="p-2.5 flex items-start justify-between gap-3">
                 <div className="space-y-0.5 min-w-0 flex-1">
-                  <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                  <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     {isMy ? titleObj.labelMy : titleObj.labelEn}
                   </div>
                   <p className="font-medium text-zinc-950 dark:text-zinc-50 leading-snug">
                     {titleObj.titleText}
                   </p>
                   {titleObj.meaningMy && (
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                       {titleObj.meaningMy}
                     </p>
                   )}
@@ -1385,7 +1385,7 @@ export function DeepDiveVideoCreativePanel({
                 </span>
                 {allHashtagsText && renderCopyBtn('seo-hashtags', allHashtagsText)}
               </div>
-              <div className="space-y-1 text-[11px] leading-relaxed">
+              <div className="space-y-1 text-xs leading-relaxed">
                 {blueprint.seoPack.hashtagsBroad.length > 0 && (
                   <div>
                     <span className="text-zinc-500 dark:text-zinc-400">Broad: </span>
@@ -1443,7 +1443,7 @@ export function DeepDiveVideoCreativePanel({
             <ShieldAlert className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>
               {isMy
-                ? '၆။ TikTok Shop ကြော်ငြာစည်းကမ်း သတိပေးချက် (Policy Guard)'
+                ? '6. TikTok Shop မူဝါဒသတိပေးချက် (Policy Guard)'
                 : '6. TikTok Shop Ad Policy & Compliance Guard'}
             </span>
           </div>
@@ -1452,18 +1452,18 @@ export function DeepDiveVideoCreativePanel({
             {blueprint.policyGuards.map((guard, idx) => (
               <div key={idx} className="p-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-0.5">
-                  <div className="text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                  <div className="text-xs font-semibold text-rose-700 dark:text-rose-400">
                     {isMy ? 'ရှောင်ကြဉ်ရမည့် အသုံးအနှုန်း' : 'Avoid Risky Claim'}
                   </div>
                   <p className="font-medium text-zinc-900 dark:text-zinc-100">
                     “{guard.riskyClaim}”
                   </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                     {isMy ? guard.reasonMy : guard.reasonEn}
                   </p>
                 </div>
                 <div className="space-y-0.5">
-                  <div className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                  <div className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                     {isMy ? 'ဘေးကင်းစွာ ပြောင်းလဲသုံးရန်' : 'Safe Compliant Alternative'}
                   </div>
                   <p className="font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed">

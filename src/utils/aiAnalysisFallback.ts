@@ -181,7 +181,7 @@ export function buildAiAnalysisDataBasis(
   const m = product.kalodataMetrics;
   const statuses = deriveAuthoritativeStatuses(product, evaluation);
   const windowEn = m?.dateRange === 'last7Day' ? '7d' : m?.dateRange === 'last30Day' ? '30d' : '';
-  const windowMy = m?.dateRange === 'last7Day' ? '၇ ရက်' : m?.dateRange === 'last30Day' ? '၃၀ ရက်' : '';
+  const windowMy = m?.dateRange === 'last7Day' ? '7 ရက်' : m?.dateRange === 'last30Day' ? '30 ရက်' : '';
 
   const priceStatus: DataStatus = isFinitePositive(product.priceThb)
     ? normalizeDataStatus(product.priceStatus ?? (m ? 'verified' : 'estimated'))
@@ -379,7 +379,7 @@ export function buildFallbackNotice(
     case 'TIMEOUT':
       return {
         en: 'Gemini AI analysis timed out before returning a complete response. Showing Kalodata-based Fallback Analysis below so your research continues uninterrupted.',
-        my: 'Gemini AI ခွဲခြမ်းစိတ်ဖြာမှု အချိန်ကျော်လွန် (Timeout) ဖြစ်သွားပါသည်။ သုတေသနမရပ်တန့်စေရန် Kalodata ဒေတာအခြေခံ Fallback Analysis ကို အောက်တွင် ဖော်ပြထားပါသည်။',
+        my: 'Gemini AI ခွဲခြမ်းစိတ်ဖြာမှု အချိန်ကျော်လွန် (Timeout) ဖြစ်သွားပါသည်။ ရှာဖွေမှုမရပ်တန့်စေရန် Kalodata ဒေတာအခြေခံ Fallback Analysis ကို အောက်တွင် ဖော်ပြထားပါသည်။',
       };
     case 'RATE_LIMITED':
       return {
@@ -439,7 +439,7 @@ export function buildKalodataFallbackAnalysis(
   const adFormat: AiAdCreativeFormat = categoryDef.aiProfile.adFormat;
 
   const windowEn = m?.dateRange === 'last7Day' ? '7-day' : '30-day';
-  const windowMy = m?.dateRange === 'last7Day' ? '၇ ရက်' : '၃၀ ရက်';
+  const windowMy = m?.dateRange === 'last7Day' ? '7 ရက်' : '30 ရက်';
 
   const sales = isFiniteNumber(m?.salesVolume) ? m.salesVolume : null;
   const revenue = isFiniteNumber(m?.revenueThb) ? m.revenueThb : null;
@@ -485,7 +485,7 @@ export function buildKalodataFallbackAnalysis(
     salesAndRevenueEn =
       'Verified Kalodata sales volume and revenue figures are unavailable for this product record. Confirm live demand before committing ad budget.';
     salesAndRevenueMy =
-      'ဤ Product အတွက် Kalodata ရောင်းအားနှင့် ဝင်ငွေအတိအကျ မရရှိနိုင်သေးပါ။ ကြော်ငြာမစတင်မီ လက်ရှိရောင်းအားကို တိုက်ရိုက်စစ်ဆေးပါ။';
+      'ဤ Product အတွက် Kalodata ရောင်းအားနှင့် ဝင်ငွေအတိအကျ မရရှိနိုင်သေးပါ။ Content မစတင်မီ လက်ရှိရောင်းအားကို တိုက်ရိုက်စစ်ဆေးပါ။';
   }
 
   // 3. Growth Potential
@@ -515,7 +515,7 @@ export function buildKalodataFallbackAnalysis(
     growthPotentialEn =
       'Revenue growth rate is Unavailable in the fetched Kalodata payload (no growth rate fabricated). Run a follow-up snapshot and compare in Research History to measure real trajectory.';
     growthPotentialMy =
-      'Kalodata ဒေတာတွင် ဝင်ငွေတိုးနှုန်း မပါဝင်သဖြင့် Unavailable ဖြစ်ပါသည်။ တိုးတက်မှုလမ်းကြောင်းသိရန် နောက်ထပ် Research လုပ်ပြီး History တွင် နှိုင်းယှဉ်စစ်ဆေးပါ။';
+      'Kalodata ဒေတာတွင် ဝင်ငွေတိုးနှုန်း မပါဝင်သဖြင့် Unavailable ဖြစ်ပါသည်။ တိုးတက်မှုလမ်းကြောင်းသိရန် နောက်ထပ် ရှာဖွေမှု လုပ်ပြီး မှတ်တမ်းတွင် နှိုင်းယှဉ်စစ်ဆေးပါ။';
   }
 
   // 4. Affiliate Commission Potential
@@ -554,7 +554,7 @@ export function buildKalodataFallbackAnalysis(
     competitionAnalysisEn =
       'Creator count is Unavailable in this Kalodata payload (Fast mode rank-only records do not include creator_number). Competition intensity cannot be verified without Product Detail data.';
     competitionAnalysisMy =
-      'ဤ Kalodata ဒေတာတွင် Creator အရေအတွက် မပါဝင်သဖြင့် Competition သည် Unavailable ဖြစ်ပါသည်။ ပြိုင်ဆိုင်မှုအတိအကျသိရန် Balanced သို့မဟုတ် Deep Research Mode ဖြင့် Product Detail စစ်ဆေးရန် လိုအပ်ပါသည်။';
+      'ဤ Kalodata ဒေတာတွင် Creator အရေအတွက် မပါဝင်သဖြင့် Competition သည် Unavailable ဖြစ်ပါသည်။ ပြိုင်ဆိုင်မှုအတိအကျသိရန် Balanced သို့မဟုတ် Deep Mode ဖြင့် Product Detail စစ်ဆေးရန် လိုအပ်ပါသည်။';
   }
 
   // 6. Target Customer Profile (Grounded in verified Kalodata buyer needs when enriched, otherwise explicit AI/Market Inference)
@@ -633,7 +633,7 @@ export function buildKalodataFallbackAnalysis(
       ...evaluation.risksMy,
       ...(evaluation.unavailableCount > 0
         ? [
-            `Kalodata တွင် အချက် ${evaluation.unavailableCount} ချက် Unavailable ဖြစ်နေသဖြင့် (မူလ ${evaluation.redistributedWeightPct} မှတ် ပြန်ခွဲဝေထား) ကြော်ငြာမချဲ့မီ လိုအပ်သောဒေတာများကို စစ်ဆေးပါ။`,
+            `Kalodata တွင် အချက် ${evaluation.unavailableCount} ချက် Unavailable ဖြစ်နေသဖြင့် (မူလ ${evaluation.redistributedWeightPct} မှတ် ပြန်ခွဲဝေထား) ဘတ်ဂျက်မတိုးမီ လိုအပ်သောဒေတာများကို စစ်ဆေးပါ။`,
           ]
         : []),
       ...categoryDef.aiProfile.riskChecklistMy,
@@ -671,7 +671,7 @@ export function buildKalodataFallbackAnalysis(
       headlineEn: 'Priority Test Candidate — Strong Kalodata metrics with high data confidence',
       headlineMy: 'ဦးစားပေး စမ်းသပ်သင့်သည် — Kalodata ဒေတာခိုင်မာပြီး ယုံကြည်စိတ်ချရမှု မြင့်မားသည်',
       actionEn: `Confirm stock and active affiliate plan in TikTok Shop Thailand, then launch 2–3 focused ${formatEn} test videos.`,
-      actionMy: `TikTok Shop Thailand တွင် Stock နှင့် Affiliate Plan ကို စစ်ဆေးပြီး ${formatMy} စမ်းသပ်ဗီဒီယို ၂–၃ ခု စတင်တင်သင့်ပါသည်။`,
+      actionMy: `TikTok Shop Thailand တွင် Stock နှင့် Affiliate Plan ကို စစ်ဆေးပြီး ${formatMy} စမ်းသပ်ဗီဒီယို 2–3 ခု စတင်တင်သင့်ပါသည်။`,
     },
     'test-with-caution': {
       headlineEn: 'Test With Caution — Promising signals, verify remaining data gaps first',
@@ -679,15 +679,15 @@ export function buildKalodataFallbackAnalysis(
       actionEn:
         'Verify missing Kalodata fields (creator saturation, live reviews, and seller rating) directly on TikTok Shop Thailand before allocating larger ad spend.',
       actionMy:
-        'ကြော်ငြာဘတ်ဂျက်မတိုးမီ TikTok Shop Thailand တွင် မပြည့်စုံသေးသောအချက်များ (Creator ပြိုင်ဆိုင်မှု၊ Review နှင့် ဆိုင်အဆင့်သတ်မှတ်ချက်) ကို တိုက်ရိုက်စစ်ဆေးပါ။',
+        'ဘတ်ဂျက်မတိုးမီ TikTok Shop Thailand တွင် မပြည့်စုံသေးသောအချက်များ (Creator ပြိုင်ဆိုင်မှု၊ Review နှင့် ဆိုင်အဆင့်သတ်မှတ်ချက်) ကို တိုက်ရိုက်စစ်ဆေးပါ။',
     },
     monitor: {
       headlineEn: 'Monitor Only — Keep on watch list and track another research snapshot',
-      headlineMy: 'စောင့်ကြည့်အဆင့်သာ — နောက်တစ်ကြိမ် Research လုပ်ပြီး တိုးတက်မှုရှိမရှိ ပြန်စစ်ပါ',
+      headlineMy: 'စောင့်ကြည့်အဆင့်သာ — နောက်တစ်ကြိမ် ရှာဖွေမှု လုပ်ပြီး တိုးတက်မှုရှိမရှိ ပြန်စစ်ပါ',
       actionEn:
         'Save or track in Research History and re-compare in 7 days to see whether sales velocity, growth, or commission improves.',
       actionMy:
-        'Research History တွင် မှတ်တမ်းတင်ထားပြီး ၇ ရက်အကြာတွင် ရောင်းအား၊ တိုးနှုန်း သို့မဟုတ် Commission တိုးတက်လာခြင်းရှိမရှိ ပြန်နှိုင်းယှဉ်ပါ။',
+        'ရှာဖွေမှု မှတ်တမ်းတွင် သိမ်းထားပြီး 7 ရက်အကြာတွင် ရောင်းအား၊ တိုးနှုန်း သို့မဟုတ် ကော်မရှင် တိုးတက်လာခြင်းရှိမရှိ ပြန်နှိုင်းယှဉ်ပါ။',
     },
     skip: {
       headlineEn: 'Low Priority / Skip for Now — Weak score or insufficient verified evidence',

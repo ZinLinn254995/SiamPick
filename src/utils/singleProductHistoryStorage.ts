@@ -420,7 +420,7 @@ export function persistSingleProductHistory(
         : 'Unable to save Single Product Research History to browser localStorage.',
       errorMy: quota
         ? 'Browser localStorage နေရာပြည့်နေပါသည်။ မှတ်တမ်းအဟောင်းအချို့ကို ဖျက်ပါ သို့မဟုတ် Backup ဖိုင်ထုတ်သိမ်းပြီးမှ ရှင်းလင်းပါ။'
-        : 'Single Product Research History ကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
+        : 'တစ်ခုချင်း ရှာဖွေမှု မှတ်တမ်းကို Browser localStorage ထဲသို့ သိမ်းဆည်း၍ မရပါ။',
     };
   }
 }
