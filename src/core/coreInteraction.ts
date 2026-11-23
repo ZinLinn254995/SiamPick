@@ -19,6 +19,10 @@ export interface CoreInteractionSnapshot {
   tiltZ: number;
   /** Current azimuthal angular velocity (rad/s) */
   velY: number;
+  /** Current X-axis pitch tilt angular velocity (rad/s) */
+  velTiltX: number;
+  /** Current Z-axis roll tilt angular velocity (rad/s) */
+  velTiltZ: number;
   /** Smoothly damped camera zoom multiplier [0.52 .. 2.55], 1.0 = default framing */
   zoom: number;
   /** Signed circulation intensity [-1 .. +1] (+ = zoom-in inward vortex, - = zoom-out outward spiral) */
@@ -36,6 +40,18 @@ export interface CoreInteractionSnapshot {
   pointerY: number;
   /** Smoothly damped pointer presence [0..1] for subtle touch sheen */
   pointerInfluence: number;
+  /** True while at least one finger or mouse button is touching/holding the Core */
+  isPressed: boolean;
+  /** Spring-damped tactile cushion depth (0 = rest, ~1 = held compression, slight negative rebound on release) */
+  pressDepth: number;
+  /** True while a stationary long-press is actively spooling up rotational speed & collapsing */
+  isLongPressing: boolean;
+  /** Normalized long-press rotational speed [0..1] (starts immediately on touch, accelerates to 1.0 max, coasts down smoothly on release) */
+  holdSpinLevel: number;
+  /** Continuous long-press collapse progress [0..1] (0 = full size, 1 = completely vanished) */
+  collapseProgress: number;
+  /** Resulting size scale multiplier [0..1] (shrink rate slows down as it gets smaller, reaches 0 when held continuously) */
+  collapseScale: number;
 }
 
 interface PointerPoint {
@@ -53,6 +69,25 @@ const MAX_ANGULAR_SPEED = 7.5;
 const MIN_ZOOM = 0.52;
 const MAX_ZOOM = 2.55;
 const ZOOM_FRICTION = 4.2;
+
+// Tactile "soft cushion" press spring (velvety yield on touch, airy elastic rebound on release)
+const PRESS_HOLD_STIFFNESS = 135;
+const PRESS_HOLD_DAMPING = 18.5;
+const PRESS_RELEASE_STIFFNESS = 110;
+const PRESS_RELEASE_DAMPING = 13.8;
+const PRESS_DOWN_IMPULSE = 2.85;
+const PRESS_RELEASE_IMPULSE = 1.65;
+
+// Long-press instant touch spin + gradual acceleration to max speed + decelerating shrink-until-vanish
+const LONG_PRESS_DELAY_MS = 220;
+const LONG_PRESS_CANCEL_DRAG_PX = 18;
+const LONG_PRESS_ACTIVE_DRAG_CANCEL_PX = 52;
+const TOUCH_INITIAL_SPIN_LEVEL = 0.2; // Immediate spin response the moment finger touches
+const HOLD_SPIN_DECAY_RATE = 0.78; // Luxurious flywheel coast-down from high max speed
+const HOLD_SPIN_DRAG_OVERRIDE_DECAY = 3.8;
+const COLLAPSE_VANISH_DURATION_SEC = 5.6; // Continuous hold duration to shrink all the way to disappearance
+const COLLAPSE_EASE_POWER = 1.75; // >1 makes shrink rate progressively slow down while still reaching 0
+const COLLAPSE_RECOVERY_RATE = 5.2; // Smooth bloom back to full size on release
 
 function clamp(v: number, min: number, max: number): number {
   return v < min ? min : v > max ? max : v;
@@ -103,11 +138,18 @@ export class CoreInteractionController {
   private velTiltX = 0;
   private velTiltZ = 0;
 
+  // Tactile press cushion spring velocity & long-press tracking
+  private pressVel = 0;
+  private pressStartTime = 0;
+  private longPressCancelled = false;
+
   public readonly state: CoreInteractionSnapshot = {
     spinY: 0,
     tiltX: 0,
     tiltZ: 0,
     velY: 0,
+    velTiltX: 0,
+    velTiltZ: 0,
     zoom: 1,
     zoomCirculation: 0,
     kineticEnergy: 0,
@@ -117,6 +159,12 @@ export class CoreInteractionController {
     pointerX: 0,
     pointerY: 0,
     pointerInfluence: 0,
+    isPressed: false,
+    pressDepth: 0,
+    isLongPressing: false,
+    holdSpinLevel: 0,
+    collapseProgress: 0,
+    collapseScale: 1,
   };
 
   private readonly boundPointerDown: (e: PointerEvent) => void;
@@ -222,6 +270,7 @@ export class CoreInteractionController {
   private handlePointerDown(e: PointerEvent): void {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
+    const wasPressed = this.activePointers.size > 0;
     this.activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     try {
@@ -237,11 +286,20 @@ export class CoreInteractionController {
       this.lastClientX = e.clientX;
       this.lastClientY = e.clientY;
       this.lastMoveTime = now;
+      this.pressStartTime = now;
       this.cumulativeDragPx = 0;
+      this.longPressCancelled = false;
 
       this.state.isDragging = true;
       this.state.isPinching = false;
+      this.state.isPressed = true;
+      this.state.isLongPressing = false;
       this.updateNormalizedPointer(e.clientX, e.clientY);
+
+      if (!wasPressed) {
+        // Immediate soft inward cushion impulse on initial finger/mouse contact
+        this.pressVel = Math.max(this.pressVel, 0) + PRESS_DOWN_IMPULSE;
+      }
 
       // Damp existing coasting velocity cleanly when grabbed
       this.state.velY *= 0.25;
@@ -255,8 +313,11 @@ export class CoreInteractionController {
         this.lastPinchMidY = metrics.midY;
         this.lastMoveTime = now;
         this.lastZoomTime = now;
+        this.longPressCancelled = true;
         this.state.isDragging = true;
         this.state.isPinching = true;
+        this.state.isPressed = true;
+        this.state.isLongPressing = false;
         this.updateNormalizedPointer(metrics.midX, metrics.midY);
       }
     }
@@ -341,6 +402,15 @@ export class CoreInteractionController {
       this.markInteracted();
     }
 
+    // Cancel long-press if user deliberately drags instead of holding still
+    const cancelThreshold = this.state.isLongPressing
+      ? LONG_PRESS_ACTIVE_DRAG_CANCEL_PX
+      : LONG_PRESS_CANCEL_DRAG_PX;
+    if (this.cumulativeDragPx > cancelThreshold) {
+      this.longPressCancelled = true;
+      this.state.isLongPressing = false;
+    }
+
     const { nx, ny, scale } = this.updateNormalizedPointer(e.clientX, e.clientY);
     const ndx = dx / scale;
     const ndy = dy / scale;
@@ -415,9 +485,17 @@ export class CoreInteractionController {
     }
 
     if (this.activePointers.size === 0) {
+      const wasPressed = this.state.isPressed;
       this.primaryPointerId = null;
       this.state.isDragging = false;
       this.state.isPinching = false;
+      this.state.isPressed = false;
+      this.state.isLongPressing = false;
+      this.longPressCancelled = false;
+      if (wasPressed) {
+        // Gentle buoyant rebound impulse so releasing feels softly elastic
+        this.pressVel -= PRESS_RELEASE_IMPULSE * clamp(this.state.pressDepth, 0.15, 1.25);
+      }
     } else if (this.activePointers.size === 1) {
       // Seamless handoff to remaining single finger with zero position jump
       const firstEntry = this.activePointers.entries().next().value;
@@ -428,8 +506,10 @@ export class CoreInteractionController {
         this.lastClientY = remainPt.y;
         this.lastMoveTime = performance.now();
       }
+      this.longPressCancelled = true;
       this.state.isDragging = true;
       this.state.isPinching = false;
+      this.state.isLongPressing = false;
     } else {
       const metrics = this.getTwoPointerMetrics();
       if (metrics) {
@@ -527,24 +607,139 @@ export class CoreInteractionController {
       this.state.zoomCirculation = 0;
     }
 
-    // Apply soft bounded tilt so the bird's-eye composition is always preserved
-    this.state.tiltX = softLimitTilt(this.rawTiltX, MAX_TILT_RAD);
-    this.state.tiltZ = softLimitTilt(this.rawTiltZ, MAX_TILT_RAD);
+    // 3) Second-order sub-stepped tactile cushion spring (unconditionally smooth across all frame rates)
+    const targetPress = this.state.isPressed ? (this.state.isPinching ? 0.42 : 1.0) : 0.0;
+    const pressStiffness = this.state.isPressed ? PRESS_HOLD_STIFFNESS : PRESS_RELEASE_STIFFNESS;
+    const pressDamping = this.state.isPressed ? PRESS_HOLD_DAMPING : PRESS_RELEASE_DAMPING;
 
-    // Kinetic feedback responds to rotational velocity & zoom circulation
+    const subSteps = Math.max(1, Math.ceil(safeDt / 0.01));
+    const subDt = safeDt / subSteps;
+    let depth = this.state.pressDepth;
+    let vel = this.pressVel;
+    for (let s = 0; s < subSteps; s++) {
+      const force = (targetPress - depth) * pressStiffness - vel * pressDamping;
+      vel += force * subDt;
+      depth += vel * subDt;
+    }
+    depth = clamp(depth, -0.25, 1.32);
+    if (!this.state.isPressed && Math.abs(depth) < 0.0005 && Math.abs(vel) < 0.0005) {
+      depth = 0;
+      vel = 0;
+    }
+    this.state.pressDepth = depth;
+    this.pressVel = vel;
+
+    // 4) Instant touch spin + Long-press acceleration to Maximum speed & decelerating shrink-until-vanish
+    const isHoldingStationary =
+      this.state.isPressed && !this.state.isPinching && !this.longPressCancelled;
+
+    if (isHoldingStationary) {
+      const holdDurationMs = now - this.pressStartTime;
+
+      if (holdDurationMs >= LONG_PRESS_DELAY_MS) {
+        if (!this.state.isLongPressing) {
+          this.state.isLongPressing = true;
+          this.markInteracted();
+        }
+
+        // Spin speed accelerates faster toward 1.0 Maximum speed
+        const curSpin = this.state.holdSpinLevel;
+        const accelRate = 0.28 + 0.62 * curSpin;
+        const topFeather = curSpin > 0.86 ? Math.max(0.16, (1.0 - curSpin) / 0.14) : 1.0;
+        this.state.holdSpinLevel = clamp(curSpin + accelRate * topFeather * safeDt, 0, 1);
+
+        // Continuous shrink whose rate slows down as it gets smaller, yet reaches 0 (vanished) if kept held
+        const nextProgress = clamp(
+          this.state.collapseProgress + safeDt / COLLAPSE_VANISH_DURATION_SEC,
+          0,
+          1
+        );
+        this.state.collapseProgress = nextProgress;
+        this.state.collapseScale =
+          nextProgress >= 0.999 ? 0 : Math.pow(1 - nextProgress, COLLAPSE_EASE_POWER);
+      } else {
+        // Immediate touch response: start spinning smoothly right away alongside the soft cushion shrink
+        this.state.isLongPressing = false;
+        const touchSpinTarget = Math.max(this.state.holdSpinLevel, TOUCH_INITIAL_SPIN_LEVEL);
+        const touchSpinFollow = 1 - Math.exp(-15.0 * safeDt);
+        this.state.holdSpinLevel += (touchSpinTarget - this.state.holdSpinLevel) * touchSpinFollow;
+      }
+    } else {
+      this.state.isLongPressing = false;
+
+      // Smooth flywheel deceleration back to calm idle speed on release
+      if (this.state.holdSpinLevel > 0) {
+        const isManualDragOverride = this.state.isPressed && this.longPressCancelled && !this.state.isPinching;
+        const decayRate = isManualDragOverride ? HOLD_SPIN_DRAG_OVERRIDE_DECAY : HOLD_SPIN_DECAY_RATE;
+        this.state.holdSpinLevel *= Math.exp(-decayRate * safeDt);
+        if (this.state.holdSpinLevel < 0.0008) {
+          this.state.holdSpinLevel = 0;
+        }
+      }
+
+      // Smoothly expand back to full size when released (or when switching to manual drag/pinch)
+      if (this.state.collapseScale < 1) {
+        const recoverFollow = 1 - Math.exp(-COLLAPSE_RECOVERY_RATE * safeDt);
+        let nextScale = this.state.collapseScale + (1 - this.state.collapseScale) * recoverFollow;
+        if (1 - nextScale < 0.0008) {
+          nextScale = 1;
+        }
+        this.state.collapseScale = nextScale;
+        this.state.collapseProgress =
+          nextScale >= 1 ? 0 : clamp(1 - Math.pow(nextScale, 1 / COLLAPSE_EASE_POWER), 0, 1);
+      }
+    }
+
+    // Subtle localized cushion-yield tilt away from the exact fingertip contact point
+    const pressTiltWeight = this.state.isPinching ? 0 : clamp(depth, 0, 1.2) * 0.055;
+    const pressTiltX = this.state.pointerY * pressTiltWeight;
+    const pressTiltZ = -this.state.pointerX * pressTiltWeight;
+
+    // Apply soft bounded tilt so the bird's-eye composition is always preserved
+    this.state.tiltX = softLimitTilt(this.rawTiltX + pressTiltX, MAX_TILT_RAD);
+    this.state.tiltZ = softLimitTilt(this.rawTiltZ + pressTiltZ, MAX_TILT_RAD);
+    this.state.velTiltX = this.velTiltX;
+    this.state.velTiltZ = this.velTiltZ;
+
+    // Kinetic feedback responds to rotational velocity, zoom circulation, and long-press turbine speed
     const speedMetric =
       Math.abs(this.state.velY) * 0.22 +
       Math.hypot(this.velTiltX, this.velTiltZ) * 0.25 +
-      Math.abs(this.state.zoomCirculation) * 0.72;
+      Math.abs(this.state.zoomCirculation) * 0.72 +
+      this.state.holdSpinLevel * 0.95;
     const targetKinetic = clamp(speedMetric, 0, 1);
     const kSmooth = 1 - Math.exp(-8.0 * safeDt);
     this.state.kineticEnergy += (targetKinetic - this.state.kineticEnergy) * kSmooth;
 
-    const targetPointerInfluence = this.state.isDragging ? 1 : 0;
-    const pSmooth = 1 - Math.exp(-7.5 * safeDt);
+    const targetPointerInfluence = this.state.isPressed ? 1 : 0;
+    const pSmooth = 1 - Math.exp(-(this.state.isPressed ? 12.0 : 6.5) * safeDt);
     this.state.pointerInfluence += (targetPointerInfluence - this.state.pointerInfluence) * pSmooth;
 
     return this.state;
+  }
+
+  /**
+   * Smoothly pulls camera zoom back below the maximum-zoom white portal threshold
+   * while clearing any active pointer/pinch state so returning to the 3D Core feels effortless.
+   */
+  public exitZoomPortal(): void {
+    this.activePointers.clear();
+    this.primaryPointerId = null;
+    this.state.isDragging = false;
+    this.state.isPinching = false;
+    this.state.isPressed = false;
+    this.state.isLongPressing = false;
+    this.longPressCancelled = false;
+
+    if (this.state.zoom > 1.24) {
+      this.targetLogZoom = Math.log(1.18);
+      this.logZoomVel = -0.65;
+      this.rawZoomCirc = -0.55;
+      this.lastZoomTime = performance.now();
+    } else {
+      this.logZoomVel = 0;
+      this.rawZoomCirc = 0;
+    }
   }
 
   public reset(): void {
@@ -556,12 +751,23 @@ export class CoreInteractionController {
     this.targetLogZoom = 0;
     this.logZoomVel = 0;
     this.rawZoomCirc = 0;
+    this.pressVel = 0;
+    this.pressStartTime = 0;
+    this.longPressCancelled = false;
     this.state.velY = 0;
+    this.state.velTiltX = 0;
+    this.state.velTiltZ = 0;
     this.state.tiltX = 0;
     this.state.tiltZ = 0;
     this.state.zoom = 1;
     this.state.zoomCirculation = 0;
     this.state.kineticEnergy = 0;
+    this.state.isPressed = false;
+    this.state.pressDepth = 0;
+    this.state.isLongPressing = false;
+    this.state.holdSpinLevel = 0;
+    this.state.collapseProgress = 0;
+    this.state.collapseScale = 1;
   }
 
   public dispose(): void {

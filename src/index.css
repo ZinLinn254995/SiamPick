@@ -5,6 +5,7 @@
   --font-display: "Plus Jakarta Sans", "Noto Sans Myanmar", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "DM Sans", "Noto Sans Myanmar", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-romantic: "Cormorant Garamond", Georgia, "Times New Roman", serif;
 }
 
 @layer base {

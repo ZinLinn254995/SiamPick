@@ -9,6 +9,8 @@ import {
 interface CoreColorPanelProps {
   theme: CoreColorTheme;
   open: boolean;
+  dynamicColorEnabled: boolean;
+  onToggleDynamicColor: () => void;
   onToggleOpen: () => void;
   onChange: (next: CoreColorTheme) => void;
   onReplayBirth: () => void;
@@ -91,6 +93,8 @@ function SliderRow({
 export function CoreColorPanel({
   theme,
   open,
+  dynamicColorEnabled,
+  onToggleDynamicColor,
   onToggleOpen,
   onChange,
   onReplayBirth,
@@ -281,26 +285,63 @@ export function CoreColorPanel({
       )}
 
       {/* Compact Bottom Action Dock */}
-      <div className="flex items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={dynamicColorEnabled}
+          aria-label="Dynamic color shift on zoom and rotate"
+          onClick={onToggleDynamicColor}
+          className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-3 sm:px-3.5 py-2 rounded-xl border text-xs font-medium tracking-wide transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+            dynamicColorEnabled
+              ? 'bg-[#190D36]/95 border-fuchsia-400/50 text-white'
+              : 'bg-[#0D0720]/90 border-purple-400/20 text-purple-100/75 hover:text-white hover:border-purple-400/40 hover:bg-[#170C33]/95'
+          }`}
+        >
+          <span className="leading-none">Auto Color</span>
+          <span
+            aria-hidden="true"
+            className={`relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full border transition-colors duration-200 ${
+              dynamicColorEnabled
+                ? 'bg-gradient-to-r from-cyan-400 via-fuchsia-500 to-amber-400 border-white/30'
+                : 'bg-white/10 border-white/15'
+            }`}
+          >
+            <span
+              className={`block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                dynamicColorEnabled ? 'translate-x-[15px]' : 'translate-x-[1px]'
+              }`}
+            />
+          </span>
+          <span
+            className={`text-[10px] font-mono font-semibold uppercase tracking-wider w-[22px] text-left ${
+              dynamicColorEnabled ? 'text-fuchsia-200' : 'text-purple-200/50'
+            }`}
+          >
+            {dynamicColorEnabled ? 'ON' : 'OFF'}
+          </span>
+        </button>
+
         <button
           type="button"
           onClick={onToggleOpen}
           aria-expanded={open}
-          className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl border text-xs font-medium tracking-wide transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
+          className={`inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl border text-xs font-medium tracking-wide transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 ${
             open
               ? 'bg-purple-600/35 border-fuchsia-400/50 text-white'
               : 'bg-[#0D0720]/90 border-purple-400/25 text-purple-100/85 hover:text-white hover:border-fuchsia-400/45 hover:bg-[#170C33]/95'
           }`}
         >
           <Palette className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          <span>{open ? 'Hide Colors' : 'Color Studio'}</span>
+          <span className="sm:hidden">{open ? 'Hide' : 'Colors'}</span>
+          <span className="hidden sm:inline">{open ? 'Hide Colors' : 'Color Studio'}</span>
         </button>
 
         <button
           type="button"
           onClick={onReplayBirth}
           aria-label="Replay Core Birth"
-          className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-[#0D0720]/90 border border-purple-400/20 text-xs font-medium tracking-wide text-purple-100/80 hover:text-white hover:border-fuchsia-400/40 hover:bg-[#170C33]/95 active:scale-[0.98] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+          className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl bg-[#0D0720]/90 border border-purple-400/20 text-xs font-medium tracking-wide text-purple-100/80 hover:text-white hover:border-fuchsia-400/40 hover:bg-[#170C33]/95 active:scale-[0.98] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
         >
           <RotateCcw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           <span>Replay</span>

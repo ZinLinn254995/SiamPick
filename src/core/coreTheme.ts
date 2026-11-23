@@ -90,6 +90,7 @@ export const CORE_COLOR_PRESETS: CoreColorPreset[] = [
 
 const STORAGE_KEY = 'siampick_core_color_theme_v1';
 const LEGACY_STORAGE_KEY = 'siampick_core_color_tune_v1';
+const DYNAMIC_COLOR_STORAGE_KEY = 'siampick_core_dynamic_color_v1';
 
 function isValidHex(value: unknown): value is string {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
@@ -137,3 +138,103 @@ export function saveCoreColorTheme(theme: CoreColorTheme): void {
     // Ignore storage quota / private mode issues
   }
 }
+
+export function loadDynamicColorEnabled(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = window.localStorage.getItem(DYNAMIC_COLOR_STORAGE_KEY);
+    if (raw === null) return true;
+    return raw === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function saveDynamicColorEnabled(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(DYNAMIC_COLOR_STORAGE_KEY, enabled ? 'true' : 'false');
+  } catch {
+    // Ignore storage quota / private mode issues
+  }
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const n = parseInt(clean.length === 6 ? clean : '7A1BFF', 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function shiftHexHue(hex: string, degShift: number): string {
+  const [r0, g0, b0] = hexToRgb(hex);
+  if (!degShift) return `rgb(${r0}, ${g0}, ${b0})`;
+
+  const r = r0 / 255;
+  const g = g0 / 255;
+  const b = b0 / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+
+  let h = 0;
+  const l = (max + min) / 2;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+
+  h = (((h + degShift / 360) % 1) + 1) % 1;
+
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
+  const m = l - c / 2;
+  let r1 = 0;
+  let g1 = 0;
+  let b1 = 0;
+  const sector = h * 6;
+  if (sector < 1) {
+    r1 = c;
+    g1 = x;
+  } else if (sector < 2) {
+    r1 = x;
+    g1 = c;
+  } else if (sector < 3) {
+    g1 = c;
+    b1 = x;
+  } else if (sector < 4) {
+    g1 = x;
+    b1 = c;
+  } else if (sector < 5) {
+    r1 = x;
+    b1 = c;
+  } else {
+    r1 = c;
+    b1 = x;
+  }
+
+  return `rgb(${Math.round((r1 + m) * 255)}, ${Math.round((g1 + m) * 255)}, ${Math.round((b1 + m) * 255)})`;
+}
+
+export interface ResolvedThemeCssPalette {
+  deep: string;
+  primary: string;
+  accent: string;
+  backdrop: string;
+}
+
+/**
+ * Resolves live Color Studio values (including hueShift) into CSS-ready colors
+ * so Welcome Screen typography and subtle accents maintain exact continuity with the 3D Core.
+ */
+export function resolveThemeCssPalette(theme: CoreColorTheme): ResolvedThemeCssPalette {
+  return {
+    deep: shiftHexHue(theme.deepHex, theme.hueShift),
+    primary: shiftHexHue(theme.primaryHex, theme.hueShift),
+    accent: shiftHexHue(theme.accentHex, theme.hueShift),
+    backdrop: theme.backdropHex,
+  };
+}
+
