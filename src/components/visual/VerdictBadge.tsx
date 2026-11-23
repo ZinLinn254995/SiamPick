@@ -1,6 +1,8 @@
 import { AlertCircle, CheckCircle2, FlaskConical, XCircle } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import type { Language, ProductDecisionVerdict } from '../../types/product';
 import { TRANSLATIONS } from '../../i18n/translations';
+import { MOTION_VARIANTS } from '../../utils/motionPresets';
 
 export type VerdictBadgeSize = 'sm' | 'md' | 'lg';
 
@@ -8,6 +10,7 @@ export interface VerdictBadgeProps {
   verdict: ProductDecisionVerdict;
   size?: VerdictBadgeSize;
   language?: Language;
+  animateStamp?: boolean;
   className?: string;
 }
 
@@ -64,19 +67,35 @@ export function VerdictBadge({
   verdict,
   size = 'md',
   language = 'my',
+  animateStamp = false,
   className = '',
 }: VerdictBadgeProps) {
+  const prefersReduced = useReducedMotion();
   const config = VERDICT_CONFIG[verdict];
   const sizeStyle = SIZE_STYLES[size];
   const label = TRANSLATIONS[language].decisionVerdictLabels[verdict];
   const Icon = config.Icon;
 
+  const badgeClassName = `inline-flex items-center font-semibold rounded-full border leading-snug whitespace-nowrap shrink-0 ${config.container} ${sizeStyle.pill} ${className}`;
+
+  if (animateStamp && !prefersReduced) {
+    return (
+      <motion.span
+        role="status"
+        aria-label={label}
+        variants={MOTION_VARIANTS.verdictStamp}
+        initial="initial"
+        animate="animate"
+        className={badgeClassName}
+      >
+        <Icon className={`shrink-0 ${sizeStyle.icon} ${config.iconClass}`} aria-hidden="true" />
+        <span>{label}</span>
+      </motion.span>
+    );
+  }
+
   return (
-    <span
-      role="status"
-      aria-label={label}
-      className={`inline-flex items-center font-semibold rounded-full border leading-snug whitespace-nowrap shrink-0 ${config.container} ${sizeStyle.pill} ${className}`}
-    >
+    <span role="status" aria-label={label} className={badgeClassName}>
       <Icon className={`shrink-0 ${sizeStyle.icon} ${config.iconClass}`} aria-hidden="true" />
       <span>{label}</span>
     </span>

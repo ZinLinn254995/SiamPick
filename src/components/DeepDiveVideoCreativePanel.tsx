@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
   Check,
@@ -18,6 +19,7 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
+import { MOTION_TRANSITIONS, TACTILE_INTERACTIONS } from '../utils/motionPresets';
 import type {
   DeepDiveAiVideoToolStyle,
   DeepDiveScriptScene,
@@ -176,6 +178,7 @@ export function VideoCreativeConfigBar({
   language,
 }: VideoCreativeConfigBarProps) {
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
 
@@ -244,8 +247,8 @@ export function VideoCreativeConfigBar({
   const segBtn = (active: boolean) =>
     `min-h-[34px] sm:min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
       active
-        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
-        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
+        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 shadow-sm'
+        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/80'
     }`;
 
   const toneLabel = VIDEO_CREATIVE_TONE_LABELS[normalized.tone ?? 'friendly-bestie'];
@@ -254,7 +257,7 @@ export function VideoCreativeConfigBar({
   const ctaLabel = VIDEO_CREATIVE_CTA_LABELS[normalized.ctaStyle ?? 'urgent-basket'];
 
   return (
-    <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/70 space-y-3 text-xs">
+    <div className="pt-2.5 border-t border-[var(--sp-border)] space-y-3 text-xs">
       {/* Row 1: Optional Competitor Video Scan Toggle (+0.1 cr, 24h cached) + Reset */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -300,34 +303,49 @@ export function VideoCreativeConfigBar({
           )}
         </div>
 
-        {normalized.includeCompetitorVideos && (
-          <div className="pl-5 flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs">
-            <label
-              htmlFor="deep-dive-video-custom-keyword"
-              className="text-zinc-600 dark:text-zinc-400 whitespace-nowrap"
+        <AnimatePresence initial={false}>
+          {normalized.includeCompetitorVideos && (
+            <motion.div
+              key="competitor-keyword-row"
+              initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+              animate={{
+                height: 'auto',
+                opacity: 1,
+                transitionEnd: { overflow: 'visible' },
+              }}
+              exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+              transition={MOTION_TRANSITIONS.accordion}
+              className="overflow-hidden"
             >
-              {isMy ? 'ရှာဖွေမည့် Keyword (မထည့်လည်းရ):' : 'Search Keyword (optional):'}
-            </label>
-            <input
-              id="deep-dive-video-custom-keyword"
-              type="text"
-              value={options.customKeyword ?? ''}
-              disabled={disabled}
-              maxLength={80}
-              onChange={(e) => update({ customKeyword: e.target.value })}
-              placeholder={
-                isMy
-                  ? 'အလွတ်ထားပါက Product အမည်မှ အလိုအလျောက်ရှာမည်'
-                  : 'Leave blank to auto-extract from product title'
-              }
-              className="flex-1 min-w-0 min-h-[40px] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 disabled:opacity-45"
-            />
-          </div>
-        )}
+              <div className="pl-5 pt-0.5 flex flex-col sm:flex-row sm:items-center gap-1.5 text-xs">
+                <label
+                  htmlFor="deep-dive-video-custom-keyword"
+                  className="text-zinc-600 dark:text-zinc-400 whitespace-nowrap"
+                >
+                  {isMy ? 'ရှာဖွေမည့် Keyword (မထည့်လည်းရ):' : 'Search Keyword (optional):'}
+                </label>
+                <input
+                  id="deep-dive-video-custom-keyword"
+                  type="text"
+                  value={options.customKeyword ?? ''}
+                  disabled={disabled}
+                  maxLength={80}
+                  onChange={(e) => update({ customKeyword: e.target.value })}
+                  placeholder={
+                    isMy
+                      ? 'အလွတ်ထားပါက Product အမည်မှ အလိုအလျောက်ရှာမည်'
+                      : 'Leave blank to auto-extract from product title'
+                  }
+                  className="flex-1 min-w-0 min-h-[40px] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] rounded-lg focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE]/60 disabled:opacity-45"
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Row 1.5: Smart Product-Aware Setting Templates (1-Click Apply · 0 cr local) */}
-      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
+      <div className="pt-2 border-t border-[var(--sp-border)] space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs">
           <div className="inline-flex items-center gap-1.5 font-medium text-zinc-800 dark:text-zinc-200">
             <Wand2 className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
@@ -420,7 +438,7 @@ export function VideoCreativeConfigBar({
           <span className="text-zinc-600 dark:text-zinc-400 font-medium sm:w-14 shrink-0">
             {isMy ? 'ဘာသာ:' : 'Script:'}
           </span>
-          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-zinc-100/90 dark:bg-zinc-800/80">
+          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-[var(--sp-surface-muted)] border border-[var(--sp-border)]">
             {SCRIPT_LANGUAGE_ORDER.map((langKey) => (
               <button
                 key={langKey}
@@ -441,20 +459,37 @@ export function VideoCreativeConfigBar({
           <span className="text-zinc-600 dark:text-zinc-400 font-medium sm:w-14 sm:pt-1.5 shrink-0">
             {isMy ? 'ပုံစံ:' : 'Style:'}
           </span>
-          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-zinc-100/90 dark:bg-zinc-800/80 flex-1 min-w-0">
-            {PRODUCTION_STYLE_ORDER.map((styleKey) => (
-              <button
-                key={styleKey}
-                type="button"
-                disabled={disabled}
-                onClick={() => update({ videoStyle: styleKey })}
-                className={segBtn(normalized.videoStyle === styleKey)}
-              >
-                {isMy
-                  ? VIDEO_CREATIVE_STYLE_LABELS[styleKey].my
-                  : VIDEO_CREATIVE_STYLE_LABELS[styleKey].en}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] flex-1 min-w-0">
+            {PRODUCTION_STYLE_ORDER.map((styleKey) => {
+              const active = normalized.videoStyle === styleKey;
+              return (
+                <button
+                  key={styleKey}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => update({ videoStyle: styleKey })}
+                  className={`relative min-h-[34px] sm:min-h-[30px] px-2.5 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
+                    active
+                      ? 'text-white dark:text-zinc-950'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="creative-studio-mode-pill"
+                      transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.snappy}
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-md bg-zinc-900 dark:bg-zinc-100 shadow-sm"
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {isMy
+                      ? VIDEO_CREATIVE_STYLE_LABELS[styleKey].my
+                      : VIDEO_CREATIVE_STYLE_LABELS[styleKey].en}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -462,7 +497,7 @@ export function VideoCreativeConfigBar({
           <span className="text-zinc-600 dark:text-zinc-400 font-medium sm:w-14 shrink-0">
             {isMy ? 'အချိန်:' : 'Length:'}
           </span>
-          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-zinc-100/90 dark:bg-zinc-800/80">
+          <div className="flex flex-wrap items-center gap-0.5 p-1 rounded-lg bg-[var(--sp-surface-muted)] border border-[var(--sp-border)]">
             {DURATION_ORDER.map((dur) => (
               <button
                 key={dur}
@@ -479,7 +514,7 @@ export function VideoCreativeConfigBar({
       </div>
 
       {/* Row 3: Progressive Disclosure — Advanced Creative Controls (Tone · Framework · Audience · Focus · CTA · AI Tool) */}
-      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2.5">
+      <div className="pt-2 border-t border-[var(--sp-border)] space-y-2.5">
         <button
           type="button"
           onClick={() => setShowAdvanced((prev) => !prev)}
@@ -505,8 +540,21 @@ export function VideoCreativeConfigBar({
           )}
         </button>
 
-        {showAdvanced && (
-          <div className="p-3 rounded-lg sp-surface-muted border border-zinc-200/70 dark:border-zinc-800 space-y-2.5 text-xs">
+        <AnimatePresence initial={false}>
+          {showAdvanced && (
+            <motion.div
+              key="creative-advanced-controls"
+              initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+              animate={{
+                height: 'auto',
+                opacity: 1,
+                transitionEnd: { overflow: 'visible' },
+              }}
+              exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+              transition={MOTION_TRANSITIONS.accordion}
+              className="overflow-hidden"
+            >
+              <div className="p-3 rounded-xl bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] space-y-2.5 text-xs">
             {/* Tone & Vibe */}
             <div className="space-y-1">
               <div className="font-medium text-zinc-600 dark:text-zinc-400">
@@ -656,12 +704,14 @@ export function VideoCreativeConfigBar({
                 ? `လက်ရှိရွေးချယ်မှု: ${audienceLabel.my} · ${ctaLabel.my}`
                 : `Active: ${audienceLabel.en} · ${ctaLabel.en}`}
             </div>
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Row 4: Custom Suggestion / Creative Brief Box for Direct AI Instructions */}
-      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
+      <div className="pt-2 border-t border-[var(--sp-border)] space-y-2">
         <div className="flex items-center justify-between gap-2 text-xs">
           <label
             htmlFor="deep-dive-video-suggestion-box"
@@ -743,6 +793,7 @@ export function DeepDiveVideoCreativePanel({
   onApplyConceptToBrief,
 }: DeepDiveVideoCreativePanelProps) {
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const [activeTab, setActiveTab] = useState<CreativeTab>('all');
   const [selectedHookIndex, setSelectedHookIndex] = useState<number>(0);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -789,18 +840,44 @@ export function DeepDiveVideoCreativePanel({
   const renderCopyBtn = (key: string, text: string, labelEn = 'Copy', labelMy = 'ကူးရန်') => {
     const isCopied = copiedKey === key;
     return (
-      <button
+      <motion.button
         type="button"
+        whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
         onClick={() => void copyText(key, text)}
-        className="inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors cursor-pointer whitespace-nowrap shrink-0"
+        className={`inline-flex items-center gap-1 min-h-[34px] px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+          isCopied
+            ? 'bg-emerald-500/12 dark:bg-[#10F5A0]/15 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/35 dark:border-[#10F5A0]/35'
+            : 'text-zinc-700 dark:text-zinc-200 bg-[var(--sp-surface)] border-[var(--sp-border)] hover:border-zinc-400 dark:hover:border-zinc-600'
+        }`}
       >
-        {isCopied ? (
-          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-        ) : (
-          <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
-        )}
-        <span>{isCopied ? (isMy ? 'ကူးပြီး' : 'Copied') : isMy ? labelMy : labelEn}</span>
-      </button>
+        <AnimatePresence mode="wait" initial={false}>
+          {isCopied ? (
+            <motion.span
+              key="copied"
+              initial={prefersReduced ? false : { opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={prefersReduced ? undefined : { opacity: 0, scale: 0.7 }}
+              transition={MOTION_TRANSITIONS.snappy}
+              className="inline-flex items-center gap-1"
+            >
+              <Check className="w-3 h-3 shrink-0" aria-hidden="true" />
+              <span>{isMy ? 'ကူးပြီး' : 'Copied'}</span>
+            </motion.span>
+          ) : (
+            <motion.span
+              key="copy"
+              initial={prefersReduced ? false : { opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={prefersReduced ? undefined : { opacity: 0, scale: 0.9 }}
+              transition={MOTION_TRANSITIONS.snappy}
+              className="inline-flex items-center gap-1"
+            >
+              <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
+              <span>{isMy ? labelMy : labelEn}</span>
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
     );
   };
 
@@ -890,12 +967,14 @@ export function DeepDiveVideoCreativePanel({
   return (
     <div className="space-y-4 text-xs">
       {/* Applied Settings & Custom Brief Strip */}
-      <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+      <div className="pt-2 border-t border-[var(--sp-border)] space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
           <span className="font-medium text-zinc-700 dark:text-zinc-300">
             {isMy ? 'သုံးထားသော Settings:' : 'Generated with:'}
           </span>
-          <span>{specSummaryParts.join(' · ')}</span>
+          <span className="font-mono text-[11px] text-cyan-700 dark:text-[#25F4EE]">
+            {specSummaryParts.join(' · ')}
+          </span>
         </div>
         {blueprint.optionsUsed.customSuggestion && (
           <div className="text-zinc-600 dark:text-zinc-300 leading-relaxed">
@@ -907,30 +986,49 @@ export function DeepDiveVideoCreativePanel({
         )}
       </div>
 
-      {/* Compact Section Filter Bar (horizontally scrollable on mobile) */}
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar sm:flex-wrap pt-2 border-t border-zinc-200/70 dark:border-zinc-800/80">
-        {tabs.map((tab) => {
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                active
-                  ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-              }`}
-            >
-              {isMy ? tab.labelMy : tab.labelEn}
-            </button>
-          );
-        })}
+      {/* Gliding Storyboard Section Filter Bar (horizontally scrollable on mobile) */}
+      <div className="pt-2 border-t border-[var(--sp-border)]">
+        <div className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto no-scrollbar sm:flex-wrap p-1 rounded-xl bg-[var(--sp-surface-muted)] border border-[var(--sp-border)]">
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative min-h-[34px] px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                  active
+                    ? 'text-white dark:text-zinc-950'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                }`}
+              >
+                {active && (
+                  <motion.span
+                    layoutId="creative-studio-tab-pill"
+                    transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.snappy}
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-lg bg-zinc-900 dark:bg-zinc-100 shadow-sm"
+                  />
+                )}
+                <span className="relative z-10">{isMy ? tab.labelMy : tab.labelEn}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={prefersReduced ? undefined : { opacity: 0, y: -3 }}
+          transition={MOTION_TRANSITIONS.crossFade}
+          className="space-y-4"
+        >
       {/* 1. Competitor Winning Videos & AI Teardown */}
       {showSection('competitors') && (
-        <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800/80 space-y-2.5">
+        <div className="pt-2.5 border-t border-[var(--sp-border)] space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 font-semibold text-zinc-900 dark:text-zinc-100">
               <Video className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
@@ -1253,28 +1351,27 @@ export function DeepDiveVideoCreativePanel({
             </div>
           )}
 
-          <div className="divide-y divide-zinc-200/70 dark:divide-zinc-800/70 border border-zinc-200/70 dark:border-zinc-800/80 rounded-lg sp-surface-muted">
+          <div className="grid grid-cols-1 gap-2.5">
             {effectiveScenes.map((scene, idx) => (
               <div
                 key={`${scene.sceneNumber}-${idx === 0 ? safeHookIndex : 'body'}`}
-                className={`p-3 space-y-1.5 ${
-                  idx === 0 ? 'bg-sky-50/40 dark:bg-sky-950/15' : ''
+                className={`p-3.5 rounded-xl border space-y-2 transition-colors ${
+                  idx === 0
+                    ? 'bg-cyan-500/[0.06] dark:bg-[#25F4EE]/[0.06] border-cyan-500/35 dark:border-[#25F4EE]/35'
+                    : 'bg-[var(--sp-surface-muted)] border-[var(--sp-border)]'
                 }`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="font-mono tabular-nums font-semibold text-zinc-900 dark:text-zinc-100">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md font-mono tabular-nums font-semibold bg-cyan-500/12 dark:bg-[#25F4EE]/15 text-cyan-800 dark:text-[#25F4EE] border border-cyan-500/25 dark:border-[#25F4EE]/25">
                       {scene.timeRange}
                     </span>
-                    <span className="text-zinc-300 dark:text-zinc-700" aria-hidden="true">
-                      ·
-                    </span>
-                    <span className="font-semibold text-sky-700 dark:text-sky-400">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                       {scene.phaseLabel}
                     </span>
                     {idx === 0 && blueprint.hooks.length > 1 && (
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                        {isMy ? '(ပြောင်းနိုင်)' : '(Swappable)'}
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[11px] font-semibold bg-emerald-500/12 dark:bg-[#10F5A0]/15 text-emerald-700 dark:text-[#10F5A0]">
+                        {isMy ? 'ပြောင်းနိုင်' : 'Swappable'}
                       </span>
                     )}
                     {idx === 1 && blueprint.hooks.length > 1 && (
@@ -1284,7 +1381,7 @@ export function DeepDiveVideoCreativePanel({
                     )}
                   </div>
                   {scene.onScreenText && (
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                    <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200 px-2 py-0.5 rounded-md bg-[var(--sp-surface)] border border-[var(--sp-border)]">
                       {isMy ? 'စာတန်း: ' : 'Overlay: '}「{scene.onScreenText}」
                     </span>
                   )}
@@ -1475,6 +1572,8 @@ export function DeepDiveVideoCreativePanel({
           </div>
         </div>
       )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

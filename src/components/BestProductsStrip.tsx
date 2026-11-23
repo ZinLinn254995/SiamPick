@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle,
   ArrowUpRight,
@@ -22,6 +23,7 @@ import {
 import { TRANSLATIONS } from '../i18n/translations';
 import { formatThb, resolveProductImageDisplayConfig } from '../utils/format';
 import { evaluateProductOpportunity } from '../utils/scoring';
+import { MOTION_TRANSITIONS, TACTILE_INTERACTIONS } from '../utils/motionPresets';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
 import { AnimatedNumber, ScoreRing } from './visual';
@@ -40,80 +42,85 @@ interface BestProductsStripProps {
 interface AwardVisualMeta {
   textClass: string;
   iconClass: string;
-  topRimClass: string;
+  tagClass: string;
   Icon: typeof Trophy;
 }
 
+const MINT_TAG_CLASS =
+  'bg-emerald-500/10 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border border-emerald-500/20 dark:border-[#10F5A0]/25';
+const CYAN_TAG_CLASS =
+  'bg-cyan-500/10 dark:bg-[#25F4EE]/12 text-cyan-700 dark:text-[#25F4EE] border border-cyan-500/20 dark:border-[#25F4EE]/25';
+
 const AWARD_META: Record<BestSelectionCategory, AwardVisualMeta> = {
   bestOverall: {
-    textClass: 'text-amber-700 dark:text-amber-400',
-    iconClass: 'text-amber-600 dark:text-amber-400',
-    topRimClass: 'from-amber-400 via-emerald-500 to-cyan-500',
+    textClass: 'text-emerald-700 dark:text-[#10F5A0]',
+    iconClass: 'text-emerald-600 dark:text-[#10F5A0]',
+    tagClass: MINT_TAG_CLASS,
     Icon: Trophy,
   },
   bestSalesPotential: {
-    textClass: 'text-cyan-700 dark:text-cyan-400',
-    iconClass: 'text-cyan-600 dark:text-cyan-400',
-    topRimClass: 'from-cyan-500 to-sky-400',
+    textClass: 'text-cyan-700 dark:text-[#25F4EE]',
+    iconClass: 'text-cyan-600 dark:text-[#25F4EE]',
+    tagClass: CYAN_TAG_CLASS,
     Icon: TrendingUp,
   },
   bestCommissionPotential: {
-    textClass: 'text-emerald-700 dark:text-emerald-400',
-    iconClass: 'text-emerald-600 dark:text-emerald-400',
-    topRimClass: 'from-emerald-500 to-teal-400',
+    textClass: 'text-emerald-700 dark:text-[#10F5A0]',
+    iconClass: 'text-emerald-600 dark:text-[#10F5A0]',
+    tagClass: MINT_TAG_CLASS,
     Icon: Percent,
   },
   lowestCompetition: {
-    textClass: 'text-violet-700 dark:text-violet-400',
-    iconClass: 'text-violet-600 dark:text-violet-400',
-    topRimClass: 'from-violet-500 to-indigo-400',
+    textClass: 'text-cyan-700 dark:text-[#25F4EE]',
+    iconClass: 'text-cyan-600 dark:text-[#25F4EE]',
+    tagClass: CYAN_TAG_CLASS,
     Icon: Users,
   },
   bestAiContentPotential: {
-    textClass: 'text-teal-700 dark:text-teal-400',
-    iconClass: 'text-teal-600 dark:text-teal-400',
-    topRimClass: 'from-teal-500 to-emerald-400',
+    textClass: 'text-cyan-700 dark:text-[#25F4EE]',
+    iconClass: 'text-cyan-600 dark:text-[#25F4EE]',
+    tagClass: CYAN_TAG_CLASS,
     Icon: Video,
   },
   highestDataConfidence: {
-    textClass: 'text-indigo-700 dark:text-indigo-400',
-    iconClass: 'text-indigo-600 dark:text-indigo-400',
-    topRimClass: 'from-indigo-500 to-cyan-400',
+    textClass: 'text-emerald-700 dark:text-[#10F5A0]',
+    iconClass: 'text-emerald-600 dark:text-[#10F5A0]',
+    tagClass: MINT_TAG_CLASS,
     Icon: ShieldCheck,
   },
 };
 
 const TONE_VALUE_CLASSES: Record<StatCardTone, string> = {
-  emerald: 'text-emerald-700 dark:text-emerald-400',
+  emerald: 'text-emerald-700 dark:text-[#10F5A0]',
   amber: 'text-amber-700 dark:text-amber-400',
-  red: 'text-red-700 dark:text-red-400',
+  red: 'text-rose-700 dark:text-[#FE2C55]',
   zinc: 'text-zinc-950 dark:text-zinc-50',
-  sky: 'text-cyan-700 dark:text-cyan-400',
-  violet: 'text-violet-700 dark:text-violet-400',
-  teal: 'text-teal-700 dark:text-teal-400',
-  slate: 'text-slate-800 dark:text-slate-200',
+  sky: 'text-cyan-700 dark:text-[#25F4EE]',
+  violet: 'text-cyan-700 dark:text-[#25F4EE]',
+  teal: 'text-emerald-700 dark:text-[#10F5A0]',
+  slate: 'text-zinc-800 dark:text-zinc-200',
 };
 
 const TONE_ICON_CLASSES: Record<StatCardTone, string> = {
-  emerald: 'text-emerald-600 dark:text-emerald-400',
+  emerald: 'text-emerald-600 dark:text-[#10F5A0]',
   amber: 'text-amber-600 dark:text-amber-400',
-  red: 'text-red-600 dark:text-red-400',
+  red: 'text-rose-600 dark:text-[#FE2C55]',
   zinc: 'text-zinc-500 dark:text-zinc-400',
-  sky: 'text-cyan-600 dark:text-cyan-400',
-  violet: 'text-violet-600 dark:text-violet-400',
-  teal: 'text-teal-600 dark:text-teal-400',
-  slate: 'text-slate-600 dark:text-slate-400',
+  sky: 'text-cyan-600 dark:text-[#25F4EE]',
+  violet: 'text-cyan-600 dark:text-[#25F4EE]',
+  teal: 'text-emerald-600 dark:text-[#10F5A0]',
+  slate: 'text-zinc-600 dark:text-zinc-400',
 };
 
 const TONE_BAR_GRADIENT_CLASSES: Record<StatCardTone, string> = {
-  emerald: 'from-emerald-500 to-cyan-400',
+  emerald: 'from-emerald-500 to-cyan-400 dark:from-[#10F5A0] dark:to-[#25F4EE]',
   amber: 'from-amber-500 to-orange-400',
-  red: 'from-red-500 to-rose-400',
+  red: 'from-rose-500 to-red-400 dark:from-[#FE2C55] dark:to-rose-400',
   zinc: 'from-zinc-700 to-zinc-500 dark:from-zinc-300 dark:to-zinc-500',
-  sky: 'from-cyan-500 to-sky-400',
-  violet: 'from-violet-500 to-indigo-400',
-  teal: 'from-teal-500 to-emerald-400',
-  slate: 'from-slate-500 to-slate-400',
+  sky: 'from-cyan-500 to-sky-400 dark:from-[#25F4EE] dark:to-cyan-300',
+  violet: 'from-cyan-500 to-teal-400',
+  teal: 'from-emerald-500 to-cyan-400 dark:from-[#10F5A0] dark:to-[#25F4EE]',
+  slate: 'from-zinc-500 to-zinc-400',
 };
 
 interface GroupedWinner {
@@ -151,6 +158,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
 }: BestProductsStripProps) {
   const [expanded, setExpanded] = useState(true);
   const [barsReady, setBarsReady] = useState(false);
+  const prefersReduced = useReducedMotion();
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
 
@@ -274,20 +282,8 @@ export const BestProductsStrip = memo(function BestProductsStrip({
   return (
     <section
       aria-label={t.bestSelectionHeading}
-      className="mt-4 relative rounded-2xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs sp-rise-in"
+      className="mt-4 relative rounded-2xl overflow-hidden border border-[var(--sp-border)] bg-[var(--sp-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03] sp-rise-in"
     >
-      {/* Top Spotlight Gradient Accent Rim */}
-      <div
-        aria-hidden="true"
-        className="h-[2px] w-full bg-gradient-to-r from-amber-400 via-emerald-500 to-cyan-500"
-      />
-
-      {/* Atmospheric Spotlight Glow */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.08),transparent_55%),radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.08),transparent_55%)] dark:bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.14),transparent_55%),radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.13),transparent_55%)]"
-      />
-
       {/* Header Row */}
       <div className="relative px-4 sm:px-6 py-2.5 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -295,16 +291,16 @@ export const BestProductsStrip = memo(function BestProductsStrip({
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
             aria-expanded={expanded}
-            className="text-left font-display text-[13px] sm:text-base font-bold text-zinc-950 dark:text-zinc-50 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors cursor-pointer min-w-0 min-h-[40px] flex items-center gap-2 leading-snug"
+            className="text-left font-display text-[13px] sm:text-base font-bold text-zinc-950 dark:text-zinc-50 hover:text-emerald-700 dark:hover:text-[#10F5A0] transition-colors cursor-pointer min-w-0 min-h-[40px] flex items-center gap-2 leading-snug"
           >
             <Trophy
-              className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0"
+              className="w-4 h-4 text-emerald-600 dark:text-[#10F5A0] shrink-0"
               aria-hidden="true"
             />
             <span>{t.bestSelectionHeading}</span>
           </button>
-          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
-            ({standoutCount})
+          <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-[#10F5A0] tabular-nums shrink-0">
+            (<AnimatedNumber value={standoutCount} />)
           </span>
           <InfoPopover
             variant="info"
@@ -320,7 +316,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
           aria-expanded={expanded}
           aria-label={expanded ? t.bestSelectionHide : t.bestSelectionShow}
           title={expanded ? t.bestSelectionHide : t.bestSelectionShow}
-          className="w-10 h-10 -mr-1.5 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+          className="w-10 h-10 -mr-1.5 rounded-xl inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE]"
         >
           <ChevronDown
             className={`w-4 h-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
@@ -339,7 +335,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
 
         return (
           <div
-            className={`relative border-t border-zinc-200/75 dark:border-zinc-800/80 bg-zinc-200/70 dark:bg-zinc-800 grid ${gridColsClass} gap-px sp-rise-in`}
+            className={`relative border-t border-[var(--sp-border)] bg-[var(--sp-border)] grid ${gridColsClass} gap-px`}
           >
             {collapsedWinners.map((group, idx) => {
               const { product, awards } = group;
@@ -362,16 +358,16 @@ export const BestProductsStrip = memo(function BestProductsStrip({
               return (
                 <div
                   key={`compact-${group.productKey}`}
-                  className={`bg-white/95 dark:bg-zinc-900/95 px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 min-w-0 ${
+                  className={`bg-[var(--sp-surface)] px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 min-w-0 ${
                     isLastOdd ? 'md:col-span-2' : ''
                   }`}
                 >
                   <button
                     type="button"
                     onClick={() => onOpenReport(product)}
-                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left group/row cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg"
+                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left group/row cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0] rounded-lg"
                   >
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 shrink-0">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] shrink-0">
                       {imageConfig.canRender && imageConfig.src ? (
                         <ProductImage
                           src={imageConfig.src}
@@ -394,33 +390,27 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-0.5">
-                      {/* Award Kicker + Rank + Title */}
+                      {/* Award Tag + Rank */}
                       <div className="flex items-center gap-1.5 min-w-0 text-xs">
-                        <Icon
-                          className={`w-3.5 h-3.5 shrink-0 ${meta.iconClass}`}
-                          aria-hidden="true"
-                        />
-                        <span className={`font-semibold shrink-0 whitespace-nowrap ${meta.textClass}`}>
-                          {shortLabel}
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold text-[11px] shrink-0 whitespace-nowrap ${meta.tagClass}`}
+                        >
+                          <Icon className="w-3 h-3 shrink-0" aria-hidden="true" />
+                          <span>{shortLabel}</span>
                         </span>
                         {awards.length > 1 && (
-                          <span className="font-mono text-[11px] font-semibold text-amber-600 dark:text-amber-400 shrink-0 tabular-nums">
+                          <span className="font-mono text-[11px] font-semibold text-emerald-700 dark:text-[#10F5A0] shrink-0 tabular-nums">
                             +{awards.length - 1}
                           </span>
                         )}
                         {scoreRank !== null && totalResultsCount > 0 && (
-                          <>
-                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700 shrink-0">
-                              ·
-                            </span>
-                            <span className="font-mono text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 tabular-nums">
-                              #{scoreRank}/{totalResultsCount}
-                            </span>
-                          </>
+                          <span className="font-mono text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 shrink-0 tabular-nums">
+                            #{scoreRank}/{totalResultsCount}
+                          </span>
                         )}
                       </div>
 
-                      <div className="text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate group-hover/row:text-emerald-700 dark:group-hover/row:text-emerald-400 transition-colors">
+                      <div className="text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate group-hover/row:text-emerald-700 dark:group-hover/row:text-[#10F5A0] transition-colors">
                         {displayName}
                       </div>
 
@@ -438,8 +428,17 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                                 ·
                               </span>
                             )}
-                            <span className="font-semibold text-emerald-700 dark:text-emerald-400 shrink-0">
-                              {product.commissionRate}%
+                            <span className="font-semibold text-emerald-700 dark:text-[#10F5A0] shrink-0">
+                              <AnimatedNumber
+                                value={product.commissionRate}
+                                suffix="%"
+                                decimals={Number.isInteger(product.commissionRate) ? 0 : 1}
+                                highlightSignal={
+                                  product.commissionVerified === true && product.commissionRate >= 10
+                                    ? 'emerald-sheen'
+                                    : 'none'
+                                }
+                              />
                             </span>
                           </>
                         )}
@@ -448,7 +447,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                             <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
                               ·
                             </span>
-                            <span className="text-cyan-700 dark:text-cyan-400 font-medium shrink-0">
+                            <span className="text-cyan-700 dark:text-[#25F4EE] font-medium shrink-0">
                               {salesVolume.toLocaleString('en-US')}{' '}
                               <span className="font-sans">{t.bestSoldUnit}</span>
                             </span>
@@ -469,15 +468,16 @@ export const BestProductsStrip = memo(function BestProductsStrip({
 
                   <div className="flex items-center gap-2 shrink-0">
                     <ScoreRing value={overallScore} max={100} size={38} />
-                    <button
+                    <motion.button
                       type="button"
+                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                       onClick={() => onOpenReport(product)}
                       aria-label={`${t.cardOpenReport}: ${displayName}`}
-                      className="inline-flex items-center justify-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/45 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap"
+                      className="inline-flex items-center justify-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 dark:bg-[#10F5A0]/12 text-emerald-800 dark:text-[#10F5A0] border border-emerald-500/25 dark:border-[#10F5A0]/30 hover:bg-emerald-500/20 dark:hover:bg-[#10F5A0]/20 transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <span className="hidden sm:inline">{isMy ? 'ကြည့်ရန်' : 'Report'}</span>
                       <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
               );
@@ -486,11 +486,24 @@ export const BestProductsStrip = memo(function BestProductsStrip({
         );
       })()}
 
+      <AnimatePresence initial={false}>
       {expanded && (
-        <div className="relative border-t border-zinc-200/75 dark:border-zinc-800/80 sp-rise-in">
+        <motion.div
+          key="best-products-expanded"
+          initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+          animate={{
+            height: 'auto',
+            opacity: 1,
+            transitionEnd: { overflow: 'visible' },
+          }}
+          exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+          transition={MOTION_TRANSITIONS.accordion}
+          className="overflow-hidden"
+        >
+        <div className="relative border-t border-[var(--sp-border)]">
           {/* Featured / Multi-Award Winner(s) */}
           {largeWinners.length > 0 && (
-            <div className="divide-y divide-zinc-200/75 dark:divide-zinc-800/80">
+            <div className="divide-y divide-[var(--sp-border)]">
               {largeWinners.map((group) => {
                 const { product, awards } = group;
                 const evaluation =
@@ -556,12 +569,12 @@ export const BestProductsStrip = memo(function BestProductsStrip({
 
                 return (
                   <article key={group.productKey} className="p-3.5 sm:p-6 space-y-3.5 sm:space-y-4">
-                    {/* 1. Unboxed Color-Coded Award Highlights */}
+                    {/* 1. Semantic Mint / Cyan Winner Category Tags */}
                     <div
-                      className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs leading-relaxed"
+                      className="flex flex-wrap items-center gap-1.5 text-xs"
                       aria-label={t.bestSelectionHeading}
                     >
-                      {awards.map((award, idx) => {
+                      {awards.map((award) => {
                         const meta = AWARD_META[award.category];
                         const Icon = meta.Icon;
                         const shortLabel = t.bestAwardShortLabels[award.category];
@@ -569,23 +582,10 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           <span
                             key={award.category}
                             title={t.bestSelectionCategories[award.category]}
-                            className="inline-flex items-center gap-1"
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg font-semibold whitespace-nowrap ${meta.tagClass}`}
                           >
-                            {idx > 0 && (
-                              <span
-                                aria-hidden="true"
-                                className="text-zinc-300 dark:text-zinc-700 mr-1"
-                              >
-                                ·
-                              </span>
-                            )}
-                            <Icon
-                              className={`w-3.5 h-3.5 shrink-0 ${meta.iconClass}`}
-                              aria-hidden="true"
-                            />
-                            <span className={`font-semibold whitespace-nowrap ${meta.textClass}`}>
-                              {shortLabel}
-                            </span>
+                            <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                            <span>{shortLabel}</span>
                           </span>
                         );
                       })}
@@ -598,7 +598,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           type="button"
                           onClick={() => onOpenReport(product)}
                           aria-label={displayName}
-                          className="group/thumb w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80 shrink-0 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                          className="group/thumb w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0]"
                         >
                           {imageConfig.canRender && imageConfig.src ? (
                             <ProductImage
@@ -625,9 +625,9 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           <button
                             type="button"
                             onClick={() => onOpenReport(product)}
-                            className="text-left cursor-pointer group/winner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-sm block w-full"
+                            className="text-left cursor-pointer group/winner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0] rounded-sm block w-full"
                           >
-                            <h3 className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/winner:text-emerald-700 dark:group-hover/winner:text-emerald-400 transition-colors">
+                            <h3 className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover/winner:text-emerald-700 dark:group-hover/winner:text-[#10F5A0] transition-colors">
                               {displayName}
                             </h3>
                           </button>
@@ -635,7 +635,11 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
                             {product.priceThb !== null && (
                               <span className="font-bold text-zinc-950 dark:text-zinc-50">
-                                {formatThb(product.priceThb)}
+                                <AnimatedNumber
+                                  value={product.priceThb}
+                                  prefix="฿"
+                                  decimals={Number.isInteger(product.priceThb) ? 0 : 2}
+                                />
                               </span>
                             )}
                             {product.commissionRate !== null && (
@@ -645,15 +649,25 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                                     ·
                                   </span>
                                 )}
-                                <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                                  {product.commissionRate}%
+                                <span className="font-bold text-emerald-700 dark:text-[#10F5A0]">
+                                  <AnimatedNumber
+                                    value={product.commissionRate}
+                                    suffix="%"
+                                    decimals={Number.isInteger(product.commissionRate) ? 0 : 1}
+                                    highlightSignal={
+                                      product.commissionVerified === true &&
+                                      product.commissionRate >= 10
+                                        ? 'emerald-sheen'
+                                        : 'none'
+                                    }
+                                  />
                                 </span>
                               </>
                             )}
                             {product.shopName && (
                               <>
                                 <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-                                    ·
+                                  ·
                                 </span>
                                 <span className="font-sans truncate max-w-[155px] sm:max-w-[260px]">
                                   {product.shopName}
@@ -665,10 +679,6 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                       </div>
 
                       <div className="relative flex flex-col items-center gap-1 shrink-0">
-                        <div
-                          aria-hidden="true"
-                          className="pointer-events-none absolute -inset-2 rounded-full bg-emerald-500/12 dark:bg-emerald-400/12 blur-md"
-                        />
                         <div className="relative sm:hidden">
                           <ScoreRing value={overallScore} max={100} size={58} animate />
                         </div>
@@ -682,7 +692,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           />
                         </div>
                         {scoreRank !== null && totalResultsCount > 0 && (
-                          <span className="relative font-mono text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                          <span className="relative font-mono text-xs font-bold tabular-nums text-emerald-700 dark:text-[#10F5A0] whitespace-nowrap">
                             #{scoreRank} / {totalResultsCount}
                           </span>
                         )}
@@ -691,9 +701,9 @@ export const BestProductsStrip = memo(function BestProductsStrip({
 
                     {/* 3. Compact 2x2 (Mobile) / 4-Col (Desktop) Hairline Telemetry Grid */}
                     <div className="space-y-2">
-                      <div className="rounded-xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-zinc-200/70 dark:bg-zinc-800 grid grid-cols-2 lg:grid-cols-4 gap-px">
+                      <div className="rounded-xl overflow-hidden border border-[var(--sp-border)] bg-[var(--sp-border)] grid grid-cols-2 lg:grid-cols-4 gap-px">
                         {/* Metric 1: Sales & Revenue */}
-                        <div className="bg-zinc-50/90 dark:bg-zinc-900/80 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
+                        <div className="bg-[var(--sp-surface-muted)] p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <TrendingUp
                               className={`w-3.5 h-3.5 shrink-0 ${TONE_ICON_CLASSES[salesTone]}`}
@@ -723,7 +733,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                         </div>
 
                         {/* Metric 2: Competition */}
-                        <div className="bg-zinc-50/90 dark:bg-zinc-900/80 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
+                        <div className="bg-[var(--sp-surface-muted)] p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Users
                               className={`w-3.5 h-3.5 shrink-0 ${TONE_ICON_CLASSES[competitionTone]}`}
@@ -759,7 +769,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                         </div>
 
                         {/* Metric 3: AI Content */}
-                        <div className="bg-zinc-50/90 dark:bg-zinc-900/80 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
+                        <div className="bg-[var(--sp-surface-muted)] p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <Video
                               className={`w-3.5 h-3.5 shrink-0 ${TONE_ICON_CLASSES[aiTone]}`}
@@ -804,7 +814,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                         </div>
 
                         {/* Metric 4: Data Confidence */}
-                        <div className="bg-zinc-50/90 dark:bg-zinc-900/80 p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
+                        <div className="bg-[var(--sp-surface-muted)] p-3 sm:p-4 flex flex-col justify-between gap-1.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <ShieldCheck
                               className={`w-3.5 h-3.5 shrink-0 ${TONE_ICON_CLASSES[confidenceTone]}`}
@@ -855,12 +865,13 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                       )}
                     </div>
 
-                    {/* 4. Vibrant Color-Coded Action Row */}
+                    {/* 4. Obsidian Volt Action Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                      <button
+                      <motion.button
                         type="button"
+                        whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                         onClick={() => onOpenReport(product)}
-                        className="group/report relative overflow-hidden sm:col-span-8 inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white dark:text-zinc-950 bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-cyan-400 shadow-sm shadow-emerald-600/20 dark:shadow-emerald-500/15 hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+                        className="group/report relative overflow-hidden sm:col-span-8 sp-btn-volt min-h-[44px] sm:min-h-[42px]"
                       >
                         <span aria-hidden="true" className="sp-shimmer-sheen" />
                         <span className="relative z-10">{t.cardOpenReport}</span>
@@ -868,23 +879,24 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           className="relative z-10 w-4 h-4 shrink-0 transition-transform duration-200 group-hover/report:translate-x-0.5 group-hover/report:-translate-y-0.5"
                           aria-hidden="true"
                         />
-                      </button>
+                      </motion.button>
 
-                      <button
+                      <motion.button
                         type="button"
+                        whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                         onClick={() => onToggleCompare(product)}
                         aria-pressed={isSelectedForCompare}
-                        className={`sm:col-span-4 inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[42px] px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                        className={`sm:col-span-4 inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[42px] px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE] ${
                           isSelectedForCompare
-                            ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                            : 'bg-indigo-50/70 dark:bg-indigo-950/35 text-indigo-900 dark:text-indigo-200 border-indigo-200/90 dark:border-indigo-700/60 hover:bg-indigo-100/75 dark:hover:bg-indigo-900/50'
+                            ? 'bg-cyan-500/12 dark:bg-[#25F4EE]/12 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/35 dark:border-[#25F4EE]/40'
+                            : 'bg-[var(--sp-surface)] text-zinc-700 dark:text-zinc-200 border-[var(--sp-border-strong)] hover:border-cyan-500/40 dark:hover:border-[#25F4EE]/40 hover:text-zinc-950 dark:hover:text-zinc-50'
                         }`}
                       >
                         <GitCompareArrows className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
                         </span>
-                      </button>
+                      </motion.button>
                     </div>
                   </article>
                 );
@@ -897,7 +909,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
             const isSingleCompact = compactWinners.length === 1;
 
             return (
-              <div className="p-3.5 sm:p-6 border-t border-zinc-200/75 dark:border-zinc-800/80 space-y-2.5 bg-zinc-50/50 dark:bg-zinc-950/30">
+              <div className="p-3.5 sm:p-6 border-t border-[var(--sp-border)] space-y-2.5 bg-[var(--sp-surface-muted)]/55">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                     {t.bestOtherCategoryWinners}
@@ -932,32 +944,25 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                       award.category === 'lowestCompetition' && product.competitionLevel === 'High';
 
                     return (
-                      <article
+                      <motion.article
                         key={group.productKey}
+                        whileHover={prefersReduced ? undefined : TACTILE_INTERACTIONS.cardHover}
                         className={`${
                           isSingleCompact
                             ? 'w-full'
                             : 'snap-start w-[86%] sm:w-[74%] md:w-auto shrink-0'
-                        } rounded-xl overflow-hidden border border-zinc-200/85 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 flex flex-col justify-between transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] md:hover:-translate-y-0.5 md:hover:shadow-sm`}
+                        } rounded-2xl overflow-hidden border border-[var(--sp-border)] bg-[var(--sp-surface)] flex flex-col justify-between transition-colors hover:border-zinc-300 dark:hover:border-white/20`}
                       >
-                      <div
-                        aria-hidden="true"
-                        className={`h-[2px] w-full bg-gradient-to-r ${meta.topRimClass}`}
-                      />
-
                       <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
                         <div className="space-y-2.5">
-                          {/* Unboxed Category Kicker + Highlight Metric */}
-                          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                          {/* Semantic Mint/Cyan Category Tag + Highlight Metric */}
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                             <span
                               title={t.bestSelectionCategories[award.category]}
-                              className="inline-flex items-center gap-1.5 text-xs font-semibold min-w-0"
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold min-w-0 ${meta.tagClass}`}
                             >
-                              <Icon
-                                className={`w-3.5 h-3.5 shrink-0 ${meta.iconClass}`}
-                                aria-hidden="true"
-                              />
-                              <span className={meta.textClass}>{shortLabel}</span>
+                              <Icon className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              <span>{shortLabel}</span>
                             </span>
 
                             <span className="font-mono text-xs font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
@@ -1037,35 +1042,37 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           </div>
                         </div>
 
-                        {/* Clean Action Buttons */}
-                        <div className="pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-2 gap-2">
-                          <button
+                        {/* Clean Tactile Action Buttons */}
+                        <div className="pt-2.5 border-t border-[var(--sp-border)] grid grid-cols-2 gap-2">
+                          <motion.button
                             type="button"
+                            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                             onClick={() => onOpenReport(product)}
-                            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-zinc-100/90 dark:bg-zinc-800 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 active:scale-[0.98] rounded-lg transition-all cursor-pointer whitespace-nowrap"
+                            className="inline-flex items-center justify-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-semibold text-zinc-950 dark:text-zinc-50 bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] hover:border-zinc-400 dark:hover:border-white/25 rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                           >
                             <span>{isMy ? 'အစီရင်ခံစာ' : 'Report'}</span>
                             <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          </button>
+                          </motion.button>
 
-                          <button
+                          <motion.button
                             type="button"
+                            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                             onClick={() => onToggleCompare(product)}
                             aria-pressed={isSelectedForCompare}
-                            className={`inline-flex items-center justify-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-lg border active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap ${
+                            className={`inline-flex items-center justify-center gap-1 min-h-[40px] px-2.5 py-1.5 text-xs font-semibold rounded-xl border transition-colors cursor-pointer whitespace-nowrap ${
                               isSelectedForCompare
-                                ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                                : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+                                ? 'bg-cyan-500/12 dark:bg-[#25F4EE]/12 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/35 dark:border-[#25F4EE]/40'
+                                : 'bg-[var(--sp-surface)] text-zinc-700 dark:text-zinc-200 border-[var(--sp-border-strong)] hover:border-cyan-500/40 dark:hover:border-[#25F4EE]/40'
                             }`}
                           >
                             <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             <span>
                               {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
                             </span>
-                          </button>
+                          </motion.button>
                         </div>
                       </div>
-                    </article>
+                    </motion.article>
                   );
                 })}
                 </div>
@@ -1108,7 +1115,9 @@ export const BestProductsStrip = memo(function BestProductsStrip({
             </div>
           )}
         </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </section>
   );
 });

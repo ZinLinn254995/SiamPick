@@ -11,8 +11,11 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Store,
+  TrendingUp,
   Users,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import type {
   Language,
   ProductEnrichmentExecutionSummary,
@@ -48,12 +51,17 @@ import {
   buildDeterministicKeywordSuggestions,
   sortSameProductCandidates,
 } from '../utils/sameProductMatcher';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
 import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
 import { StateMessage } from './visual';
 
-interface SameProductHunterSectionProps {
+export interface SameProductHunterSectionProps {
   product: ResearchProduct;
   spendingLimitCredits: number;
   serverBudgetCommittedCredits?: number | null;
@@ -66,17 +74,28 @@ interface SameProductHunterSectionProps {
   onSaveCandidate?: (candidateProduct: ResearchProduct) => void;
   onOpenDeepDive?: (candidateProduct: ResearchProduct) => void;
   onCreditsSpent?: () => void;
+  onSearchResultChange?: (result: SameProductSearchResponse | null) => void;
 }
 
 // Lightweight session memory cache so reopening the drawer for the same product restores results at 0 cr
 const clientSameProductSessionCache = new Map<string, SameProductSearchResponse>();
 
+export function getCachedSameProductSearchResult(
+  canonicalProductId: string
+): SameProductSearchResponse | null {
+  return clientSameProductSessionCache.get(canonicalProductId) ?? null;
+}
+
 const PRICE_TOLERANCE_OPTIONS = [25, 35, 50] as const;
 
-function matchTierColor(tier: SameProductMatchTier): string {
-  if (tier === 'exact-same') return 'text-emerald-700 dark:text-emerald-400';
-  if (tier === 'close-variant') return 'text-amber-700 dark:text-amber-400';
-  return 'text-zinc-500 dark:text-zinc-400';
+function matchTierBadgeClasses(tier: SameProductMatchTier): string {
+  if (tier === 'exact-same') {
+    return 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 border-emerald-500/30 dark:border-[#10F5A0]/30 text-emerald-700 dark:text-[#10F5A0]';
+  }
+  if (tier === 'close-variant') {
+    return 'bg-amber-500/10 dark:bg-amber-400/10 border-amber-500/25 dark:border-amber-400/25 text-amber-700 dark:text-amber-300';
+  }
+  return 'bg-zinc-100 dark:bg-white/[0.05] border-zinc-200/80 dark:border-white/[0.1] text-zinc-600 dark:text-zinc-300';
 }
 
 function matchTierLabel(tier: SameProductMatchTier, isMy: boolean): string {
@@ -90,9 +109,9 @@ function matchTierLabel(tier: SameProductMatchTier, isMy: boolean): string {
 }
 
 function earlyMoverColor(badge: SameProductEarlyMoverBadge): string {
-  if (badge === 'early-mover') return 'text-emerald-700 dark:text-emerald-400';
-  if (badge === 'low-video-gap') return 'text-sky-700 dark:text-sky-400';
-  if (badge === 'saturated') return 'text-red-700 dark:text-red-400';
+  if (badge === 'early-mover') return 'text-emerald-700 dark:text-[#10F5A0]';
+  if (badge === 'low-video-gap') return 'text-cyan-700 dark:text-[#25F4EE]';
+  if (badge === 'saturated') return 'text-rose-700 dark:text-[#FE2C55]';
   return 'text-zinc-600 dark:text-zinc-400';
 }
 
@@ -109,6 +128,96 @@ function earlyMoverLabel(badge: SameProductEarlyMoverBadge, isMy: boolean): stri
   return isMy ? 'နှိုင်းယှဉ်စဉ်းစားနိုင်' : 'Comparable Listing';
 }
 
+/**
+ * Computes verified-only Commission Arbitrage Gain for an exact same-product match.
+ * Strictly returns `null` if either the source product OR the candidate lacks
+ * verified commission data, or if the candidate does not offer a higher commission rate.
+ */
+function computeVerifiedCommissionArbitrage(
+  sourceProduct: ResearchProduct,
+  candidate: SameProductCandidate
+): {
+  commGainPct: number;
+  thbGainPerOrder: number | null;
+} | null {
+  if (candidate.matchTier !== 'exact-same') return null;
+
+  const sourceVerified =
+    Boolean(sourceProduct.commissionVerified) &&
+    typeof sourceProduct.commissionRate === 'number' &&
+    Number.isFinite(sourceProduct.commissionRate) &&
+    sourceProduct.commissionRate > 0;
+
+  const candProduct = candidate.researchProduct;
+  const candidateRate =
+    typeof candidate.commissionRate === 'number' && Number.isFinite(candidate.commissionRate)
+      ? candidate.commissionRate
+      : candProduct?.commissionRate ?? null;
+
+  const candidateVerified =
+    Boolean(candProduct?.commissionVerified) &&
+    typeof candidateRate === 'number' &&
+    Number.isFinite(candidateRate) &&
+    candidateRate > 0;
+
+  if (!sourceVerified || !candidateVerified || sourceProduct.commissionRate === null || candidateRate === null) {
+    return null;
+  }
+
+  const commGainPct = Math.round((candidateRate - sourceProduct.commissionRate) * 10) / 10;
+  if (commGainPct <= 0) return null;
+
+  const resolveVerifiedPerOrderThb = (
+    p: ResearchProduct,
+    explicitPerSale: number | null,
+    rate: number,
+    price: number | null
+  ): number | null => {
+    const status = p.commissionPerSaleStatus;
+    const explicitOk =
+      typeof explicitPerSale === 'number' &&
+      Number.isFinite(explicitPerSale) &&
+      explicitPerSale > 0 &&
+      status !== 'estimated' &&
+      status !== 'unverified' &&
+      status !== 'unavailable';
+    if (explicitOk) return explicitPerSale;
+
+    if (
+      p.priceStatus === 'verified' &&
+      typeof price === 'number' &&
+      Number.isFinite(price) &&
+      price > 0
+    ) {
+      return Math.round((price * rate) / 100);
+    }
+    return null;
+  };
+
+  const sourcePerOrder = resolveVerifiedPerOrderThb(
+    sourceProduct,
+    sourceProduct.estimatedCommissionPerSaleThb ?? null,
+    sourceProduct.commissionRate,
+    sourceProduct.priceThb
+  );
+  const candPerOrder = resolveVerifiedPerOrderThb(
+    candProduct,
+    candidate.estimatedCommissionPerSaleThb ?? candProduct.estimatedCommissionPerSaleThb ?? null,
+    candidateRate,
+    candidate.priceThb ?? candProduct.priceThb
+  );
+
+  const thbDelta =
+    sourcePerOrder !== null && candPerOrder !== null && candPerOrder > sourcePerOrder
+      ? Math.round(candPerOrder - sourcePerOrder)
+      : null;
+
+  return {
+    commGainPct,
+    thbGainPerOrder: thbDelta,
+  };
+}
+
 export function SameProductHunterSection({
   product,
   spendingLimitCredits,
@@ -122,6 +231,7 @@ export function SameProductHunterSection({
   onSaveCandidate,
   onOpenDeepDive,
   onCreditsSpent,
+  onSearchResultChange,
 }: SameProductHunterSectionProps) {
   const isMy = language === 'my';
   const canonicalSourceId = getCanonicalProductId(product);
@@ -163,7 +273,9 @@ export function SameProductHunterSection({
     setErrorMsg(null);
     setActiveStage2ConfirmId(null);
     setStage2Errors({});
-    setSearchResult(clientSameProductSessionCache.get(canonicalSourceId) ?? null);
+    const cached = clientSameProductSessionCache.get(canonicalSourceId) ?? null;
+    setSearchResult(cached);
+    onSearchResultChange?.(cached);
   }, [canonicalSourceId, deterministic]);
 
   useEffect(() => {
@@ -270,6 +382,7 @@ export function SameProductHunterSection({
 
       clientSameProductSessionCache.set(canonicalSourceId, data);
       setSearchResult(data);
+      onSearchResultChange?.(data);
       if (data.creditsSpent > 0) {
         onCreditsSpent?.();
       }
@@ -362,6 +475,7 @@ export function SameProductHunterSection({
           candidates: nextCandidates,
         };
         clientSameProductSessionCache.set(canonicalSourceId, updatedResult);
+        onSearchResultChange?.(updatedResult);
         return updatedResult;
       });
 
@@ -419,16 +533,16 @@ export function SameProductHunterSection({
   return (
     <section
       id="rep-same-product"
-      className="scroll-mt-4 pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-4"
+      className="scroll-mt-4 space-y-4"
     >
       {/* Section Heading */}
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+            <h3 className="font-display text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 leading-snug">
               {isMy
-                ? 'ချွတ်စွပ်တူ Product · ခြေလှမ်းဦးနိုင်မည့် ဆိုင် Link ရှာရန်'
-                : 'Same Product · Early-Mover Shop Links'}
+                ? 'ချွတ်စွပ်တူ Product · ဆိုင်ကွဲ Affiliate Arbitrage ရှာရန်'
+                : 'Same Product · Different Shop Arbitrage'}
             </h3>
             <InfoPopover
               variant="help"
@@ -440,15 +554,15 @@ export function SameProductHunterSection({
               }
               content={
                 isMy
-                  ? 'မူလ Winning Product နှင့် ပစ္စည်းချွတ်စွပ်တူသော တခြားထိုင်း TikTok Shop ဆိုင် Link များကို Kalodata (0.1 cr) ဖြင့် ရှာဖွေပြီး Gemini AI ပုံတိုက်စစ်မှု (0 Kalodata cr) ဖြင့် မတူသောပစ္စည်းများကို ဖယ်ထုတ်ကာ Creator ပြိုင်ဆိုင်မှုနည်းသေးသော Link များကို ဦးစားပေးစီပြပေးပါသည်။'
-                  : 'Searches Thailand TikTok Shop affiliate listings (0.1 cr, 24h cached) for the exact same physical product sold by different shops, uses Gemini Vision (0 Kalodata cr) to filter out non-matching items, and prioritizes listings with low creator video saturation.'
+                  ? 'မူလ Winning Product နှင့် ပစ္စည်းချွတ်စွပ်တူသော တခြားထိုင်း TikTok Shop ဆိုင် Link များကို Kalodata (0.1 cr) ဖြင့် ရှာဖွေပြီး Gemini AI ပုံတိုက်စစ်မှု (0 Kalodata cr) ဖြင့် မတူသောပစ္စည်းများကို ဖယ်ထုတ်ကာ Creator ပြိုင်ဆိုင်မှုနည်းသေးသော / ကော်မရှင်ပိုများသော Link များကို ဦးစားပေးစီပြပေးပါသည်။'
+                  : 'Searches Thailand TikTok Shop affiliate listings (0.1 cr, 24h cached) for the exact same physical product sold by different shops, uses Gemini Vision (0 Kalodata cr) to filter out unrelated items, and highlights verified commission arbitrage and lower creator saturation.'
               }
             />
           </div>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
             {isMy
-              ? 'ပစ္စည်းချွတ်စွပ်တူ · ဆိုင် Link မတူ · အခြား Creator တွေထက် ခြေလှမ်းဦးနိုင်မည့် Link များ'
-              : 'Exact same item · Different shop link · Lower creator saturation & direct TH TikTok Shop URLs'}
+              ? 'တူညီသောပစ္စည်းတစ်မျိုးတည်းကို ရောင်းချသည့် တခြားဆိုင် Link များ (မဆိုင်သောအစားထိုးပစ္စည်း မဟုတ်)'
+              : 'Hunts the exact same physical product across different TikTok Shop stores — never unrelated alternatives.'}
           </p>
         </div>
 
@@ -457,22 +571,53 @@ export function SameProductHunterSection({
         </span>
       </div>
 
-      {/* Controls Container (Flat single-elevation surface) */}
-      <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3.5">
+      {/* Clear Identity Distinction Banner (Exact Same vs Close Variant / Unverified) */}
+      <div className="rounded-xl bg-[#F5F6F8] dark:bg-[#131823] border border-zinc-200/80 dark:border-white/[0.08] px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <Store className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0" aria-hidden="true" />
+          <span className="font-medium text-zinc-800 dark:text-zinc-200 leading-snug">
+            {isMy
+              ? 'ပစ္စည်းချွတ်စွပ်တူ · ဆိုင်မတူ Affiliate Link နှိုင်းယှဉ်စနစ်'
+              : 'Exact Same SKU · Cross-Shop Commission & Creator Comparison'}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-semibold leading-snug bg-emerald-500/12 dark:bg-[#10F5A0]/12 border-emerald-500/30 dark:border-[#10F5A0]/30 text-emerald-700 dark:text-[#10F5A0]">
+            {isMy ? 'Exact Same = ပစ္စည်းတူ' : 'Exact Same Match'}
+          </span>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-medium leading-snug bg-amber-500/10 dark:bg-amber-400/10 border-amber-500/25 dark:border-amber-400/25 text-amber-700 dark:text-amber-300">
+            {isMy ? 'Variant / စစ်ဆေးရန်' : 'Variant / Unverified'}
+          </span>
+        </div>
+      </div>
+
+      {/* Controls Container (Obsidian Volt / Porcelain Pro single-elevation surface) */}
+      <div className="relative rounded-xl bg-[#F5F6F8] dark:bg-[#131823] border border-zinc-200/80 dark:border-white/[0.08] p-3.5 sm:p-4 space-y-3.5 overflow-hidden">
+        {/* Active Scan Beam Rail */}
+        {isSearching && (
+          <div
+            aria-hidden="true"
+            className="absolute top-0 inset-x-0 h-[2px] overflow-hidden bg-cyan-500/15 dark:bg-[#25F4EE]/15"
+          >
+            <div className="sp-scan-beam h-full w-1/2 bg-gradient-to-r from-transparent via-[#25F4EE] to-[#10F5A0]" />
+          </div>
+        )}
+
         {/* Editable Core Keyword Input + AI Keyword Button */}
         <div className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label
               htmlFor={`same-product-kw-${canonicalSourceId}`}
-              className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+              className="text-xs font-medium text-zinc-700 dark:text-zinc-300 leading-snug"
             >
               {isMy ? 'အဓိက Product Keyword (ပြင်ဆင်နိုင်သည်)' : 'Core Product Keyword (editable)'}
             </label>
-            <button
+            <motion.button
               type="button"
+              whileTap={TACTILE_INTERACTIONS.buttonTap}
               onClick={handleSuggestKeywords}
               disabled={loadingKeywords || isSearching}
-              className="inline-flex items-center gap-1 min-h-[32px] py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-1 min-h-[32px] py-1 text-xs font-medium text-cyan-700 dark:text-[#25F4EE] hover:text-cyan-900 dark:hover:text-[#7CF9F5] disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
             >
               {loadingKeywords ? (
                 <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
@@ -482,7 +627,7 @@ export function SameProductHunterSection({
               <span>
                 {isMy ? 'AI Keyword အကြံပြု (0 Kalodata cr)' : 'AI Suggest Keywords (0 Kalodata cr)'}
               </span>
-            </button>
+            </motion.button>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2">
@@ -497,13 +642,14 @@ export function SameProductHunterSection({
                   ? 'ဥပမာ — ထိုင်း/အင်္ဂလိပ် ပစ္စည်းအမည် အဓိကစကားလုံး'
                   : 'Enter core Thai or English product keyword'
               }
-              className="flex-1 min-h-[40px] px-3 py-2 text-xs rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/15 dark:focus:ring-zinc-100/20"
+              className="flex-1 min-h-[40px] px-3 py-2 text-xs rounded-lg bg-white dark:bg-[#0E1118] border border-zinc-300 dark:border-white/[0.12] text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/25 dark:focus:ring-[#10F5A0]/30"
             />
-            <button
+            <motion.button
               type="button"
+              whileTap={TACTILE_INTERACTIONS.buttonTap}
               onClick={() => setConfirmOpen(true)}
               disabled={isSearching || keyword.trim().length < 2}
-              className="sp-btn-primary !px-4 text-xs disabled:opacity-50 whitespace-nowrap shrink-0"
+              className="sp-btn-volt !px-4 text-xs disabled:opacity-50 whitespace-nowrap shrink-0 transition-colors"
             >
               {isSearching ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
@@ -519,10 +665,10 @@ export function SameProductHunterSection({
                     ? 'Same Product Link ရှာမည် (0.1 cr)'
                     : 'Find Same-Product Links (0.1 cr)'}
               </span>
-            </button>
+            </motion.button>
           </div>
 
-          {/* Clickable Keyword Suggestions (functional filter buttons) */}
+          {/* Clickable Keyword Suggestions */}
           {suggestedKeywords.length > 1 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
               <span className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -531,18 +677,19 @@ export function SameProductHunterSection({
               {suggestedKeywords.map((kw) => {
                 const isSelected = keyword.trim().toLowerCase() === kw.toLowerCase();
                 return (
-                  <button
+                  <motion.button
                     key={kw}
                     type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
                     onClick={() => setKeyword(kw)}
-                    className={`inline-flex items-center min-h-[32px] px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer max-w-[200px] truncate ${
+                    className={`inline-flex items-center min-h-[32px] px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer max-w-[200px] truncate leading-snug ${
                       isSelected
-                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 font-medium'
-                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 hover:text-zinc-950 dark:hover:text-zinc-50'
+                        ? 'bg-emerald-600 dark:bg-[#10F5A0] text-white dark:text-[#06070A] font-semibold'
+                        : 'bg-white dark:bg-[#0E1118] text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-white/[0.1] hover:text-zinc-950 dark:hover:text-zinc-50'
                     }`}
                   >
                     {kw}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
@@ -550,7 +697,7 @@ export function SameProductHunterSection({
         </div>
 
         {/* Filter Controls Strip */}
-        <div className="pt-3 border-t border-zinc-200/70 dark:border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="pt-3 border-t border-zinc-200/75 dark:border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Price Band Segmented Control */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
@@ -578,7 +725,7 @@ export function SameProductHunterSection({
                 type="checkbox"
                 checked={enableVisualVerification}
                 onChange={(e) => setEnableVisualVerification(e.target.checked)}
-                className="rounded border-zinc-300 dark:border-zinc-600 text-zinc-900 focus:ring-zinc-900"
+                className="rounded border-zinc-300 dark:border-zinc-600 accent-emerald-600 dark:accent-[#10F5A0]"
               />
               <span>{isMy ? 'AI ပုံတိုက်စစ် (0 cr)' : 'AI Visual Match (0 cr)'}</span>
             </label>
@@ -588,7 +735,7 @@ export function SameProductHunterSection({
                 type="checkbox"
                 checked={useCategoryFilter}
                 onChange={(e) => setUseCategoryFilter(e.target.checked)}
-                className="rounded border-zinc-300 dark:border-zinc-600 text-zinc-900 focus:ring-zinc-900"
+                className="rounded border-zinc-300 dark:border-zinc-600 accent-emerald-600 dark:accent-[#10F5A0]"
               />
               <span>{isMy ? 'Category တူသာ' : 'Same Category'}</span>
             </label>
@@ -598,7 +745,7 @@ export function SameProductHunterSection({
                 type="checkbox"
                 checked={includeCloseVariants}
                 onChange={(e) => setIncludeCloseVariants(e.target.checked)}
-                className="rounded border-zinc-300 dark:border-zinc-600 text-zinc-900 focus:ring-zinc-900"
+                className="rounded border-zinc-300 dark:border-zinc-600 accent-emerald-600 dark:accent-[#10F5A0]"
               />
               <span>{isMy ? 'Set/အရောင်ကွဲ ပါပြမည်' : 'Include Close Variants'}</span>
             </label>
@@ -608,7 +755,7 @@ export function SameProductHunterSection({
                 type="checkbox"
                 checked={includeZeroSales}
                 onChange={(e) => setIncludeZeroSales(e.target.checked)}
-                className="rounded border-zinc-300 dark:border-zinc-600 text-zinc-900 focus:ring-zinc-900"
+                className="rounded border-zinc-300 dark:border-zinc-600 accent-emerald-600 dark:accent-[#10F5A0]"
               />
               <span>{isMy ? 'ရောင်းအား 0 Link အသစ်ပါပြမည်' : 'Include 0-Sale New Links'}</span>
             </label>
@@ -616,61 +763,76 @@ export function SameProductHunterSection({
         </div>
 
         {/* Explicit Credit Confirmation Bar (Before Paid Call) */}
-        {confirmOpen && !isSearching && (
-          <div className="p-3 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 space-y-2.5 text-xs">
-            <div className="text-zinc-800 dark:text-zinc-200 leading-relaxed">
-              {isMy ? (
-                <>
-                  Kalodata Product Rank 1 ကြိမ် (<strong className="font-mono">0.1 cr</strong>) ဖြင့်{' '}
-                  <strong className="text-zinc-950 dark:text-zinc-50">“{keyword.trim()}”</strong> ကို ရှာဖွေပြီး
-                  မူလဆိုင်မဟုတ်သော Affiliate Link များကို{' '}
-                  {enableVisualVerification
-                    ? 'Gemini AI ပုံတိုက်စစ်မှု (0 Kalodata cr)'
-                    : 'နာမည်နှင့် ဈေးတူညီမှု'}{' '}
-                  ဖြင့် စစ်ထုတ်ပေးပါမည်။ 24 နာရီအတွင်း Cache ရှိပြီးသားဆို <strong>0 cr</strong> သာ ကုန်ကျပါမည်။
-                </>
-              ) : (
-                <>
-                  Run 1 Kalodata Product Rank call (<strong className="font-mono">0.1 cr</strong>) for{' '}
-                  <strong className="text-zinc-950 dark:text-zinc-50">“{keyword.trim()}”</strong>, filter to
-                  different affiliate shops,{' '}
-                  {enableVisualVerification
-                    ? 'verify identical items via Gemini Vision (0 Kalodata cr),'
-                    : 'rank by title & price match,'}{' '}
-                  and resolve direct TH TikTok Shop links (0 cr). Repeat queries within 24h reuse server cache at{' '}
-                  <strong>0 cr</strong>.
-                </>
-              )}
-            </div>
-            <InlineDailyBudgetGuard
-              language={language}
-              dailyLimitCredits={spendingLimitCredits}
-              usedCreditsToday={serverBudgetCommittedCredits}
-              remainingCreditsToday={serverBudgetRemainingCredits}
-              requiredCredits={stage1CostCredits}
-              budgetStorageAvailable={budgetStorageAvailable}
-              onUpdateDailyLimit={onSpendingLimitChange}
-            />
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="sp-btn-secondary !px-3.5 text-xs"
-              >
-                {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                disabled={stage1BlockedByBudget}
-                onClick={() => handleRunSearch(false)}
-                className="sp-btn-primary !px-3.5 text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{isMy ? 'အတည်ပြုပြီး ရှာမည် (0.1 cr)' : 'Confirm & Search (0.1 cr)'}</span>
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {confirmOpen && !isSearching && (
+            <motion.div
+              initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+              animate={{
+                opacity: 1,
+                height: 'auto',
+                transitionEnd: { overflow: 'visible' },
+              }}
+              exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+              transition={MOTION_TRANSITIONS.accordion}
+            >
+              <div className="p-3 rounded-lg bg-white dark:bg-[#0E1118] border border-zinc-300 dark:border-white/[0.12] space-y-2.5 text-xs">
+                <div className="text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                  {isMy ? (
+                    <>
+                      Kalodata Product Rank 1 ကြိမ် (<strong className="font-mono">0.1 cr</strong>) ဖြင့်{' '}
+                      <strong className="text-zinc-950 dark:text-zinc-50">“{keyword.trim()}”</strong> ကို ရှာဖွေပြီး
+                      မူလဆိုင်မဟုတ်သော Affiliate Link များကို{' '}
+                      {enableVisualVerification
+                        ? 'Gemini AI ပုံတိုက်စစ်မှု (0 Kalodata cr)'
+                        : 'နာမည်နှင့် ဈေးတူညီမှု'}{' '}
+                      ဖြင့် စစ်ထုတ်ပေးပါမည်။ 24 နာရီအတွင်း Cache ရှိပြီးသားဆို <strong>0 cr</strong> သာ ကုန်ကျပါမည်။
+                    </>
+                  ) : (
+                    <>
+                      Run 1 Kalodata Product Rank call (<strong className="font-mono">0.1 cr</strong>) for{' '}
+                      <strong className="text-zinc-950 dark:text-zinc-50">“{keyword.trim()}”</strong>, filter to
+                      different affiliate shops,{' '}
+                      {enableVisualVerification
+                        ? 'verify identical items via Gemini Vision (0 Kalodata cr),'
+                        : 'rank by title & price match,'}{' '}
+                      and resolve direct TH TikTok Shop links (0 cr). Repeat queries within 24h reuse server cache at{' '}
+                      <strong>0 cr</strong>.
+                    </>
+                  )}
+                </div>
+                <InlineDailyBudgetGuard
+                  language={language}
+                  dailyLimitCredits={spendingLimitCredits}
+                  usedCreditsToday={serverBudgetCommittedCredits}
+                  remainingCreditsToday={serverBudgetRemainingCredits}
+                  requiredCredits={stage1CostCredits}
+                  budgetStorageAvailable={budgetStorageAvailable}
+                  onUpdateDailyLimit={onSpendingLimitChange}
+                />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    onClick={() => setConfirmOpen(false)}
+                    className="sp-btn-secondary !px-3.5 text-xs transition-colors"
+                  >
+                    {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    disabled={stage1BlockedByBudget}
+                    onClick={() => handleRunSearch(false)}
+                    className="sp-btn-volt !px-3.5 text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{isMy ? 'အတည်ပြုပြီး ရှာမည် (0.1 cr)' : 'Confirm & Search (0.1 cr)'}</span>
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error Display */}
         {errorMsg && (
@@ -688,29 +850,32 @@ export function SameProductHunterSection({
 
       {/* Loading Skeleton */}
       {isSearching && (
-        <div className="space-y-3 py-2">
+        <div className="space-y-3 py-1">
           <div
             role="status"
             aria-live="polite"
-            className="text-xs font-medium text-zinc-600 dark:text-zinc-400"
+            className="text-xs font-medium text-cyan-700 dark:text-[#25F4EE] flex items-center gap-2"
           >
-            {isMy
-              ? 'ထိုင်း TikTok Shop ဆိုင် Link များကို ရှာဖွေပြီး မူလပုံနှင့် ချွတ်စွပ်တူ/မတူ တိုက်စစ်နေပါသည်...'
-              : 'Scanning Thailand TikTok Shop affiliate listings and comparing thumbnails for exact matches...'}
+            <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
+            <span>
+              {isMy
+                ? 'ထိုင်း TikTok Shop ဆိုင် Link များကို ရှာဖွေပြီး မူလပုံနှင့် ချွတ်စွပ်တူ/မတူ တိုက်စစ်နေပါသည်...'
+                : 'Scanning Thailand TikTok Shop affiliate listings and comparing thumbnails for exact matches...'}
+            </span>
           </div>
           {[0, 1].map((idx) => (
             <div
               key={idx}
               aria-hidden="true"
-              className="sp-card p-3.5 animate-pulse motion-reduce:animate-none flex items-start gap-3"
+              className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/80 dark:border-white/[0.08] p-3.5 animate-pulse motion-reduce:animate-none flex items-start gap-3"
             >
-              <div className="w-16 h-16 rounded-lg bg-zinc-200 dark:bg-zinc-800 shrink-0" />
+              <div className="w-16 h-16 rounded-lg bg-zinc-200 dark:bg-white/[0.07] shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
-                <div className="h-3.5 w-3/4 rounded bg-zinc-200 dark:bg-zinc-800" />
-                <div className="h-3 w-1/2 rounded bg-zinc-200/80 dark:bg-zinc-800" />
+                <div className="h-3.5 w-3/4 rounded bg-zinc-200 dark:bg-white/[0.07]" />
+                <div className="h-3 w-1/2 rounded bg-zinc-200/80 dark:bg-white/[0.05]" />
                 <div className="flex items-center gap-3 pt-1">
-                  <div className="h-4 w-16 rounded bg-zinc-200 dark:bg-zinc-800" />
-                  <div className="h-4 w-14 rounded bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="h-4 w-16 rounded bg-zinc-200 dark:bg-white/[0.07]" />
+                  <div className="h-4 w-14 rounded bg-zinc-200 dark:bg-white/[0.07]" />
                 </div>
               </div>
             </div>
@@ -724,14 +889,14 @@ export function SameProductHunterSection({
           {/* Honest Run Summary Bar (Unboxed Inline Metadata) */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono tabular-nums">
-              <span className="text-zinc-800 dark:text-zinc-200 font-semibold">
+              <span className="text-zinc-900 dark:text-zinc-100 font-semibold">
                 {visibleCandidates.length}{' '}
                 {isMy ? 'Link တွေ့ရှိ' : visibleCandidates.length === 1 ? 'link found' : 'links found'}
               </span>
               {exactCount > 0 && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span className="text-emerald-700 dark:text-[#10F5A0] font-semibold">
                     {exactCount} {isMy ? 'ချွတ်စွပ်တူ' : 'exact same'}
                   </span>
                 </>
@@ -739,7 +904,7 @@ export function SameProductHunterSection({
               {closeVariantCount > 0 && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="text-amber-700 dark:text-amber-400">
+                  <span className="text-amber-700 dark:text-amber-300">
                     {closeVariantCount} {isMy ? 'ပုံစံတူ/Set ကွဲ' : 'close variant'}
                   </span>
                 </>
@@ -763,15 +928,16 @@ export function SameProductHunterSection({
               </span>
             </div>
 
-            <button
+            <motion.button
               type="button"
+              whileTap={TACTILE_INTERACTIONS.buttonTap}
               onClick={() => handleRunSearch(true)}
               className="inline-flex items-center gap-1 min-h-[32px] py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer whitespace-nowrap"
               title={isMy ? 'အသစ်ပြန်ရှာမည် (0.1 cr)' : 'Refresh live search (0.1 cr)'}
             >
               <RefreshCw className="w-3 h-3" aria-hidden="true" />
               <span>{isMy ? 'ပြန်ရှာ (0.1 cr)' : 'Refresh (0.1 cr)'}</span>
-            </button>
+            </motion.button>
           </div>
 
           {/* Honest Visual Verification Note */}
@@ -797,7 +963,7 @@ export function SameProductHunterSection({
             />
           ) : (
             /* Matched Same-Product Candidate List */
-            <div className="sp-card divide-y divide-zinc-200/80 dark:divide-zinc-800 overflow-hidden">
+            <div className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/80 dark:border-white/[0.08] divide-y divide-zinc-200/80 dark:divide-white/[0.07] overflow-hidden">
               {visibleCandidates.map((cand) => {
                 const isSaved = savedProductIds?.has(cand.researchProduct.id) ?? false;
                 const isStage2Open = activeStage2ConfirmId === cand.productId;
@@ -806,6 +972,8 @@ export function SameProductHunterSection({
                 const stage2Cost =
                   KALODATA_PRODUCT_DETAIL_CREDIT +
                   (stage2IncludeShop && cand.shopId ? KALODATA_SHOP_DETAIL_CREDIT : 0);
+
+                const arbitrage = computeVerifiedCommissionArbitrage(product, cand);
 
                 const signals = isMy ? cand.earlyMoverSignalsMy : cand.earlyMoverSignalsEn;
                 const priceDeltaText =
@@ -829,12 +997,12 @@ export function SameProductHunterSection({
 
                 return (
                   <article key={cand.productId} className="p-4 space-y-3">
-                    {/* Top Row: Side-by-Side Thumbnails + Identity & Status */}
+                    {/* Top Row: Side-by-Side Thumbnails + Identity, Match Badge & Verified Arbitrage Pop */}
                     <div className="flex flex-col sm:flex-row gap-3.5 items-start">
                       {/* Side-by-Side Thumbnail Comparison (Original vs Found Shop) */}
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="w-16 space-y-1">
-                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700/80">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-[#0E1118] border border-zinc-200/80 dark:border-white/[0.08]">
                             {sourceImageConfig.canRender && sourceImageConfig.src ? (
                               <ProductImage
                                 src={sourceImageConfig.src}
@@ -851,17 +1019,23 @@ export function SameProductHunterSection({
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-center text-zinc-500 dark:text-zinc-400">
+                          <div className="text-[11px] text-center text-zinc-500 dark:text-zinc-400 leading-snug">
                             {isMy ? 'မူလပုံ' : 'Original'}
                           </div>
                         </div>
 
-                        <span className="text-xs font-mono text-zinc-500 dark:text-zinc-400 pb-4">
+                        <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500 pb-4">
                           vs
                         </span>
 
                         <div className="w-16 space-y-1">
-                          <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700">
+                          <div
+                            className={`w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-[#0E1118] border ${
+                              cand.matchTier === 'exact-same'
+                                ? 'border-emerald-500/40 dark:border-[#10F5A0]/40'
+                                : 'border-zinc-300 dark:border-white/[0.12]'
+                            }`}
+                          >
                             {candImageConfig.canRender && candImageConfig.src ? (
                               <ProductImage
                                 src={candImageConfig.src}
@@ -878,35 +1052,57 @@ export function SameProductHunterSection({
                               </div>
                             )}
                           </div>
-                          <div className="text-xs text-center font-medium text-zinc-700 dark:text-zinc-300">
+                          <div className="text-[11px] text-center font-medium text-zinc-700 dark:text-zinc-300 leading-snug">
                             {isMy ? 'ဆိုင်အသစ်' : 'Found'}
                           </div>
                         </div>
                       </div>
 
-                      {/* Main Metadata & Title */}
+                      {/* Main Metadata, Identity Badges & Commission Arbitrage Gain Pop */}
                       <div className="flex-1 min-w-0 space-y-1.5">
-                        {/* Unboxed Typographic Kicker */}
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                          <span className={`font-semibold ${matchTierColor(cand.matchTier)}`}>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[11px] font-semibold leading-snug ${matchTierBadgeClasses(
+                              cand.matchTier
+                            )}`}
+                          >
                             {matchTierLabel(cand.matchTier, isMy)}
                             {cand.visualMatchConfidence !== null
                               ? ` (${cand.visualMatchConfidence}%)`
                               : ''}
                           </span>
-                          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-                            ·
-                          </span>
-                          <span className={`font-semibold ${earlyMoverColor(cand.earlyMoverBadge)}`}>
+
+                          {/* Verified-Only Commission Arbitrage Gain Pop-In */}
+                          {arbitrage && (
+                            <motion.span
+                              variants={MOTION_VARIANTS.chipPop}
+                              initial="initial"
+                              animate="animate"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-[11px] font-bold tabular-nums leading-snug bg-emerald-500/15 dark:bg-[#10F5A0]/16 border-emerald-500/35 dark:border-[#10F5A0]/35 text-emerald-700 dark:text-[#10F5A0]"
+                              title={
+                                isMy
+                                  ? 'အတည်ပြုပြီး Commission နှုန်းထား ပိုမိုရရှိနိုင်မှု'
+                                  : 'Verified commission arbitrage gain vs original shop'
+                              }
+                            >
+                              <TrendingUp className="w-3 h-3 shrink-0" aria-hidden="true" />
+                              <span>+{arbitrage.commGainPct.toFixed(1)}% Comm</span>
+                              {arbitrage.thbGainPerOrder !== null && (
+                                <span>
+                                  · +฿{arbitrage.thbGainPerOrder.toLocaleString('en-US')}/order
+                                </span>
+                              )}
+                            </motion.span>
+                          )}
+
+                          <span className={`font-semibold text-xs ${earlyMoverColor(cand.earlyMoverBadge)}`}>
                             {earlyMoverLabel(cand.earlyMoverBadge, isMy)}
                           </span>
-                          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-                            ·
-                          </span>
-                          <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-[200px]">
-                            {cand.shopName}
-                            {cand.shopSellerType ? ` (${cand.shopSellerType})` : ''}
-                          </span>
+                        </div>
+
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                          {cand.shopName}
+                          {cand.shopSellerType ? ` (${cand.shopSellerType})` : ''}
                         </div>
 
                         <h4 className="text-xs sm:text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
@@ -920,7 +1116,7 @@ export function SameProductHunterSection({
                     </div>
 
                     {/* Tabular Comparison Metrics */}
-                    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 pt-2.5 border-t border-zinc-100 dark:border-zinc-800/80 text-xs">
+                    <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 pt-2.5 border-t border-zinc-100 dark:border-white/[0.06] text-xs">
                       <div>
                         <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                           {isMy ? 'ဈေးနှုန်း (မူလနှင့်ယှဉ်)' : 'Price vs Original'}
@@ -931,9 +1127,9 @@ export function SameProductHunterSection({
                             <span
                               className={`ml-1 text-xs font-normal ${
                                 (cand.priceDeltaThb ?? 0) <= 0
-                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  ? 'text-emerald-700 dark:text-[#10F5A0]'
                                   : (cand.priceDeltaPct ?? 0) > 15
-                                    ? 'text-amber-700 dark:text-amber-400'
+                                    ? 'text-amber-700 dark:text-amber-300'
                                     : 'text-zinc-500 dark:text-zinc-400'
                               }`}
                             >
@@ -947,10 +1143,16 @@ export function SameProductHunterSection({
                         <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                           {isMy ? 'ကော်မရှင် · 1 ခုရငွေ' : 'Commission · Per Sale'}
                         </dt>
-                        <dd className="mt-0.5 font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                        <dd className="mt-0.5 font-mono font-semibold text-emerald-700 dark:text-[#10F5A0] tabular-nums">
                           {cand.commissionRate !== null ? `${cand.commissionRate}%` : '—'}
                           {commDeltaText && (
-                            <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                            <span
+                              className={`ml-1 text-xs font-normal ${
+                                (cand.commissionDeltaPct ?? 0) > 0
+                                  ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                  : 'text-zinc-500 dark:text-zinc-400'
+                              }`}
+                            >
                               ({commDeltaText})
                             </span>
                           )}
@@ -984,9 +1186,9 @@ export function SameProductHunterSection({
                             <span
                               className={
                                 cand.creatorNumber <= 15
-                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  ? 'text-emerald-700 dark:text-[#10F5A0]'
                                   : cand.creatorNumber >= 80
-                                    ? 'text-red-700 dark:text-red-400'
+                                    ? 'text-rose-700 dark:text-[#FE2C55]'
                                     : 'text-zinc-900 dark:text-zinc-100'
                               }
                             >
@@ -1024,90 +1226,106 @@ export function SameProductHunterSection({
                     )}
 
                     {/* Inline Stage 2 Confirmation Bar (Opt-in Creator Count & Shop Trust) */}
-                    {isStage2Open && (
-                      <div className="p-3 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-2 text-xs">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                            {isMy
-                              ? `Creator အရေအတွက် စစ်ဆေးမည် (${formatCredits(stage2Cost)} cr)`
-                              : `Verify Exact Creator Count (${formatCredits(stage2Cost)} cr)`}
-                          </span>
-                          {cand.shopId && !cand.shopTrustVerified && (
-                            <label className="inline-flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={stage2IncludeShop}
-                                onChange={(e) => setStage2IncludeShop(e.target.checked)}
-                                className="rounded border-zinc-300 dark:border-zinc-600"
-                              />
-                              <span>
-                                {isMy ? 'ဆိုင်ယုံကြည်မှုပါ စစ် (+0.1 cr)' : '+ Shop Trust (0.1 cr)'}
+                    <AnimatePresence initial={false}>
+                      {isStage2Open && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                          animate={{
+                            opacity: 1,
+                            height: 'auto',
+                            transitionEnd: { overflow: 'visible' },
+                          }}
+                          exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
+                          transition={MOTION_TRANSITIONS.accordion}
+                        >
+                          <div className="p-3 rounded-lg bg-[#F5F6F8] dark:bg-[#0E1118] border border-zinc-200 dark:border-white/[0.1] space-y-2 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                                {isMy
+                                  ? `Creator အရေအတွက် စစ်ဆေးမည် (${formatCredits(stage2Cost)} cr)`
+                                  : `Verify Exact Creator Count (${formatCredits(stage2Cost)} cr)`}
                               </span>
-                            </label>
-                          )}
-                        </div>
-                        <InlineDailyBudgetGuard
-                          language={language}
-                          dailyLimitCredits={spendingLimitCredits}
-                          usedCreditsToday={serverBudgetCommittedCredits}
-                          remainingCreditsToday={serverBudgetRemainingCredits}
-                          requiredCredits={stage2Cost}
-                          budgetStorageAvailable={budgetStorageAvailable}
-                          onUpdateDailyLimit={onSpendingLimitChange}
-                        />
-                        <div className="flex items-center justify-end gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setActiveStage2ConfirmId(null)}
-                            className="sp-btn-secondary !px-3 text-xs"
-                          >
-                            {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyCandidateStage2(cand)}
-                            disabled={
-                              isStage2Loading ||
-                              !budgetStorageAvailable ||
-                              stage2Cost > effectiveRemainingBudget + 1e-6
-                            }
-                            className="sp-btn-primary !px-3.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                          >
-                            {isStage2Loading ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
-                            ) : (
-                              <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                            )}
-                            <span>
-                              {isMy
-                                ? `အတည်ပြု (${formatCredits(stage2Cost)} cr)`
-                                : `Confirm (${formatCredits(stage2Cost)} cr)`}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                              {cand.shopId && !cand.shopTrustVerified && (
+                                <label className="inline-flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={stage2IncludeShop}
+                                    onChange={(e) => setStage2IncludeShop(e.target.checked)}
+                                    className="rounded border-zinc-300 dark:border-zinc-600 accent-emerald-600 dark:accent-[#10F5A0]"
+                                  />
+                                  <span>
+                                    {isMy ? 'ဆိုင်ယုံကြည်မှုပါ စစ် (+0.1 cr)' : '+ Shop Trust (0.1 cr)'}
+                                  </span>
+                                </label>
+                              )}
+                            </div>
+                            <InlineDailyBudgetGuard
+                              language={language}
+                              dailyLimitCredits={spendingLimitCredits}
+                              usedCreditsToday={serverBudgetCommittedCredits}
+                              remainingCreditsToday={serverBudgetRemainingCredits}
+                              requiredCredits={stage2Cost}
+                              budgetStorageAvailable={budgetStorageAvailable}
+                              onUpdateDailyLimit={onSpendingLimitChange}
+                            />
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <motion.button
+                                type="button"
+                                whileTap={TACTILE_INTERACTIONS.buttonTap}
+                                onClick={() => setActiveStage2ConfirmId(null)}
+                                className="sp-btn-secondary !px-3 text-xs transition-colors"
+                              >
+                                {isMy ? 'မလုပ်တော့ပါ' : 'Cancel'}
+                              </motion.button>
+                              <motion.button
+                                type="button"
+                                whileTap={TACTILE_INTERACTIONS.buttonTap}
+                                onClick={() => handleVerifyCandidateStage2(cand)}
+                                disabled={
+                                  isStage2Loading ||
+                                  !budgetStorageAvailable ||
+                                  stage2Cost > effectiveRemainingBudget + 1e-6
+                                }
+                                className="sp-btn-volt !px-3.5 text-xs disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap transition-colors"
+                              >
+                                {isStage2Loading ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                                )}
+                                <span>
+                                  {isMy
+                                    ? `အတည်ပြု (${formatCredits(stage2Cost)} cr)`
+                                    : `Confirm (${formatCredits(stage2Cost)} cr)`}
+                                </span>
+                              </motion.button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {stage2Err && (
-                      <p className="text-xs text-red-700 dark:text-red-400">{stage2Err}</p>
+                      <p className="text-xs text-rose-700 dark:text-[#FE2C55]">{stage2Err}</p>
                     )}
 
-                    {/* Action Row */}
+                    {/* Action Row (Tactile motion buttons) */}
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {isSafeHttpUrl(cand.tiktokShopUrl) && (
                         <a
                           href={cand.tiktokShopUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="sp-btn-primary !px-3 text-xs whitespace-nowrap"
+                          className="sp-btn-volt !px-3 text-xs whitespace-nowrap transition-colors"
                         >
                           <span>{isMy ? 'TikTok Shop ဖွင့်ရန်' : 'Open TikTok Link'}</span>
                           <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         </a>
                       )}
 
-                      <button
+                      <motion.button
                         type="button"
+                        whileTap={TACTILE_INTERACTIONS.buttonTap}
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(cand.tiktokShopUrl);
@@ -1117,10 +1335,10 @@ export function SameProductHunterSection({
                             // Ignore clipboard restriction
                           }
                         }}
-                        className="sp-btn-secondary !px-3 text-xs whitespace-nowrap"
+                        className="sp-btn-secondary !px-3 text-xs whitespace-nowrap transition-colors"
                       >
                         {copiedCandidateId === cand.productId ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0]" aria-hidden="true" />
                         ) : (
                           <Copy className="w-3.5 h-3.5" aria-hidden="true" />
                         )}
@@ -1133,33 +1351,35 @@ export function SameProductHunterSection({
                               ? 'Link ကူး'
                               : 'Copy'}
                         </span>
-                      </button>
+                      </motion.button>
 
                       {!cand.stage2Verified && (
-                        <button
+                        <motion.button
                           type="button"
+                          whileTap={TACTILE_INTERACTIONS.buttonTap}
                           onClick={() => {
                             setStage2IncludeShop(false);
                             setActiveStage2ConfirmId(isStage2Open ? null : cand.productId);
                           }}
                           disabled={Boolean(stage2LoadingId)}
-                          className="sp-btn-secondary !px-3 text-xs disabled:opacity-50 whitespace-nowrap"
+                          className="sp-btn-secondary !px-3 text-xs disabled:opacity-50 whitespace-nowrap transition-colors"
                         >
                           <Users className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>
                             {isMy ? 'Creator စစ် (0.1 cr)' : 'Check Creators (0.1 cr)'}
                           </span>
-                        </button>
+                        </motion.button>
                       )}
 
                       {onSaveCandidate && (
-                        <button
+                        <motion.button
                           type="button"
+                          whileTap={TACTILE_INTERACTIONS.buttonTap}
                           onClick={() => onSaveCandidate(cand.researchProduct)}
-                          className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
                             isSaved
-                              ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-700 hover:bg-emerald-800 dark:hover:bg-emerald-600'
-                              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                              ? 'bg-emerald-600 dark:bg-[#10F5A0] text-white dark:text-[#06070A] border-emerald-600 dark:border-[#10F5A0] hover:bg-emerald-700 dark:hover:bg-[#34F7B0]'
+                              : 'bg-white dark:bg-[#0E1118] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.1] hover:bg-zinc-50 dark:hover:bg-white/[0.06]'
                           }`}
                         >
                           <Bookmark
@@ -1175,18 +1395,19 @@ export function SameProductHunterSection({
                                 ? 'သိမ်းမည်'
                                 : 'Save'}
                           </span>
-                        </button>
+                        </motion.button>
                       )}
 
                       {onOpenDeepDive && (
-                        <button
+                        <motion.button
                           type="button"
+                          whileTap={TACTILE_INTERACTIONS.buttonTap}
                           onClick={() => onOpenDeepDive(cand.researchProduct)}
-                          className="sp-btn-secondary !px-3 text-xs whitespace-nowrap"
+                          className="sp-btn-secondary !px-3 text-xs whitespace-nowrap transition-colors"
                         >
                           <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                           <span>Deep Dive</span>
-                        </button>
+                        </motion.button>
                       )}
                     </div>
                   </article>

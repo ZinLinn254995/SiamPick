@@ -25,8 +25,10 @@ import {
 } from '../utils/backupStorage';
 import { formatByteSize } from '../utils/researchHistoryStorage';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { triggerFileDownload } from '../utils/exportReports';
 import { useDialogA11y } from '../hooks/useDialogA11y';
+import { MOTION_TRANSITIONS, MOTION_VARIANTS } from '../utils/motionPresets';
 
 export type BackupModalTab = 'backup' | 'restore';
 
@@ -51,6 +53,7 @@ export function BackupRestoreModal({
   historyCount,
 }: BackupRestoreModalProps) {
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const [activeTab, setActiveTab] = useState<BackupModalTab>(initialTab);
   const [backupScope, setBackupScope] = useState<BackupScopeSelection>({
     ...DEFAULT_BACKUP_SCOPE,
@@ -106,8 +109,6 @@ export function BackupRestoreModal({
     }
     return getLocalBackupInventoryCounts();
   }, [isOpen, savedCount, historyCount, restoreOutcome]);
-
-  if (!isOpen) return null;
 
   const hasAnyBackupScopeSelected =
     backupScope.includeSaved ||
@@ -263,19 +264,31 @@ export function BackupRestoreModal({
     localCounts.latestSessionProducts === 0;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="backup-restore-heading"
-      onClick={onClose}
-    >
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className="w-full max-w-[640px] max-h-[88vh] bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="backup-restore-backdrop"
+          variants={MOTION_VARIANTS.backdrop}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-[60] bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="backup-restore-heading"
+          onClick={onClose}
+        >
+          <motion.div
+            key="backup-restore-dialog"
+            ref={modalRef}
+            tabIndex={-1}
+            variants={MOTION_VARIANTS.modalScale}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="w-full max-w-[640px] max-h-[88vh] bg-white dark:bg-zinc-900 border-t sm:border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
         {/* Mobile Sheet Grab Handle */}
         <div className="sm:hidden pt-2.5 pb-1 shrink-0" aria-hidden="true">
           <div className="sp-sheet-handle" />
@@ -322,14 +335,22 @@ export function BackupRestoreModal({
               role="tab"
               aria-selected={activeTab === 'backup'}
               onClick={() => setActiveTab('backup')}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`relative inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 activeTab === 'backup'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                  ? 'text-zinc-950 dark:text-zinc-50'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
-              <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>{isMy ? 'Backup ဖိုင်သိမ်းမည်' : 'Save Backup'}</span>
+              {activeTab === 'backup' && (
+                <motion.span
+                  layoutId="backup-modal-tab-pill"
+                  transition={MOTION_TRANSITIONS.snappy}
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-white dark:bg-zinc-900 shadow-xs rounded-md"
+                />
+              )}
+              <Download className="relative z-10 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="relative z-10">{isMy ? 'Backup ဖိုင်သိမ်းမည်' : 'Save Backup'}</span>
             </button>
 
             <button
@@ -337,22 +358,38 @@ export function BackupRestoreModal({
               role="tab"
               aria-selected={activeTab === 'restore'}
               onClick={() => setActiveTab('restore')}
-              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              className={`relative inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                 activeTab === 'restore'
-                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                  ? 'text-zinc-950 dark:text-zinc-50'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
               }`}
             >
-              <Upload className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>{isMy ? 'Backup ပြန်ယူမည်' : 'Restore Backup'}</span>
+              {activeTab === 'restore' && (
+                <motion.span
+                  layoutId="backup-modal-tab-pill"
+                  transition={MOTION_TRANSITIONS.snappy}
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-white dark:bg-zinc-900 shadow-xs rounded-md"
+                />
+              )}
+              <Upload className="relative z-10 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="relative z-10">{isMy ? 'Backup ပြန်ယူမည်' : 'Restore Backup'}</span>
             </button>
           </div>
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
-          {activeTab === 'backup' ? (
-            <>
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+          <AnimatePresence mode="wait" initial={false}>
+            {activeTab === 'backup' ? (
+              <motion.div
+                key="backup-tab-body"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
+                className="space-y-4"
+              >
               {/* Current Local Inventory (single flat surface strip — no nested bordered cards) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-zinc-800 rounded-xl bg-zinc-50/90 dark:bg-zinc-800/45 overflow-hidden">
                 <div className="px-3.5 py-2.5">
@@ -464,9 +501,16 @@ export function BackupRestoreModal({
                   </div>
                 </div>
               )}
-            </>
-          ) : (
-            <>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="restore-tab-body"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
+                className="space-y-4"
+              >
               {/* File Dropzone / Picker */}
               {!parseResult?.ok && (
                 <div
@@ -821,8 +865,9 @@ export function BackupRestoreModal({
                   )}
                 </>
               )}
-            </>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Pinned Bottom Action Footer (always visible without scrolling) */}
@@ -873,7 +918,9 @@ export function BackupRestoreModal({
             </>
           )}
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

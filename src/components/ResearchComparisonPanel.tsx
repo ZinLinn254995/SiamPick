@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   ArrowDownRight,
   ArrowRight,
@@ -19,6 +20,11 @@ import {
 import { formatThb } from '../utils/format';
 import { compareResearchSessions } from '../utils/researchHistoryStorage';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 import { TRANSLATIONS } from '../i18n/translations';
 import { StateMessage } from './visual';
 
@@ -119,6 +125,7 @@ function MetricDeltaCell({
   unchangedLabel,
   beforeLabel,
   afterLabel,
+  prefersReduced,
 }: {
   metric: ComparisonMetricDelta;
   kind: 'sales' | 'revenue' | 'growth' | 'commission' | 'score';
@@ -126,6 +133,7 @@ function MetricDeltaCell({
   unchangedLabel: string;
   beforeLabel: string;
   afterLabel: string;
+  prefersReduced: boolean;
 }) {
   if (
     !metric.available ||
@@ -134,7 +142,7 @@ function MetricDeltaCell({
     metric.delta === null
   ) {
     return (
-      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+      <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
         {unavailableLabel}
       </span>
     );
@@ -174,47 +182,55 @@ function MetricDeltaCell({
 
   const chipClasses =
     delta > 0
-      ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
+      ? 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/30 dark:border-[#10F5A0]/30'
       : delta < 0
-        ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/70'
-        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700';
+        ? 'bg-rose-500/12 dark:bg-[#FE2C55]/12 text-rose-700 dark:text-[#FE2C55] border-rose-500/30 dark:border-[#FE2C55]/30'
+        : 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-white/[0.10]';
 
   const maxMagnitude = Math.max(Math.abs(oldVal), Math.abs(newVal), 1);
-  const beforePct = Math.max(4, Math.min(100, Math.round((Math.abs(oldVal) / maxMagnitude) * 100)));
-  const afterPct = Math.max(4, Math.min(100, Math.round((Math.abs(newVal) / maxMagnitude) * 100)));
+  const beforeRatio = Math.max(0.04, Math.min(1, Math.abs(oldVal) / maxMagnitude));
+  const afterRatio = Math.max(0.04, Math.min(1, Math.abs(newVal) / maxMagnitude));
   const afterBarClass =
     delta > 0
-      ? 'bg-emerald-500 dark:bg-emerald-400'
+      ? 'bg-emerald-500 dark:bg-[#10F5A0]'
       : delta < 0
-        ? 'bg-red-500 dark:bg-red-400'
+        ? 'bg-rose-500 dark:bg-[#FE2C55]'
         : 'bg-zinc-400 dark:bg-zinc-500';
 
   return (
     <div className="space-y-1.5 min-w-0 lg:min-w-[132px]">
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${chipClasses}`}
+        <motion.span
+          key={`${kind}-${oldVal}-${newVal}`}
+          variants={MOTION_VARIANTS.chipPop}
+          initial={prefersReduced ? false : 'initial'}
+          animate="animate"
+          className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap leading-snug ${chipClasses}`}
         >
           <DeltaIcon delta={delta} />
           <span>{chipText}</span>
-        </span>
+        </motion.span>
       </div>
 
-      {/* Before -> After Mini Bar */}
+      {/* GPU-composited Before -> After Mini Bars (scaleX) */}
       <div
         className="space-y-1"
         aria-label={`${beforeLabel}: ${formatSingle(oldVal)}, ${afterLabel}: ${formatSingle(newVal)}`}
       >
-        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-zinc-300 dark:bg-zinc-600 transition-all duration-300 motion-reduce:transition-none"
-            style={{ width: `${beforePct}%` }}
+        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-white/[0.07] overflow-hidden">
+          <motion.div
+            className="h-full w-full rounded-full origin-left bg-zinc-300 dark:bg-zinc-600"
+            initial={prefersReduced ? false : { scaleX: 0 }}
+            animate={{ scaleX: beforeRatio }}
+            transition={MOTION_TRANSITIONS.ticker}
           />
         </div>
-        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-300 motion-reduce:transition-none ${afterBarClass}`}
-            style={{ width: `${afterPct}%` }}
+        <div className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-white/[0.07] overflow-hidden">
+          <motion.div
+            className={`h-full w-full rounded-full origin-left ${afterBarClass}`}
+            initial={prefersReduced ? false : { scaleX: 0 }}
+            animate={{ scaleX: afterRatio }}
+            transition={MOTION_TRANSITIONS.ticker}
           />
         </div>
       </div>
@@ -237,6 +253,7 @@ export function ResearchComparisonPanel({
 }: ResearchComparisonPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion() ?? false;
 
   const defaultNewer = initialNewerId ?? historyRecords[0]?.id ?? '';
   const defaultOlder =
@@ -290,7 +307,15 @@ export function ResearchComparisonPanel({
 
   const trendBuckets = useMemo(() => {
     if (!comparison) {
-      return { improved: 0, declined: 0, unchanged: 0, tagged: [] as Array<{ row: ProductComparisonRow; trend: 'improved' | 'declined' | 'unchanged' }> };
+      return {
+        improved: 0,
+        declined: 0,
+        unchanged: 0,
+        tagged: [] as Array<{
+          row: ProductComparisonRow;
+          trend: 'improved' | 'declined' | 'unchanged';
+        }>,
+      };
     }
     let improved = 0;
     let declined = 0;
@@ -348,10 +373,10 @@ export function ResearchComparisonPanel({
   return (
     <div className="space-y-5">
       {/* Selector Bar */}
-      <div className="sp-card p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
+      <div className="rounded-2xl bg-white dark:bg-[#0E1118] border border-zinc-200/85 dark:border-white/[0.08] p-3.5 sm:p-5 space-y-3.5 sm:space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50">
+            <h2 className="font-display text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug">
               {t.compareHeading}
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -360,8 +385,8 @@ export function ResearchComparisonPanel({
           </div>
 
           {periodLabel && (
-            <div className="sp-surface-muted inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200/70 dark:border-zinc-700/70 text-xs text-zinc-700 dark:text-zinc-200 shrink-0">
-              <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+            <div className="rounded-lg bg-[#F5F6F8] dark:bg-[#131823] inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-200/80 dark:border-white/[0.08] text-xs text-zinc-700 dark:text-zinc-200 shrink-0">
+              <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-[#25F4EE] shrink-0" aria-hidden="true" />
               <span className="text-zinc-500 dark:text-zinc-400">{t.comparePeriodApartLabel}:</span>
               <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
                 {periodLabel}
@@ -374,7 +399,7 @@ export function ResearchComparisonPanel({
           <div className="space-y-1.5">
             <label
               htmlFor="compare-older-select"
-              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 leading-snug"
             >
               {t.compareOlderLabel}
             </label>
@@ -385,7 +410,7 @@ export function ResearchComparisonPanel({
                 setOlderId(e.target.value);
                 setTrendFilter('all');
               }}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-zinc-200/20 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-[#131823] border border-zinc-200 dark:border-white/[0.10] rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-[#25F4EE] focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-[#25F4EE]/25 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -398,7 +423,7 @@ export function ResearchComparisonPanel({
           <div className="space-y-1.5">
             <label
               htmlFor="compare-newer-select"
-              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300"
+              className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 leading-snug"
             >
               {t.compareNewerLabel}
             </label>
@@ -409,7 +434,7 @@ export function ResearchComparisonPanel({
                 setNewerId(e.target.value);
                 setTrendFilter('all');
               }}
-              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-zinc-200/20 cursor-pointer"
+              className="w-full min-h-[42px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-[#131823] border border-zinc-200 dark:border-white/[0.10] rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-[#25F4EE] focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-[#25F4EE]/25 cursor-pointer"
             >
               {historyRecords.map((rec) => (
                 <option key={rec.id} value={rec.id}>
@@ -420,7 +445,7 @@ export function ResearchComparisonPanel({
           </div>
         </div>
 
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-100 dark:border-zinc-800/70 leading-relaxed">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-2 border-t border-zinc-100 dark:border-white/[0.06] leading-relaxed">
           {t.compareExactIdRule}
         </p>
       </div>
@@ -440,57 +465,60 @@ export function ResearchComparisonPanel({
       {/* Comparison Results */}
       {comparison && (
         <div className="space-y-4">
-          {/* Top Summary: Tappable Improved / Declined / Unchanged Filter Chips + Counts */}
+          {/* Top Summary: Tactile Improved / Declined / Unchanged Filter Chips + Counts */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div
               className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-full pb-0.5 sm:pb-0 sm:flex-wrap"
               role="group"
               aria-label={t.compareHeading}
             >
-              <button
+              <motion.button
                 type="button"
+                whileTap={TACTILE_INTERACTIONS.buttonTap}
                 aria-pressed={trendFilter === 'improved'}
                 onClick={() => toggleTrendFilter('improved')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold leading-snug transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
                   trendFilter === 'improved'
-                    ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600'
-                    : 'bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70'
+                    ? 'bg-emerald-600 dark:bg-[#10F5A0] text-white dark:text-[#07090F] border-emerald-600 dark:border-[#10F5A0]'
+                    : 'bg-emerald-500/10 dark:bg-[#10F5A0]/10 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/25 dark:border-[#10F5A0]/25 hover:bg-emerald-500/15 dark:hover:bg-[#10F5A0]/15'
                 }`}
               >
                 <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.compareImprovedChip}</span>
                 <span className="font-mono tabular-nums">{trendBuckets.improved}</span>
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 type="button"
+                whileTap={TACTILE_INTERACTIONS.buttonTap}
                 aria-pressed={trendFilter === 'declined'}
                 onClick={() => toggleTrendFilter('declined')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold leading-snug transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 dark:focus-visible:ring-[#FE2C55] ${
                   trendFilter === 'declined'
-                    ? 'bg-red-700 dark:bg-red-700 text-white border-red-700 dark:border-red-600'
-                    : 'bg-red-50/80 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-100/80 dark:hover:bg-red-950/70'
+                    ? 'bg-rose-600 dark:bg-[#FE2C55] text-white border-rose-600 dark:border-[#FE2C55]'
+                    : 'bg-rose-500/10 dark:bg-[#FE2C55]/10 text-rose-700 dark:text-[#FE2C55] border-rose-500/25 dark:border-[#FE2C55]/25 hover:bg-rose-500/15 dark:hover:bg-[#FE2C55]/15'
                 }`}
               >
                 <ArrowDownRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.compareDeclinedChip}</span>
                 <span className="font-mono tabular-nums">{trendBuckets.declined}</span>
-              </button>
+              </motion.button>
 
-              <button
+              <motion.button
                 type="button"
+                whileTap={TACTILE_INTERACTIONS.buttonTap}
                 aria-pressed={trendFilter === 'unchanged'}
                 onClick={() => toggleTrendFilter('unchanged')}
-                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold leading-snug transition-colors cursor-pointer shrink-0 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
                   trendFilter === 'unchanged'
-                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
-                    : 'bg-zinc-100/90 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-[#07090F] border-zinc-900 dark:border-zinc-100'
+                    : 'bg-zinc-100/90 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.10] hover:bg-zinc-200/80 dark:hover:bg-white/[0.10]'
                 }`}
               >
                 <Minus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>{t.compareUnchangedChip}</span>
                 <span className="font-mono tabular-nums">{trendBuckets.unchanged}</span>
-              </button>
+              </motion.button>
             </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
@@ -544,11 +572,11 @@ export function ResearchComparisonPanel({
           ) : (
             <>
               {/* Desktop Table */}
-              <div className="hidden lg:block sp-card overflow-hidden">
+              <div className="hidden lg:block rounded-2xl bg-white dark:bg-[#0E1118] border border-zinc-200/85 dark:border-white/[0.08] overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-800/40 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                      <tr className="border-b border-zinc-200/85 dark:border-white/[0.08] bg-[#F5F6F8] dark:bg-[#131823] text-xs font-semibold text-zinc-600 dark:text-zinc-400">
                         <th className="py-3 px-4">{t.compareColProduct}</th>
                         <th className="py-3 px-4">{t.compareColSales}</th>
                         <th className="py-3 px-4">{t.compareColRevenue}</th>
@@ -557,11 +585,11 @@ export function ResearchComparisonPanel({
                         <th className="py-3 px-4">{t.compareColScore}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-xs">
+                    <tbody className="divide-y divide-zinc-200/60 dark:divide-white/[0.06] text-xs">
                       {visibleRows.map((row) => (
                         <tr
                           key={row.canonicalProductId}
-                          className="hover:bg-zinc-50/60 dark:hover:bg-zinc-800/60 transition-colors"
+                          className="hover:bg-[#F5F6F8]/80 dark:hover:bg-[#131823]/80 transition-colors"
                         >
                           <td className="py-3.5 px-4 max-w-[260px] align-top">
                             <button
@@ -572,9 +600,9 @@ export function ResearchComparisonPanel({
                                   comparison.newerRecord.researchedAt
                                 )
                               }
-                              className="text-left cursor-pointer group"
+                              className="text-left cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE] rounded-sm"
                             >
-                              <div className="font-medium text-zinc-950 dark:text-zinc-50 group-hover:underline line-clamp-2">
+                              <div className="font-medium text-zinc-950 dark:text-zinc-50 leading-snug group-hover:text-cyan-700 dark:group-hover:text-[#25F4EE] transition-colors line-clamp-2">
                                 {isMy ? row.nameMy : row.name}
                               </div>
                               <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
@@ -594,6 +622,7 @@ export function ResearchComparisonPanel({
                               unchangedLabel={t.compareUnchanged}
                               beforeLabel={t.compareBeforeLabel}
                               afterLabel={t.compareAfterLabel}
+                              prefersReduced={prefersReduced}
                             />
                           </td>
                           <td className="py-3.5 px-4 align-top">
@@ -604,6 +633,7 @@ export function ResearchComparisonPanel({
                               unchangedLabel={t.compareUnchanged}
                               beforeLabel={t.compareBeforeLabel}
                               afterLabel={t.compareAfterLabel}
+                              prefersReduced={prefersReduced}
                             />
                           </td>
                           <td className="py-3.5 px-4 align-top">
@@ -614,6 +644,7 @@ export function ResearchComparisonPanel({
                               unchangedLabel={t.compareUnchanged}
                               beforeLabel={t.compareBeforeLabel}
                               afterLabel={t.compareAfterLabel}
+                              prefersReduced={prefersReduced}
                             />
                           </td>
                           <td className="py-3.5 px-4 align-top">
@@ -624,6 +655,7 @@ export function ResearchComparisonPanel({
                               unchangedLabel={t.compareUnchanged}
                               beforeLabel={t.compareBeforeLabel}
                               afterLabel={t.compareAfterLabel}
+                              prefersReduced={prefersReduced}
                             />
                           </td>
                           <td className="py-3.5 px-4 align-top">
@@ -634,8 +666,9 @@ export function ResearchComparisonPanel({
                               unchangedLabel={t.compareUnchanged}
                               beforeLabel={t.compareBeforeLabel}
                               afterLabel={t.compareAfterLabel}
+                              prefersReduced={prefersReduced}
                             />
-                            <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                               {t.confidenceLabels[row.olderConfidence]} →{' '}
                               {t.confidenceLabels[row.newerConfidence]}
                             </div>
@@ -652,7 +685,7 @@ export function ResearchComparisonPanel({
                 {visibleRows.map((row) => (
                   <article
                     key={row.canonicalProductId}
-                    className="sp-card p-3.5 sm:p-4 space-y-3"
+                    className="rounded-2xl bg-white dark:bg-[#0E1118] border border-zinc-200/85 dark:border-white/[0.08] p-3.5 sm:p-4 space-y-3"
                   >
                     <button
                       type="button"
@@ -662,10 +695,10 @@ export function ResearchComparisonPanel({
                           comparison.newerRecord.researchedAt
                         )
                       }
-                      className="text-left w-full min-h-[40px] flex items-start justify-between gap-2 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+                      className="text-left w-full min-h-[40px] flex items-start justify-between gap-2 cursor-pointer group rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE]"
                     >
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover:underline">
+                        <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 group-hover:text-cyan-700 dark:group-hover:text-[#25F4EE] transition-colors">
                           {isMy ? row.nameMy : row.name}
                         </h3>
                         <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400 truncate">
@@ -677,12 +710,12 @@ export function ResearchComparisonPanel({
                         </div>
                       </div>
                       <ArrowUpRight
-                        className="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-zinc-50 shrink-0 mt-0.5 transition-colors"
+                        className="w-4 h-4 text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-950 dark:group-hover:text-[#25F4EE] shrink-0 mt-0.5 transition-colors"
                         aria-hidden="true"
                       />
                     </button>
 
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-3.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-3.5 pt-3 border-t border-zinc-100 dark:border-white/[0.06]">
                       <div className="min-w-0">
                         <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">
                           {t.compareColSales}
@@ -694,6 +727,7 @@ export function ResearchComparisonPanel({
                           unchangedLabel={t.compareUnchanged}
                           beforeLabel={t.compareBeforeLabel}
                           afterLabel={t.compareAfterLabel}
+                          prefersReduced={prefersReduced}
                         />
                       </div>
                       <div className="min-w-0">
@@ -707,6 +741,7 @@ export function ResearchComparisonPanel({
                           unchangedLabel={t.compareUnchanged}
                           beforeLabel={t.compareBeforeLabel}
                           afterLabel={t.compareAfterLabel}
+                          prefersReduced={prefersReduced}
                         />
                       </div>
                       <div className="min-w-0">
@@ -720,6 +755,7 @@ export function ResearchComparisonPanel({
                           unchangedLabel={t.compareUnchanged}
                           beforeLabel={t.compareBeforeLabel}
                           afterLabel={t.compareAfterLabel}
+                          prefersReduced={prefersReduced}
                         />
                       </div>
                       <div className="min-w-0">
@@ -733,14 +769,15 @@ export function ResearchComparisonPanel({
                           unchangedLabel={t.compareUnchanged}
                           beforeLabel={t.compareBeforeLabel}
                           afterLabel={t.compareAfterLabel}
+                          prefersReduced={prefersReduced}
                         />
                       </div>
-                      <div className="col-span-2 min-w-0 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <div className="col-span-2 min-w-0 pt-2 border-t border-zinc-100 dark:border-white/[0.06]">
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <span className="text-xs text-zinc-500 dark:text-zinc-400">
                             {t.compareColScore}
                           </span>
-                          <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
                             {t.confidenceLabels[row.olderConfidence]} →{' '}
                             {t.confidenceLabels[row.newerConfidence]}
                           </span>
@@ -752,6 +789,7 @@ export function ResearchComparisonPanel({
                           unchangedLabel={t.compareUnchanged}
                           beforeLabel={t.compareBeforeLabel}
                           afterLabel={t.compareAfterLabel}
+                          prefersReduced={prefersReduced}
                         />
                       </div>
                     </div>

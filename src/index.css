@@ -20,6 +20,16 @@
     color-scheme: dark;
   }
 
+  body {
+    background-color: var(--sp-canvas);
+    color: #09090b;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  html.dark body {
+    color: #f4f4f5;
+  }
+
   h1,
   h2,
   h3,
@@ -35,44 +45,78 @@
   --sp-z-drawer: 50;
   --sp-z-modal: 60;
   --sp-z-popover: 70;
+
+  /* Porcelain Pro (Light Theme) */
+  --sp-canvas: #F5F6F8;
+  --sp-surface: #FFFFFF;
+  --sp-surface-elevated: #FFFFFF;
+  --sp-surface-muted: #ECEFF4;
+  --sp-border: rgba(15, 23, 42, 0.09);
+  --sp-border-strong: rgba(15, 23, 42, 0.16);
+  --sp-mint: #059669;
+  --sp-cyan: #0891B2;
+  --sp-coral: #E11D48;
+}
+
+html.dark {
+  /* Obsidian Volt (Dark Theme) */
+  --sp-canvas: #06070A;
+  --sp-surface: #0E1118;
+  --sp-surface-elevated: #141923;
+  --sp-surface-muted: #161B26;
+  --sp-border: rgba(255, 255, 255, 0.08);
+  --sp-border-strong: rgba(255, 255, 255, 0.14);
+  --sp-mint: #10F5A0;
+  --sp-cyan: #25F4EE;
+  --sp-coral: #FE2C55;
 }
 
 @layer components {
-  /* Single-elevation primary card surface (used across all views for visual consistency) */
+  /* Single-elevation primary card surface (Obsidian / Porcelain adaptive) */
   .sp-card {
-    @apply bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl transition-colors;
+    @apply bg-[var(--sp-surface)] border border-[var(--sp-border)] rounded-2xl shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03] transition-colors;
+  }
+
+  /* Floating glass surface for shell nav, mobile dock, and popovers */
+  .sp-glass {
+    @apply bg-white/85 dark:bg-[#0B0E14]/82 backdrop-blur-xl border border-zinc-200/80 dark:border-white/[0.09] shadow-[0_8px_30px_-12px_rgba(9,9,11,0.12)] dark:shadow-[0_14px_36px_-12px_rgba(0,0,0,0.75)];
   }
 
   /* Quiet recessed band inside cards/modals (no heavy nested border clutter) */
   .sp-surface-muted {
-    @apply bg-zinc-50/90 dark:bg-zinc-800/45 rounded-lg;
+    @apply bg-zinc-100/80 dark:bg-[#131823]/80 rounded-xl;
+  }
+
+  /* High-intent Volt CTA (Profit Mint -> Radar Cyan) */
+  .sp-btn-volt {
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-[#10F5A0] dark:to-[#25F4EE] text-white dark:text-[#06070A] shadow-sm hover:brightness-105 disabled:opacity-45 disabled:cursor-not-allowed transition-[filter,opacity] cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#06070A];
   }
 
   /* Unified button hierarchy (all >= 40px touch height, consistent radius & focus ring) */
   .sp-btn-primary {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium rounded-lg bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-white active:scale-[0.99] disabled:opacity-45 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-zinc-200 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950;
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-zinc-950 dark:bg-zinc-100 text-white dark:text-[#06070A] hover:bg-zinc-800 dark:hover:bg-white disabled:opacity-45 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 dark:focus-visible:ring-[#10F5A0] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#06070A];
   }
 
   .sp-btn-secondary {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3.5 py-2 text-xs font-medium rounded-xl bg-[var(--sp-surface)] text-zinc-700 dark:text-zinc-200 border border-[var(--sp-border-strong)] hover:border-zinc-400 dark:hover:border-white/25 hover:text-zinc-950 dark:hover:text-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE];
   }
 
   .sp-btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-xl text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-200/60 dark:hover:bg-white/[0.07] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE];
   }
 
   /* Unified segmented control */
   .sp-segmented {
-    @apply inline-flex items-center gap-1 p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/70 dark:border-zinc-700/60;
+    @apply inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-200/65 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/[0.08];
   }
 
   .sp-segmented-item {
-    @apply inline-flex items-center justify-center gap-1.5 min-h-[38px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200;
+    @apply inline-flex items-center justify-center gap-1.5 min-h-[38px] sm:min-h-[36px] px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE];
   }
 
   /* Mobile bottom-sheet top grab indicator */
   .sp-sheet-handle {
-    @apply w-9 h-1 rounded-full bg-zinc-300 dark:bg-zinc-700 mx-auto;
+    @apply w-9 h-1 rounded-full bg-zinc-300 dark:bg-white/20 mx-auto;
   }
 }
 

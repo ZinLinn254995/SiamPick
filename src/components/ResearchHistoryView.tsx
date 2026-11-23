@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -6,7 +7,6 @@ import {
   Bookmark,
   Calendar,
   ChevronDown,
-  ChevronUp,
   ExternalLink,
   Eye,
   GitCompareArrows,
@@ -19,8 +19,6 @@ import {
   RotateCcw,
   Search,
   Trash2,
-  Upload,
-  X,
 } from 'lucide-react';
 import {
   CategoryFilter,
@@ -79,7 +77,12 @@ import { BestProductsStrip } from './BestProductsStrip';
 import { ProductFilterBar } from './ProductFilterBar';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
-import { StateMessage, StatusLegendPopover } from './visual';
+import { AnimatedNumber, StateMessage, StatusLegendPopover } from './visual';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 
 const ARCHIVE_STRATEGY_WEIGHTS: Record<StrategyPreset, number> = {
   balanced: 50,
@@ -204,6 +207,7 @@ export function ResearchHistoryView({
 }: ResearchHistoryViewProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
 
   const [activeTab, setActiveTab] = useState<HistoryTab>(initialTab);
   useEffect(() => {
@@ -236,9 +240,16 @@ export function ResearchHistoryView({
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [sortKey, setSortKey] = useState<HistorySortKey>('newest');
 
-  // Selective deletion state for Batch History
+  // Selective deletion & expandable product preview state for Batch History
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [expandedSessionIds, setExpandedSessionIds] = useState<string[]>([]);
+
+  const toggleSessionExpanded = (id: string) => {
+    setExpandedSessionIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   // Search, Filter, Sort & Selective deletion state for Single Product History
   const [singleSearchQuery, setSingleSearchQuery] = useState('');
@@ -753,25 +764,29 @@ export function ResearchHistoryView({
     return (
       <section aria-labelledby="archive-detail-heading" className="space-y-4 sm:space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
-          <button
+          <motion.button
             type="button"
             onClick={() => setSelectedRecordId(null)}
+            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+            transition={MOTION_TRANSITIONS.snappy}
             className="sp-btn-ghost -ml-2"
           >
             <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             <span>{t.historyBackToListBtn}</span>
-          </button>
+          </motion.button>
 
           <div className="flex flex-wrap items-center gap-2">
             {records.length >= 2 && (
-              <button
+              <motion.button
                 type="button"
                 onClick={() => handleOpenCompareWith(selectedRecord)}
+                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                transition={MOTION_TRANSITIONS.snappy}
                 className="sp-btn-secondary px-3 py-1.5"
               >
-                <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <GitCompareArrows className="w-3.5 h-3.5 shrink-0 text-cyan-600 dark:text-[#25F4EE]" aria-hidden="true" />
                 <span>{t.historyCompareBtn}</span>
-              </button>
+              </motion.button>
             )}
           </div>
         </div>
@@ -806,8 +821,9 @@ export function ResearchHistoryView({
                 >
                   {formatResearchDateTime(selectedRecord.researchedAt, language)}
                 </h1>
-                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                  ({visibleArchiveProducts.length}/{selectedRecord.products.length})
+                <span className="font-mono text-xs text-emerald-600 dark:text-[#10F5A0] tabular-nums font-semibold">
+                  (<AnimatedNumber value={visibleArchiveProducts.length} />/
+                  <AnimatedNumber value={selectedRecord.products.length} />)
                 </span>
                 <StatusLegendPopover language={language} />
               </div>
@@ -819,32 +835,45 @@ export function ResearchHistoryView({
               role="group"
               aria-label="Score view mode"
             >
-              <button
-                type="button"
-                onClick={() => setArchiveScoreMode('original')}
-                className={`sp-segmented-item max-w-full whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
-                  archiveScoreMode === 'original'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                }`}
-              >
-                {t.historyScoreModeOriginal}
-              </button>
-              <button
-                type="button"
-                onClick={() => setArchiveScoreMode('live')}
-                className={`sp-segmented-item max-w-full whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
-                  archiveScoreMode === 'live'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                }`}
-              >
-                {t.historyScoreModeLive} ({archiveLiveWeightPct}/{100 - archiveLiveWeightPct})
-              </button>
+              {(
+                [
+                  { id: 'original' as const, label: t.historyScoreModeOriginal },
+                  {
+                    id: 'live' as const,
+                    label: `${t.historyScoreModeLive} (${archiveLiveWeightPct}/${100 - archiveLiveWeightPct})`,
+                  },
+                ] as const
+              ).map((modeOption) => {
+                const isActive = archiveScoreMode === modeOption.id;
+                return (
+                  <motion.button
+                    key={modeOption.id}
+                    type="button"
+                    onClick={() => setArchiveScoreMode(modeOption.id)}
+                    whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                    transition={MOTION_TRANSITIONS.snappy}
+                    className={`relative sp-segmented-item max-w-full whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
+                      isActive
+                        ? 'text-zinc-950 dark:text-zinc-50'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="archive-score-mode-pill"
+                        transition={MOTION_TRANSITIONS.snappy}
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-lg bg-[var(--sp-surface)] dark:bg-[#1A2130] border border-[var(--sp-border-strong)] shadow-xs"
+                      />
+                    )}
+                    <span className="relative z-10">{modeOption.label}</span>
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="pt-3 border-t border-[var(--sp-border)] flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-600 dark:text-zinc-400">
             <span>
               <strong className="text-zinc-950 dark:text-zinc-50">
                 {modeLabel(selectedRecord.researchMode, language)}
@@ -873,7 +902,7 @@ export function ResearchHistoryView({
             <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
               ·
             </span>
-            <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-medium">
+            <span className="font-mono tabular-nums text-emerald-600 dark:text-[#10F5A0] font-semibold">
               {t.actualCostLabel}:{' '}
               {selectedRecord.actualCredits !== null
                 ? `${formatCredits(selectedRecord.actualCredits)} cr${
@@ -902,15 +931,17 @@ export function ResearchHistoryView({
         {/* Kalodata OpenAPI Verified Sources & API Call Breakdown Accordion (Matches Research Results) */}
         {hasSourcesOrCostBar && (
           <div className="sp-card overflow-hidden">
-            <button
+            <motion.button
               type="button"
               onClick={() => setArchiveGroundingOpen((prev) => !prev)}
               aria-expanded={archiveGroundingOpen}
-              className="w-full min-h-[48px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+              whileTap={prefersReduced ? undefined : { scale: 0.995 }}
+              transition={MOTION_TRANSITIONS.snappy}
+              className="w-full min-h-[48px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-100/60 dark:hover:bg-white/[0.03] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0]"
             >
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <Globe
-                  className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
+                  className="w-4 h-4 text-emerald-600 dark:text-[#10F5A0] shrink-0"
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1 space-y-0.5">
@@ -925,7 +956,7 @@ export function ResearchHistoryView({
                     {archiveCostSummary && archiveCostSummary.actualCredits !== null && (
                       <>
                         <span aria-hidden="true">·</span>
-                        <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+                        <span className="font-mono tabular-nums text-emerald-600 dark:text-[#10F5A0] font-semibold whitespace-nowrap">
                           {formatCredits(archiveCostSummary.actualCredits)} {t.creditsUnit}
                         </span>
                       </>
@@ -938,114 +969,136 @@ export function ResearchHistoryView({
                 <span className="hidden sm:inline">
                   {archiveGroundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
                 </span>
-                {archiveGroundingOpen ? (
-                  <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
-                )}
+                <motion.span
+                  animate={{ rotate: archiveGroundingOpen ? 180 : 0 }}
+                  transition={MOTION_TRANSITIONS.snappy}
+                  className="inline-flex"
+                  aria-hidden="true"
+                >
+                  <ChevronDown className="w-4 h-4 shrink-0" />
+                </motion.span>
               </span>
-            </button>
+            </motion.button>
 
-            {archiveGroundingOpen && (
-              <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
-                <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
-                  <p>{t.kalodataSourceNote}</p>
-                  {selectedRecord.productCount < selectedRecord.requestedQuantity && (
-                    <p className="text-zinc-500 dark:text-zinc-400">
-                      {t.qualityGateExcludedNote}
-                    </p>
-                  )}
-                </div>
+            <AnimatePresence initial={false}>
+              {archiveGroundingOpen && (
+                <motion.div
+                  key="archive-grounding-body"
+                  initial={prefersReduced ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                  animate={{
+                    height: 'auto',
+                    opacity: 1,
+                    transitionEnd: { overflow: 'visible' },
+                  }}
+                  exit={
+                    prefersReduced
+                      ? { opacity: 0 }
+                      : { height: 0, opacity: 0, overflow: 'hidden' }
+                  }
+                  transition={MOTION_TRANSITIONS.accordion}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="border-t border-[var(--sp-border)] px-4 sm:px-5 pb-4 pt-3 space-y-3">
+                    <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                      <p>{t.kalodataSourceNote}</p>
+                      {selectedRecord.productCount < selectedRecord.requestedQuantity && (
+                        <p className="text-zinc-500 dark:text-zinc-400">
+                          {t.qualityGateExcludedNote}
+                        </p>
+                      )}
+                    </div>
 
-                {archiveCostSummary && (
-                  <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50/90 dark:bg-zinc-800/45 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                    <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
-                      {modeLabel(archiveCostSummary.researchMode, language)}
-                    </span>
-                    <span>
-                      {[
-                        archiveCostSummary.rankApiCalls > 0
-                          ? `${t.breakdownRankLabel}: ${archiveCostSummary.rankApiCalls}`
-                          : null,
-                        (archiveCostSummary.videoRankApiCalls ?? 0) > 0
-                          ? `${t.breakdownVideoRankLabel}: ${archiveCostSummary.videoRankApiCalls}`
-                          : null,
-                        archiveCostSummary.productDetailApiCalls > 0
-                          ? `${t.breakdownDetailLabel}: ${archiveCostSummary.productDetailApiCalls}`
-                          : null,
-                        archiveCostSummary.shopDetailApiCalls > 0
-                          ? `${t.breakdownShopLabel}: ${archiveCostSummary.shopDetailApiCalls}`
-                          : null,
-                        archiveCostSummary.commentInsightApiCalls > 0
-                          ? `${t.breakdownReviewLabel}: ${archiveCostSummary.commentInsightApiCalls}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                    {archiveCostSummary.geminiAnalysisApplied && (
-                      <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
-                        {t.geminiAnalysisActiveLabel}
-                      </span>
-                    )}
-                    <span>
-                      {t.estimatedCostLabel}: {formatCredits(archiveCostSummary.estimatedCredits)}{' '}
-                      {t.creditsUnit} (≈ {formatUsd(archiveCostSummary.estimatedUsd)})
-                    </span>
-                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                      {t.actualCostLabel}:{' '}
-                      {archiveCostSummary.actualCredits !== null
-                        ? `${formatCredits(archiveCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(archiveCostSummary.actualUsd ?? 0)} · ${archiveCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                        : t.actualCostUnavailable}
-                    </span>
-                  </div>
-                )}
-
-                {archiveQueries.length > 0 && (
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
-                      {t.groundingQueriesLabel}:
-                    </span>
-                    <span>{archiveQueries.join(' · ')}</span>
-                  </div>
-                )}
-                {archiveSources.length > 0 && (
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                    {archiveSources.map((src, idx) => {
-                      const resolvedHref = isSafeHttpUrl(src.url)
-                        ? normalizeTikTokSourceUrl(src.url)
-                        : null;
-                      return (
-                        <li
-                          key={`${idx}-${src.url}`}
-                          className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
-                        >
-                          <span className="text-zinc-700 dark:text-zinc-300 truncate">
-                            {src.title}{' '}
-                            <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
+                    {archiveCostSummary && (
+                      <div className="sp-surface-muted px-3.5 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
+                          {modeLabel(archiveCostSummary.researchMode, language)}
+                        </span>
+                        <span>
+                          {[
+                            archiveCostSummary.rankApiCalls > 0
+                              ? `${t.breakdownRankLabel}: ${archiveCostSummary.rankApiCalls}`
+                              : null,
+                            (archiveCostSummary.videoRankApiCalls ?? 0) > 0
+                              ? `${t.breakdownVideoRankLabel}: ${archiveCostSummary.videoRankApiCalls}`
+                              : null,
+                            archiveCostSummary.productDetailApiCalls > 0
+                              ? `${t.breakdownDetailLabel}: ${archiveCostSummary.productDetailApiCalls}`
+                              : null,
+                            archiveCostSummary.shopDetailApiCalls > 0
+                              ? `${t.breakdownShopLabel}: ${archiveCostSummary.shopDetailApiCalls}`
+                              : null,
+                            archiveCostSummary.commentInsightApiCalls > 0
+                              ? `${t.breakdownReviewLabel}: ${archiveCostSummary.commentInsightApiCalls}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                        {archiveCostSummary.geminiAnalysisApplied && (
+                          <span className="font-sans text-emerald-600 dark:text-[#10F5A0] font-medium">
+                            {t.geminiAnalysisActiveLabel}
                           </span>
-                          {resolvedHref ? (
-                            <a
-                              href={resolvedHref}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                        )}
+                        <span>
+                          {t.estimatedCostLabel}: {formatCredits(archiveCostSummary.estimatedCredits)}{' '}
+                          {t.creditsUnit} (≈ {formatUsd(archiveCostSummary.estimatedUsd)})
+                        </span>
+                        <span className="text-emerald-600 dark:text-[#10F5A0] font-semibold">
+                          {t.actualCostLabel}:{' '}
+                          {archiveCostSummary.actualCredits !== null
+                            ? `${formatCredits(archiveCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(archiveCostSummary.actualUsd ?? 0)} · ${archiveCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                            : t.actualCostUnavailable}
+                        </span>
+                      </div>
+                    )}
+
+                    {archiveQueries.length > 0 && (
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
+                          {t.groundingQueriesLabel}:
+                        </span>
+                        <span>{archiveQueries.join(' · ')}</span>
+                      </div>
+                    )}
+                    {archiveSources.length > 0 && (
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                        {archiveSources.map((src, idx) => {
+                          const resolvedHref = isSafeHttpUrl(src.url)
+                            ? normalizeTikTokSourceUrl(src.url)
+                            : null;
+                          return (
+                            <li
+                              key={`${idx}-${src.url}`}
+                              className="flex items-center justify-between gap-2 py-1 border-b border-[var(--sp-border)] text-xs"
                             >
-                              <span>{t.sourceOpenLink}</span>
-                              <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                            </a>
-                          ) : (
-                            <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
-                              {t.sourcePendingLink}
-                            </span>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
+                              <span className="text-zinc-700 dark:text-zinc-300 truncate">
+                                {src.title}{' '}
+                                <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
+                              </span>
+                              {resolvedHref ? (
+                                <a
+                                  href={resolvedHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-medium text-cyan-700 dark:text-[#25F4EE] hover:underline whitespace-nowrap shrink-0"
+                                >
+                                  <span>{t.sourceOpenLink}</span>
+                                  <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                                </a>
+                              ) : (
+                                <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
+                                  {t.sourcePendingLink}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -1112,7 +1165,7 @@ export function ResearchHistoryView({
           />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
-            {visibleArchiveProducts.map((product) => {
+            {visibleArchiveProducts.map((product, idx) => {
               const evalResult = selectedArchiveEvaluations.get(product.id);
               const decisionSummary = selectedArchiveDecisions.get(product.id);
               const compareKey = `history:${selectedRecord.id}:${product.id}`;
@@ -1130,6 +1183,7 @@ export function ResearchHistoryView({
                   hideRejectAction
                   isCompared={comparedKeys?.has(compareKey) ?? false}
                   rankInfo={archiveBatchScoreRanks.get(product.id)}
+                  entranceIndex={idx}
                   onToggleCompare={
                     onToggleCompareHistoryProduct
                       ? (prod) =>
@@ -1169,32 +1223,85 @@ export function ResearchHistoryView({
     );
   }
 
+  const storageBarTone =
+    storageStats.usagePct >= 85
+      ? 'bg-rose-600 dark:bg-[#FE2C55]'
+      : storageStats.usagePct >= 70
+        ? 'bg-amber-500 dark:bg-amber-400'
+        : 'bg-emerald-500 dark:bg-[#10F5A0]';
+
+  const storagePctTextTone =
+    storageStats.usagePct >= 85
+      ? 'text-rose-600 dark:text-[#FE2C55]'
+      : storageStats.usagePct >= 70
+        ? 'text-amber-700 dark:text-amber-400'
+        : 'text-emerald-600 dark:text-[#10F5A0]';
+
+  const storageFillScale = Math.max(0.015, Math.min(1, storageStats.usagePct / 100));
+
+  const historyTabs: Array<{
+    id: HistoryTab;
+    label: string;
+    count?: number;
+    icon: typeof History;
+    activeIconClass: string;
+  }> = [
+    {
+      id: 'records',
+      label: t.historyTabRecords,
+      count: records.length,
+      icon: History,
+      activeIconClass: 'text-emerald-600 dark:text-[#10F5A0]',
+    },
+    {
+      id: 'single',
+      label: t.historyTabSingle,
+      count: singleRecords.length,
+      icon: Link2,
+      activeIconClass: 'text-cyan-600 dark:text-[#25F4EE]',
+    },
+    {
+      id: 'compare',
+      label: t.historyTabCompare,
+      icon: GitCompareArrows,
+      activeIconClass: 'text-cyan-600 dark:text-[#25F4EE]',
+    },
+  ];
+
   return (
     <section aria-labelledby="history-view-heading" className="space-y-5 sm:space-y-6">
       {/* Header & Back Navigation */}
       <div className="space-y-3 sm:space-y-4">
-        <button
+        <motion.button
           type="button"
           onClick={onBackToHunting}
+          whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+          transition={MOTION_TRANSITIONS.snappy}
           className="sp-btn-ghost -ml-2"
         >
           <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           <span>{t.savedViewBackBtn}</span>
-        </button>
+        </motion.button>
 
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-3.5 sm:gap-4 pb-4 sm:pb-5 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="sp-card p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
           <div className="min-w-0 flex-1 max-w-2xl">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
               <h1
                 id="history-view-heading"
-                className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
+                className={`font-display text-xl sm:text-2xl font-bold text-zinc-950 dark:text-zinc-50 ${
                   isMy ? 'tracking-normal leading-[1.3]' : 'tracking-tight leading-[1.2]'
                 }`}
               >
                 {t.historyViewTitle}
               </h1>
-              <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
-                ({activeTab === 'single' ? singleRecords.length : records.length})
+              <span
+                className={`font-mono text-sm font-semibold tabular-nums shrink-0 ${
+                  activeTab === 'single'
+                    ? 'text-cyan-600 dark:text-[#25F4EE]'
+                    : 'text-emerald-600 dark:text-[#10F5A0]'
+                }`}
+              >
+                (<AnimatedNumber value={activeTab === 'single' ? singleRecords.length : records.length} />)
               </span>
               <InfoPopover
                 label={t.historyViewTitle}
@@ -1202,83 +1309,75 @@ export function ResearchHistoryView({
                 content={
                   <>
                     <p>{activeTab === 'single' ? t.singleHistorySubtitle : t.historyViewSubtitle}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-[var(--sp-border)]">
                       {t.historyStorageNote}
                     </p>
                   </>
                 }
               />
             </div>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              {activeTab === 'single' ? t.singleHistorySubtitle : t.historyViewSubtitle}
+            </p>
           </div>
 
-          {/* Sub-Tabs: horizontally scrollable with fade edge on mobile */}
+          {/* Gliding History Section Tabs */}
           <div className="relative max-w-full min-w-0 self-stretch xl:self-auto">
             <div
               className="sp-segmented flex max-w-full pr-7 sm:pr-1 overflow-x-auto no-scrollbar"
               role="tablist"
               aria-label={t.historyViewTitle}
             >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === 'records'}
-                onClick={() => {
-                  setActiveTab('records');
-                  onTabChange?.('records');
-                }}
-                className={`sp-segmented-item shrink-0 ${
-                  activeTab === 'records'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                }`}
-              >
-                <History className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>
-                  {t.historyTabRecords} ({records.length})
-                </span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === 'single'}
-                onClick={() => {
-                  setActiveTab('single');
-                  onTabChange?.('single');
-                }}
-                className={`sp-segmented-item shrink-0 ${
-                  activeTab === 'single'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                }`}
-              >
-                <Link2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>
-                  {t.historyTabSingle} ({singleRecords.length})
-                </span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === 'compare'}
-                onClick={() => {
-                  setActiveTab('compare');
-                  onTabChange?.('compare');
-                }}
-                className={`sp-segmented-item shrink-0 ${
-                  activeTab === 'compare'
-                    ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
-                }`}
-              >
-                <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>{t.historyTabCompare}</span>
-              </button>
+              {historyTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <motion.button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      onTabChange?.(tab.id);
+                    }}
+                    whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                    transition={MOTION_TRANSITIONS.snappy}
+                    className={`relative sp-segmented-item shrink-0 ${
+                      isSelected
+                        ? 'text-zinc-950 dark:text-zinc-50'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                    }`}
+                  >
+                    {isSelected && (
+                      <motion.span
+                        layoutId="history-view-tab-pill"
+                        transition={MOTION_TRANSITIONS.snappy}
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-lg bg-[var(--sp-surface)] dark:bg-[#1A2130] border border-[var(--sp-border-strong)] shadow-xs"
+                      />
+                    )}
+                    <span className="relative z-10 inline-flex items-center gap-1.5">
+                      <Icon
+                        className={`w-3.5 h-3.5 shrink-0 ${
+                          isSelected ? tab.activeIconClass : ''
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <span>{tab.label}</span>
+                      {typeof tab.count === 'number' && (
+                        <span className="font-mono text-xs tabular-nums opacity-80">
+                          (<AnimatedNumber value={tab.count} />)
+                        </span>
+                      )}
+                    </span>
+                  </motion.button>
+                );
+              })}
             </div>
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-lg bg-gradient-to-l from-zinc-100/95 dark:from-zinc-800/95 to-transparent sm:hidden"
+              className="pointer-events-none absolute inset-y-0 right-0 w-8 rounded-r-xl bg-gradient-to-l from-[var(--sp-surface)] to-transparent sm:hidden"
             />
           </div>
         </div>
@@ -1301,57 +1400,484 @@ export function ResearchHistoryView({
         />
       )}
 
-      {/* Active Tab Content */}
-      {activeTab === 'compare' ? (
-        <ResearchComparisonPanel
-          historyRecords={records}
-          initialOlderId={compareOlderId}
-          initialNewerId={compareNewerId}
-          onOpenProductReport={(product, researchDate) => onOpenReport(product, researchDate)}
-          language={language}
-        />
-      ) : activeTab === 'single' ? (
-        <div className="space-y-4">
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {t.singleHistorySubtitle}
-          </p>
+      {/* Active Tab Content with Smooth Cross-Fade */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={prefersReduced ? { opacity: 1 } : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+          transition={MOTION_TRANSITIONS.crossFade}
+        >
+          {activeTab === 'compare' ? (
+            <ResearchComparisonPanel
+              historyRecords={records}
+              initialOlderId={compareOlderId}
+              initialNewerId={compareNewerId}
+              onOpenProductReport={(product, researchDate) => onOpenReport(product, researchDate)}
+              language={language}
+            />
+          ) : activeTab === 'single' ? (
+            <div className="space-y-4">
+              {singleRecords.length === 0 ? (
+                <StateMessage
+                  variant="empty"
+                  icon={<Link2 className="w-5 h-5" aria-hidden="true" />}
+                  title={t.singleHistoryEmptyTitle}
+                  reason={t.singleHistoryEmptyDesc}
+                  actionLabel={t.savedViewBackBtn}
+                  actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+                  onAction={onBackToHunting}
+                />
+              ) : (
+                <>
+                  {/* Search, Category Filter, Sort & Selective Delete Controls */}
+                  <div className="sp-card p-3.5 sm:p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 sm:gap-3">
+                      <div className="sm:col-span-2 lg:col-span-6 relative">
+                        <Search
+                          className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-hidden="true"
+                        />
+                        <input
+                          type="search"
+                          value={singleSearchQuery}
+                          onChange={(e) => setSingleSearchQuery(e.target.value)}
+                          placeholder={t.singleHistorySearchPlaceholder}
+                          aria-label={t.singleHistorySearchPlaceholder}
+                          className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE] transition-colors"
+                        />
+                      </div>
 
-          {singleRecords.length === 0 ? (
+                      <div className="lg:col-span-3">
+                        <select
+                          value={singleCategoryFilter}
+                          onChange={(e) => setSingleCategoryFilter(e.target.value as CategoryFilter)}
+                          aria-label={t.settingCategoryLabel}
+                          className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE] cursor-pointer transition-colors"
+                        >
+                          <option value="all">{t.categoryAll}</option>
+                          {UNIVERSAL_CATEGORIES.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                              {getCategoryLabel(cat.id, language)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="lg:col-span-3">
+                        <select
+                          value={singleSortKey}
+                          onChange={(e) => setSingleSortKey(e.target.value as SingleHistorySortKey)}
+                          aria-label={t.sortLabel}
+                          className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE] cursor-pointer transition-colors"
+                        >
+                          <option value="newest">{t.historySortNewest}</option>
+                          <option value="oldest">{t.historySortOldest}</option>
+                          <option value="score-desc">{t.sortFieldLabels.overallScore}</option>
+                          <option value="commission-desc">{t.sortFieldLabels.commissionPotential}</option>
+                          <option value="sales-desc">{t.sortFieldLabels.salesPerformance}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                      {checkedSingleIds.length > 0 && (
+                        <motion.div
+                          key="single-bulk-delete"
+                          initial={prefersReduced ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                          animate={{
+                            height: 'auto',
+                            opacity: 1,
+                            transitionEnd: { overflow: 'visible' },
+                          }}
+                          exit={
+                            prefersReduced
+                              ? { opacity: 0 }
+                              : { height: 0, opacity: 0, overflow: 'hidden' }
+                          }
+                          transition={MOTION_TRANSITIONS.accordion}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <div className="pt-3 border-t border-[var(--sp-border)] flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
+                              <AnimatedNumber value={checkedSingleIds.length} /> {t.historySelectedCount}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <motion.button
+                                type="button"
+                                onClick={() => setCheckedSingleIds([])}
+                                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                transition={MOTION_TRANSITIONS.snappy}
+                                className="sp-btn-ghost px-3"
+                              >
+                                {t.confirmCancelBtn}
+                              </motion.button>
+                              <motion.button
+                                type="button"
+                                onClick={handleDeleteSelectedSingle}
+                                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                transition={MOTION_TRANSITIONS.snappy}
+                                className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 dark:bg-[#FE2C55] hover:bg-rose-700 dark:hover:brightness-110 rounded-xl transition-[filter,background-color] cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                <span>
+                                  {t.historyDeleteSelectedBtn} ({checkedSingleIds.length})
+                                </span>
+                              </motion.button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {filteredSingleRecords.length === 0 ? (
+                    <StateMessage
+                      variant="empty"
+                      icon={<Search className="w-5 h-5" aria-hidden="true" />}
+                      reason={t.emptyFilteredTitle}
+                      actionLabel={t.savedResetFiltersBtn}
+                      actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+                      onAction={() => {
+                        setSingleSearchQuery('');
+                        setSingleCategoryFilter('all');
+                      }}
+                    />
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredSingleRecords.map((rec, idx) => {
+                        const p = rec.product;
+                        const isChecked = checkedSingleIds.includes(rec.id);
+                        const isConfirming = confirmDeleteSingleId === rec.id;
+                        const isSaved = getDecision(p.id) === 'saved';
+                        const imgConfig = resolveProductImageDisplayConfig(p);
+                        const evalResult = evaluateProductOpportunity(p, {
+                          salesWeightPct: currentSalesWeightPct,
+                        });
+                        const verifiedCommRate =
+                          p.commissionVerified && typeof p.commissionRate === 'number'
+                            ? p.commissionRate
+                            : null;
+                        const fallbackCommRate =
+                          verifiedCommRate === null &&
+                          typeof p.kalodataMetrics?.commissionRatePct === 'number'
+                            ? p.kalodataMetrics.commissionRatePct
+                            : null;
+                        const derivedTiktokUrl = getTikTokShopProductUrl(p);
+                        const tiktokHref =
+                          rec.canonicalUrl ??
+                          (isSafeHttpUrl(derivedTiktokUrl) ? derivedTiktokUrl : null);
+
+                        return (
+                          <motion.article
+                            key={rec.id}
+                            variants={prefersReduced ? undefined : MOTION_VARIANTS.cardReveal}
+                            custom={idx}
+                            initial={prefersReduced ? false : 'initial'}
+                            animate="animate"
+                            whileHover={prefersReduced ? undefined : TACTILE_INTERACTIONS.cardHover}
+                            className="sp-card p-3.5 sm:p-5 hover:border-cyan-500/40 dark:hover:border-[#25F4EE]/30"
+                          >
+                            <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3.5 sm:gap-4">
+                              <div className="flex items-start gap-3 min-w-0 flex-1">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleSingleChecked(rec.id)}
+                                  aria-label={`${t.historySelectLabel} ${p.name}`}
+                                  className="mt-1 w-4 h-4 rounded-sm border-[var(--sp-border-strong)] accent-cyan-600 dark:accent-[#25F4EE] cursor-pointer shrink-0"
+                                />
+
+                                <div className="w-16 h-16 rounded-xl overflow-hidden bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] shrink-0">
+                                  {imgConfig.canRender && imgConfig.src ? (
+                                    <ProductImage
+                                      src={imgConfig.src}
+                                      fallbackSrc={imgConfig.fallbackSrc}
+                                      productId={imgConfig.productId}
+                                      alt={p.name}
+                                      title={isMy ? p.nameMy : p.name}
+                                      unavailableLabel={t.cardImageUnverified}
+                                      compact
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ImageOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 flex-1 space-y-1.5">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                    <span className="font-semibold text-cyan-700 dark:text-[#25F4EE]">
+                                      {getCategoryLabel(p.category, language, { short: true })}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
+                                  </div>
+
+                                  <h3
+                                    title={`${t.historyRecordIdLabel}: ${rec.canonicalProductId}`}
+                                    className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
+                                  >
+                                    {isMy ? p.nameMy : p.name}
+                                  </h3>
+
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                    <span>
+                                      {t.linkImportShopLabel}:{' '}
+                                      <strong className="font-medium text-zinc-900 dark:text-zinc-100">
+                                        {p.shopName || t.dataStatusLabels.unavailable}
+                                      </strong>
+                                    </span>
+                                    <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                      ·
+                                    </span>
+                                    <span>
+                                      {t.singleHistorySourceLabel}:{' '}
+                                      <strong className="font-mono text-cyan-700 dark:text-[#25F4EE]">
+                                        {singleSourceLabel(rec.dataSource, isMy)}
+                                      </strong>
+                                    </span>
+                                    <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                      ·
+                                    </span>
+                                    <span className="font-mono tabular-nums">
+                                      {t.singleHistoryCreditsLabel}: {formatCredits(rec.estimatedCreditsCharged)} cr
+                                    </span>
+                                    <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                      ·
+                                    </span>
+                                    <span className="font-mono text-xs tabular-nums text-emerald-600 dark:text-[#10F5A0]">
+                                      {evalResult.verifiedCount} {t.bestVerifiedUnit} · {evalResult.unavailableCount}{' '}
+                                      {t.dataStatusLabels.unavailable}
+                                    </span>
+                                  </div>
+
+                                  <div className="sp-surface-muted p-2.5 sm:p-3 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 mt-1 text-xs">
+                                    <div className="min-w-0">
+                                      <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                                        {t.linkImportPriceLabel}
+                                      </span>
+                                      <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                        {typeof p.priceThb === 'number'
+                                          ? formatThb(p.priceThb)
+                                          : t.dataStatusLabels.unavailable}
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                                        {t.linkImportSalesLabel}
+                                      </span>
+                                      <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                        {typeof p.kalodataMetrics?.salesVolume === 'number' ? (
+                                          <AnimatedNumber value={p.kalodataMetrics.salesVolume} />
+                                        ) : (
+                                          t.dataStatusLabels.unavailable
+                                        )}
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                                        {t.linkImportRevenueLabel}
+                                      </span>
+                                      <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                        {typeof p.kalodataMetrics?.revenueThb === 'number'
+                                          ? formatThb(p.kalodataMetrics.revenueThb)
+                                          : t.dataStatusLabels.unavailable}
+                                      </span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                                        {t.linkImportCommissionLabel}
+                                      </span>
+                                      {verifiedCommRate !== null ? (
+                                        <AnimatedNumber
+                                          value={verifiedCommRate}
+                                          decimals={1}
+                                          suffix="%"
+                                          highlightSignal={
+                                            verifiedCommRate >= 10 ? 'emerald-sheen' : 'none'
+                                          }
+                                          className="font-mono font-semibold text-emerald-600 dark:text-[#10F5A0]"
+                                        />
+                                      ) : fallbackCommRate !== null ? (
+                                        <span className="font-mono font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">
+                                          {fallbackCommRate.toFixed(1)}%
+                                        </span>
+                                      ) : (
+                                        <span className="font-mono text-zinc-500 dark:text-zinc-400">
+                                          {t.dataStatusLabels.unavailable}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-1 min-w-0">
+                                      <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
+                                        {t.linkImportScoreLabel}
+                                      </span>
+                                      <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
+                                        <AnimatedNumber value={evalResult.totalScore} />/100 ({t.confidenceLabels[evalResult.confidenceLevel]})
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Row Actions */}
+                              <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:justify-end xl:max-w-[430px]">
+                                <motion.button
+                                  type="button"
+                                  onClick={() =>
+                                    onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
+                                  }
+                                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                  transition={MOTION_TRANSITIONS.snappy}
+                                  className="sp-btn-volt px-3 py-1.5 text-xs"
+                                >
+                                  <span>{t.singleHistoryOpenReportBtn}</span>
+                                  <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                </motion.button>
+
+                                {onOpenDeepDive && (
+                                  <motion.button
+                                    type="button"
+                                    onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
+                                    whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                    transition={MOTION_TRANSITIONS.snappy}
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-semibold text-cyan-800 dark:text-[#25F4EE] bg-cyan-500/[0.08] dark:bg-[#25F4EE]/[0.1] border border-cyan-500/35 dark:border-[#25F4EE]/30 hover:bg-cyan-500/[0.15] dark:hover:bg-[#25F4EE]/[0.16] rounded-xl transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE]"
+                                  >
+                                    <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                    <span>{t.singleHistoryDeepDiveBtn}</span>
+                                  </motion.button>
+                                )}
+
+                                <motion.button
+                                  type="button"
+                                  onClick={() => onSaveProduct(p, rec.researchedAt)}
+                                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                  transition={MOTION_TRANSITIONS.snappy}
+                                  className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0] ${
+                                    isSaved
+                                      ? 'bg-emerald-500/[0.1] dark:bg-[#10F5A0]/[0.12] text-emerald-700 dark:text-[#10F5A0] border-emerald-500/40 dark:border-[#10F5A0]/40'
+                                      : 'bg-[var(--sp-surface)] text-zinc-700 dark:text-zinc-200 border-[var(--sp-border-strong)] hover:border-zinc-400 dark:hover:border-white/25'
+                                  }`}
+                                >
+                                  <Bookmark
+                                    className={`w-3.5 h-3.5 shrink-0 ${isSaved ? 'fill-current' : ''}`}
+                                    aria-hidden="true"
+                                  />
+                                  <span>{isSaved ? t.linkImportSavedBtn : t.linkImportSaveBtn}</span>
+                                </motion.button>
+
+                                {tiktokHref && (
+                                  <a
+                                    href={tiktokHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="sp-btn-ghost px-2.5"
+                                  >
+                                    <span>{t.singleHistoryOpenLinkBtn}</span>
+                                    <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                  </a>
+                                )}
+
+                                {isConfirming ? (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <motion.button
+                                      type="button"
+                                      onClick={() => handleDeleteSingleItem(rec.id)}
+                                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                      transition={MOTION_TRANSITIONS.snappy}
+                                      className="min-h-[40px] px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 dark:bg-[#FE2C55] hover:bg-rose-700 dark:hover:brightness-110 rounded-xl transition-[filter,background-color] cursor-pointer whitespace-nowrap"
+                                    >
+                                      {t.historyDeleteConfirmBtn}
+                                    </motion.button>
+                                    <motion.button
+                                      type="button"
+                                      onClick={() => setConfirmDeleteSingleId(null)}
+                                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                      transition={MOTION_TRANSITIONS.snappy}
+                                      className="sp-btn-ghost px-2.5"
+                                    >
+                                      {t.confirmCancelBtn}
+                                    </motion.button>
+                                  </div>
+                                ) : (
+                                  <motion.button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteSingleId(rec.id)}
+                                    whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                    transition={MOTION_TRANSITIONS.snappy}
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-[var(--sp-surface)] border border-[var(--sp-border-strong)] hover:border-rose-400/70 dark:hover:border-[#FE2C55]/50 hover:text-rose-600 dark:hover:text-[#FE2C55] hover:bg-rose-50/50 dark:hover:bg-[#FE2C55]/[0.08] rounded-xl transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:focus-visible:ring-[#FE2C55]"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                    <span>{t.historyDeleteBtn}</span>
+                                  </motion.button>
+                                )}
+                              </div>
+                            </div>
+                          </motion.article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : records.length === 0 ? (
             <StateMessage
               variant="empty"
-              icon={<Link2 className="w-5 h-5" aria-hidden="true" />}
-              title={t.singleHistoryEmptyTitle}
-              reason={t.singleHistoryEmptyDesc}
+              icon={<History className="w-5 h-5" aria-hidden="true" />}
+              title={t.historyEmptyTitle}
+              reason={t.historyEmptyDesc}
               actionLabel={t.savedViewBackBtn}
               actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
               onAction={onBackToHunting}
             />
           ) : (
-            <>
-              {/* Search, Category Filter, Sort & Selective Delete Controls */}
+            <div className="space-y-4">
+              {/* Search, Filter, Sort & Selective Delete Controls */}
               <div className="sp-card p-3.5 sm:p-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 sm:gap-3">
-                  <div className="sm:col-span-2 lg:col-span-6 relative">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 sm:gap-3">
+                  {/* Search */}
+                  <div className="sm:col-span-2 xl:col-span-4 relative">
                     <Search
                       className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                       aria-hidden="true"
                     />
                     <input
                       type="search"
-                      value={singleSearchQuery}
-                      onChange={(e) => setSingleSearchQuery(e.target.value)}
-                      placeholder={t.singleHistorySearchPlaceholder}
-                      aria-label={t.singleHistorySearchPlaceholder}
-                      className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={t.historySearchPlaceholder}
+                      aria-label={t.historySearchPlaceholder}
+                      className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-emerald-500 dark:focus:border-[#10F5A0] transition-colors"
                     />
                   </div>
 
-                  <div className="lg:col-span-3">
+                  {/* Mode Filter */}
+                  <div className="xl:col-span-2">
                     <select
-                      value={singleCategoryFilter}
-                      onChange={(e) => setSingleCategoryFilter(e.target.value as CategoryFilter)}
+                      value={modeFilter}
+                      onChange={(e) => setModeFilter(e.target.value as HistoryModeFilter)}
+                      aria-label={t.researchModeLabel}
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 dark:focus:border-[#10F5A0] cursor-pointer transition-colors"
+                    >
+                      <option value="all">{t.historyFilterAllModes}</option>
+                      <option value="fast">{t.modeFastTitle}</option>
+                      <option value="balanced">{t.modeBalancedTitle}</option>
+                      <option value="deep">{t.modeDeepTitle}</option>
+                    </select>
+                  </div>
+
+                  {/* Category Filter */}
+                  <div className="xl:col-span-3">
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
                       aria-label={t.settingCategoryLabel}
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 dark:focus:border-[#10F5A0] cursor-pointer transition-colors"
                     >
                       <option value="all">{t.categoryAll}</option>
                       {UNIVERSAL_CATEGORIES.map((cat) => (
@@ -1362,51 +1888,76 @@ export function ResearchHistoryView({
                     </select>
                   </div>
 
-                  <div className="lg:col-span-3">
+                  {/* Sort */}
+                  <div className="xl:col-span-3">
                     <select
-                      value={singleSortKey}
-                      onChange={(e) => setSingleSortKey(e.target.value as SingleHistorySortKey)}
+                      value={sortKey}
+                      onChange={(e) => setSortKey(e.target.value as HistorySortKey)}
                       aria-label={t.sortLabel}
-                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                      className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-[var(--sp-surface-muted)] dark:bg-[#131823] border border-[var(--sp-border-strong)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-500 dark:focus:border-[#10F5A0] cursor-pointer transition-colors"
                     >
                       <option value="newest">{t.historySortNewest}</option>
                       <option value="oldest">{t.historySortOldest}</option>
-                      <option value="score-desc">{t.sortFieldLabels.overallScore}</option>
-                      <option value="commission-desc">{t.sortFieldLabels.commissionPotential}</option>
-                      <option value="sales-desc">{t.sortFieldLabels.salesPerformance}</option>
+                      <option value="products-desc">{t.historySortMostProducts}</option>
+                      <option value="cost-desc">{t.historySortCostDesc}</option>
+                      <option value="cost-asc">{t.historySortCostAsc}</option>
                     </select>
                   </div>
                 </div>
 
-                {checkedSingleIds.length > 0 && (
-                  <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
-                      {checkedSingleIds.length} {t.historySelectedCount}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setCheckedSingleIds([])}
-                        className="sp-btn-ghost px-3"
-                      >
-                        {t.confirmCancelBtn}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDeleteSelectedSingle}
-                        className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        <span>
-                          {t.historyDeleteSelectedBtn} ({checkedSingleIds.length})
+                <AnimatePresence initial={false}>
+                  {checkedIds.length > 0 && (
+                    <motion.div
+                      key="batch-bulk-delete"
+                      initial={prefersReduced ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                      animate={{
+                        height: 'auto',
+                        opacity: 1,
+                        transitionEnd: { overflow: 'visible' },
+                      }}
+                      exit={
+                        prefersReduced
+                          ? { opacity: 0 }
+                          : { height: 0, opacity: 0, overflow: 'hidden' }
+                      }
+                      transition={MOTION_TRANSITIONS.accordion}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <div className="pt-3 border-t border-[var(--sp-border)] flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
+                          <AnimatedNumber value={checkedIds.length} /> {t.historySelectedCount}
                         </span>
-                      </button>
-                    </div>
-                  </div>
-                )}
+                        <div className="flex items-center gap-2">
+                          <motion.button
+                            type="button"
+                            onClick={() => setCheckedIds([])}
+                            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                            transition={MOTION_TRANSITIONS.snappy}
+                            className="sp-btn-ghost px-3"
+                          >
+                            {t.confirmCancelBtn}
+                          </motion.button>
+                          <motion.button
+                            type="button"
+                            onClick={handleDeleteSelected}
+                            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                            transition={MOTION_TRANSITIONS.snappy}
+                            className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 dark:bg-[#FE2C55] hover:bg-rose-700 dark:hover:brightness-110 rounded-xl transition-[filter,background-color] cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                            <span>
+                              {t.historyDeleteSelectedBtn} ({checkedIds.length})
+                            </span>
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              {filteredSingleRecords.length === 0 ? (
+              {/* History Records List */}
+              {filteredRecords.length === 0 ? (
                 <StateMessage
                   variant="empty"
                   icon={<Search className="w-5 h-5" aria-hidden="true" />}
@@ -1414,655 +1965,422 @@ export function ResearchHistoryView({
                   actionLabel={t.savedResetFiltersBtn}
                   actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
                   onAction={() => {
-                    setSingleSearchQuery('');
-                    setSingleCategoryFilter('all');
+                    setSearchQuery('');
+                    setModeFilter('all');
+                    setCategoryFilter('all');
                   }}
                 />
               ) : (
                 <div className="space-y-3">
-                  {filteredSingleRecords.map((rec) => {
-                    const p = rec.product;
-                    const isChecked = checkedSingleIds.includes(rec.id);
-                    const isConfirming = confirmDeleteSingleId === rec.id;
-                    const isSaved = getDecision(p.id) === 'saved';
-                    const imgConfig = resolveProductImageDisplayConfig(p);
-                    const evalResult = evaluateProductOpportunity(p, {
-                      salesWeightPct: currentSalesWeightPct,
-                    });
-                    const commission =
-                      p.commissionVerified && typeof p.commissionRate === 'number'
-                        ? `${p.commissionRate.toFixed(1)}%`
-                        : typeof p.kalodataMetrics?.commissionRatePct === 'number'
-                          ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
-                          : t.dataStatusLabels.unavailable;
-                    const derivedTiktokUrl = getTikTokShopProductUrl(p);
-                    const tiktokHref =
-                      rec.canonicalUrl ??
-                      (isSafeHttpUrl(derivedTiktokUrl) ? derivedTiktokUrl : null);
+                  {filteredRecords.map((rec, idx) => {
+                    const isChecked = checkedIds.includes(rec.id);
+                    const isConfirmingDelete = confirmDeleteId === rec.id;
+                    const isExpanded = expandedSessionIds.includes(rec.id);
+                    const verdictCounts = recordVerdictCounts.get(rec.id) ?? {
+                      recommended: 0,
+                      'worth-testing': 0,
+                      'need-more-data': 0,
+                      'not-recommended': 0,
+                      total: rec.products.length,
+                    };
+                    const verdictSegments = (
+                      [
+                        {
+                          key: 'recommended',
+                          count: verdictCounts.recommended,
+                          label: t.decisionVerdictLabels.recommended,
+                          barClass: 'bg-emerald-500 dark:bg-[#10F5A0]',
+                          dotClass: 'bg-emerald-500 dark:bg-[#10F5A0]',
+                        },
+                        {
+                          key: 'worth-testing',
+                          count: verdictCounts['worth-testing'],
+                          label: t.decisionVerdictLabels['worth-testing'],
+                          barClass: 'bg-amber-400 dark:bg-amber-400',
+                          dotClass: 'bg-amber-400 dark:bg-amber-400',
+                        },
+                        {
+                          key: 'need-more-data',
+                          count: verdictCounts['need-more-data'],
+                          label: t.decisionVerdictLabels['need-more-data'],
+                          barClass: 'bg-zinc-400 dark:bg-zinc-500',
+                          dotClass: 'bg-zinc-400 dark:bg-zinc-500',
+                        },
+                        {
+                          key: 'not-recommended',
+                          count: verdictCounts['not-recommended'],
+                          label: t.decisionVerdictLabels['not-recommended'],
+                          barClass: 'bg-rose-500 dark:bg-[#FE2C55]',
+                          dotClass: 'bg-rose-500 dark:bg-[#FE2C55]',
+                        },
+                      ] as const
+                    ).filter((seg) => seg.count > 0);
+                    const cardTitle = `${categoriesLabel(rec, language)} · ${rec.productCount} ${t.quantityProductsUnit}`;
 
                     return (
-                      <article
+                      <motion.article
                         key={rec.id}
-                        className="sp-card p-3.5 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700"
+                        variants={prefersReduced ? undefined : MOTION_VARIANTS.cardReveal}
+                        custom={idx}
+                        initial={prefersReduced ? false : 'initial'}
+                        animate="animate"
+                        whileHover={prefersReduced ? undefined : TACTILE_INTERACTIONS.cardHover}
+                        className="sp-card p-3.5 sm:p-5 hover:border-zinc-300 dark:hover:border-white/[0.16]"
                       >
-                        <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3.5 sm:gap-4">
+                        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <input
                               type="checkbox"
                               checked={isChecked}
-                              onChange={() => toggleSingleChecked(rec.id)}
-                              aria-label={`${t.historySelectLabel} ${p.name}`}
-                              className="mt-1 w-4 h-4 rounded-sm border-zinc-300 dark:border-zinc-700 accent-zinc-950 dark:accent-zinc-100 cursor-pointer shrink-0"
+                              onChange={() => toggleChecked(rec.id)}
+                              aria-label={`${t.historySelectLabel} ${cardTitle}`}
+                              className="mt-1 w-4 h-4 rounded-sm border-[var(--sp-border-strong)] accent-emerald-600 dark:accent-[#10F5A0] cursor-pointer shrink-0"
                             />
 
-                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
-                              {imgConfig.canRender && imgConfig.src ? (
-                                <ProductImage
-                                  src={imgConfig.src}
-                                  fallbackSrc={imgConfig.fallbackSrc}
-                                  productId={imgConfig.productId}
-                                  alt={p.name}
-                                  title={isMy ? p.nameMy : p.name}
-                                  unavailableLabel={t.cardImageUnverified}
-                                  compact
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageOff className="w-4 h-4 text-zinc-500 dark:text-zinc-400" aria-hidden="true" />
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="min-w-0 flex-1 space-y-1.5">
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                                  {getCategoryLabel(p.category, language, { short: true })}
-                                </span>
-                                <span aria-hidden="true">·</span>
-                                <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div>
+                                <button
+                                  type="button"
+                                  onClick={() => openArchiveRecord(rec)}
+                                  title={`${t.historyRecordIdLabel}: ${rec.id}`}
+                                  className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:text-emerald-700 dark:hover:text-[#10F5A0] transition-colors text-left cursor-pointer leading-snug rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0]"
+                                >
+                                  {cardTitle}
+                                </button>
                               </div>
 
-                              <h3
-                                title={`${t.historyRecordIdLabel}: ${rec.canonicalProductId}`}
-                                className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
-                              >
-                                {isMy ? p.nameMy : p.name}
-                              </h3>
-
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                                <span>
-                                  {t.linkImportShopLabel}:{' '}
-                                  <strong className="font-medium text-zinc-900 dark:text-zinc-100">
-                                    {p.shopName || t.dataStatusLabels.unavailable}
-                                  </strong>
+                                <span className="inline-flex items-center gap-1">
+                                  <Calendar
+                                    className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
+                                    aria-hidden="true"
+                                  />
+                                  <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
                                 </span>
-                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
                                   ·
                                 </span>
-                                <span>
-                                  {t.singleHistorySourceLabel}:{' '}
-                                  <strong className="font-mono text-zinc-800 dark:text-zinc-200">
-                                    {singleSourceLabel(rec.dataSource, isMy)}
-                                  </strong>
+                                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                                  {modeLabel(rec.researchMode, language)}
                                 </span>
-                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
                                   ·
                                 </span>
                                 <span className="font-mono tabular-nums">
-                                  {t.singleHistoryCreditsLabel}: {formatCredits(rec.estimatedCreditsCharged)} cr
-                                </span>
-                                <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-                                  ·
-                                </span>
-                                <span className="font-mono text-xs tabular-nums text-emerald-700 dark:text-emerald-400">
-                                  {evalResult.verifiedCount} {t.bestVerifiedUnit} · {evalResult.unavailableCount}{' '}
-                                  {t.dataStatusLabels.unavailable}
+                                  {t.actualCostLabel}:{' '}
+                                  {rec.actualCredits !== null ? (
+                                    <strong className="text-emerald-600 dark:text-[#10F5A0]">
+                                      {formatCredits(rec.actualCredits)} cr
+                                    </strong>
+                                  ) : (
+                                    <span className="text-zinc-500 dark:text-zinc-400">
+                                      {t.actualCostUnavailable}
+                                    </span>
+                                  )}
                                 </span>
                               </div>
 
-                              <div className="sp-surface-muted p-2.5 sm:p-3 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 mt-1 text-xs">
-                                <div className="min-w-0">
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                                    {t.linkImportPriceLabel}
-                                  </span>
-                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {typeof p.priceThb === 'number'
-                                      ? formatThb(p.priceThb)
-                                      : t.dataStatusLabels.unavailable}
-                                  </span>
+                              {/* Stacked Verdict Breakdown Bar */}
+                              {verdictCounts.total > 0 && verdictSegments.length > 0 && (
+                                <div className="space-y-1.5 pt-0.5 max-w-xl">
+                                  <div
+                                    role="img"
+                                    aria-label={`${t.historyVerdictBarLabel}: ${verdictSegments
+                                      .map((s) => `${s.label} ${s.count}`)
+                                      .join(', ')}`}
+                                    className="h-2 w-full rounded-full overflow-hidden flex bg-zinc-200/80 dark:bg-white/[0.06] gap-px"
+                                  >
+                                    {verdictSegments.map((seg) => (
+                                      <motion.div
+                                        key={seg.key}
+                                        title={`${seg.label}: ${seg.count}`}
+                                        initial={prefersReduced ? false : { scaleX: 0 }}
+                                        animate={{ scaleX: 1 }}
+                                        transition={MOTION_TRANSITIONS.ticker}
+                                        className={`h-full origin-left ${seg.barClass}`}
+                                        style={{
+                                          width: `${(seg.count / verdictCounts.total) * 100}%`,
+                                        }}
+                                      />
+                                    ))}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                                    {verdictSegments.map((seg) => (
+                                      <span
+                                        key={seg.key}
+                                        className="inline-flex items-center gap-1.5 whitespace-nowrap"
+                                      >
+                                        <span
+                                          aria-hidden="true"
+                                          className={`w-2 h-2 rounded-full shrink-0 ${seg.dotClass}`}
+                                        />
+                                        <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                                          {seg.count}
+                                        </span>
+                                        <span>{seg.label}</span>
+                                      </span>
+                                    ))}
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                                    {t.linkImportSalesLabel}
-                                  </span>
-                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {typeof p.kalodataMetrics?.salesVolume === 'number'
-                                      ? p.kalodataMetrics.salesVolume.toLocaleString('en-US')
-                                      : t.dataStatusLabels.unavailable}
-                                  </span>
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                                    {t.linkImportRevenueLabel}
-                                  </span>
-                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {typeof p.kalodataMetrics?.revenueThb === 'number'
-                                      ? formatThb(p.kalodataMetrics.revenueThb)
-                                      : t.dataStatusLabels.unavailable}
-                                  </span>
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                                    {t.linkImportCommissionLabel}
-                                  </span>
-                                  <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                                    {commission}
-                                  </span>
-                                </div>
-                                <div className="col-span-2 sm:col-span-1 min-w-0">
-                                  <span className="text-xs text-zinc-500 dark:text-zinc-400 block">
-                                    {t.linkImportScoreLabel}
-                                  </span>
-                                  <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {evalResult.totalScore}/100 ({t.confidenceLabels[evalResult.confidenceLevel]})
-                                  </span>
-                                </div>
-                              </div>
+                              )}
                             </div>
                           </div>
 
                           {/* Row Actions */}
-                          <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:justify-end xl:max-w-[430px]">
-                            <button
+                          <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:shrink-0">
+                            <motion.button
                               type="button"
-                              onClick={() =>
-                                onOpenReport(p, rec.researchedAt, evalResult, [p], 'fast')
-                              }
-                              className="sp-btn-primary px-3 py-1.5 text-xs"
+                              onClick={() => openArchiveRecord(rec)}
+                              whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                              transition={MOTION_TRANSITIONS.snappy}
+                              className="sp-btn-volt px-3.5 py-2 text-xs"
                             >
-                              <span>{t.singleHistoryOpenReportBtn}</span>
-                              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                            </button>
+                              <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                              <span>{t.historyViewResultsBtn}</span>
+                            </motion.button>
 
-                            {onOpenDeepDive && (
-                              <button
+                            {rec.products.length > 0 && (
+                              <motion.button
                                 type="button"
-                                onClick={() => onOpenDeepDive(p, rec.researchedAt, 'fast')}
-                                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium text-white bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-700 dark:hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+                                onClick={() => toggleSessionExpanded(rec.id)}
+                                aria-expanded={isExpanded}
+                                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                transition={MOTION_TRANSITIONS.snappy}
+                                className="sp-btn-secondary px-2.5 py-2 text-xs"
+                                title={isMy ? 'ကုန်ပစ္စည်းအကျဉ်း ကြည့်ရန်' : 'Preview products'}
                               >
-                                <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                                <span>{t.singleHistoryDeepDiveBtn}</span>
-                              </button>
+                                <motion.span
+                                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                                  transition={MOTION_TRANSITIONS.snappy}
+                                  className="inline-flex"
+                                  aria-hidden="true"
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                                </motion.span>
+                                <span className="font-mono tabular-nums">{rec.products.length}</span>
+                              </motion.button>
                             )}
 
-                            <button
-                              type="button"
-                              onClick={() => onSaveProduct(p, rec.researchedAt)}
-                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
-                                isSaved
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
-                              }`}
-                            >
-                              <Bookmark
-                                className={`w-3.5 h-3.5 shrink-0 ${isSaved ? 'fill-current' : ''}`}
-                                aria-hidden="true"
-                              />
-                              <span>{isSaved ? t.linkImportSavedBtn : t.linkImportSaveBtn}</span>
-                            </button>
-
-                            {tiktokHref && (
-                              <a
-                                href={tiktokHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="sp-btn-ghost px-2.5"
+                            {records.length >= 2 && (
+                              <motion.button
+                                type="button"
+                                onClick={() => handleOpenCompareWith(rec)}
+                                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                transition={MOTION_TRANSITIONS.snappy}
+                                className="sp-btn-secondary px-3 py-2"
                               >
-                                <span>{t.singleHistoryOpenLinkBtn}</span>
-                                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
-                              </a>
+                                <GitCompareArrows
+                                  className="w-3.5 h-3.5 shrink-0 text-cyan-600 dark:text-[#25F4EE]"
+                                  aria-hidden="true"
+                                />
+                                <span>{t.historyCompareBtn}</span>
+                              </motion.button>
                             )}
 
-                            {isConfirming ? (
+                            {isConfirmingDelete ? (
                               <div className="inline-flex items-center gap-1.5">
-                                <button
+                                <motion.button
                                   type="button"
-                                  onClick={() => handleDeleteSingleItem(rec.id)}
-                                  className="min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                                  onClick={() => handleDeleteSingle(rec.id)}
+                                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                  transition={MOTION_TRANSITIONS.snappy}
+                                  className="min-h-[40px] px-3 py-2 text-xs font-semibold text-white bg-rose-600 dark:bg-[#FE2C55] hover:bg-rose-700 dark:hover:brightness-110 rounded-xl transition-[filter,background-color] cursor-pointer whitespace-nowrap"
                                 >
                                   {t.historyDeleteConfirmBtn}
-                                </button>
-                                <button
+                                </motion.button>
+                                <motion.button
                                   type="button"
-                                  onClick={() => setConfirmDeleteSingleId(null)}
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                  transition={MOTION_TRANSITIONS.snappy}
                                   className="sp-btn-ghost px-2.5"
                                 >
                                   {t.confirmCancelBtn}
-                                </button>
+                                </motion.button>
                               </div>
                             ) : (
-                              <button
+                              <motion.button
                                 type="button"
-                                onClick={() => setConfirmDeleteSingleId(rec.id)}
-                                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+                                onClick={() => setConfirmDeleteId(rec.id)}
+                                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                                transition={MOTION_TRANSITIONS.snappy}
+                                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-[var(--sp-surface)] border border-[var(--sp-border-strong)] hover:border-rose-400/70 dark:hover:border-[#FE2C55]/50 hover:text-rose-600 dark:hover:text-[#FE2C55] hover:bg-rose-50/50 dark:hover:bg-[#FE2C55]/[0.08] rounded-xl transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:focus-visible:ring-[#FE2C55]"
                               >
                                 <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                                 <span>{t.historyDeleteBtn}</span>
-                              </button>
+                              </motion.button>
                             )}
                           </div>
                         </div>
-                      </article>
+
+                        {/* Expandable Session Product Preview Accordion (Myanmar-safe overflow) */}
+                        <AnimatePresence initial={false}>
+                          {isExpanded && rec.products.length > 0 && (
+                            <motion.div
+                              key={`session-preview-${rec.id}`}
+                              initial={prefersReduced ? { opacity: 1 } : { height: 0, opacity: 0 }}
+                              animate={{
+                                height: 'auto',
+                                opacity: 1,
+                                transitionEnd: { overflow: 'visible' },
+                              }}
+                              exit={
+                                prefersReduced
+                                  ? { opacity: 0 }
+                                  : { height: 0, opacity: 0, overflow: 'hidden' }
+                              }
+                              transition={MOTION_TRANSITIONS.accordion}
+                              style={{ overflow: 'hidden' }}
+                            >
+                              <div className="mt-3.5 pt-3.5 border-t border-[var(--sp-border)] space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {rec.products.slice(0, 6).map((prod) => {
+                                    const snapScore = rec.scoreSnapshots?.[prod.id]?.totalScore;
+                                    const verifiedComm =
+                                      prod.commissionVerified &&
+                                      typeof prod.commissionRate === 'number'
+                                        ? prod.commissionRate
+                                        : null;
+                                    return (
+                                      <motion.button
+                                        key={prod.id}
+                                        type="button"
+                                        onClick={() =>
+                                          onOpenReport(
+                                            prod,
+                                            rec.researchedAt,
+                                            undefined,
+                                            rec.products,
+                                            rec.researchMode
+                                          )
+                                        }
+                                        whileTap={
+                                          prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap
+                                        }
+                                        transition={MOTION_TRANSITIONS.snappy}
+                                        className="sp-surface-muted px-3 py-2 text-left flex items-center justify-between gap-2 hover:bg-zinc-200/70 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
+                                      >
+                                        <span className="min-w-0 flex-1">
+                                          <span className="block text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                                            {isMy ? prod.nameMy : prod.name}
+                                          </span>
+                                          <span className="block font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                                            {typeof prod.priceThb === 'number'
+                                              ? formatThb(prod.priceThb)
+                                              : '—'}
+                                            {verifiedComm !== null && (
+                                              <span className="text-emerald-600 dark:text-[#10F5A0] ml-1.5 font-semibold">
+                                                {verifiedComm.toFixed(1)}%
+                                              </span>
+                                            )}
+                                          </span>
+                                        </span>
+                                        {typeof snapScore === 'number' && (
+                                          <span className="font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-200 shrink-0">
+                                            {snapScore}
+                                          </span>
+                                        )}
+                                      </motion.button>
+                                    );
+                                  })}
+                                </div>
+                                {rec.products.length > 6 && (
+                                  <div className="flex justify-end">
+                                    <motion.button
+                                      type="button"
+                                      onClick={() => openArchiveRecord(rec)}
+                                      whileTap={
+                                        prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap
+                                      }
+                                      transition={MOTION_TRANSITIONS.snappy}
+                                      className="sp-btn-ghost text-xs text-emerald-600 dark:text-[#10F5A0]"
+                                    >
+                                      <span>
+                                        {t.historyViewResultsBtn} ({rec.products.length})
+                                      </span>
+                                      <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </motion.button>
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.article>
                     );
                   })}
                 </div>
               )}
-            </>
-          )}
-        </div>
-      ) : records.length === 0 ? (
-        <StateMessage
-          variant="empty"
-          icon={<History className="w-5 h-5" aria-hidden="true" />}
-          title={t.historyEmptyTitle}
-          reason={t.historyEmptyDesc}
-          actionLabel={t.savedViewBackBtn}
-          actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
-          onAction={onBackToHunting}
-        />
-      ) : (
-        <div className="space-y-4">
-          {/* Search, Filter, Sort & Selective Delete Controls */}
-          <div className="sp-card p-3.5 sm:p-4 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-2.5 sm:gap-3">
-              {/* Search */}
-              <div className="sm:col-span-2 xl:col-span-4 relative">
-                <Search
-                  className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  aria-hidden="true"
-                />
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t.historySearchPlaceholder}
-                  aria-label={t.historySearchPlaceholder}
-                  className="w-full min-h-[40px] pl-9 pr-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300"
-                />
-              </div>
-
-              {/* Mode Filter */}
-              <div className="xl:col-span-2">
-                <select
-                  value={modeFilter}
-                  onChange={(e) => setModeFilter(e.target.value as HistoryModeFilter)}
-                  aria-label={t.researchModeLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
-                >
-                  <option value="all">{t.historyFilterAllModes}</option>
-                  <option value="fast">{t.modeFastTitle}</option>
-                  <option value="balanced">{t.modeBalancedTitle}</option>
-                  <option value="deep">{t.modeDeepTitle}</option>
-                </select>
-              </div>
-
-              {/* Category Filter */}
-              <div className="xl:col-span-3">
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-                  aria-label={t.settingCategoryLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
-                >
-                  <option value="all">{t.categoryAll}</option>
-                  {UNIVERSAL_CATEGORIES.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {getCategoryLabel(cat.id, language)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Sort */}
-              <div className="xl:col-span-3">
-                <select
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as HistorySortKey)}
-                  aria-label={t.sortLabel}
-                  className="w-full min-h-[40px] px-3 py-2 text-xs sm:text-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
-                >
-                  <option value="newest">{t.historySortNewest}</option>
-                  <option value="oldest">{t.historySortOldest}</option>
-                  <option value="products-desc">{t.historySortMostProducts}</option>
-                  <option value="cost-desc">{t.historySortCostDesc}</option>
-                  <option value="cost-asc">{t.historySortCostAsc}</option>
-                </select>
-              </div>
             </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-            {checkedIds.length > 0 && (
-              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
-                  {checkedIds.length} {t.historySelectedCount}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCheckedIds([])}
-                    className="sp-btn-ghost px-3"
-                  >
-                    {t.confirmCancelBtn}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeleteSelected}
-                    className="inline-flex items-center gap-1.5 min-h-[40px] px-3 py-1.5 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    <span>
-                      {t.historyDeleteSelectedBtn} ({checkedIds.length})
-                    </span>
-                  </button>
-                </div>
-              </div>
+      {/* Browser Storage Telemetry Bar (GPU scaleX progress + Mint / Amber >=70% / Coral >=85%) */}
+      <footer
+        className={`rounded-2xl border p-3.5 sm:p-4 space-y-2.5 transition-colors ${
+          storageStats.usagePct >= 85
+            ? 'bg-rose-50/70 dark:bg-[#FE2C55]/[0.08] border-rose-300/80 dark:border-[#FE2C55]/35'
+            : storageStats.usagePct >= 70
+              ? 'bg-amber-50/70 dark:bg-amber-500/[0.08] border-amber-300/80 dark:border-amber-400/35'
+              : 'bg-[var(--sp-surface)] border-[var(--sp-border)]'
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-100">
+            <HardDrive
+              className={`w-4 h-4 shrink-0 ${storagePctTextTone}`}
+              aria-hidden="true"
+            />
+            <span>{t.historyStorageUsageLabel}</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+            <span>
+              Batch (<AnimatedNumber value={storageStats.historyCount} />):{' '}
+              {formatByteSize(storageStats.historyBytes)}
+            </span>
+            <span>
+              Single (<AnimatedNumber value={storageStats.singleHistoryCount ?? singleRecords.length} />):{' '}
+              {formatByteSize(storageStats.singleHistoryBytes ?? 0)}
+            </span>
+            <span>
+              Saved (<AnimatedNumber value={storageStats.savedCount} />):{' '}
+              {formatByteSize(storageStats.savedBytes)}
+            </span>
+            <span className={`font-semibold ${storagePctTextTone}`}>
+              {formatByteSize(storageStats.totalBytes)} /{' '}
+              {formatByteSize(storageStats.estimatedQuotaBytes)} (
+              <AnimatedNumber value={storageStats.usagePct} suffix="%" />)
+            </span>
+            {onOpenBackupRestore && (
+              <motion.button
+                type="button"
+                onClick={() =>
+                  onOpenBackupRestore(
+                    records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
+                  )
+                }
+                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                transition={MOTION_TRANSITIONS.snappy}
+                className="font-sans sp-btn-secondary px-3 py-1.5"
+              >
+                <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Backup / Restore</span>
+              </motion.button>
             )}
           </div>
-
-          {/* History Records List */}
-          {filteredRecords.length === 0 ? (
-            <StateMessage
-              variant="empty"
-              icon={<Search className="w-5 h-5" aria-hidden="true" />}
-              reason={t.emptyFilteredTitle}
-              actionLabel={t.savedResetFiltersBtn}
-              actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
-              onAction={() => {
-                setSearchQuery('');
-                setModeFilter('all');
-                setCategoryFilter('all');
-              }}
-            />
-          ) : (
-            <div className="space-y-3">
-              {filteredRecords.map((rec) => {
-                const isChecked = checkedIds.includes(rec.id);
-                const isConfirmingDelete = confirmDeleteId === rec.id;
-                const verdictCounts = recordVerdictCounts.get(rec.id) ?? {
-                  recommended: 0,
-                  'worth-testing': 0,
-                  'need-more-data': 0,
-                  'not-recommended': 0,
-                  total: rec.products.length,
-                };
-                const verdictSegments = (
-                  [
-                    {
-                      key: 'recommended',
-                      count: verdictCounts.recommended,
-                      label: t.decisionVerdictLabels.recommended,
-                      barClass: 'bg-emerald-500 dark:bg-emerald-400',
-                      dotClass: 'bg-emerald-500 dark:bg-emerald-400',
-                    },
-                    {
-                      key: 'worth-testing',
-                      count: verdictCounts['worth-testing'],
-                      label: t.decisionVerdictLabels['worth-testing'],
-                      barClass: 'bg-amber-400 dark:bg-amber-400',
-                      dotClass: 'bg-amber-400 dark:bg-amber-400',
-                    },
-                    {
-                      key: 'need-more-data',
-                      count: verdictCounts['need-more-data'],
-                      label: t.decisionVerdictLabels['need-more-data'],
-                      barClass: 'bg-zinc-400 dark:bg-zinc-500',
-                      dotClass: 'bg-zinc-400 dark:bg-zinc-500',
-                    },
-                    {
-                      key: 'not-recommended',
-                      count: verdictCounts['not-recommended'],
-                      label: t.decisionVerdictLabels['not-recommended'],
-                      barClass: 'bg-red-500 dark:bg-red-400',
-                      dotClass: 'bg-red-500 dark:bg-red-400',
-                    },
-                  ] as const
-                ).filter((seg) => seg.count > 0);
-                const cardTitle = `${categoriesLabel(rec, language)} · ${rec.productCount} ${t.quantityProductsUnit}`;
-
-                return (
-                  <article
-                    key={rec.id}
-                    className="sp-card p-3.5 sm:p-5 hover:border-zinc-300 dark:hover:border-zinc-700"
-                  >
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
-                      <div className="flex items-start gap-3 min-w-0 flex-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleChecked(rec.id)}
-                          aria-label={`${t.historySelectLabel} ${cardTitle}`}
-                          className="mt-1 w-4 h-4 rounded-sm border-zinc-300 dark:border-zinc-700 accent-zinc-950 dark:accent-zinc-100 cursor-pointer shrink-0"
-                        />
-
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() => openArchiveRecord(rec)}
-                              title={`${t.historyRecordIdLabel}: ${rec.id}`}
-                              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:underline text-left cursor-pointer leading-snug rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
-                            >
-                              {cardTitle}
-                            </button>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                            <span className="inline-flex items-center gap-1">
-                              <Calendar
-                                className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
-                                aria-hidden="true"
-                              />
-                              <span>{formatResearchDateTime(rec.researchedAt, language)}</span>
-                            </span>
-                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-                              ·
-                            </span>
-                            <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                              {modeLabel(rec.researchMode, language)}
-                            </span>
-                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
-                              ·
-                            </span>
-                            <span className="font-mono tabular-nums">
-                              {t.actualCostLabel}:{' '}
-                              {rec.actualCredits !== null ? (
-                                <strong className="text-emerald-700 dark:text-emerald-400">
-                                  {formatCredits(rec.actualCredits)} cr
-                                </strong>
-                              ) : (
-                                <span className="text-zinc-500 dark:text-zinc-400">
-                                  {t.actualCostUnavailable}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-
-                          {/* Stacked Verdict Breakdown Bar */}
-                          {verdictCounts.total > 0 && verdictSegments.length > 0 && (
-                            <div className="space-y-1.5 pt-0.5 max-w-xl">
-                              <div
-                                role="img"
-                                aria-label={`${t.historyVerdictBarLabel}: ${verdictSegments
-                                  .map((s) => `${s.label} ${s.count}`)
-                                  .join(', ')}`}
-                                className="h-2 w-full rounded-full overflow-hidden flex bg-zinc-100 dark:bg-zinc-800 gap-px"
-                              >
-                                {verdictSegments.map((seg) => (
-                                  <div
-                                    key={seg.key}
-                                    title={`${seg.label}: ${seg.count}`}
-                                    className={`h-full ${seg.barClass}`}
-                                    style={{
-                                      width: `${(seg.count / verdictCounts.total) * 100}%`,
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                                {verdictSegments.map((seg) => (
-                                  <span
-                                    key={seg.key}
-                                    className="inline-flex items-center gap-1.5 whitespace-nowrap"
-                                  >
-                                    <span
-                                      aria-hidden="true"
-                                      className={`w-2 h-2 rounded-full shrink-0 ${seg.dotClass}`}
-                                    />
-                                    <span className="font-mono font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
-                                      {seg.count}
-                                    </span>
-                                    <span>{seg.label}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Row Actions */}
-                      <div className="flex flex-wrap items-center gap-2 pl-7 xl:pl-0 xl:shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => openArchiveRecord(rec)}
-                          className="sp-btn-primary px-3.5 py-2 text-xs"
-                        >
-                          <Eye className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span>{t.historyViewResultsBtn}</span>
-                        </button>
-
-                        {records.length >= 2 && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenCompareWith(rec)}
-                            className="sp-btn-secondary px-3 py-2"
-                          >
-                            <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                            <span>{t.historyCompareBtn}</span>
-                          </button>
-                        )}
-
-                        {isConfirmingDelete ? (
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSingle(rec.id)}
-                              className="min-h-[40px] px-3 py-2 text-xs font-medium text-white bg-red-700 dark:bg-red-700 hover:bg-red-800 dark:hover:bg-red-600 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                            >
-                              {t.historyDeleteConfirmBtn}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDeleteId(null)}
-                              className="sp-btn-ghost px-2.5"
-                            >
-                              {t.confirmCancelBtn}
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(rec.id)}
-                            className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                            <span>{t.historyDeleteBtn}</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
         </div>
-      )}
 
-      {/* Browser Storage Monitor: compact footer line normally; full panel only above 80% usage */}
-      {storageStats.usagePct > 80 ? (
-        <div className="bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/70 rounded-xl p-3.5 sm:p-4 space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
-              <HardDrive className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
-              <span>{t.historyStorageUsageLabel}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-zinc-700 dark:text-zinc-300 tabular-nums">
-              <span>
-                Batch ({storageStats.historyCount}): {formatByteSize(storageStats.historyBytes)}
-              </span>
-              <span>
-                Single ({storageStats.singleHistoryCount ?? singleRecords.length}):{' '}
-                {formatByteSize(storageStats.singleHistoryBytes ?? 0)}
-              </span>
-              <span>
-                Saved ({storageStats.savedCount}): {formatByteSize(storageStats.savedBytes)}
-              </span>
-              <span className="font-semibold text-red-700 dark:text-red-400">
-                {formatByteSize(storageStats.totalBytes)} /{' '}
-                {formatByteSize(storageStats.estimatedQuotaBytes)} ({storageStats.usagePct}%)
-              </span>
-              {onOpenBackupRestore && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenBackupRestore(
-                      records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
-                    )
-                  }
-                  className="font-sans sp-btn-secondary px-3 py-1.5"
-                >
-                  <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Backup / Restore</span>
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="h-2 w-full bg-zinc-200/80 dark:bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all motion-reduce:transition-none ${
-                storageStats.usagePct >= 90 ? 'bg-red-600 dark:bg-red-500' : 'bg-amber-500 dark:bg-amber-400'
-              }`}
-              style={{ width: `${Math.max(1, Math.min(100, storageStats.usagePct))}%` }}
-            />
-          </div>
+        <div className="h-1.5 w-full bg-zinc-200/80 dark:bg-white/[0.06] rounded-full overflow-hidden">
+          <motion.div
+            className={`h-full w-full rounded-full origin-left ${storageBarTone}`}
+            initial={prefersReduced ? false : { scaleX: 0 }}
+            animate={{ scaleX: storageFillScale }}
+            transition={MOTION_TRANSITIONS.ticker}
+          />
         </div>
-      ) : (
-        <footer className="pt-4 border-t border-zinc-200/80 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>{t.historyStorageUsageLabel}:</span>
-            <span className="font-mono tabular-nums text-zinc-700 dark:text-zinc-300">
-              {formatByteSize(storageStats.totalBytes)} /{' '}
-              {formatByteSize(storageStats.estimatedQuotaBytes)} ({storageStats.usagePct}%)
-            </span>
-          </div>
-          {onOpenBackupRestore && (
-            <button
-              type="button"
-              onClick={() =>
-                onOpenBackupRestore(
-                  records.length > 0 || singleRecords.length > 0 ? 'backup' : 'restore'
-                )
-              }
-              className="sp-btn-ghost px-2.5"
-            >
-              <HardDrive className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Backup / Restore</span>
-            </button>
-          )}
-        </footer>
-      )}
+      </footer>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -47,7 +48,14 @@ import type {
   DeepDiveVideoCreativeOptions,
   DeepDiveWorkspaceState,
 } from '../types/deepDive';
-import type { DataStatus, Language, OpportunityEvaluation, ResearchMode } from '../types/product';
+import type {
+  AiRecommendationVerdict,
+  DataStatus,
+  Language,
+  OpportunityEvaluation,
+  ProductDecisionVerdict,
+  ResearchMode,
+} from '../types/product';
 import {
   canRunDeepDiveSelection,
   DEEP_DIVE_ANALYSIS_OPTIONS,
@@ -89,13 +97,33 @@ import {
 } from '../utils/kalodataPricing';
 import { evaluateProductOpportunity } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
-import { StateMessage, StatusDot } from './visual';
+import { TechnicalSignalStrip } from './TechnicalSignalStrip';
+import { AnimatedNumber, ScoreRing, StateMessage, StatusDot, VerdictBadge } from './visual';
 import {
   DeepDiveVideoCreativePanel,
   VideoCreativeConfigBar,
 } from './DeepDiveVideoCreativePanel';
+
+function mapAiVerdictToDecisionVerdict(
+  verdict: AiRecommendationVerdict
+): ProductDecisionVerdict {
+  if (verdict === 'priority-test') return 'recommended';
+  if (verdict === 'test-with-caution' || verdict === 'monitor') return 'worth-testing';
+  if (verdict === 'skip') return 'not-recommended';
+  return 'need-more-data';
+}
+
+function getCreditDecimals(value: number): number {
+  if (!Number.isFinite(value) || value === 0 || Number.isInteger(value)) return 0;
+  return Math.abs(value * 10 - Math.round(value * 10)) < 1e-6 ? 1 : 2;
+}
 
 interface ModuleHeadlineSummary {
   status: DataStatus;
@@ -372,6 +400,7 @@ function ModuleResultPanel({
   onApplyConceptToBrief,
 }: ModuleResultPanelProps) {
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const t = TRANSLATIONS[language];
   const isRunning = slot.status === 'running';
   const isVisuallyRunning = isRunning || runFeedback?.phase === 'pulsing';
@@ -429,19 +458,19 @@ function ModuleResultPanel({
     <div>
       {errorBanner}
       <div
-        className={`border-t border-zinc-200/80 dark:border-zinc-800 transition-colors duration-300 ${
+        className={`border-t border-[var(--sp-border)] transition-colors duration-300 ${
           isRecentlyUpdated
-            ? 'bg-emerald-50/50 dark:bg-emerald-950/20'
+            ? 'bg-emerald-500/[0.06] dark:bg-[#10F5A0]/[0.06]'
             : isVisuallyRunning
-              ? 'bg-sky-50/40 dark:bg-sky-950/20'
-              : 'bg-zinc-50/50 dark:bg-zinc-950/40'
+              ? 'bg-cyan-500/[0.06] dark:bg-[#25F4EE]/[0.06]'
+              : 'bg-[var(--sp-surface-muted)]'
         }`}
       >
         {/* Collapsible Result Summary Bar + Unmistakable Re-run Feedback */}
         <div className="px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-zinc-500 dark:text-zinc-400">
             {isVisuallyRunning ? (
-              <span className="inline-flex items-center gap-1.5 font-semibold text-sky-700 dark:text-sky-400">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-cyan-700 dark:text-[#25F4EE]">
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
                 <span>{isMy ? 'ပြန် Run နေသည်...' : 'Re-running module...'}</span>
               </span>
@@ -511,44 +540,97 @@ function ModuleResultPanel({
         </div>
 
         {/* Compact 1-Line Preview When Result Is Collapsed */}
-        {isCollapsed ? (
+        {isCollapsed && (
           <div className="px-3.5 sm:px-4 pb-3 pt-0.5 text-xs text-zinc-600 dark:text-zinc-400 truncate">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">{headline}</span>
           </div>
-        ) : (
-          <div
-            id={`deep-dive-result-body-${slot.analysisId}`}
-            className={`px-3.5 sm:px-4 pb-4 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/70 space-y-3.5 text-xs transition-opacity duration-200 ${
-              isVisuallyRunning ? 'opacity-60' : 'opacity-100'
-            }`}
-          >
-            {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
-            {result.isAiInterpretation && (
-              <div className="flex items-start gap-2 pb-2.5 border-b border-sky-200/70 dark:border-sky-900/60 text-sky-900 dark:text-sky-200">
-                <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" aria-hidden="true" />
-                <div className="leading-relaxed">
-                  <span className="font-semibold">
-                    {result.analysisId === 'ad-video-creative-blueprint'
-                      ? isMy
-                        ? 'AI Content Creative Studio (Video ဖန်တီးမှု Blueprint)'
-                        : 'AI Ad Video Creative Studio (Production & SEO Blueprint)'
-                      : isMy
-                        ? 'AI စီးပွားရေးဆုံးဖြတ်ချက် (လုပ်သင့်/မလုပ်သင့်)'
-                        : 'AI Business Decision (Strategic Go / No-Go)'}
-                  </span>
-              <span className="text-sky-800/90 dark:text-sky-300/90">
-                {' — '}
-                {result.analysisId === 'ad-video-creative-blueprint'
-                  ? isMy
-                    ? 'AI Content Video ရိုက်ကူးတင်ရန်အတွက် Script၊ Hooks၊ SEO Title/Keywords/Hashtags နှင့် မူဝါဒသတိပေးချက်များကို Gemini မှ ထုတ်ပေးထားပါသည်။'
-                    : 'Actionable ad video production blueprint (concepts, hooks, script, TikTok SEO & policy guard) generated by Gemini AI.'
-                  : isMy
-                    ? 'အတည်ပြုပြီး Market Data (#01–#07) အပေါ် အခြေခံ၍ ဤကုန်ပစ္စည်းကို စမ်းသပ်ရောင်းချသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့်ဖြစ်ပါသည်။'
-                    : 'Pure business Go/No-Go synthesis grounded in verified market data (#01–#07) — separate from ad video production (#09).'}
-              </span>
-            </div>
-          </div>
         )}
+
+        <AnimatePresence initial={false}>
+          {!isCollapsed && (
+            <motion.div
+              key={`result-body-${slot.analysisId}`}
+              initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+              animate={{
+                height: 'auto',
+                opacity: 1,
+                transitionEnd: { overflow: 'visible' },
+              }}
+              exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+              transition={MOTION_TRANSITIONS.accordion}
+              className="overflow-hidden"
+            >
+              <div
+                id={`deep-dive-result-body-${slot.analysisId}`}
+                className={`px-3.5 sm:px-4 pb-4 pt-2.5 border-t border-[var(--sp-border)] space-y-3.5 text-xs transition-opacity duration-200 ${
+                  isVisuallyRunning ? 'opacity-60' : 'opacity-100'
+                }`}
+              >
+                {/* Executive Stamped GO / CAUTION / NO-GO Verdict Lock-In (Module 08) */}
+                {result.analysisId === 'ai-strategic-recommendation' && result.aiMeta?.verdict && (() => {
+                  const aiVerdict = result.aiMeta.verdict;
+                  const bannerClass =
+                    aiVerdict === 'priority-test'
+                      ? 'bg-emerald-500/[0.08] dark:bg-[#10F5A0]/[0.09] border-emerald-500/35 dark:border-[#10F5A0]/40'
+                      : aiVerdict === 'test-with-caution' || aiVerdict === 'monitor'
+                        ? 'bg-amber-500/[0.08] dark:bg-amber-400/[0.09] border-amber-500/35 dark:border-amber-400/35'
+                        : aiVerdict === 'skip'
+                          ? 'bg-rose-500/[0.08] dark:bg-[#FE2C55]/[0.10] border-rose-500/35 dark:border-[#FE2C55]/40'
+                          : 'bg-[var(--sp-surface)] border-[var(--sp-border)]';
+                  return (
+                    <div
+                      className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-2.5 ${bannerClass}`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                        <VerdictBadge
+                          verdict={mapAiVerdictToDecisionVerdict(aiVerdict)}
+                          size="md"
+                          language={language}
+                          animateStamp
+                        />
+                        <div className="min-w-0">
+                          <div className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                            {isMy ? 'AI စီးပွားရေးဆုံးဖြတ်ချက်' : 'Executive AI Verdict'}
+                          </div>
+                          <div className="font-display text-sm font-bold text-zinc-950 dark:text-zinc-50 leading-snug">
+                            {t.aiVerdictLabels[aiVerdict]}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="font-mono text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-md bg-[var(--sp-surface)] border border-[var(--sp-border)]">
+                        {isMy ? 'Market Data #01–#07 အခြေခံ' : 'Grounded in #01–#07'}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Strict Separation Banner for AI Interpretation vs Verified Market Data */}
+                {result.isAiInterpretation && (
+                  <div className="flex items-start gap-2 pb-2.5 border-b border-cyan-500/20 dark:border-[#25F4EE]/20 text-cyan-950 dark:text-cyan-100">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-[#25F4EE] shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="leading-relaxed">
+                      <span className="font-semibold">
+                        {result.analysisId === 'ad-video-creative-blueprint'
+                          ? isMy
+                            ? 'AI Content Creative Studio (Video ဖန်တီးမှု Blueprint)'
+                            : 'AI Ad Video Creative Studio (Production & SEO Blueprint)'
+                          : isMy
+                            ? 'AI စီးပွားရေးဆုံးဖြတ်ချက် (လုပ်သင့်/မလုပ်သင့်)'
+                            : 'AI Business Decision (Strategic Go / No-Go)'}
+                      </span>
+                      <span className="text-cyan-900/85 dark:text-cyan-200/85">
+                        {' — '}
+                        {result.analysisId === 'ad-video-creative-blueprint'
+                          ? isMy
+                            ? 'AI Content Video ရိုက်ကူးတင်ရန်အတွက် Script၊ Hooks၊ SEO Title/Keywords/Hashtags နှင့် မူဝါဒသတိပေးချက်များကို Gemini မှ ထုတ်ပေးထားပါသည်။'
+                            : 'Actionable ad video production blueprint (concepts, hooks, script, TikTok SEO & policy guard) generated by Gemini AI.'
+                          : isMy
+                            ? 'အတည်ပြုပြီး Market Data (#01–#07) အပေါ် အခြေခံ၍ ဤကုန်ပစ္စည်းကို စမ်းသပ်ရောင်းချသင့်/မသင့် စီးပွားရေးဆုံးဖြတ်ချက် သီးသန့်ဖြစ်ပါသည်။'
+                            : 'Pure business Go/No-Go synthesis grounded in verified market data (#01–#07) — separate from ad video production (#09).'}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
       {/* Headline & Summary */}
       <div className="space-y-1">
@@ -794,8 +876,10 @@ function ModuleResultPanel({
           <span>{dataSources.join(' · ')}</span>
         </div>
       </div>
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -864,6 +948,7 @@ export function DeepDiveWorkspaceView({
 }: DeepDiveWorkspaceViewProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const { product, originalProductId, canonicalProductId, originResearchMode, originView } = context;
 
   const [localVideoCreativeOptions, setLocalVideoCreativeOptions] =
@@ -1724,79 +1809,109 @@ export function DeepDiveWorkspaceView({
         </p>
       </section>
 
-      {/* Connected Read-Only Product Context Card */}
+      {/* Connected Read-Only Product Context Hero Card */}
       <section
         aria-label={displayName}
-        className="sp-card p-3.5 sm:p-5 space-y-3"
+        className="rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] p-4 sm:p-5 space-y-4 shadow-sm"
       >
-        <div className="flex items-start gap-3 sm:gap-4">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0">
-            {imageConfig.canRender && imageConfig.src ? (
-              <ProductImage
-                src={imageConfig.src}
-                fallbackSrc={imageConfig.fallbackSrc}
-                productId={imageConfig.productId}
-                alt={product.name}
-                title={displayName}
-                unavailableLabel={t.cardImageUnverified}
-                compact
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
-              </div>
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              <span>{categoryLabel}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">
-                {copy.originModeLabel}: {originModeLabel}
-              </span>
-              <span aria-hidden="true" className="hidden sm:inline">·</span>
-              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-full">
-                {copy.productIdLabel}: {canonicalProductId}
-              </span>
-              {originalProductId !== canonicalProductId && (
-                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                  ({originalProductId})
-                </span>
+        <div className="flex items-start justify-between gap-3 sm:gap-4">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] shrink-0">
+              {imageConfig.canRender && imageConfig.src ? (
+                <ProductImage
+                  src={imageConfig.src}
+                  fallbackSrc={imageConfig.fallbackSrc}
+                  productId={imageConfig.productId}
+                  alt={product.name}
+                  title={displayName}
+                  unavailableLabel={t.cardImageUnverified}
+                  compact
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <ImageOff className="w-5 h-5 text-zinc-400 dark:text-zinc-500" aria-hidden="true" />
+                </div>
               )}
             </div>
 
-            <h2 className="font-display text-sm sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 sm:line-clamp-none">
-              {displayName}
-            </h2>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="font-medium text-cyan-700 dark:text-[#25F4EE]">{categoryLabel}</span>
+                <span aria-hidden="true">·</span>
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                  {copy.originModeLabel}: {originModeLabel}
+                </span>
+                <span aria-hidden="true" className="hidden sm:inline">·</span>
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums truncate max-w-full">
+                  {copy.productIdLabel}: {canonicalProductId}
+                </span>
+                {originalProductId !== canonicalProductId && (
+                  <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                    ({originalProductId})
+                  </span>
+                )}
+              </div>
+
+              <h2 className="font-display text-sm sm:text-lg font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2 sm:line-clamp-none">
+                {displayName}
+              </h2>
+            </div>
+          </div>
+
+          <div className="shrink-0 hidden sm:flex items-center">
+            <ScoreRing value={evaluation.totalScore} max={100} size={56} animate />
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800/70 text-xs">
-          <dl className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
-            <div>
-              <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
-              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                {product.priceThb !== null ? formatThb(product.priceThb) : t.dataStatusLabels.unavailable}
-              </dd>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3.5 border-t border-[var(--sp-border)] text-xs">
+          <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
+            <div className="sm:hidden shrink-0">
+              <ScoreRing value={evaluation.totalScore} max={100} size={48} animate />
             </div>
-            <div>
-              <dt className="text-xs text-zinc-500 dark:text-zinc-400">
-                {copy.commissionLabel}
-              </dt>
-              <dd className="font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
-                {product.commissionRate !== null
-                  ? `${product.commissionRate}%`
-                  : t.dataStatusLabels.unavailable}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
-              <dd className="font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                {evaluation.totalScore}/100
-              </dd>
-            </div>
-          </dl>
+            <dl className="grid grid-cols-3 gap-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2 flex-1 sm:flex-initial">
+              <div>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.priceLabel}</dt>
+                <dd className="font-mono text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                  {product.priceThb !== null ? (
+                    <AnimatedNumber
+                      value={product.priceThb}
+                      prefix="฿"
+                      decimals={Number.isInteger(product.priceThb) ? 0 : 2}
+                    />
+                  ) : (
+                    t.dataStatusLabels.unavailable
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {copy.commissionLabel}
+                </dt>
+                <dd className="font-mono text-sm sm:text-base font-bold text-emerald-700 dark:text-[#10F5A0] tabular-nums mt-0.5">
+                  {product.commissionRate !== null ? (
+                    <AnimatedNumber
+                      value={product.commissionRate}
+                      suffix="%"
+                      decimals={Number.isInteger(product.commissionRate) ? 0 : 1}
+                      highlightSignal={
+                        product.commissionVerified === true && product.commissionRate >= 10
+                          ? 'emerald-sheen'
+                          : 'none'
+                      }
+                    />
+                  ) : (
+                    t.dataStatusLabels.unavailable
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-zinc-500 dark:text-zinc-400">{copy.scoreLabel}</dt>
+                <dd className="font-mono text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
+                  <AnimatedNumber value={evaluation.totalScore} decimals={0} suffix="/100" />
+                </dd>
+              </div>
+            </dl>
+          </div>
 
           {(() => {
             const tiktokUrl = resolvedTikTokUrl ?? getTikTokShopProductUrl(product);
@@ -1814,8 +1929,9 @@ export function DeepDiveWorkspaceView({
                   </span>
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 </a>
-                <button
+                <motion.button
                   type="button"
+                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(tiktokUrl);
@@ -1830,17 +1946,25 @@ export function DeepDiveWorkspaceView({
                   className="sp-btn-secondary px-3 shrink-0"
                 >
                   {copiedTikTokLink ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                    <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0" aria-hidden="true" />
                   ) : (
                     <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   )}
                   <span>{copiedTikTokLink ? (isMy ? 'ကူးပြီး' : 'Copied') : (isMy ? 'ကူးရန်' : 'Copy')}</span>
-                </button>
+                </motion.button>
               </div>
             );
           })()}
         </div>
       </section>
+
+      {/* Affiliate Technical Signal Strip (Detailed Zero-Extra-Credit Engine Breakdown) */}
+      <TechnicalSignalStrip
+        product={product}
+        evaluation={evaluation}
+        language={language}
+        variant="detailed"
+      />
 
       {/* Manual Selection Controls, 01–09 Quick-Jump Bar & Result Collapse Controls */}
       <section aria-labelledby="deep-dive-selection-heading" className="space-y-3.5 sm:space-y-4">
@@ -1949,14 +2073,16 @@ export function DeepDiveWorkspaceView({
                     onClick={() => handleJumpToCard(opt.id)}
                     title={`0${opt.order}. ${optLabel}`}
                     aria-label={`Jump to 0${opt.order}. ${optLabel}`}
-                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer shrink-0 sm:shrink sm:min-w-0 whitespace-nowrap ${
-                      isOptSelected
-                        ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                        : isOptCompleted
-                          ? 'bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/70 hover:border-emerald-400'
-                          : isOptError
-                            ? 'bg-rose-50/70 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-900/70 hover:border-rose-400'
-                            : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
+                    className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 sm:px-2.5 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer shrink-0 sm:shrink sm:min-w-0 whitespace-nowrap ${
+                      isOptRunning
+                        ? 'bg-cyan-500/12 dark:bg-[#25F4EE]/15 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/50 dark:border-[#25F4EE]/50'
+                        : isOptSelected
+                          ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
+                          : isOptCompleted
+                            ? 'bg-emerald-500/[0.08] dark:bg-[#10F5A0]/[0.09] text-emerald-800 dark:text-[#10F5A0] border-emerald-500/35 dark:border-[#10F5A0]/35 hover:border-emerald-500/60'
+                            : isOptError
+                              ? 'bg-rose-500/[0.08] dark:bg-[#FE2C55]/[0.10] text-rose-800 dark:text-[#FE2C55] border-rose-500/35 dark:border-[#FE2C55]/40'
+                              : 'bg-[var(--sp-surface-muted)] text-zinc-700 dark:text-zinc-300 border-[var(--sp-border)] hover:border-zinc-400 dark:hover:border-zinc-500'
                     }`}
                   >
                     <ChipIcon className="w-3.5 h-3.5 shrink-0 opacity-80" aria-hidden="true" />
@@ -1973,7 +2099,7 @@ export function DeepDiveWorkspaceView({
                         className={`w-3 h-3 shrink-0 ${
                           isOptSelected
                             ? 'text-emerald-400 dark:text-emerald-700'
-                            : 'text-emerald-600 dark:text-emerald-400'
+                            : 'text-emerald-600 dark:text-[#10F5A0]'
                         }`}
                         aria-hidden="true"
                       />
@@ -2065,20 +2191,30 @@ export function DeepDiveWorkspaceView({
                 }}
                 data-analysis-id={option.id}
                 data-execution-status={slot.status}
-                className={`bg-white dark:bg-zinc-900 border rounded-xl overflow-hidden transition-all duration-300 ${
+                className={`relative bg-[var(--sp-surface)] border rounded-2xl overflow-hidden transition-[border-color,box-shadow,opacity] duration-200 ${
                   isVideoStudioCard ? 'lg:col-span-2' : ''
                 } ${
                   isRecentlyUpdated
-                    ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/25 dark:ring-emerald-400/25'
+                    ? 'border-emerald-500/70 dark:border-[#10F5A0]/60 ring-2 ring-emerald-500/20 dark:ring-[#10F5A0]/20'
                     : isVisuallyRunning
-                      ? 'border-sky-500 dark:border-sky-400 ring-2 ring-sky-500/25 dark:ring-sky-400/25'
+                      ? 'border-cyan-500/65 dark:border-[#25F4EE]/55 ring-2 ring-cyan-500/20 dark:ring-[#25F4EE]/20'
                       : isJumpHighlighted
-                        ? 'border-zinc-950 dark:border-zinc-100 ring-2 ring-zinc-900/25 dark:ring-zinc-100/30'
+                        ? 'border-cyan-500 dark:border-[#25F4EE] ring-2 ring-cyan-500/25 dark:ring-[#25F4EE]/25'
                         : isSelected
                           ? 'border-zinc-900 dark:border-zinc-200'
-                          : 'border-zinc-200/90 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                          : 'border-[var(--sp-border)] hover:border-zinc-300 dark:hover:border-zinc-700'
                 }`}
               >
+                {/* Running Module Radar Cyan Top Scan-Beam Rail */}
+                {isVisuallyRunning && (
+                  <div
+                    aria-hidden="true"
+                    className="relative h-[2.5px] w-full overflow-hidden bg-cyan-500/15 dark:bg-[#25F4EE]/15"
+                  >
+                    <div className="sp-scan-beam absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-cyan-500 dark:via-[#25F4EE] to-emerald-400 dark:to-[#10F5A0]" />
+                  </div>
+                )}
+
                 {/* Default Compact Visible Area */}
                 <div className="p-3.5 sm:p-4 space-y-2.5">
                   {/* Compact Headline Row (Key Number / Verdict Chip + StatusDot, always visible even when collapsed) */}
@@ -2165,15 +2301,25 @@ export function DeepDiveWorkspaceView({
 
                       <span
                         className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${
-                          isRecentlyUpdated
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : statusDisplay.toneClass
+                          isRecentlyUpdated || slot.status === 'completed'
+                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                            : isVisuallyRunning
+                              ? 'text-cyan-700 dark:text-[#25F4EE]'
+                              : statusDisplay.toneClass
                         }`}
                       >
                         {isVisuallyRunning ? (
                           <Loader2 className="w-3 h-3 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
-                        ) : isRecentlyUpdated ? (
-                          <CheckCircle2 className="w-3 h-3 shrink-0" aria-hidden="true" />
+                        ) : isRecentlyUpdated || slot.status === 'completed' ? (
+                          <motion.span
+                            key={`done-chip-${option.id}-${slot.updatedAt ?? 'ok'}`}
+                            variants={MOTION_VARIANTS.chipPop}
+                            initial={prefersReduced ? false : 'initial'}
+                            animate="animate"
+                            className="inline-flex items-center"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          </motion.span>
                         ) : null}
                         <span>
                           {isRecentlyUpdated
@@ -2260,77 +2406,92 @@ export function DeepDiveWorkspaceView({
                   </div>
                 </div>
 
-                {/* Progressive Disclosure Expanded Details (All 6 Required Sections) */}
-                {isExpanded && (
-                  <div
-                    id={`deep-dive-details-${option.id}`}
-                    className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/70 bg-zinc-50/70 dark:bg-zinc-800/40 space-y-3 text-xs"
-                  >
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.whatItDoes}
-                      </div>
-                      <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                        {whatItDoes}
-                      </p>
-                    </div>
-
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.whatItChecks}
-                      </div>
-                      <ul className="mt-1 space-y-1 text-zinc-600 dark:text-zinc-300 list-disc pl-4">
-                        {whatItChecks.map((point) => (
-                          <li key={point} className="leading-relaxed">
-                            {point}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.expectedOutcome}
-                      </div>
-                      <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                        {expectedOutcome}
-                      </p>
-                    </div>
-
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.requiredSources}
-                      </div>
-                      <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                        {requiredSources}
-                      </p>
-                    </div>
-
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.estimatedCost}
-                      </div>
-                      <p
-                        className={`mt-1 leading-relaxed ${
-                          option.costSensitivity === 'high'
-                            ? 'text-amber-800 dark:text-amber-300 font-medium'
-                            : 'text-zinc-600 dark:text-zinc-300'
-                        }`}
+                {/* Progressive Disclosure Expanded Details (All 6 Required Sections, Myanmar-safe accordion) */}
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      key={`details-accordion-${option.id}`}
+                      initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+                      animate={{
+                        height: 'auto',
+                        opacity: 1,
+                        transitionEnd: { overflow: 'visible' },
+                      }}
+                      exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+                      transition={MOTION_TRANSITIONS.accordion}
+                      className="overflow-hidden"
+                    >
+                      <div
+                        id={`deep-dive-details-${option.id}`}
+                        className="px-3.5 sm:px-4 pb-3.5 sm:pb-4 pt-3 border-t border-[var(--sp-border)] bg-[var(--sp-surface-muted)] space-y-3 text-xs"
                       >
-                        {estimatedCost}
-                      </p>
-                    </div>
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.whatItDoes}
+                          </div>
+                          <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                            {whatItDoes}
+                          </p>
+                        </div>
 
-                    <div>
-                      <div className="font-semibold text-zinc-900 dark:text-zinc-100">
-                        {copy.disclosureLabels.missingData}
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.whatItChecks}
+                          </div>
+                          <ul className="mt-1 space-y-1 text-zinc-600 dark:text-zinc-300 list-disc pl-4">
+                            {whatItChecks.map((point) => (
+                              <li key={point} className="leading-relaxed">
+                                {point}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.expectedOutcome}
+                          </div>
+                          <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                            {expectedOutcome}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.requiredSources}
+                          </div>
+                          <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                            {requiredSources}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.estimatedCost}
+                          </div>
+                          <p
+                            className={`mt-1 leading-relaxed ${
+                              option.costSensitivity === 'high'
+                                ? 'text-amber-800 dark:text-amber-300 font-medium'
+                                : 'text-zinc-600 dark:text-zinc-300'
+                            }`}
+                          >
+                            {estimatedCost}
+                          </p>
+                        </div>
+
+                        <div>
+                          <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                            {copy.disclosureLabels.missingData}
+                          </div>
+                          <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                            {missingData}
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-1 text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                        {missingData}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Per-Module Isolated Execution Output (Collapsible Result / Unavailable / Error) */}
                 {(slot.result || slot.error) && (
@@ -2669,8 +2830,23 @@ export function DeepDiveWorkspaceView({
                     <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                       {isMy ? 'AI ဆုံးဖြတ်ချက် (သီးခြား)' : 'AI Verdict (Separate)'}
                     </dt>
-                    <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 mt-0.5">
-                      {finalReport.aiVerdict ?? (isMy ? 'မ Run ရသေး' : 'Not Run')}
+                    <dd className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 mt-1 flex flex-wrap items-center gap-1.5">
+                      {(() => {
+                        const rawAiVerdict = !inspectedHistoryRecord
+                          ? workspaceState.slots['ai-strategic-recommendation']?.result?.aiMeta?.verdict
+                          : null;
+                        if (rawAiVerdict) {
+                          return (
+                            <VerdictBadge
+                              verdict={mapAiVerdictToDecisionVerdict(rawAiVerdict)}
+                              size="sm"
+                              language={language}
+                              animateStamp
+                            />
+                          );
+                        }
+                        return finalReport.aiVerdict ?? (isMy ? 'မ Run ရသေး' : 'Not Run');
+                      })()}
                     </dd>
                   </div>
                   <div>
@@ -3136,57 +3312,66 @@ export function DeepDiveWorkspaceView({
 
       {/* Non-blocking Floating Run Feedback Toast + Full-Width Docked Mobile / Floating Desktop Run Bar */}
       <div className="fixed inset-x-0 bottom-0 z-[35] sm:sticky sm:inset-x-auto sm:bottom-3 pointer-events-none sm:space-y-2">
-        {runFeedbackToast && (
-          <div className="px-3 pb-2 sm:px-0 sm:pb-0">
-            <div
-              role="status"
-              aria-live="polite"
-              data-testid="deep-dive-run-toast"
-              className={`pointer-events-auto mx-auto max-w-2xl flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border shadow-md backdrop-blur-md text-xs transition-all ${
-                runFeedbackToast.tone === 'error'
-                  ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-                  : 'bg-zinc-950/95 dark:bg-zinc-100/95 border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950'
-              }`}
+        <AnimatePresence>
+          {runFeedbackToast && (
+            <motion.div
+              key="deep-dive-run-toast-wrap"
+              initial={prefersReduced ? false : { opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReduced ? undefined : { opacity: 0, y: 8, scale: 0.98 }}
+              transition={MOTION_TRANSITIONS.snappy}
+              className="px-3 pb-2 sm:px-0 sm:pb-0"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                {runFeedbackToast.tone === 'error' ? (
-                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" aria-hidden="true" />
-                )}
-                <div className="min-w-0 truncate">
-                  <span className="font-semibold">{runFeedbackToast.title}</span>
-                  {runFeedbackToast.detail && (
-                    <span
-                      className={`ml-2 font-mono text-xs tabular-nums ${
-                        runFeedbackToast.tone === 'error'
-                          ? 'text-rose-700 dark:text-rose-300'
-                          : 'text-zinc-300 dark:text-zinc-600'
-                      }`}
-                    >
-                      {runFeedbackToast.detail}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRunFeedbackToast(null)}
-                aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
-                className="w-10 h-10 -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+              <div
+                role="status"
+                aria-live="polite"
+                data-testid="deep-dive-run-toast"
+                className={`pointer-events-auto mx-auto max-w-2xl flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border shadow-md backdrop-blur-md text-xs transition-colors ${
+                  runFeedbackToast.tone === 'error'
+                    ? 'bg-rose-50/95 dark:bg-rose-950/95 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                    : 'bg-zinc-950/95 dark:bg-zinc-100/95 border-zinc-800 dark:border-zinc-300 text-white dark:text-zinc-950'
+                }`}
               >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        )}
+                <div className="flex items-center gap-2 min-w-0">
+                  {runFeedbackToast.tone === 'error' ? (
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0 truncate">
+                    <span className="font-semibold">{runFeedbackToast.title}</span>
+                    {runFeedbackToast.detail && (
+                      <span
+                        className={`ml-2 font-mono text-xs tabular-nums ${
+                          runFeedbackToast.tone === 'error'
+                            ? 'text-rose-700 dark:text-rose-300'
+                            : 'text-zinc-300 dark:text-zinc-600'
+                        }`}
+                      >
+                        {runFeedbackToast.detail}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRunFeedbackToast(null)}
+                  aria-label={isMy ? 'ပိတ်မည်' : 'Dismiss'}
+                  className="w-10 h-10 -my-1.5 -mr-1.5 inline-flex items-center justify-center rounded-lg opacity-80 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Docked Mobile Bottom Bar / Floating Desktop Action Bar: Unclipped Selection Chips, Live Cost & Direct Run */}
         <div
           data-testid="deep-dive-sticky-bar"
           role="region"
           aria-label={isMy ? 'Deep Dive အမြန် Run ဘား' : 'Deep Dive sticky action bar'}
-          className="pointer-events-auto bg-white/97 dark:bg-zinc-900/97 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] dark:shadow-[0_-6px_20px_rgba(0,0,0,0.4)] px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:rounded-xl sm:border sm:border-zinc-300/90 sm:dark:border-zinc-700/90 sm:shadow-lg sm:px-3.5 sm:py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2.5"
+          className="pointer-events-auto sp-glass border-t border-[var(--sp-border)] shadow-[0_-8px_28px_rgba(0,0,0,0.12)] dark:shadow-[0_-10px_32px_rgba(0,0,0,0.55)] px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:rounded-2xl sm:border sm:shadow-xl sm:px-4 sm:py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2.5"
         >
           {/* Row 1 (Mobile) / Left Zone (Desktop): Unclipped Selected Module Chips + Live Cost */}
           <div
@@ -3230,13 +3415,17 @@ export function DeepDiveWorkspaceView({
                       selectedBudgetGuard.exceedsSpendingLimit ||
                       selectedBudgetGuard.exceedsLiveBalance ||
                       paidBlockedByBudgetStorage
-                        ? 'text-rose-700 dark:text-rose-400'
+                        ? 'text-rose-700 dark:text-[#FE2C55]'
                         : selectedCostEstimate.estimatedCredits > 0
                           ? 'text-zinc-950 dark:text-zinc-50'
-                          : 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-emerald-700 dark:text-[#10F5A0]'
                     }`}
                   >
-                    {formatCredits(selectedCostEstimate.estimatedCredits)} cr
+                    <AnimatedNumber
+                      value={selectedCostEstimate.estimatedCredits}
+                      decimals={getCreditDecimals(selectedCostEstimate.estimatedCredits)}
+                      suffix=" cr"
+                    />
                   </span>
                   {selectedCostEstimate.estimatedCredits > 0 && (
                     <span className="text-xs text-zinc-500 dark:text-zinc-400 hidden sm:inline">
@@ -3293,12 +3482,13 @@ export function DeepDiveWorkspaceView({
               </button>
             )}
 
-            <button
+            <motion.button
               type="button"
               data-testid="deep-dive-sticky-run-btn"
+              whileTap={prefersReduced || !canRun || isAnyRunning ? undefined : TACTILE_INTERACTIONS.buttonTap}
               onClick={handleRequestBatchRun}
               disabled={!canRun || isAnyRunning}
-              className="sp-btn-primary flex-1 sm:flex-initial px-3.5 sm:px-4 text-xs"
+              className="sp-btn-volt flex-1 sm:flex-initial px-4 text-xs"
             >
               {isAnyRunning ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
@@ -3325,12 +3515,13 @@ export function DeepDiveWorkspaceView({
                         ? `Run Selected (${selectedCount})`
                         : `Run Selected (${selectedCount})`}
               </span>
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
 
       {/* Centered Checkout & Budget Control Pop-up Modal (Option A) */}
+      <AnimatePresence>
       {isCheckoutModalOpen &&
         (() => {
           const isConfirmationMode = Boolean(pendingRun && pendingCostEstimate && pendingBudgetGuard);
@@ -3347,19 +3538,29 @@ export function DeepDiveWorkspaceView({
           };
 
           return (
-            <div
-              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-[2px]"
+            <motion.div
+              key="deep-dive-checkout-backdrop"
+              variants={MOTION_VARIANTS.backdrop}
+              initial={prefersReduced ? false : 'initial'}
+              animate="animate"
+              exit={prefersReduced ? undefined : 'exit'}
+              className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/70 backdrop-blur-sm"
               onClick={closeModal}
             >
-              <div
+              <motion.div
+                key="deep-dive-checkout-panel"
                 ref={checkoutModalRef}
                 tabIndex={-1}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="deep-dive-checkout-modal-title"
                 data-testid="deep-dive-pre-run-confirmation"
+                variants={MOTION_VARIANTS.modalScale}
+                initial={prefersReduced ? false : 'initial'}
+                animate="animate"
+                exit={prefersReduced ? undefined : 'exit'}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full sm:max-w-xl max-h-[90dvh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs focus:outline-none"
+                className="w-full sm:max-w-xl max-h-[90dvh] flex flex-col bg-[var(--sp-surface)] border border-[var(--sp-border)] rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden text-xs focus:outline-none"
               >
                 {/* Mobile Bottom-Sheet Drag Handle Indicator */}
                 <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0" aria-hidden="true">
@@ -3744,10 +3945,11 @@ export function DeepDiveWorkspaceView({
                     </button>
                   ) : null}
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           );
         })()}
+      </AnimatePresence>
     </div>
   );
 }

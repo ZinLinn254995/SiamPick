@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { MOTION_DURATIONS, MOTION_TRANSITIONS } from '../../utils/motionPresets';
 import { AnimatedNumber } from './AnimatedNumber';
 
 export type ScoreRingTone = 'emerald' | 'amber' | 'red' | 'zinc';
@@ -49,39 +50,19 @@ export function ScoreRing({
   animate = false,
   className = '',
 }: ScoreRingProps) {
+  const prefersReduced = useReducedMotion();
   const safeMax = max > 0 ? max : 100;
   const safeValue = Number.isFinite(value) ? Math.max(0, Math.min(safeMax, value)) : 0;
+  const shouldAnimate = animate && !prefersReduced;
 
-  const [arcReady, setArcReady] = useState<boolean>(() => !animate);
-
-  useEffect(() => {
-    if (!animate) {
-      setArcReady(true);
-      return;
-    }
-    const prefersReduced =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) {
-      setArcReady(true);
-      return;
-    }
-    let rafId = 0;
-    rafId = window.requestAnimationFrame(() => {
-      setArcReady(true);
-    });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [animate]);
-
-  const ratio = arcReady ? safeValue / safeMax : 0;
+  const ratio = safeValue / safeMax;
   const resolvedTone = tone ?? resolveAutoTone(safeValue, safeMax);
   const styles = TONE_STYLES[resolvedTone];
 
   const strokeWidth = Math.max(6, Math.round(size * 0.085));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference * (1 - ratio);
+  const targetDashOffset = circumference * (1 - ratio);
   const isInteger = Number.isInteger(safeValue);
   const displayNumber = isInteger ? String(safeValue) : safeValue.toFixed(1);
 
@@ -120,7 +101,7 @@ export function ScoreRing({
             strokeWidth={strokeWidth}
             className="stroke-zinc-200 dark:stroke-zinc-800"
           />
-          <circle
+          <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -128,18 +109,22 @@ export function ScoreRing({
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={dashOffset}
-            className={`${styles.stroke} transition-[stroke-dashoffset] ${
-              animate ? 'duration-700' : 'duration-300'
-            } ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none`}
+            initial={shouldAnimate ? { strokeDashoffset: circumference } : false}
+            animate={{ strokeDashoffset: targetDashOffset }}
+            transition={shouldAnimate ? MOTION_TRANSITIONS.ticker : { duration: 0 }}
+            className={styles.stroke}
           />
         </svg>
 
         <span
           className={`absolute inset-0 flex items-center justify-center font-mono font-bold tabular-nums leading-none ${numberSizeClass} ${styles.text}`}
         >
-          {animate ? (
-            <AnimatedNumber value={safeValue} decimals={isInteger ? 0 : 1} durationMs={640} />
+          {shouldAnimate ? (
+            <AnimatedNumber
+              value={safeValue}
+              decimals={isInteger ? 0 : 1}
+              durationMs={MOTION_DURATIONS.ticker * 1000}
+            />
           ) : (
             displayNumber
           )}

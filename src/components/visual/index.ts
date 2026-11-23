@@ -29,7 +29,7 @@ export { BounceMarquee } from './BounceMarquee';
 export type { BounceMarqueeProps } from './BounceMarquee';
 
 export { AnimatedNumber } from './AnimatedNumber';
-export type { AnimatedNumberProps } from './AnimatedNumber';
+export type { AnimatedNumberHighlightSignal, AnimatedNumberProps } from './AnimatedNumber';
 
 
 

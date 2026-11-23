@@ -1,5 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
+  Activity,
   ArrowUpRight,
   Download,
   GitCompareArrows,
@@ -7,6 +9,7 @@ import {
   Plus,
   Trash2,
   Trophy,
+  Video,
   X,
 } from 'lucide-react';
 import {
@@ -26,6 +29,15 @@ import {
 } from '../utils/exportReports';
 import { formatThb, resolveProductImageDisplayConfig } from '../utils/format';
 import { normalizeDataStatus } from '../utils/scoring';
+import {
+  computeProductTechnicalAnalysis,
+  type AsiBand,
+} from '../utils/technicalAnalysis';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
@@ -38,6 +50,154 @@ import {
   VerdictBadge,
 } from './visual';
 import { useDialogA11y } from '../hooks/useDialogA11y';
+
+export interface FloatingComparisonDockProps {
+  visible: boolean;
+  items: ComparisonSelectionItem[];
+  aboveMobileBottomNav: boolean;
+  onRemoveItem: (selectionKey: string) => void;
+  onClearAll: () => void;
+  onOpenCompare: () => void;
+  language: Language;
+}
+
+export function FloatingComparisonDock({
+  visible,
+  items,
+  aboveMobileBottomNav,
+  onRemoveItem,
+  onClearAll,
+  onOpenCompare,
+  language,
+}: FloatingComparisonDockProps) {
+  const t = TRANSLATIONS[language];
+  const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
+
+  return (
+    <AnimatePresence>
+      {visible && items.length > 0 && (
+        <motion.div
+          key="floating-comparison-dock"
+          initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.96 }}
+          transition={MOTION_TRANSITIONS.weighted}
+          className={`fixed inset-x-0 z-[35] pointer-events-none px-3 sm:px-6 lg:px-8 ${
+            aboveMobileBottomNav
+              ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-5'
+              : 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:bottom-5'
+          }`}
+        >
+          <div className="max-w-[1280px] mx-auto">
+            <div
+              role="region"
+              aria-label={t.compareBarTitle}
+              className="pointer-events-auto sp-glass rounded-2xl border border-zinc-200/85 dark:border-white/[0.12] shadow-2xl px-3 sm:px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 text-xs"
+            >
+              {/* Left: Icon + Count + Pop-in Product Thumbnail Slots */}
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="inline-flex items-center gap-2 shrink-0">
+                  <span className="w-8 h-8 rounded-xl bg-cyan-500/12 dark:bg-[#25F4EE]/12 border border-cyan-500/25 dark:border-[#25F4EE]/25 inline-flex items-center justify-center text-cyan-700 dark:text-[#25F4EE] shrink-0">
+                    <GitCompareArrows className="w-4 h-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100 leading-snug whitespace-nowrap">
+                      {t.compareBarTitle}:{' '}
+                      <strong className="font-mono font-bold text-zinc-950 dark:text-white tabular-nums">
+                        {items.length}
+                      </strong>
+                      <span className="font-mono text-zinc-500 dark:text-zinc-400">/6</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Queued Thumbnail Chips */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {items.map((item, idx) => {
+                      const p = item.product;
+                      const displayName = isMy ? p.nameMy : p.name;
+                      const imageConfig = resolveProductImageDisplayConfig(p);
+                      return (
+                        <motion.div
+                          key={item.selectionKey}
+                          layout={prefersReduced ? false : 'position'}
+                          variants={MOTION_VARIANTS.chipPop}
+                          initial={prefersReduced ? false : 'initial'}
+                          animate="animate"
+                          exit="exit"
+                          className="relative group shrink-0"
+                        >
+                          <div
+                            title={displayName}
+                            className="w-9 h-9 rounded-lg overflow-hidden bg-zinc-100 dark:bg-[#131823] border border-zinc-200/90 dark:border-white/[0.12] flex items-center justify-center"
+                          >
+                            {imageConfig.canRender && imageConfig.src ? (
+                              <ProductImage
+                                src={imageConfig.src}
+                                fallbackSrc={imageConfig.fallbackSrc}
+                                productId={imageConfig.productId}
+                                alt={p.name}
+                                title={displayName}
+                                unavailableLabel={t.cardImageUnverified}
+                                compact
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ImageOff
+                                className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+                          <span className="pointer-events-none absolute -bottom-1 -left-1 min-w-[15px] h-[15px] px-0.5 rounded bg-zinc-900/90 dark:bg-[#07090F]/95 border border-white/15 text-white font-mono text-[10px] font-bold inline-flex items-center justify-center leading-none">
+                            {idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onRemoveItem(item.selectionKey)}
+                            aria-label={`${t.compareRemoveBtn}: ${displayName}`}
+                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-zinc-900 dark:bg-zinc-200 text-white dark:text-zinc-950 hover:bg-rose-600 dark:hover:bg-[#FE2C55] dark:hover:text-white inline-flex items-center justify-center shadow-sm transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                          >
+                            <X className="w-2.5 h-2.5" aria-hidden="true" />
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Right: Clear + Compare CTA */}
+              <div className="flex items-center justify-end gap-2 shrink-0">
+                <motion.button
+                  type="button"
+                  whileTap={TACTILE_INTERACTIONS.buttonTap}
+                  onClick={onClearAll}
+                  className="min-h-[38px] sm:min-h-[40px] px-3 py-1.5 text-zinc-600 dark:text-zinc-300 hover:text-rose-700 dark:hover:text-[#FE2C55] rounded-xl hover:bg-zinc-100/90 dark:hover:bg-white/[0.06] font-medium transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE]"
+                >
+                  {t.compareClearBtn}
+                </motion.button>
+                <motion.button
+                  type="button"
+                  whileTap={TACTILE_INTERACTIONS.buttonTap}
+                  onClick={onOpenCompare}
+                  className="sp-btn-volt min-h-[38px] sm:min-h-[40px] px-4 py-1.5 text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                >
+                  <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>
+                    {t.compareOpenBtn} ({items.length})
+                  </span>
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 interface ProductComparisonModalProps {
   isOpen: boolean;
@@ -104,6 +264,39 @@ function getBestIndices(
   return new Set(valid.filter((v) => v.val === target).map((v) => v.idx));
 }
 
+function getAsiChipClasses(band: AsiBand): string {
+  if (band === 'early') {
+    return 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/25 dark:border-[#10F5A0]/30';
+  }
+  if (band === 'sweet-spot') {
+    return 'bg-cyan-500/12 dark:bg-[#25F4EE]/12 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/25 dark:border-[#25F4EE]/30';
+  }
+  if (band === 'saturated') {
+    return 'bg-rose-500/12 dark:bg-[#FE2C55]/12 text-rose-700 dark:text-[#FE2C55] border-rose-500/25 dark:border-[#FE2C55]/30';
+  }
+  return 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 border-zinc-200/80 dark:border-white/[0.10]';
+}
+
+function getAsiBandShortLabel(band: AsiBand, isMy: boolean): string {
+  if (band === 'early') return isMy ? 'အစောပိုင်း' : 'Early';
+  if (band === 'sweet-spot') return isMy ? 'အကောင်းဆုံး' : 'Sweet';
+  if (band === 'saturated') return isMy ? 'ပြည့်ကျပ်' : 'Crowded';
+  return '—';
+}
+
+function getVideoShareChipClasses(videoSharePct: number | null): string {
+  if (videoSharePct === null) {
+    return 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-600 dark:text-zinc-400 border-zinc-200/80 dark:border-white/[0.10]';
+  }
+  if (videoSharePct >= 55) {
+    return 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/25 dark:border-[#10F5A0]/30';
+  }
+  if (videoSharePct >= 30) {
+    return 'bg-cyan-500/10 dark:bg-[#25F4EE]/10 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/20 dark:border-[#25F4EE]/25';
+  }
+  return 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200/80 dark:border-white/[0.10]';
+}
+
 export function ProductComparisonModal({
   isOpen,
   items,
@@ -118,9 +311,21 @@ export function ProductComparisonModal({
 }: ProductComparisonModalProps) {
   const [selectedSavedId, setSelectedSavedId] = useState('');
   const [mobileAddOpen, setMobileAddOpen] = useState(false);
+  const [isDesktopSm, setIsDesktopSm] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 640px)').matches : true
+  );
   const modalRef = useRef<HTMLDivElement>(null);
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(min-width: 640px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsDesktopSm(event.matches);
+    setIsDesktopSm(mq.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
 
   useDialogA11y({
     isOpen,
@@ -151,6 +356,7 @@ export function ProductComparisonModal({
     const extracted = cols.map((col) => {
       const p = col.item.product;
       const ev = col.evaluation;
+      const technical = computeProductTechnicalAnalysis(p, ev);
 
       const priceVal =
         typeof p.priceThb === 'number' && Number.isFinite(p.priceThb) && p.priceThb > 0
@@ -161,10 +367,14 @@ export function ProductComparisonModal({
       );
 
       const hasVerifiedComm =
-        p.commissionVerified && typeof p.commissionRate === 'number' && p.commissionRate > 0;
+        p.commissionVerified === true &&
+        typeof p.commissionRate === 'number' &&
+        Number.isFinite(p.commissionRate) &&
+        p.commissionRate > 0;
       const commRate = hasVerifiedComm
         ? p.commissionRate!
         : typeof p.kalodataMetrics?.commissionRatePct === 'number' &&
+            Number.isFinite(p.kalodataMetrics.commissionRatePct) &&
             p.kalodataMetrics.commissionRatePct > 0
           ? p.kalodataMetrics.commissionRatePct
           : null;
@@ -234,6 +444,7 @@ export function ProductComparisonModal({
         overallScore: ev.totalScore,
         price: priceVal,
         priceStatus,
+        hasVerifiedComm,
         commission: commRate,
         commBaht,
         commStatus,
@@ -247,6 +458,11 @@ export function ProductComparisonModal({
         aiContent: aiScore,
         aiBand,
         aiStatus,
+        asiScore: technical.asi.score,
+        asiBand: technical.asi.band,
+        videoSharePct: technical.channelMix.available
+          ? technical.channelMix.videoSharePct
+          : null,
         confidence: ev.confidencePct,
         verifiedCount: ev.verifiedCount,
         totalCriteria: ev.totalCriteria,
@@ -257,7 +473,12 @@ export function ProductComparisonModal({
     const bestByMetric: Record<NumericMetricKey, Set<number>> = {
       overallScore: getBestIndices(extracted.map((e) => e.overallScore), 'higher', colCount),
       price: getBestIndices(extracted.map((e) => e.price), 'lower', colCount),
-      commission: getBestIndices(extracted.map((e) => e.commission), 'higher', colCount),
+      // Strictly gate best-in-row Commission highlighting to verified commissions only
+      commission: getBestIndices(
+        extracted.map((e) => (e.hasVerifiedComm ? e.commission : null)),
+        'higher',
+        colCount
+      ),
       sales: getBestIndices(extracted.map((e) => e.sales), 'higher', colCount),
       revenue: getBestIndices(extracted.map((e) => e.revenue), 'higher', colCount),
       competition: getBestIndices(extracted.map((e) => e.competition), 'lower', colCount),
@@ -285,8 +506,6 @@ export function ProductComparisonModal({
 
     return { extracted, bestByMetric, maxByMetric, bestCounts };
   }, [matrix.columns]);
-
-  if (!isOpen) return null;
 
   const handleAddSaved = () => {
     if (!selectedSavedId) return;
@@ -327,7 +546,7 @@ export function ProductComparisonModal({
   };
 
   const renderBestBadge = () => (
-    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shrink-0 whitespace-nowrap">
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/15 dark:bg-[#10F5A0]/15 border border-emerald-500/30 dark:border-[#10F5A0]/30 text-emerald-700 dark:text-[#10F5A0] text-xs font-semibold shrink-0 whitespace-nowrap leading-snug">
       <Trophy className="w-3 h-3 shrink-0" aria-hidden="true" />
       <span>{t.compareBestBadge}</span>
     </span>
@@ -335,859 +554,248 @@ export function ProductComparisonModal({
 
   const cellHighlightClass = (isBest: boolean) =>
     isBest
-      ? 'bg-emerald-50/75 dark:bg-emerald-950/30'
-      : 'bg-white dark:bg-zinc-900';
+      ? 'bg-emerald-500/[0.08] dark:bg-[#10F5A0]/[0.08]'
+      : 'bg-white dark:bg-[#0E1118]';
 
   const rowHeaderClass =
-    'sticky left-0 z-10 bg-zinc-50 dark:bg-zinc-900 px-4 lg:px-5 py-3.5 w-44 min-w-[168px] text-xs font-semibold text-zinc-700 dark:text-zinc-300 align-middle border-r border-zinc-200/80 dark:border-zinc-800/80 shadow-[2px_0_6px_-4px_rgba(0,0,0,0.12)]';
+    'sticky left-0 z-10 bg-[#F5F6F8] dark:bg-[#131823] px-4 lg:px-5 py-3.5 w-44 min-w-[168px] text-xs font-semibold text-zinc-700 dark:text-zinc-300 align-middle leading-snug border-r border-zinc-200/80 dark:border-white/[0.08] shadow-[2px_0_8px_-4px_rgba(0,0,0,0.18)]';
+
+  const mobileRowCardClass = (isBest: boolean) =>
+    isBest
+      ? 'rounded-lg px-2.5 py-2 space-y-1.5 bg-emerald-500/[0.09] dark:bg-[#10F5A0]/[0.09] border border-emerald-500/30 dark:border-[#10F5A0]/30'
+      : 'rounded-lg px-2.5 py-2 space-y-1.5 bg-[#F5F6F8] dark:bg-[#0E1118] border border-zinc-200/60 dark:border-white/[0.06]';
 
   const showAddToolbarOnMobile = mobileAddOpen || items.length < 2;
   const higherBetterHint = isMy ? 'မြင့်လေ ပိုကောင်း' : 'Higher is better';
   const lowerBetterHint = isMy ? 'နည်းလေ ပိုကောင်း' : 'Lower is better';
+  const technicalRowLabel = isMy ? 'နည်းပညာ အချက်ပြမှု' : 'Technical Signals';
+  const panelVariants = isDesktopSm
+    ? MOTION_VARIANTS.modalScale
+    : MOTION_VARIANTS.bottomSheet;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] bg-zinc-950/45 dark:bg-black/70 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-5"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="product-comparison-heading"
-      onClick={onClose}
-    >
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className="w-full max-w-[1220px] max-h-[92dvh] sm:max-h-[90dvh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Mobile sheet drag handle */}
-        <div className="sm:hidden pt-2 pb-0.5 flex justify-center shrink-0" aria-hidden="true">
-          <span className="sp-sheet-handle" />
-        </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          key="product-comparison-modal-overlay"
+          variants={MOTION_VARIANTS.backdrop}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          className="fixed inset-0 z-[60] bg-zinc-950/50 dark:bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="product-comparison-heading"
+          onClick={onClose}
+        >
+          <motion.div
+            key="product-comparison-modal-panel"
+            ref={modalRef}
+            tabIndex={-1}
+            variants={panelVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="w-full max-w-[1220px] max-h-[92dvh] sm:max-h-[90dvh] bg-white dark:bg-[#0E1118] border border-zinc-200/90 dark:border-white/[0.10] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile sheet drag handle */}
+            <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0" aria-hidden="true">
+              <span className="sp-sheet-handle" />
+            </div>
 
-        {/* Single-Row Compact Header (Close X always pinned top-right) */}
-        <div className="shrink-0 px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-            <h2
-              id="product-comparison-heading"
-              className="font-display text-base sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 truncate"
-            >
-              {t.compareModalTitle}
-            </h2>
-            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
-              ({items.length})
-            </span>
-            <InfoPopover
-              label={t.compareModalTitle}
-              title={t.compareModalTitle}
-              content={
-                <>
-                  <p>{t.compareModalSubtitle}</p>
-                  {matrix.hasDistinctProductIds && (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
-                      {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
-                    </p>
-                  )}
-                </>
-              }
-            />
-          </div>
+            {/* Single-Row Compact Header (Close X always pinned top-right) */}
+            <div className="shrink-0 px-3.5 sm:px-6 py-2.5 sm:py-3.5 border-b border-zinc-200/85 dark:border-white/[0.08] bg-white/95 dark:bg-[#0E1118]/95 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="hidden sm:inline-flex w-8 h-8 rounded-lg bg-cyan-500/12 dark:bg-[#25F4EE]/12 border border-cyan-500/25 dark:border-[#25F4EE]/25 items-center justify-center text-cyan-700 dark:text-[#25F4EE] shrink-0">
+                  <GitCompareArrows className="w-4 h-4" aria-hidden="true" />
+                </span>
+                <h2
+                  id="product-comparison-heading"
+                  className="font-display text-base sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug truncate"
+                >
+                  {t.compareModalTitle}
+                </h2>
+                <span className="font-mono text-xs px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-white/[0.07] text-zinc-600 dark:text-zinc-300 tabular-nums shrink-0">
+                  {items.length}/6
+                </span>
+                <InfoPopover
+                  label={t.compareModalTitle}
+                  title={t.compareModalTitle}
+                  content={
+                    <>
+                      <p>{t.compareModalSubtitle}</p>
+                      {matrix.hasDistinctProductIds && (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-white/[0.08]">
+                          {t.compareDistinctIdsNote} ({matrix.distinctProductIdCount} Product IDs)
+                        </p>
+                      )}
+                    </>
+                  }
+                />
+              </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Mobile quick toggle for Add Saved */}
-            {addableSavedRecords.length > 0 && items.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => setMobileAddOpen((prev) => !prev)}
-                aria-expanded={mobileAddOpen}
-                className={`sm:hidden inline-flex items-center justify-center gap-1 min-h-[38px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
-                  mobileAddOpen
-                    ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700'
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {/* Mobile quick toggle for Add Saved */}
+                {addableSavedRecords.length > 0 && items.length >= 2 && (
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    onClick={() => setMobileAddOpen((prev) => !prev)}
+                    aria-expanded={mobileAddOpen}
+                    className={`sm:hidden inline-flex items-center justify-center gap-1 min-h-[38px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap ${
+                      mobileAddOpen
+                        ? 'bg-zinc-950 dark:bg-[#25F4EE] text-white dark:text-[#07090F] border-zinc-950 dark:border-[#25F4EE]'
+                        : 'bg-white dark:bg-[#131823] text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-white/[0.10]'
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{isMy ? 'ထပ်ထည့်' : 'Add'}</span>
+                  </motion.button>
+                )}
+
+                {/* Desktop Export buttons */}
+                {items.length > 0 && (
+                  <div className="hidden sm:flex items-center gap-2">
+                    <motion.button
+                      type="button"
+                      whileTap={TACTILE_INTERACTIONS.buttonTap}
+                      onClick={handleExportCsv}
+                      className="sp-btn-secondary px-3 py-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{t.exportCsvBtn}</span>
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileTap={TACTILE_INTERACTIONS.buttonTap}
+                      onClick={handleExportJson}
+                      className="sp-btn-secondary px-3 py-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                      <span>{t.exportJsonBtn}</span>
+                    </motion.button>
+                  </div>
+                )}
+
+                <motion.button
+                  type="button"
+                  whileTap={TACTILE_INTERACTIONS.buttonTap}
+                  onClick={onClose}
+                  aria-label={t.reportClose}
+                  className="w-10 h-10 -mr-1 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-white/[0.08] transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE]"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Add Saved Product to Compare Toolbar */}
+            {addableSavedRecords.length > 0 && (
+              <div
+                className={`shrink-0 px-3.5 sm:px-6 py-2.5 bg-[#F5F6F8] dark:bg-[#131823] border-b border-zinc-200/80 dark:border-white/[0.08] flex-wrap items-center justify-between gap-2 ${
+                  showAddToolbarOnMobile ? 'flex' : 'hidden sm:flex'
                 }`}
               >
-                <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>{isMy ? 'ထပ်ထည့်' : 'Add'}</span>
-              </button>
-            )}
-
-            {/* Desktop Export buttons */}
-            {items.length > 0 && (
-              <div className="hidden sm:flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportCsv}
-                  className="sp-btn-secondary px-3 py-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>{t.exportCsvBtn}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportJson}
-                  className="sp-btn-secondary px-3 py-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>{t.exportJsonBtn}</span>
-                </button>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label={t.reportClose}
-              className="w-10 h-10 -mr-1 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
-            >
-              <X className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
-        {/* Add Saved Product to Compare Toolbar (always shown on sm+, collapsible on mobile when >=2 items) */}
-        {addableSavedRecords.length > 0 && (
-          <div
-            className={`shrink-0 px-3.5 sm:px-6 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-b border-zinc-200/80 dark:border-zinc-800/80 flex-wrap items-center justify-between gap-2 ${
-              showAddToolbarOnMobile ? 'flex' : 'hidden sm:flex'
-            }`}
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <label
-                htmlFor="compare-add-saved"
-                className="hidden sm:inline text-xs font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap"
-              >
-                {t.compareAddSavedLabel}:
-              </label>
-              <select
-                id="compare-add-saved"
-                aria-label={t.compareAddSavedLabel}
-                value={selectedSavedId}
-                onChange={(e) => setSelectedSavedId(e.target.value)}
-                className="min-h-[40px] min-w-0 max-w-sm flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-zinc-200/20 cursor-pointer"
-              >
-                <option value="">{t.compareAddSavedPlaceholder}</option>
-                {addableSavedRecords.map((rec) => (
-                  <option key={rec.id} value={rec.id}>
-                    {(isMy ? rec.product.nameMy : rec.product.name).slice(0, 65)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                disabled={!selectedSavedId}
-                onClick={handleAddSaved}
-                className="sp-btn-primary px-3 py-1.5 text-xs shrink-0"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>{t.compareSelectBtn}</span>
-              </button>
-            </div>
-
-            {items.length > 0 && (
-              <button
-                type="button"
-                onClick={onClearAll}
-                className="hidden sm:inline-flex sp-btn-ghost px-2.5 hover:text-red-700 dark:hover:text-red-400"
-              >
-                {t.compareClearBtn}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Comparison Body */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden md:overflow-auto scroll-smooth">
-          {items.length === 0 ? (
-            <div className="p-6 sm:p-10">
-              <StateMessage
-                variant="empty"
-                icon={<GitCompareArrows className="w-5 h-5" aria-hidden="true" />}
-                reason={`${t.compareNeedTwoNote} (0/2 ${t.quantityProductsUnit})`}
-                actionLabel={t.compareClosePickMoreBtn}
-                onAction={onClose}
-              />
-            </div>
-          ) : (
-            <>
-              {items.length === 1 && (
-                <div className="px-3.5 sm:px-6 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-200/80 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
-                  <span>
-                    {t.compareNeedTwoNote} (1/2 {t.quantityProductsUnit})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="sp-btn-secondary px-3 py-1.5"
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <label
+                    htmlFor="compare-add-saved"
+                    className="hidden sm:inline text-xs font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap leading-snug"
                   >
-                    {t.compareClosePickMoreBtn}
-                  </button>
-                </div>
-              )}
-
-              {/* =================================================================
-                  MOBILE COMPARISON VIEW (< md):
-                  Zero horizontal table fighting — compact product strip on top,
-                  followed by stacked, bar-aligned metric comparison cards where
-                  every product's numbers sit directly on top of each other.
-                 ================================================================= */}
-              <div className="md:hidden">
-                {/* Selected Products Horizontal Strip */}
-                <div className="px-3.5 py-3 bg-zinc-50/75 dark:bg-zinc-950/40 border-b border-zinc-200/80 dark:border-zinc-800">
-                  <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-0.5">
-                    {matrix.columns.map((col, idx) => {
-                      const p = col.item.product;
-                      const displayName = isMy ? p.nameMy : p.name;
-                      const imageConfig = resolveProductImageDisplayConfig(p);
-                      const bestCount = metricExtract.bestCounts[idx] ?? 0;
-                      const bestSummaryLabel = t.compareBestInMetrics
-                        .replace('{n}', String(bestCount))
-                        .replace('{total}', String(NUMERIC_METRIC_KEYS.length));
-
-                      return (
-                        <div
-                          key={`mobile-card-${col.item.selectionKey}`}
-                          className="sp-card snap-start min-w-[205px] max-w-[225px] shrink-0 p-2.5 flex flex-col justify-between gap-2"
-                        >
-                          <div className="flex items-start gap-2">
-                            <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/70 dark:border-zinc-700/70 shrink-0">
-                              {imageConfig.canRender && imageConfig.src ? (
-                                <ProductImage
-                                  src={imageConfig.src}
-                                  fallbackSrc={imageConfig.fallbackSrc}
-                                  productId={imageConfig.productId}
-                                  alt={p.name}
-                                  title={displayName}
-                                  unavailableLabel={t.cardImageUnverified}
-                                  compact
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <ImageOff
-                                    className="w-4 h-4 text-zinc-500 dark:text-zinc-400"
-                                    aria-hidden="true"
-                                  />
-                                </div>
-                              )}
-                              <span className="absolute top-0.5 left-0.5 min-w-[18px] h-[18px] px-1 rounded bg-zinc-950/85 text-white font-mono text-[11px] font-bold inline-flex items-center justify-center leading-none">
-                                {idx + 1}
-                              </span>
-                            </div>
-
-                            <div className="min-w-0 flex-1">
-                              <div className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50 line-clamp-2">
-                                {displayName}
-                              </div>
-                              <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                                {p.shopName}
-                              </div>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => onRemoveItem(col.item.selectionKey)}
-                              aria-label={`${t.compareRemoveBtn}: ${displayName}`}
-                              className="w-8 h-8 -mt-1 -mr-1 rounded-md inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/70 dark:hover:bg-red-950/40 transition-colors cursor-pointer shrink-0"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                            </button>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80">
-                            {matrix.columns.length >= 2 ? (
-                              <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums border min-w-0 max-w-full ${
-                                  bestCount > 0
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/45 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
-                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
-                                }`}
-                              >
-                                <Trophy className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                <BounceMarquee>{bestSummaryLabel}</BounceMarquee>
-                              </span>
-                            ) : (
-                              <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
-                                {col.evaluation.totalScore}/100
-                              </span>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => onOpenReport(col.item)}
-                              className="inline-flex items-center gap-0.5 min-h-[32px] px-2 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                            >
-                              <span>{isMy ? 'ကြည့်ရန်' : 'Report'}</span>
-                              <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    {t.compareAddSavedLabel}:
+                  </label>
+                  <select
+                    id="compare-add-saved"
+                    aria-label={t.compareAddSavedLabel}
+                    value={selectedSavedId}
+                    onChange={(e) => setSelectedSavedId(e.target.value)}
+                    className="min-h-[40px] min-w-0 max-w-sm flex-1 px-2.5 py-1.5 text-xs bg-white dark:bg-[#0E1118] border border-zinc-200 dark:border-white/[0.12] rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-[#25F4EE] focus-visible:ring-2 focus-visible:ring-zinc-900/20 dark:focus-visible:ring-[#25F4EE]/25 cursor-pointer"
+                  >
+                    <option value="">{t.compareAddSavedPlaceholder}</option>
+                    {addableSavedRecords.map((rec) => (
+                      <option key={rec.id} value={rec.id}>
+                        {(isMy ? rec.product.nameMy : rec.product.name).slice(0, 65)}
+                      </option>
+                    ))}
+                  </select>
+                  <motion.button
+                    type="button"
+                    whileTap={selectedSavedId ? TACTILE_INTERACTIONS.buttonTap : undefined}
+                    disabled={!selectedSavedId}
+                    onClick={handleAddSaved}
+                    className="sp-btn-primary px-3 py-1.5 text-xs shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>{t.compareSelectBtn}</span>
+                  </motion.button>
                 </div>
 
-                {/* Metric-by-Metric Stacked Comparison Cards */}
-                <div className="p-3.5 space-y-3">
-                  {/* 1. Overall Score */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowOverallScore}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.overallScore.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-score-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="font-mono text-sm font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                  {m.overallScore}
-                                  <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                    /100
-                                  </span>
-                                </span>
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            <MiniBar
-                              value={m.overallScore}
-                              max={metricExtract.maxByMetric.overallScore}
-                              tone={isBest ? 'emerald' : 'zinc'}
-                              hideValue
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 2. Verdict */}
-                  <section className="sp-card p-3 space-y-2">
-                    <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                      {t.compareRowVerdict}
-                    </h3>
-                    <div className="space-y-1.5">
-                      {matrix.columns.map((col, idx) => {
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-verdict-${col.item.selectionKey}`}
-                            className="sp-surface-muted px-2.5 py-2 flex items-center justify-between gap-2"
-                          >
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                {idx + 1}
-                              </span>
-                              <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                {name}
-                              </span>
-                            </div>
-                            <div className="shrink-0">
-                              <VerdictBadge
-                                verdict={col.decision.verdict}
-                                size="sm"
-                                language={language}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 3. Commission */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowCommission}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.commission.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-comm-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.commStatus} language={language} size="sm" />
-                                {m.commission !== null ? (
-                                  <span className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                                    {m.commission}%
-                                    {m.commBaht !== null && (
-                                      <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                        (~{formatThb(m.commBaht)})
-                                      </span>
-                                    )}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
-                                    —
-                                  </span>
-                                )}
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.commission !== null && (
-                              <MiniBar
-                                value={m.commission}
-                                max={metricExtract.maxByMetric.commission}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 4. Sales */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowSales}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.sales.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-sales-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.salesStatus} language={language} size="sm" />
-                                <span
-                                  className={`font-mono text-sm font-semibold tabular-nums ${
-                                    m.sales !== null
-                                      ? 'text-zinc-950 dark:text-zinc-50'
-                                      : 'text-zinc-500 dark:text-zinc-400 font-normal'
-                                  }`}
-                                >
-                                  {m.sales !== null ? m.sales.toLocaleString('en-US') : '—'}
-                                </span>
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.sales !== null && (
-                              <MiniBar
-                                value={m.sales}
-                                max={metricExtract.maxByMetric.sales}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 5. Revenue */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowRevenue}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.revenue.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-rev-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.revenueStatus} language={language} size="sm" />
-                                <span
-                                  className={`font-mono text-sm font-semibold tabular-nums ${
-                                    m.revenue !== null
-                                      ? 'text-zinc-950 dark:text-zinc-50'
-                                      : 'text-zinc-500 dark:text-zinc-400 font-normal'
-                                  }`}
-                                >
-                                  {m.revenue !== null ? formatCompactThb(m.revenue) : '—'}
-                                </span>
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.revenue !== null && (
-                              <MiniBar
-                                value={m.revenue}
-                                max={metricExtract.maxByMetric.revenue}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 6. Price (lower = best) */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowPrice}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {lowerBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.price.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-price-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.priceStatus} language={language} size="sm" />
-                                <span
-                                  className={`font-mono text-sm font-semibold tabular-nums ${
-                                    m.price !== null
-                                      ? 'text-zinc-950 dark:text-zinc-50'
-                                      : 'text-zinc-500 dark:text-zinc-400 font-normal'
-                                  }`}
-                                >
-                                  {m.price !== null ? formatThb(m.price) : '—'}
-                                </span>
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.price !== null && (
-                              <MiniBar
-                                value={m.price}
-                                max={metricExtract.maxByMetric.price}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 7. Competition (lower = best) */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowCompetition}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {lowerBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.competition.has(idx);
-                        const compTone = isBest
-                          ? 'emerald'
-                          : m.compLevel === 'High'
-                            ? 'red'
-                            : m.compLevel === 'Moderate'
-                              ? 'amber'
-                              : 'zinc';
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-comp-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.compStatus} language={language} size="sm" />
-                                {m.competition !== null ? (
-                                  <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {m.competition.toLocaleString('en-US')}
-                                    <span className="ml-1 font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                      {t.competitionLabels[m.compLevel]}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
-                                    —
-                                  </span>
-                                )}
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.competition !== null && (
-                              <MiniBar
-                                value={m.competition}
-                                max={metricExtract.maxByMetric.competition}
-                                tone={compTone}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 8. AI Content */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowAiContent}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.aiContent.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-ai-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <StatusDot status={m.aiStatus} language={language} size="sm" />
-                                {m.aiContent !== null ? (
-                                  <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {m.aiContent}/100
-                                    <span className="ml-1 font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                      {t.aiVideoLabels[m.aiBand]}
-                                    </span>
-                                  </span>
-                                ) : (
-                                  <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
-                                    —
-                                  </span>
-                                )}
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            {m.aiContent !== null && (
-                              <MiniBar
-                                value={m.aiContent}
-                                max={metricExtract.maxByMetric.aiContent}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-
-                  {/* 9. Data Confidence */}
-                  <section className="sp-card p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                        {t.compareRowConfidence}
-                      </h3>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {higherBetterHint}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.confidence.has(idx);
-                        const name = isMy ? col.item.product.nameMy : col.item.product.name;
-                        return (
-                          <div
-                            key={`m-conf-${col.item.selectionKey}`}
-                            className={`rounded-lg px-2.5 py-2 space-y-1.5 ${
-                              isBest
-                                ? 'bg-emerald-50/80 dark:bg-emerald-950/35 border border-emerald-200/70 dark:border-emerald-800/50'
-                                : 'sp-surface-muted'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-zinc-700/90 text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
-                                  {idx + 1}
-                                </span>
-                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                                  {name}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                  {m.confidence}%
-                                  <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                                    ({m.verifiedCount}/{m.totalCriteria})
-                                  </span>
-                                </span>
-                                {isBest && renderBestBadge()}
-                              </div>
-                            </div>
-                            <MiniBar
-                              value={m.confidence}
-                              max={metricExtract.maxByMetric.confidence}
-                              tone={isBest ? 'emerald' : 'zinc'}
-                              hideValue
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                </div>
+                {items.length > 0 && (
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    onClick={onClearAll}
+                    className="hidden sm:inline-flex sp-btn-ghost px-2.5 hover:text-rose-700 dark:hover:text-[#FE2C55]"
+                  >
+                    {t.compareClearBtn}
+                  </motion.button>
+                )}
               </div>
+            )}
 
-              {/* =================================================================
-                  DESKTOP / TABLET VISUAL MATRIX TABLE (>= md)
-                 ================================================================= */}
-              <div className="hidden md:block">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                      <th
-                        scope="col"
-                        className="sticky left-0 top-0 z-30 bg-zinc-50 dark:bg-zinc-900 px-4 lg:px-5 py-3.5 w-44 min-w-[168px] text-xs font-semibold text-zinc-600 dark:text-zinc-400 align-bottom border-r border-zinc-200/80 dark:border-zinc-800/80 shadow-[2px_2px_6px_-4px_rgba(0,0,0,0.16)]"
+            {/* Comparison Body */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden md:overflow-auto scroll-smooth bg-[#F5F6F8]/40 dark:bg-[#0E1118]">
+              {items.length === 0 ? (
+                <div className="p-6 sm:p-10">
+                  <StateMessage
+                    variant="empty"
+                    icon={<GitCompareArrows className="w-5 h-5" aria-hidden="true" />}
+                    reason={`${t.compareNeedTwoNote} (0/2 ${t.quantityProductsUnit})`}
+                    actionLabel={t.compareClosePickMoreBtn}
+                    onAction={onClose}
+                  />
+                </div>
+              ) : (
+                <>
+                  {items.length === 1 && (
+                    <div className="px-3.5 sm:px-6 py-2.5 bg-[#F5F6F8] dark:bg-[#131823] border-b border-zinc-200/80 dark:border-white/[0.08] flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+                      <span className="leading-snug">
+                        {t.compareNeedTwoNote} (1/2 {t.quantityProductsUnit})
+                      </span>
+                      <motion.button
+                        type="button"
+                        whileTap={TACTILE_INTERACTIONS.buttonTap}
+                        onClick={onClose}
+                        className="sp-btn-secondary px-3 py-1.5"
                       >
-                        {isMy ? 'နှိုင်းယှဉ်ချက်များ' : 'Metrics'}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const p = col.item.product;
-                        const displayName = isMy ? p.nameMy : p.name;
-                        const imageConfig = resolveProductImageDisplayConfig(p);
-                        const bestCount = metricExtract.bestCounts[idx] ?? 0;
-                        const bestSummaryLabel = t.compareBestInMetrics
-                          .replace('{n}', String(bestCount))
-                          .replace('{total}', String(NUMERIC_METRIC_KEYS.length));
+                        {t.compareClosePickMoreBtn}
+                      </motion.button>
+                    </div>
+                  )}
 
-                        return (
-                          <th
-                            key={col.item.selectionKey}
-                            scope="col"
-                            className="sticky top-0 z-20 bg-white dark:bg-zinc-900 px-4 py-3.5 min-w-[228px] max-w-[300px] align-top border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 shadow-[0_2px_6px_-4px_rgba(0,0,0,0.14)]"
-                          >
-                            <div className="space-y-2.5">
-                              <div className="flex items-start gap-2.5">
-                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/70 dark:border-zinc-700/70 shrink-0">
+                  {/* =================================================================
+                      MOBILE COMPARISON VIEW (< md)
+                     ================================================================= */}
+                  <div className="md:hidden">
+                    {/* Selected Products Horizontal Strip */}
+                    <div className="px-3.5 py-3 bg-[#F5F6F8] dark:bg-[#131823]/70 border-b border-zinc-200/80 dark:border-white/[0.08]">
+                      <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-0.5">
+                        {matrix.columns.map((col, idx) => {
+                          const p = col.item.product;
+                          const displayName = isMy ? p.nameMy : p.name;
+                          const imageConfig = resolveProductImageDisplayConfig(p);
+                          const bestCount = metricExtract.bestCounts[idx] ?? 0;
+                          const bestSummaryLabel = t.compareBestInMetrics
+                            .replace('{n}', String(bestCount))
+                            .replace('{total}', String(NUMERIC_METRIC_KEYS.length));
+
+                          return (
+                            <div
+                              key={`mobile-card-${col.item.selectionKey}`}
+                              className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] snap-start min-w-[205px] max-w-[225px] shrink-0 p-2.5 flex flex-col justify-between gap-2"
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-zinc-100 dark:bg-[#0E1118] border border-zinc-200/70 dark:border-white/[0.10] shrink-0">
                                   {imageConfig.canRender && imageConfig.src ? (
                                     <ProductImage
                                       src={imageConfig.src}
@@ -1207,13 +815,16 @@ export function ProductComparisonModal({
                                       />
                                     </div>
                                   )}
+                                  <span className="absolute top-0.5 left-0.5 min-w-[18px] h-[18px] px-1 rounded bg-zinc-950/85 text-white font-mono text-[11px] font-bold inline-flex items-center justify-center leading-none">
+                                    {idx + 1}
+                                  </span>
                                 </div>
 
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 line-clamp-2 leading-snug">
+                                  <div className="font-display text-xs font-semibold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2">
                                     {displayName}
                                   </div>
-                                  <div className="mt-0.5 text-xs font-normal text-zinc-500 dark:text-zinc-400 truncate">
+                                  <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
                                     {p.shopName}
                                   </div>
                                 </div>
@@ -1222,69 +833,91 @@ export function ProductComparisonModal({
                                   type="button"
                                   onClick={() => onRemoveItem(col.item.selectionKey)}
                                   aria-label={`${t.compareRemoveBtn}: ${displayName}`}
-                                  className="w-10 h-10 -mt-1.5 -mr-1.5 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/70 dark:hover:bg-red-950/40 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+                                  className="w-8 h-8 -mt-1 -mr-1 rounded-md inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-rose-700 dark:hover:text-[#FE2C55] hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0"
                                 >
-                                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                 </button>
                               </div>
 
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                {matrix.columns.length >= 2 && (
+                              <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100 dark:border-white/[0.06]">
+                                {matrix.columns.length >= 2 ? (
                                   <span
-                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold tabular-nums border ${
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-semibold tabular-nums border min-w-0 max-w-full ${
                                       bestCount > 0
-                                        ? 'bg-emerald-50 dark:bg-emerald-950/45 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
-                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                                        ? 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/25 dark:border-[#10F5A0]/30'
+                                        : 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.10]'
                                     }`}
                                   >
                                     <Trophy className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                    <span>{bestSummaryLabel}</span>
+                                    <BounceMarquee>{bestSummaryLabel}</BounceMarquee>
+                                  </span>
+                                ) : (
+                                  <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
+                                    {col.evaluation.totalScore}/100
                                   </span>
                                 )}
 
                                 <button
                                   type="button"
                                   onClick={() => onOpenReport(col.item)}
-                                  className="sp-btn-ghost px-2.5 text-zinc-700 dark:text-zinc-300"
+                                  className="inline-flex items-center gap-0.5 min-h-[32px] px-2 rounded-md text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-[#25F4EE] hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                                 >
-                                  <span>{t.singleHistoryOpenReportBtn}</span>
-                                  <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                  <span>{isMy ? 'ကြည့်ရန်' : 'Report'}</span>
+                                  <ArrowUpRight className="w-3 h-3 shrink-0" aria-hidden="true" />
                                 </button>
                               </div>
                             </div>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/70 text-xs">
-                    {/* 1. Overall Score */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowOverallScore}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.overallScore.has(idx);
-                        return (
-                          <td
-                            key={`score-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <ScoreRing value={m.overallScore} max={100} size={48} />
-                              <div className="min-w-0 flex-1 space-y-1.5">
-                                <div className="flex items-center justify-between gap-1.5">
-                                  <span className="font-mono text-sm font-bold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {m.overallScore}
-                                    <span className="text-xs font-normal text-zinc-600 dark:text-zinc-400">
-                                      /100
+                    {/* Metric-by-Metric Stacked Comparison Cards */}
+                    <div className="p-3.5 space-y-3">
+                      {/* 1. Overall Score */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowOverallScore}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.overallScore.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-score-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
                                     </span>
-                                  </span>
-                                  {isBest && renderBestBadge()}
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span
+                                      className={`font-mono text-sm font-bold tabular-nums ${
+                                        isBest
+                                          ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                          : 'text-zinc-950 dark:text-zinc-50'
+                                      }`}
+                                    >
+                                      {m.overallScore}
+                                      <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                        /100
+                                      </span>
+                                    </span>
+                                    {isBest && renderBestBadge()}
+                                  </div>
                                 </div>
                                 <MiniBar
                                   value={m.overallScore}
@@ -1293,419 +926,1180 @@ export function ProductComparisonModal({
                                   hideValue
                                 />
                               </div>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
+                            );
+                          })}
+                        </div>
+                      </section>
 
-                    {/* 2. Verdict */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowVerdict}
-                      </th>
-                      {matrix.columns.map((col) => (
-                        <td
-                          key={`verdict-${col.item.selectionKey}`}
-                          className="px-4 py-3.5 align-middle bg-white dark:bg-zinc-900 border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0"
-                        >
-                          <VerdictBadge
-                            verdict={col.decision.verdict}
-                            size="sm"
-                            language={language}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-
-                    {/* 3. Price (lower = best) */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowPrice}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.price.has(idx);
-                        return (
-                          <td
-                            key={`price-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-center gap-1.5 min-w-0">
-                                  <StatusDot status={m.priceStatus} language={language} size="sm" />
-                                  <span
-                                    aria-label={m.price === null ? t.dataStatusLabels.unavailable : undefined}
-                                    title={m.price === null ? t.drawerNoData : undefined}
-                                    className={`font-mono text-sm font-semibold tabular-nums ${
-                                      m.price !== null
-                                        ? 'text-zinc-950 dark:text-zinc-50'
-                                        : 'text-zinc-600 dark:text-zinc-400 font-normal'
-                                    }`}
-                                  >
-                                    {m.price !== null ? formatThb(m.price) : '—'}
+                      {/* 2. Verdict */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                          {t.compareRowVerdict}
+                        </h3>
+                        <div className="space-y-1.5">
+                          {matrix.columns.map((col, idx) => {
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-verdict-${col.item.selectionKey}`}
+                                className="rounded-lg bg-[#F5F6F8] dark:bg-[#0E1118] border border-zinc-200/60 dark:border-white/[0.06] px-2.5 py-2 flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                    {name}
                                   </span>
                                 </div>
-                                {isBest && renderBestBadge()}
+                                <div className="shrink-0">
+                                  <VerdictBadge
+                                    verdict={col.decision.verdict}
+                                    size="sm"
+                                    language={language}
+                                  />
+                                </div>
                               </div>
-                              {m.price !== null && (
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 3. Commission (Verified-only best highlight) */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowCommission}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.commission.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-comm-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.commStatus} language={language} size="sm" />
+                                    {m.commission !== null ? (
+                                      <span
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          m.hasVerifiedComm
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : 'text-zinc-700 dark:text-zinc-300'
+                                        }`}
+                                      >
+                                        {m.commission}%
+                                        {m.commBaht !== null && (
+                                          <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                            (~{formatThb(m.commBaht)})
+                                          </span>
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
+                                        —
+                                      </span>
+                                    )}
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.commission !== null && (
+                                  <MiniBar
+                                    value={m.commission}
+                                    max={metricExtract.maxByMetric.commission}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 4. Sales */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowSales}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.sales.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-sales-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.salesStatus} language={language} size="sm" />
+                                    <span
+                                      className={`font-mono text-sm font-semibold tabular-nums ${
+                                        isBest
+                                          ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                          : m.sales !== null
+                                            ? 'text-zinc-950 dark:text-zinc-50'
+                                            : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                      }`}
+                                    >
+                                      {m.sales !== null ? m.sales.toLocaleString('en-US') : '—'}
+                                    </span>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.sales !== null && (
+                                  <MiniBar
+                                    value={m.sales}
+                                    max={metricExtract.maxByMetric.sales}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 5. Revenue */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowRevenue}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.revenue.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-rev-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.revenueStatus} language={language} size="sm" />
+                                    <span
+                                      className={`font-mono text-sm font-semibold tabular-nums ${
+                                        isBest
+                                          ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                          : m.revenue !== null
+                                            ? 'text-zinc-950 dark:text-zinc-50'
+                                            : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                      }`}
+                                    >
+                                      {m.revenue !== null ? formatCompactThb(m.revenue) : '—'}
+                                    </span>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.revenue !== null && (
+                                  <MiniBar
+                                    value={m.revenue}
+                                    max={metricExtract.maxByMetric.revenue}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 6. Price (lower = best) */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowPrice}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {lowerBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.price.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-price-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.priceStatus} language={language} size="sm" />
+                                    <span
+                                      className={`font-mono text-sm font-semibold tabular-nums ${
+                                        isBest
+                                          ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                          : m.price !== null
+                                            ? 'text-zinc-950 dark:text-zinc-50'
+                                            : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                      }`}
+                                    >
+                                      {m.price !== null ? formatThb(m.price) : '—'}
+                                    </span>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.price !== null && (
+                                  <MiniBar
+                                    value={m.price}
+                                    max={metricExtract.maxByMetric.price}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 7. Competition (lower = best) */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowCompetition}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {lowerBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.competition.has(idx);
+                            const compTone = isBest
+                              ? 'emerald'
+                              : m.compLevel === 'High'
+                                ? 'red'
+                                : m.compLevel === 'Moderate'
+                                  ? 'amber'
+                                  : 'zinc';
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-comp-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.compStatus} language={language} size="sm" />
+                                    {m.competition !== null ? (
+                                      <span
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : 'text-zinc-950 dark:text-zinc-50'
+                                        }`}
+                                      >
+                                        {m.competition.toLocaleString('en-US')}
+                                        <span className="ml-1 font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                          {t.competitionLabels[m.compLevel]}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
+                                        —
+                                      </span>
+                                    )}
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.competition !== null && (
+                                  <MiniBar
+                                    value={m.competition}
+                                    max={metricExtract.maxByMetric.competition}
+                                    tone={compTone}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 8. AI Content */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowAiContent}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.aiContent.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-ai-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <StatusDot status={m.aiStatus} language={language} size="sm" />
+                                    {m.aiContent !== null ? (
+                                      <span
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : 'text-zinc-950 dark:text-zinc-50'
+                                        }`}
+                                      >
+                                        {m.aiContent}/100
+                                        <span className="ml-1 font-sans text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                          {t.aiVideoLabels[m.aiBand]}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="font-mono text-sm text-zinc-500 dark:text-zinc-400">
+                                        —
+                                      </span>
+                                    )}
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
+                                {m.aiContent !== null && (
+                                  <MiniBar
+                                    value={m.aiContent}
+                                    max={metricExtract.maxByMetric.aiContent}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 9. Technical Signals (ASI + Tracked Video Share) */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {technicalRowLabel}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            ASI · Video %
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-tech-${col.item.selectionKey}`}
+                                className="rounded-lg bg-[#F5F6F8] dark:bg-[#0E1118] border border-zinc-200/60 dark:border-white/[0.06] px-2.5 py-2 flex items-center justify-between gap-2"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                    {idx + 1}
+                                  </span>
+                                  <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                    {name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-mono text-[11px] font-semibold tabular-nums whitespace-nowrap ${getAsiChipClasses(
+                                      m.asiBand
+                                    )}`}
+                                  >
+                                    <Activity className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                    <span>
+                                      {m.asiScore !== null ? `ASI ${m.asiScore}` : 'ASI —'}
+                                    </span>
+                                  </span>
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border font-mono text-[11px] font-semibold tabular-nums whitespace-nowrap ${getVideoShareChipClasses(
+                                      m.videoSharePct
+                                    )}`}
+                                  >
+                                    <Video className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                    <span>
+                                      {m.videoSharePct !== null
+                                        ? `${Math.round(m.videoSharePct)}%`
+                                        : '—'}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+
+                      {/* 10. Data Confidence */}
+                      <section className="rounded-xl bg-white dark:bg-[#131823] border border-zinc-200/85 dark:border-white/[0.08] p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
+                            {t.compareRowConfidence}
+                          </h3>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {higherBetterHint}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.confidence.has(idx);
+                            const name = isMy ? col.item.product.nameMy : col.item.product.name;
+                            return (
+                              <div
+                                key={`m-conf-${col.item.selectionKey}`}
+                                className={mobileRowCardClass(isBest)}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-5 h-5 rounded bg-zinc-200/90 dark:bg-white/[0.08] text-zinc-800 dark:text-zinc-100 font-mono text-xs font-semibold inline-flex items-center justify-center shrink-0">
+                                      {idx + 1}
+                                    </span>
+                                    <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                      {name}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span
+                                      className={`font-mono text-sm font-semibold tabular-nums ${
+                                        isBest
+                                          ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                          : 'text-zinc-950 dark:text-zinc-50'
+                                      }`}
+                                    >
+                                      {m.confidence}%
+                                      <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                        ({m.verifiedCount}/{m.totalCriteria})
+                                      </span>
+                                    </span>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                </div>
                                 <MiniBar
-                                  value={m.price}
-                                  max={metricExtract.maxByMetric.price}
+                                  value={m.confidence}
+                                  max={metricExtract.maxByMetric.confidence}
                                   tone={isBest ? 'emerald' : 'zinc'}
                                   hideValue
                                 />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    </div>
+                  </div>
 
-                    {/* 4. Commission % + baht */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowCommission}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.commission.has(idx);
-                        return (
-                          <td
-                            key={`comm-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
+                  {/* =================================================================
+                      DESKTOP / TABLET VISUAL MATRIX TABLE (>= md)
+                     ================================================================= */}
+                  <div className="hidden md:block">
+                    <table className="w-full border-collapse text-left">
+                      <thead>
+                        <tr className="border-b border-zinc-200/85 dark:border-white/[0.08]">
+                          <th
+                            scope="col"
+                            className="sticky left-0 top-0 z-30 bg-[#F5F6F8] dark:bg-[#131823] px-4 lg:px-5 py-3.5 w-44 min-w-[168px] text-xs font-semibold text-zinc-600 dark:text-zinc-400 align-bottom border-r border-zinc-200/80 dark:border-white/[0.08] shadow-[2px_2px_8px_-4px_rgba(0,0,0,0.2)]"
                           >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
-                                  <StatusDot status={m.commStatus} language={language} size="sm" />
-                                  {m.commission !== null ? (
-                                    <>
-                                      <span className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                                        {m.commission}%
+                            {isMy ? 'နှိုင်းယှဉ်ချက်များ' : 'Metrics'}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const p = col.item.product;
+                            const displayName = isMy ? p.nameMy : p.name;
+                            const imageConfig = resolveProductImageDisplayConfig(p);
+                            const bestCount = metricExtract.bestCounts[idx] ?? 0;
+                            const bestSummaryLabel = t.compareBestInMetrics
+                              .replace('{n}', String(bestCount))
+                              .replace('{total}', String(NUMERIC_METRIC_KEYS.length));
+
+                            return (
+                              <th
+                                key={col.item.selectionKey}
+                                scope="col"
+                                className="sticky top-0 z-20 bg-white/95 dark:bg-[#0E1118]/95 backdrop-blur-md px-4 py-3.5 min-w-[228px] max-w-[300px] align-top border-r border-zinc-200/70 dark:border-white/[0.06] last:border-r-0 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.18)]"
+                              >
+                                <div className="space-y-2.5">
+                                  <div className="flex items-start gap-2.5">
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-zinc-100 dark:bg-[#131823] border border-zinc-200/70 dark:border-white/[0.10] shrink-0">
+                                      {imageConfig.canRender && imageConfig.src ? (
+                                        <ProductImage
+                                          src={imageConfig.src}
+                                          fallbackSrc={imageConfig.fallbackSrc}
+                                          productId={imageConfig.productId}
+                                          alt={p.name}
+                                          title={displayName}
+                                          unavailableLabel={t.cardImageUnverified}
+                                          compact
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                          <ImageOff
+                                            className="w-4 h-4 text-zinc-500 dark:text-zinc-400"
+                                            aria-hidden="true"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50 line-clamp-2 leading-snug">
+                                        {displayName}
+                                      </div>
+                                      <div className="mt-0.5 text-xs font-normal text-zinc-500 dark:text-zinc-400 truncate">
+                                        {p.shopName}
+                                      </div>
+                                    </div>
+
+                                    <motion.button
+                                      type="button"
+                                      whileTap={TACTILE_INTERACTIONS.buttonTap}
+                                      onClick={() => onRemoveItem(col.item.selectionKey)}
+                                      aria-label={`${t.compareRemoveBtn}: ${displayName}`}
+                                      className="w-9 h-9 -mt-1 -mr-1 rounded-lg inline-flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:text-rose-700 dark:hover:text-[#FE2C55] hover:bg-rose-500/10 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE]"
+                                    >
+                                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                                    </motion.button>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    {matrix.columns.length >= 2 && (
+                                      <span
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold tabular-nums border ${
+                                          bestCount > 0
+                                            ? 'bg-emerald-500/12 dark:bg-[#10F5A0]/12 text-emerald-700 dark:text-[#10F5A0] border-emerald-500/25 dark:border-[#10F5A0]/30'
+                                            : 'bg-zinc-100 dark:bg-white/[0.06] text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-white/[0.10]'
+                                        }`}
+                                      >
+                                        <Trophy className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                        <span>{bestSummaryLabel}</span>
                                       </span>
-                                      {m.commBaht !== null && (
-                                        <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                                          (~{formatThb(m.commBaht)} {t.drawerPerSaleUnit})
+                                    )}
+
+                                    <motion.button
+                                      type="button"
+                                      whileTap={TACTILE_INTERACTIONS.buttonTap}
+                                      onClick={() => onOpenReport(col.item)}
+                                      className="sp-btn-ghost px-2.5 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-[#25F4EE]"
+                                    >
+                                      <span>{t.singleHistoryOpenReportBtn}</span>
+                                      <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                                    </motion.button>
+                                  </div>
+                                </div>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-zinc-200/70 dark:divide-white/[0.06] text-xs">
+                        {/* 1. Overall Score */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowOverallScore}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.overallScore.has(idx);
+                            return (
+                              <td
+                                key={`score-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <ScoreRing value={m.overallScore} max={100} size={48} />
+                                  <div className="min-w-0 flex-1 space-y-1.5">
+                                    <div className="flex items-center justify-between gap-1.5">
+                                      <span
+                                        className={`font-mono text-sm font-bold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : 'text-zinc-950 dark:text-zinc-50'
+                                        }`}
+                                      >
+                                        {m.overallScore}
+                                        <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                          /100
+                                        </span>
+                                      </span>
+                                      {isBest && renderBestBadge()}
+                                    </div>
+                                    <MiniBar
+                                      value={m.overallScore}
+                                      max={metricExtract.maxByMetric.overallScore}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 2. Verdict */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowVerdict}
+                          </th>
+                          {matrix.columns.map((col) => (
+                            <td
+                              key={`verdict-${col.item.selectionKey}`}
+                              className="px-4 py-3.5 align-middle bg-white dark:bg-[#0E1118] border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0"
+                            >
+                              <VerdictBadge
+                                verdict={col.decision.verdict}
+                                size="sm"
+                                language={language}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+
+                        {/* 3. Price (lower = best) */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowPrice}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.price.has(idx);
+                            return (
+                              <td
+                                key={`price-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-center gap-1.5 min-w-0">
+                                      <StatusDot status={m.priceStatus} language={language} size="sm" />
+                                      <span
+                                        aria-label={m.price === null ? t.dataStatusLabels.unavailable : undefined}
+                                        title={m.price === null ? t.drawerNoData : undefined}
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : m.price !== null
+                                              ? 'text-zinc-950 dark:text-zinc-50'
+                                              : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                        }`}
+                                      >
+                                        {m.price !== null ? formatThb(m.price) : '—'}
+                                      </span>
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.price !== null && (
+                                    <MiniBar
+                                      value={m.price}
+                                      max={metricExtract.maxByMetric.price}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 4. Commission % + baht (Verified-only best highlight) */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowCommission}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.commission.has(idx);
+                            return (
+                              <td
+                                key={`comm-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
+                                      <StatusDot status={m.commStatus} language={language} size="sm" />
+                                      {m.commission !== null ? (
+                                        <>
+                                          <span
+                                            className={`font-mono text-sm font-semibold tabular-nums ${
+                                              m.hasVerifiedComm
+                                                ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                                : 'text-zinc-700 dark:text-zinc-300'
+                                            }`}
+                                          >
+                                            {m.commission}%
+                                          </span>
+                                          {m.commBaht !== null && (
+                                            <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                                              (~{formatThb(m.commBaht)} {t.drawerPerSaleUnit})
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span
+                                          aria-label={t.dataStatusLabels.unavailable}
+                                          title={t.drawerNoData}
+                                          className="font-mono text-sm text-zinc-500 dark:text-zinc-400"
+                                        >
+                                          —
                                         </span>
                                       )}
-                                    </>
-                                  ) : (
-                                    <span
-                                      aria-label={t.dataStatusLabels.unavailable}
-                                      title={t.drawerNoData}
-                                      className="font-mono text-sm text-zinc-600 dark:text-zinc-400"
-                                    >
-                                      —
-                                    </span>
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.commission !== null && (
+                                    <MiniBar
+                                      value={m.commission}
+                                      max={metricExtract.maxByMetric.commission}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
                                   )}
                                 </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              {m.commission !== null && (
-                                <MiniBar
-                                  value={m.commission}
-                                  max={metricExtract.maxByMetric.commission}
-                                  tone={isBest ? 'emerald' : 'zinc'}
-                                  hideValue
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
+                              </td>
+                            );
+                          })}
+                        </tr>
 
-                    {/* 5. Sales */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowSales}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.sales.has(idx);
-                        return (
-                          <td
-                            key={`sales-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-center gap-1.5 min-w-0">
-                                  <StatusDot status={m.salesStatus} language={language} size="sm" />
+                        {/* 5. Sales */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowSales}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.sales.has(idx);
+                            return (
+                              <td
+                                key={`sales-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-center gap-1.5 min-w-0">
+                                      <StatusDot status={m.salesStatus} language={language} size="sm" />
+                                      <span
+                                        aria-label={m.sales === null ? t.dataStatusLabels.unavailable : undefined}
+                                        title={m.sales === null ? t.drawerNoData : undefined}
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : m.sales !== null
+                                              ? 'text-zinc-950 dark:text-zinc-50'
+                                              : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                        }`}
+                                      >
+                                        {m.sales !== null ? m.sales.toLocaleString('en-US') : '—'}
+                                      </span>
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.sales !== null && (
+                                    <MiniBar
+                                      value={m.sales}
+                                      max={metricExtract.maxByMetric.sales}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 6. Revenue */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowRevenue}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.revenue.has(idx);
+                            return (
+                              <td
+                                key={`revenue-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-center gap-1.5 min-w-0">
+                                      <StatusDot status={m.revenueStatus} language={language} size="sm" />
+                                      <span
+                                        aria-label={m.revenue === null ? t.dataStatusLabels.unavailable : undefined}
+                                        title={m.revenue === null ? t.drawerNoData : undefined}
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : m.revenue !== null
+                                              ? 'text-zinc-950 dark:text-zinc-50'
+                                              : 'text-zinc-500 dark:text-zinc-400 font-normal'
+                                        }`}
+                                      >
+                                        {m.revenue !== null ? formatCompactThb(m.revenue) : '—'}
+                                      </span>
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.revenue !== null && (
+                                    <MiniBar
+                                      value={m.revenue}
+                                      max={metricExtract.maxByMetric.revenue}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 7. Competition (lower creator count = best) */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowCompetition}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.competition.has(idx);
+                            const compTone = isBest
+                              ? 'emerald'
+                              : m.compLevel === 'High'
+                                ? 'red'
+                                : m.compLevel === 'Moderate'
+                                  ? 'amber'
+                                  : 'zinc';
+                            return (
+                              <td
+                                key={`comp-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
+                                      <StatusDot status={m.compStatus} language={language} size="sm" />
+                                      {m.competition !== null ? (
+                                        <>
+                                          <span
+                                            className={`font-mono text-sm font-semibold tabular-nums ${
+                                              isBest
+                                                ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                                : 'text-zinc-950 dark:text-zinc-50'
+                                            }`}
+                                          >
+                                            {m.competition.toLocaleString('en-US')}
+                                          </span>
+                                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                            {t.bestCreatorsUnit} · {t.competitionLabels[m.compLevel]}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span
+                                          aria-label={t.dataStatusLabels.unavailable}
+                                          title={t.drawerNoData}
+                                          className="font-mono text-sm text-zinc-500 dark:text-zinc-400"
+                                        >
+                                          —
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.competition !== null && (
+                                    <MiniBar
+                                      value={m.competition}
+                                      max={metricExtract.maxByMetric.competition}
+                                      tone={compTone}
+                                      hideValue
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 8. AI Content */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowAiContent}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.aiContent.has(idx);
+                            return (
+                              <td
+                                key={`ai-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
+                                      <StatusDot status={m.aiStatus} language={language} size="sm" />
+                                      {m.aiContent !== null ? (
+                                        <>
+                                          <span
+                                            className={`font-mono text-sm font-semibold tabular-nums ${
+                                              isBest
+                                                ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                                : 'text-zinc-950 dark:text-zinc-50'
+                                            }`}
+                                          >
+                                            {m.aiContent}/100
+                                          </span>
+                                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                            {t.aiVideoLabels[m.aiBand]}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <span
+                                          aria-label={t.dataStatusLabels.unavailable}
+                                          title={t.drawerNoData}
+                                          className="font-mono text-sm text-zinc-500 dark:text-zinc-400"
+                                        >
+                                          —
+                                        </span>
+                                      )}
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  {m.aiContent !== null && (
+                                    <MiniBar
+                                      value={m.aiContent}
+                                      max={metricExtract.maxByMetric.aiContent}
+                                      tone={isBest ? 'emerald' : 'zinc'}
+                                      hideValue
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+
+                        {/* 9. Technical Signals (ASI + Tracked Video Share) */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {technicalRowLabel}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            return (
+                              <td
+                                key={`tech-${col.item.selectionKey}`}
+                                className="px-4 py-3.5 align-middle bg-white dark:bg-[#0E1118] border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0"
+                              >
+                                <div className="flex flex-wrap items-center gap-1.5">
                                   <span
-                                    aria-label={m.sales === null ? t.dataStatusLabels.unavailable : undefined}
-                                    title={m.sales === null ? t.drawerNoData : undefined}
-                                    className={`font-mono text-sm font-semibold tabular-nums ${
-                                      m.sales !== null
-                                        ? 'text-zinc-950 dark:text-zinc-50'
-                                        : 'text-zinc-600 dark:text-zinc-400 font-normal'
-                                    }`}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${getAsiChipClasses(
+                                      m.asiBand
+                                    )}`}
                                   >
-                                    {m.sales !== null ? m.sales.toLocaleString('en-US') : '—'}
+                                    <Activity className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                    <span>
+                                      {m.asiScore !== null
+                                        ? `ASI ${m.asiScore} · ${getAsiBandShortLabel(m.asiBand, isMy)}`
+                                        : 'ASI —'}
+                                    </span>
                                   </span>
-                                </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              {m.sales !== null && (
-                                <MiniBar
-                                  value={m.sales}
-                                  max={metricExtract.maxByMetric.sales}
-                                  tone={isBest ? 'emerald' : 'zinc'}
-                                  hideValue
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* 6. Revenue */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowRevenue}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.revenue.has(idx);
-                        return (
-                          <td
-                            key={`revenue-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-center gap-1.5 min-w-0">
-                                  <StatusDot status={m.revenueStatus} language={language} size="sm" />
                                   <span
-                                    aria-label={m.revenue === null ? t.dataStatusLabels.unavailable : undefined}
-                                    title={m.revenue === null ? t.drawerNoData : undefined}
-                                    className={`font-mono text-sm font-semibold tabular-nums ${
-                                      m.revenue !== null
-                                        ? 'text-zinc-950 dark:text-zinc-50'
-                                        : 'text-zinc-600 dark:text-zinc-400 font-normal'
-                                    }`}
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-xs font-semibold tabular-nums whitespace-nowrap ${getVideoShareChipClasses(
+                                      m.videoSharePct
+                                    )}`}
                                   >
-                                    {m.revenue !== null ? formatCompactThb(m.revenue) : '—'}
-                                  </span>
-                                </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              {m.revenue !== null && (
-                                <MiniBar
-                                  value={m.revenue}
-                                  max={metricExtract.maxByMetric.revenue}
-                                  tone={isBest ? 'emerald' : 'zinc'}
-                                  hideValue
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* 7. Competition (lower creator count = best) */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowCompetition}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.competition.has(idx);
-                        const compTone = isBest
-                          ? 'emerald'
-                          : m.compLevel === 'High'
-                            ? 'red'
-                            : m.compLevel === 'Moderate'
-                              ? 'amber'
-                              : 'zinc';
-                        return (
-                          <td
-                            key={`comp-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
-                                  <StatusDot status={m.compStatus} language={language} size="sm" />
-                                  {m.competition !== null ? (
-                                    <>
-                                      <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                        {m.competition.toLocaleString('en-US')}
-                                      </span>
-                                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                        {t.bestCreatorsUnit} · {t.competitionLabels[m.compLevel]}
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span
-                                      aria-label={t.dataStatusLabels.unavailable}
-                                      title={t.drawerNoData}
-                                      className="font-mono text-sm text-zinc-600 dark:text-zinc-400"
-                                    >
-                                      —
+                                    <Video className="w-3 h-3 shrink-0" aria-hidden="true" />
+                                    <span>
+                                      {m.videoSharePct !== null
+                                        ? `Video ${Math.round(m.videoSharePct)}%`
+                                        : 'Video —'}
                                     </span>
-                                  )}
-                                </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              {m.competition !== null && (
-                                <MiniBar
-                                  value={m.competition}
-                                  max={metricExtract.maxByMetric.competition}
-                                  tone={compTone}
-                                  hideValue
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* 8. AI Content */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowAiContent}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.aiContent.has(idx);
-                        return (
-                          <td
-                            key={`ai-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
-                                  <StatusDot status={m.aiStatus} language={language} size="sm" />
-                                  {m.aiContent !== null ? (
-                                    <>
-                                      <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                        {m.aiContent}/100
-                                      </span>
-                                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                        {t.aiVideoLabels[m.aiBand]}
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span
-                                      aria-label={t.dataStatusLabels.unavailable}
-                                      title={t.drawerNoData}
-                                      className="font-mono text-sm text-zinc-600 dark:text-zinc-400"
-                                    >
-                                      —
-                                    </span>
-                                  )}
-                                </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              {m.aiContent !== null && (
-                                <MiniBar
-                                  value={m.aiContent}
-                                  max={metricExtract.maxByMetric.aiContent}
-                                  tone={isBest ? 'emerald' : 'zinc'}
-                                  hideValue
-                                />
-                              )}
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-
-                    {/* 9. Data Confidence */}
-                    <tr>
-                      <th scope="row" className={rowHeaderClass}>
-                        {t.compareRowConfidence}
-                      </th>
-                      {matrix.columns.map((col, idx) => {
-                        const m = metricExtract.extracted[idx];
-                        const isBest = metricExtract.bestByMetric.confidence.has(idx);
-                        return (
-                          <td
-                            key={`conf-${col.item.selectionKey}`}
-                            className={`px-4 py-3.5 align-middle border-r border-zinc-100 dark:border-zinc-800/70 last:border-r-0 ${cellHighlightClass(
-                              isBest
-                            )}`}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
-                                  <span className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                                    {m.confidence}%
-                                  </span>
-                                  <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                                    ({m.verifiedCount}/{m.totalCriteria} {t.bestVerifiedUnit})
                                   </span>
                                 </div>
-                                {isBest && renderBestBadge()}
-                              </div>
-                              <MiniBar
-                                value={m.confidence}
-                                max={metricExtract.maxByMetric.confidence}
-                                tone={isBest ? 'emerald' : 'zinc'}
-                                hideValue
-                              />
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
 
-        {/* Slim Mobile Action Footer (Export CSV/JSON + Clear) */}
-        {items.length > 0 && (
-          <div className="sm:hidden shrink-0 px-3.5 pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleExportCsv}
-                className="sp-btn-secondary min-h-[38px] px-3 py-1.5"
-              >
-                <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>CSV</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleExportJson}
-                className="sp-btn-secondary min-h-[38px] px-3 py-1.5"
-              >
-                <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>JSON</span>
-              </button>
+                        {/* 10. Data Confidence */}
+                        <tr>
+                          <th scope="row" className={rowHeaderClass}>
+                            {t.compareRowConfidence}
+                          </th>
+                          {matrix.columns.map((col, idx) => {
+                            const m = metricExtract.extracted[idx];
+                            const isBest = metricExtract.bestByMetric.confidence.has(idx);
+                            return (
+                              <td
+                                key={`conf-${col.item.selectionKey}`}
+                                className={`px-4 py-3.5 align-middle border-r border-zinc-200/60 dark:border-white/[0.06] last:border-r-0 ${cellHighlightClass(
+                                  isBest
+                                )}`}
+                              >
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="inline-flex items-baseline gap-1.5 flex-wrap min-w-0">
+                                      <span
+                                        className={`font-mono text-sm font-semibold tabular-nums ${
+                                          isBest
+                                            ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                            : 'text-zinc-950 dark:text-zinc-50'
+                                        }`}
+                                      >
+                                        {m.confidence}%
+                                      </span>
+                                      <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                                        ({m.verifiedCount}/{m.totalCriteria} {t.bestVerifiedUnit})
+                                      </span>
+                                    </div>
+                                    {isBest && renderBestBadge()}
+                                  </div>
+                                  <MiniBar
+                                    value={m.confidence}
+                                    max={metricExtract.maxByMetric.confidence}
+                                    tone={isBest ? 'emerald' : 'zinc'}
+                                    hideValue
+                                  />
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={onClearAll}
-              className="sp-btn-ghost min-h-[38px] px-2.5 text-zinc-600 dark:text-zinc-300 hover:text-red-700 dark:hover:text-red-400"
-            >
-              {t.compareClearBtn}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+
+            {/* Slim Mobile Action Footer (Export CSV/JSON + Clear) */}
+            {items.length > 0 && (
+              <div className="sm:hidden shrink-0 px-3.5 pt-2.5 pb-[calc(0.65rem+env(safe-area-inset-bottom))] border-t border-zinc-200/85 dark:border-white/[0.08] bg-white dark:bg-[#0E1118] flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    onClick={handleExportCsv}
+                    className="sp-btn-secondary min-h-[38px] px-3 py-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>CSV</span>
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileTap={TACTILE_INTERACTIONS.buttonTap}
+                    onClick={handleExportJson}
+                    className="sp-btn-secondary min-h-[38px] px-3 py-1.5"
+                  >
+                    <Download className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>JSON</span>
+                  </motion.button>
+                </div>
+                <motion.button
+                  type="button"
+                  whileTap={TACTILE_INTERACTIONS.buttonTap}
+                  onClick={onClearAll}
+                  className="sp-btn-ghost min-h-[38px] px-2.5 text-zinc-600 dark:text-zinc-300 hover:text-rose-700 dark:hover:text-[#FE2C55]"
+                >
+                  {t.compareClearBtn}
+                </motion.button>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

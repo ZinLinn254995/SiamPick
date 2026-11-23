@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { HelpCircle, Info, X } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { MOTION_DURATIONS, MOTION_EASE } from '../utils/motionPresets';
 
 const POPOVER_OPEN_EVENT = 'siampick:info-popover-open';
 
@@ -38,6 +40,7 @@ export function InfoPopover({
   className = '',
 }: InfoPopoverProps) {
   const id = useId();
+  const prefersReduced = useReducedMotion();
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<PopoverCoords>({
     top: 0,
@@ -101,7 +104,6 @@ export function InfoPopover({
   // Compute viewport-safe fixed position + directional arrow offset
   useLayoutEffect(() => {
     if (!open) {
-      setCoords((prev) => (prev.ready ? { ...prev, ready: false } : prev));
       return;
     }
 
@@ -198,27 +200,61 @@ export function InfoPopover({
         <Icon className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
 
-      {open &&
-        typeof document !== 'undefined' &&
+      {typeof document !== 'undefined' &&
         createPortal(
-          <div
-            ref={popoverRef}
-            id={`info-popover-${id}`}
-            role="dialog"
-            aria-label={title ?? label}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'fixed',
-              top: `${coords.top}px`,
-              left: `${coords.left}px`,
-              opacity: coords.ready ? 1 : 0,
-              transform: coords.ready
-                ? 'scale(1) translate3d(0, 0, 0)'
-                : `scale(0.93) translate3d(0, ${coords.placement === 'bottom' ? '-6px' : '6px'}, 0)`,
-              transformOrigin: `${coords.arrowLeft}px ${coords.placement === 'bottom' ? '0px' : '100%'}`,
+          <AnimatePresence
+            onExitComplete={() => {
+              setCoords((prev) => (prev.ready ? { ...prev, ready: false } : prev));
             }}
-            className="z-[70] w-[min(336px,calc(100vw-24px))] rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-700/75 shadow-[0_20px_48px_-12px_rgba(9,9,11,0.22),0_0_0_1px_rgba(16,185,129,0.08)] dark:shadow-[0_24px_54px_-10px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.14)] text-left transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
           >
+            {open && (
+              <motion.div
+                key={`info-popover-${id}`}
+                ref={popoverRef}
+                id={`info-popover-${id}`}
+                role="dialog"
+                aria-label={title ?? label}
+                onClick={(e) => e.stopPropagation()}
+                initial={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        scale: 0.94,
+                        y: coords.placement === 'bottom' ? -6 : 6,
+                      }
+                }
+                animate={
+                  prefersReduced
+                    ? { opacity: coords.ready ? 1 : 0 }
+                    : {
+                        opacity: coords.ready ? 1 : 0,
+                        scale: coords.ready ? 1 : 0.94,
+                        y: coords.ready ? 0 : coords.placement === 'bottom' ? -6 : 6,
+                      }
+                }
+                exit={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : {
+                        opacity: 0,
+                        scale: 0.95,
+                        y: coords.placement === 'bottom' ? -4 : 4,
+                      }
+                }
+                transition={
+                  prefersReduced
+                    ? { duration: 0.01 }
+                    : { duration: MOTION_DURATIONS.fast, ease: MOTION_EASE.expoOut }
+                }
+                style={{
+                  position: 'fixed',
+                  top: `${coords.top}px`,
+                  left: `${coords.left}px`,
+                  transformOrigin: `${coords.arrowLeft}px ${coords.placement === 'bottom' ? '0px' : '100%'}`,
+                }}
+                className="z-[70] w-[min(336px,calc(100vw-24px))] rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-700/75 shadow-[0_20px_48px_-12px_rgba(9,9,11,0.22),0_0_0_1px_rgba(16,185,129,0.08)] dark:shadow-[0_24px_54px_-10px_rgba(0,0,0,0.8),0_0_0_1px_rgba(16,185,129,0.14)] text-left"
+              >
             {/* Directional Pointer Diamond */}
             <span
               aria-hidden="true"
@@ -284,7 +320,9 @@ export function InfoPopover({
                 {typeof content === 'string' ? <p>{content}</p> : content}
               </div>
             </div>
-          </div>,
+              </motion.div>
+            )}
+          </AnimatePresence>,
           document.body
         )}
     </>

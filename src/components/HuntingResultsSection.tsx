@@ -1,14 +1,19 @@
-import { memo, type RefObject, useCallback, useMemo, useState } from 'react';
+import { memo, type RefObject, useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertCircle,
   ArrowRight,
+  Award,
   ChevronDown,
   ExternalLink,
   Globe,
+  LayoutGrid,
   PauseCircle,
   PlayCircle,
+  Radar,
   RotateCcw,
   SearchCheck,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type {
   DecisionFilter,
@@ -45,7 +50,13 @@ import {
 } from '../utils/exportReports';
 import type { LatestResearchSessionMeta } from '../utils/researchHistoryStorage';
 import { formatResearchDate } from '../utils/savedProductsStorage';
+import {
+  MOTION_TRANSITIONS,
+  shouldEnableGridLayoutReflow,
+} from '../utils/motionPresets';
+import { buildMarketOpportunityMatrixData } from '../utils/technicalAnalysis';
 import { BestProductsStrip } from './BestProductsStrip';
+import { MarketOpportunityMatrix } from './MarketOpportunityMatrix';
 import { ProductFilterBar } from './ProductFilterBar';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ScoringRubricPanel } from './ScoringRubricPanel';
@@ -55,6 +66,18 @@ import {
   StateMessage,
   StatusLegendPopover,
 } from './visual';
+
+const VIEW_MODE_STORAGE_KEY = 'siampick_results_view_mode';
+
+function readInitialViewMode(): 'cards' | 'matrix' {
+  if (typeof window === 'undefined') return 'cards';
+  try {
+    const raw = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return raw === 'matrix' ? 'matrix' : 'cards';
+  } catch {
+    return 'cards';
+  }
+}
 
 interface HuntingResultsSectionProps {
   sectionRef: RefObject<HTMLElement | null>;
@@ -140,8 +163,43 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
   onTurnOffMyanmarAndEdit,
 }: HuntingResultsSectionProps) {
   const t = TRANSLATIONS[language];
+  const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
+
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 1024px)').matches
+      : false
+  );
+  const [strategyDrawerOpen, setStrategyDrawerOpen] = useState(false);
   const [rubricOpen, setRubricOpen] = useState(false);
   const [groundingOpen, setGroundingOpen] = useState(false);
+  const [bestPicksOpen, setBestPicksOpen] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 1024px)').matches
+      : false
+  );
+  const [viewMode, setViewMode] = useState<'cards' | 'matrix'>(readInitialViewMode);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const handleChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener('change', handleChange);
+    return () => mq.removeEventListener('change', handleChange);
+  }, []);
+
+  const handleChangeViewMode = useCallback((next: 'cards' | 'matrix') => {
+    setViewMode(next);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, next);
+      } catch {
+        // Ignore storage errors
+      }
+    }
+  }, []);
 
   const handleToggleRubric = useCallback(() => {
     setRubricOpen((prev) => !prev);
@@ -210,6 +268,21 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
     sortField,
     sortDirection,
   ]);
+
+  const matrixPreview = useMemo(
+    () =>
+      buildMarketOpportunityMatrixData(
+        visibleProducts,
+        liveEvaluations,
+        'commissionPerOrder'
+      ),
+    [visibleProducts, liveEvaluations]
+  );
+
+  const effectiveViewMode: 'cards' | 'matrix' =
+    viewMode === 'matrix' && matrixPreview.isReliable ? 'matrix' : 'cards';
+
+  const enableGridReflow = shouldEnableGridLayoutReflow(visibleProducts.length, isDesktop);
 
   const bestSelections = useMemo(
     () =>
@@ -310,6 +383,10 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
     return 'pending';
   };
 
+  const matrixUnavailableReason = isMy
+    ? 'Median Split အတွက် Creator နှင့် Metric ဒေတာပြည့်စုံသော Product 8+ ခု လိုအပ်သည်'
+    : '8+ products with creator & metric data required';
+
   return (
     <section
       id="catalog-section"
@@ -317,27 +394,106 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
       aria-labelledby="results-section-heading"
       className="mt-6 sm:mt-8 scroll-mt-20"
     >
-      {/* Section Title + Animated Count + Inline Date */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pb-2.5 border-b border-zinc-200/80 dark:border-zinc-800/80">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Stage Header: Title + Animated Count + View Mode Switcher ([Cards] | [Radar Matrix]) */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 pb-3 border-b border-[var(--sp-border)]">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <h2
             id="results-section-heading"
             className={`font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 ${
-              language === 'my' ? 'tracking-normal leading-[1.3]' : 'tracking-tight'
+              isMy ? 'tracking-normal leading-[1.35]' : 'tracking-tight'
             }`}
           >
             {t.resultsSectionHeading}
           </h2>
-          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-[#10F5A0] tabular-nums">
             (<AnimatedNumber value={visibleProducts.length} />)
           </span>
           <StatusLegendPopover language={language} />
+          {researchedAt && !isHunting && (
+            <span className="hidden sm:inline font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+              · {formatResearchDate(researchedAt, language)}
+            </span>
+          )}
         </div>
 
-        {researchedAt && !isHunting && (
-          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-            {formatResearchDate(researchedAt, language)}
-          </span>
+        {/* Obsidian/Porcelain Stage View Switcher */}
+        {!isHunting && visibleProducts.length > 0 && (
+          <div
+            role="tablist"
+            aria-label={isMy ? 'ပြသမှုပုံစံ ရွေးချယ်ရန်' : 'Results view mode'}
+            className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-200/65 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/[0.08] shrink-0"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveViewMode === 'cards'}
+              onClick={() => handleChangeViewMode('cards')}
+              className={`relative inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                effectiveViewMode === 'cards'
+                  ? 'text-zinc-950 dark:text-zinc-50 font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+              }`}
+            >
+              {effectiveViewMode === 'cards' && (
+                <motion.span
+                  layoutId="stage-view-mode-pill"
+                  transition={MOTION_TRANSITIONS.snappy}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-lg bg-white dark:bg-[#182030] shadow-xs border border-zinc-200/80 dark:border-white/[0.1]"
+                />
+              )}
+              <LayoutGrid className="relative z-10 w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="relative z-10">{isMy ? 'Cards' : 'Cards'}</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveViewMode === 'matrix'}
+              disabled={!matrixPreview.isReliable}
+              title={!matrixPreview.isReliable ? matrixUnavailableReason : undefined}
+              onClick={() => {
+                if (matrixPreview.isReliable) {
+                  handleChangeViewMode('matrix');
+                }
+              }}
+              className={`relative inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                !matrixPreview.isReliable
+                  ? 'text-zinc-400 dark:text-zinc-500 cursor-not-allowed opacity-75'
+                  : effectiveViewMode === 'matrix'
+                    ? 'text-zinc-950 dark:text-zinc-50 font-semibold cursor-pointer'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100 cursor-pointer'
+              }`}
+            >
+              {effectiveViewMode === 'matrix' && (
+                <motion.span
+                  layoutId="stage-view-mode-pill"
+                  transition={MOTION_TRANSITIONS.snappy}
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-lg bg-white dark:bg-[#182030] shadow-xs border border-zinc-200/80 dark:border-white/[0.1]"
+                />
+              )}
+              <Radar
+                className={`relative z-10 w-3.5 h-3.5 shrink-0 ${
+                  matrixPreview.isReliable
+                    ? 'text-emerald-600 dark:text-[#10F5A0]'
+                    : 'text-zinc-400 dark:text-zinc-500'
+                }`}
+                aria-hidden="true"
+              />
+              <span className="relative z-10">{isMy ? 'Radar Matrix' : 'Radar Matrix'}</span>
+              {matrixPreview.isReliable && matrixPreview.goldenZoneCount > 0 && (
+                <span className="relative z-10 inline-flex items-center px-1.5 py-0.5 rounded-md font-mono text-[10px] font-bold tabular-nums bg-emerald-500/15 dark:bg-[#10F5A0]/18 text-emerald-700 dark:text-[#10F5A0]">
+                  Golden: {matrixPreview.goldenZoneCount}
+                </span>
+              )}
+              {!matrixPreview.isReliable && (
+                <span className="relative z-10 font-mono text-[10px] px-1 py-0.5 rounded bg-zinc-200/80 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400">
+                  8+
+                </span>
+              )}
+            </button>
+          </div>
         )}
       </div>
 
@@ -350,27 +506,301 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
             : ''}
       </div>
 
-      {/* Unified Strategy Presets + Weight Slider + Collapsible 7-Factor Rubric Bar */}
-      <ScoringRubricPanel
-        isOpen={rubricOpen}
-        onToggle={handleToggleRubric}
-        salesWeightPct={salesWeightPct}
-        strategyPreset={strategyPreset}
-        onSelectStrategyPreset={onSelectStrategyPreset}
-        onCustomWeightChange={onCustomWeightChange}
-        showStrategyControls={!isHunting && liveResults.length > 0}
-        language={language}
-      />
+      {/* De-Stacked Utility Pills Row (Strategy Weights · Verified Sources & Credits · Best Picks) */}
+      {!isHunting && liveResults.length > 0 && (
+        <div className="mt-3 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 1. Strategy & Score Weights Pill */}
+            <button
+              type="button"
+              onClick={() => setStrategyDrawerOpen((prev) => !prev)}
+              aria-expanded={strategyDrawerOpen}
+              className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                strategyDrawerOpen
+                  ? 'bg-emerald-500/10 dark:bg-[#10F5A0]/12 border-emerald-500/35 dark:border-[#10F5A0]/35 text-emerald-800 dark:text-[#10F5A0] font-semibold'
+                  : 'bg-[var(--sp-surface)] border-[var(--sp-border)] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-white/20'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>{isMy ? 'Strategy & Weights' : 'Strategy & Weights'}</span>
+              <span className="font-mono text-[11px] tabular-nums opacity-80">
+                {salesWeightPct}/{100 - salesWeightPct}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                  strategyDrawerOpen ? 'rotate-180' : ''
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+
+            {/* 2. Verified Sources & Credits Pill */}
+            {groundingSources.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setGroundingOpen((prev) => !prev)}
+                aria-expanded={groundingOpen}
+                className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                  groundingOpen
+                    ? 'bg-cyan-500/10 dark:bg-[#25F4EE]/12 border-cyan-500/35 dark:border-[#25F4EE]/35 text-cyan-800 dark:text-[#25F4EE] font-semibold'
+                    : 'bg-[var(--sp-surface)] border-[var(--sp-border)] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-white/20'
+                }`}
+              >
+                <Globe
+                  className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0"
+                  aria-hidden="true"
+                />
+                <span>
+                  {sessionMeta
+                    ? `${sessionMeta.verifiedProductCount}/${sessionMeta.requestedQuantity} ${isMy ? 'Verified' : 'Verified'}`
+                    : `${groundingSources.length} ${t.groundingSourcesCount}`}
+                </span>
+                {lastCostSummary && lastCostSummary.actualCredits !== null && (
+                  <span className="font-mono text-[11px] font-semibold tabular-nums text-emerald-700 dark:text-[#10F5A0]">
+                    · {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                    groundingOpen ? 'rotate-180' : ''
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+
+            {/* 3. Best Picks Pill */}
+            {bestSelections.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setBestPicksOpen((prev) => !prev)}
+                aria-expanded={bestPicksOpen}
+                className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                  bestPicksOpen
+                    ? 'bg-emerald-500/10 dark:bg-[#10F5A0]/12 border-emerald-500/35 dark:border-[#10F5A0]/35 text-emerald-800 dark:text-[#10F5A0] font-semibold'
+                    : 'bg-[var(--sp-surface)] border-[var(--sp-border)] text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-white/20'
+                }`}
+              >
+                <Award className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>{isMy ? 'ထိပ်တန်းရွေးချယ်မှု' : 'Best Picks'}</span>
+                <span className="font-mono text-[11px] tabular-nums opacity-85">
+                  ({bestSelections.length})
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                    bestPicksOpen ? 'rotate-180' : ''
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          </div>
+
+          {/* Expandable Drawer 1: Strategy Presets + Weight Slider + 7-Factor Rubric */}
+          <AnimatePresence initial={false}>
+            {strategyDrawerOpen && (
+              <motion.div
+                key="utility-strategy-drawer"
+                initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                animate={
+                  prefersReduced
+                    ? { opacity: 1 }
+                    : { height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }
+                }
+                exit={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : { height: 0, opacity: 0, overflow: 'hidden' }
+                }
+                transition={MOTION_TRANSITIONS.accordion}
+                className="overflow-hidden"
+              >
+                <ScoringRubricPanel
+                  isOpen={rubricOpen}
+                  onToggle={handleToggleRubric}
+                  salesWeightPct={salesWeightPct}
+                  strategyPreset={strategyPreset}
+                  onSelectStrategyPreset={onSelectStrategyPreset}
+                  onCustomWeightChange={onCustomWeightChange}
+                  showStrategyControls
+                  language={language}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Expandable Drawer 2: Kalodata Verified Sources & Cost Provenance */}
+          <AnimatePresence initial={false}>
+            {groundingOpen && groundingSources.length > 0 && (
+              <motion.div
+                key="grounding-provenance-body"
+                initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                animate={
+                  prefersReduced
+                    ? { opacity: 1 }
+                    : { height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }
+                }
+                exit={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : { height: 0, opacity: 0, overflow: 'hidden' }
+                }
+                transition={MOTION_TRANSITIONS.accordion}
+                className="overflow-hidden rounded-2xl border border-[var(--sp-border)] bg-[var(--sp-surface)]"
+              >
+                <div className="px-4 sm:px-5 py-4 space-y-3">
+                  <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                    <div className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      {t.kalodataSourceBarLabel}
+                    </div>
+                    <p>{t.kalodataSourceNote}</p>
+                    {sessionMeta &&
+                      sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
+                        <p className="text-zinc-500 dark:text-zinc-400">
+                          {t.qualityGateExcludedNote}
+                        </p>
+                      )}
+                  </div>
+
+                  {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
+                    lastCostSummary && (
+                      <div className="px-3.5 py-2.5 rounded-xl sp-surface-muted flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                        <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
+                          {lastCostSummary.researchMode === 'deep'
+                            ? t.modeDeepTitle
+                            : lastCostSummary.researchMode === 'balanced'
+                              ? t.modeBalancedTitle
+                              : t.modeFastTitle}
+                        </span>
+                        <span>
+                          {[
+                            lastCostSummary.rankApiCalls > 0
+                              ? `${t.breakdownRankLabel}: ${lastCostSummary.rankApiCalls}`
+                              : null,
+                            (lastCostSummary.videoRankApiCalls ?? 0) > 0
+                              ? `${t.breakdownVideoRankLabel}: ${lastCostSummary.videoRankApiCalls}`
+                              : null,
+                            lastCostSummary.productDetailApiCalls > 0
+                              ? `${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
+                              : null,
+                            lastCostSummary.shopDetailApiCalls > 0
+                              ? `${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
+                              : null,
+                            lastCostSummary.commentInsightApiCalls > 0
+                              ? `${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                        {lastCostSummary.geminiAnalysisApplied && (
+                          <span className="font-sans text-emerald-700 dark:text-[#10F5A0] font-medium">
+                            {t.geminiAnalysisActiveLabel}
+                          </span>
+                        )}
+                        <span>
+                          {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
+                          {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
+                        </span>
+                        <span className="text-emerald-700 dark:text-[#10F5A0] font-semibold">
+                          {t.actualCostLabel}:{' '}
+                          {lastCostSummary.actualCredits !== null
+                            ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                            : t.actualCostUnavailable}
+                        </span>
+                      </div>
+                    )}
+
+                  {searchQueries.length > 0 && (
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
+                        {t.groundingQueriesLabel}:
+                      </span>
+                      <span>{searchQueries.join(' · ')}</span>
+                    </div>
+                  )}
+
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+                    {groundingSources.map((src, idx) => {
+                      const resolvedHref = isSafeHttpUrl(src.url)
+                        ? normalizeTikTokSourceUrl(src.url)
+                        : null;
+                      return (
+                        <li
+                          key={`${idx}-${src.url}`}
+                          className="flex items-center justify-between gap-2 py-1 border-b border-[var(--sp-border)] text-xs"
+                        >
+                          <span className="text-zinc-700 dark:text-zinc-300 truncate">
+                            {src.title}{' '}
+                            <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
+                          </span>
+                          {resolvedHref ? (
+                            <a
+                              href={resolvedHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
+                            >
+                              <span>{t.sourceOpenLink}</span>
+                              <ExternalLink className="w-3 h-3" aria-hidden="true" />
+                            </a>
+                          ) : (
+                            <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
+                              {t.sourcePendingLink}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Expandable Drawer 3: Best Products Strip */}
+          <AnimatePresence initial={false}>
+            {bestPicksOpen && bestSelections.length > 0 && (
+              <motion.div
+                key="utility-best-picks-drawer"
+                initial={prefersReduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+                animate={
+                  prefersReduced
+                    ? { opacity: 1 }
+                    : { height: 'auto', opacity: 1, transitionEnd: { overflow: 'visible' } }
+                }
+                exit={
+                  prefersReduced
+                    ? { opacity: 0 }
+                    : { height: 0, opacity: 0, overflow: 'hidden' }
+                }
+                transition={MOTION_TRANSITIONS.accordion}
+                className="overflow-hidden"
+              >
+                <BestProductsStrip
+                  selections={bestSelections}
+                  comparedIds={comparedLiveProductIds}
+                  onOpenReport={onOpenReport}
+                  onToggleCompare={onToggleCompare}
+                  products={liveResults}
+                  evaluations={liveEvaluations}
+                  language={language}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* Manual Research Paused Banner */}
       {!isHunting && quotaStatus.paused && (
         <div
           role="status"
-          className="mt-4 p-5 bg-white dark:bg-zinc-900 border border-amber-300/90 dark:border-amber-700/70 rounded-xl flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+          className="mt-4 p-5 bg-[var(--sp-surface)] border border-amber-400/70 dark:border-amber-500/45 rounded-2xl flex flex-col sm:flex-row sm:items-start justify-between gap-4"
         >
           <div className="flex items-start gap-3">
             <PauseCircle
-              className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5"
+              className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
               aria-hidden="true"
             />
             <div className="space-y-1.5 text-xs sm:text-sm">
@@ -387,190 +817,13 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
             <button
               type="button"
               onClick={onResumeAndEditSettings}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs sm:text-sm font-medium text-white dark:text-zinc-950 bg-zinc-950 dark:bg-zinc-100 rounded-lg hover:bg-zinc-800 dark:hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+              className="sp-btn-primary"
             >
               <PlayCircle className="w-4 h-4" aria-hidden="true" />
               <span>{t.btnResumeAndRetry}</span>
             </button>
           </div>
         </div>
-      )}
-
-      {/* Kalodata OpenAPI Verified Sources & Cost Provenance Bar */}
-      {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
-        <div className="mt-3 relative rounded-xl overflow-hidden border border-emerald-200/80 dark:border-emerald-800/50 bg-gradient-to-r from-emerald-50/55 via-white to-cyan-50/45 dark:from-emerald-950/25 dark:via-zinc-900 dark:to-cyan-950/20">
-          <button
-            type="button"
-            onClick={() => setGroundingOpen((prev) => !prev)}
-            aria-expanded={groundingOpen}
-            className="w-full min-h-[46px] px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-emerald-50/50 dark:hover:bg-emerald-950/35 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
-          >
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <span className="w-7 h-7 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/45 border border-emerald-200/70 dark:border-emerald-700/50 inline-flex items-center justify-center shrink-0">
-                <Globe
-                  className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400"
-                  aria-hidden="true"
-                />
-              </span>
-              <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug truncate">
-                  {t.kalodataSourceBarLabel}
-                </div>
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-400 leading-snug">
-                  {sessionMeta ? (
-                    <span className="font-mono font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
-                      {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
-                      <span className="font-sans text-zinc-500 dark:text-zinc-400">
-                        {t.qualityGateVerifiedLabel}
-                      </span>
-                    </span>
-                  ) : (
-                    <span>
-                      {groundingSources.length} {t.groundingSourcesCount}
-                    </span>
-                  )}
-                  {lastCostSummary && lastCostSummary.actualCredits !== null && (
-                    <>
-                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
-                        ·
-                      </span>
-                      <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold whitespace-nowrap">
-                        {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 shrink-0 whitespace-nowrap">
-              <span className="hidden sm:inline">
-                {groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
-              </span>
-              <ChevronDown
-                className={`w-4 h-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
-                  groundingOpen ? 'rotate-180' : 'rotate-0'
-                }`}
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-
-          {groundingOpen && (
-            <div className="border-t border-emerald-200/60 dark:border-emerald-800/40 px-3.5 sm:px-5 pb-4 pt-3 space-y-3 bg-white/80 dark:bg-zinc-900/90 sp-rise-in">
-              <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
-                <p>{t.kalodataSourceNote}</p>
-                {sessionMeta &&
-                  sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
-                    <p className="text-zinc-500 dark:text-zinc-400">{t.qualityGateExcludedNote}</p>
-                  )}
-              </div>
-
-              {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
-                lastCostSummary && (
-                  <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50/90 dark:bg-zinc-800/45 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                    <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
-                      {lastCostSummary.researchMode === 'deep'
-                        ? t.modeDeepTitle
-                        : lastCostSummary.researchMode === 'balanced'
-                          ? t.modeBalancedTitle
-                          : t.modeFastTitle}
-                    </span>
-                    <span>
-                      {[
-                        lastCostSummary.rankApiCalls > 0
-                          ? `${t.breakdownRankLabel}: ${lastCostSummary.rankApiCalls}`
-                          : null,
-                        (lastCostSummary.videoRankApiCalls ?? 0) > 0
-                          ? `${t.breakdownVideoRankLabel}: ${lastCostSummary.videoRankApiCalls}`
-                          : null,
-                        lastCostSummary.productDetailApiCalls > 0
-                          ? `${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
-                          : null,
-                        lastCostSummary.shopDetailApiCalls > 0
-                          ? `${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
-                          : null,
-                        lastCostSummary.commentInsightApiCalls > 0
-                          ? `${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
-                          : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                    {lastCostSummary.geminiAnalysisApplied && (
-                      <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
-                        {t.geminiAnalysisActiveLabel}
-                      </span>
-                    )}
-                    <span>
-                      {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
-                      {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
-                    </span>
-                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                      {t.actualCostLabel}:{' '}
-                      {lastCostSummary.actualCredits !== null
-                        ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                        : t.actualCostUnavailable}
-                    </span>
-                  </div>
-                )}
-
-              {searchQueries.length > 0 && (
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">
-                    {t.groundingQueriesLabel}:
-                  </span>
-                  <span>{searchQueries.join(' · ')}</span>
-                </div>
-              )}
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                {groundingSources.map((src, idx) => {
-                  const resolvedHref = isSafeHttpUrl(src.url)
-                    ? normalizeTikTokSourceUrl(src.url)
-                    : null;
-                  return (
-                    <li
-                      key={`${idx}-${src.url}`}
-                      className="flex items-center justify-between gap-2 py-1 border-b border-zinc-100 dark:border-zinc-800/70 text-xs"
-                    >
-                      <span className="text-zinc-700 dark:text-zinc-300 truncate">
-                        {src.title}{' '}
-                        <span className="text-zinc-500 dark:text-zinc-400">({src.domain})</span>
-                      </span>
-                      {resolvedHref ? (
-                        <a
-                          href={resolvedHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 hover:underline whitespace-nowrap shrink-0"
-                        >
-                          <span>{t.sourceOpenLink}</span>
-                          <ExternalLink className="w-3 h-3" aria-hidden="true" />
-                        </a>
-                      ) : (
-                        <span className="text-zinc-500 dark:text-zinc-400 whitespace-nowrap shrink-0">
-                          {t.sourcePendingLink}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Phase 5: Best Product Selection Highlights (6 Categories with Sufficiency Guards) */}
-      {!isHunting && bestSelections.length > 0 && (
-        <BestProductsStrip
-          selections={bestSelections}
-          comparedIds={comparedLiveProductIds}
-          onOpenReport={onOpenReport}
-          onToggleCompare={onToggleCompare}
-          products={liveResults}
-          evaluations={liveEvaluations}
-          language={language}
-        />
       )}
 
       {/* Phase 5: 8-Field Sort + Highest/Lowest + Multi-Filter + Export CSV/JSON */}
@@ -610,12 +863,13 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
       {/* Phase 9 Method 1: Honest Myanmar Video-First Discovery Scope Strip */}
       {!isHunting &&
         sessionMeta?.myanmarFilterApplied &&
-        sessionMeta.myanmarVideoDiscovery && (() => {
+        sessionMeta.myanmarVideoDiscovery &&
+        (() => {
           const vStats = sessionMeta.myanmarVideoDiscovery!;
           const hasShortfall =
             vStats.affiliateProductsVerified < vStats.requestedQuantity;
           return (
-            <div className="mt-5 p-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl space-y-2.5 text-xs">
+            <div className="mt-5 p-4 sp-card space-y-2.5 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                   {t.myanmarVideoDiscoveryBarTitle}
@@ -623,7 +877,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
                 <span
                   className={`font-mono text-xs font-semibold ${
                     vStats.stopReason === 'target-reached'
-                      ? 'text-emerald-700 dark:text-emerald-400'
+                      ? 'text-emerald-700 dark:text-[#10F5A0]'
                       : 'text-amber-700 dark:text-amber-400'
                   }`}
                 >
@@ -632,7 +886,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 font-mono tabular-nums">
-                <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="px-3 py-2 rounded-xl sp-surface-muted">
                   <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                     {t.myanmarVideoStatPagesScanned}
                   </div>
@@ -640,7 +894,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
                     {vStats.videoPagesScanned}/{vStats.maxVideoScanPages}
                   </div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="px-3 py-2 rounded-xl sp-surface-muted">
                   <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                     {t.myanmarVideoStatVideosScanned}
                   </div>
@@ -648,7 +902,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
                     {vStats.totalVideosScanned.toLocaleString('en-US')}
                   </div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="px-3 py-2 rounded-xl sp-surface-muted">
                   <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                     {t.myanmarVideoStatMatchedVideos}
                   </div>
@@ -656,15 +910,15 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
                     {vStats.matchedMyanmarVideos}
                   </div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/35">
-                  <div className="font-sans text-xs text-emerald-800 dark:text-emerald-300 truncate">
+                <div className="px-3 py-2 rounded-xl bg-emerald-500/10 dark:bg-[#10F5A0]/10 border border-emerald-500/20 dark:border-[#10F5A0]/20">
+                  <div className="font-sans text-xs text-emerald-800 dark:text-[#10F5A0] truncate">
                     {t.myanmarVideoStatCollectedProducts}
                   </div>
-                  <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                  <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-[#10F5A0]">
                     {vStats.affiliateProductsVerified}/{vStats.requestedQuantity}
                   </div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                <div className="px-3 py-2 rounded-xl sp-surface-muted">
                   <div className="font-sans text-xs text-zinc-600 dark:text-zinc-400 truncate">
                     {t.myanmarVideoStatSkippedNonAff}
                   </div>
@@ -683,90 +937,95 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
           );
         })()}
 
-      {/* Phase 9 Legacy: Honest Myanmar Review Discovery Scope Strip (when review-first ran) */}
-      {!isHunting && sessionMeta?.myanmarFilterApplied && sessionMeta.myanmarReviewDiscovery && (() => {
-        const stats = sessionMeta.myanmarReviewDiscovery!;
-        const isPartial = stats.candidatesCheckedForReviews < stats.totalCandidatesFound;
-        return (
-          <div className="mt-5 p-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl space-y-2.5 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {t.myanmarDiscoveryBarTitle}
-              </span>
-              <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-                {t.myanmarStatReviewsInspected}:{' '}
-                <strong className="text-zinc-900 dark:text-zinc-100">{stats.totalReviewsInspected}</strong>
-              </span>
+      {/* Phase 9 Legacy: Honest Myanmar Review Discovery Scope Strip */}
+      {!isHunting &&
+        sessionMeta?.myanmarFilterApplied &&
+        sessionMeta.myanmarReviewDiscovery &&
+        (() => {
+          const stats = sessionMeta.myanmarReviewDiscovery!;
+          const isPartial = stats.candidatesCheckedForReviews < stats.totalCandidatesFound;
+          return (
+            <div className="mt-5 p-4 sp-card space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                  {t.myanmarDiscoveryBarTitle}
+                </span>
+                <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+                  {t.myanmarStatReviewsInspected}:{' '}
+                  <strong className="text-zinc-900 dark:text-zinc-100">
+                    {stats.totalReviewsInspected}
+                  </strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 font-mono tabular-nums">
+                <div className="px-2.5 py-2 rounded-xl sp-surface-muted border border-[var(--sp-border)]">
+                  <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {t.myanmarStatCandidatesFound}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                    {stats.totalCandidatesFound}
+                  </div>
+                </div>
+                <div className="px-2.5 py-2 rounded-xl sp-surface-muted border border-[var(--sp-border)]">
+                  <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {t.myanmarStatCheckedReviews}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                    {stats.candidatesCheckedForReviews}
+                  </div>
+                </div>
+                <div className="px-2.5 py-2 rounded-xl sp-surface-muted border border-[var(--sp-border)]">
+                  <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {t.myanmarStatReviewsAvailable}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
+                    {stats.productsWithReviewsAvailable}
+                  </div>
+                </div>
+                <div className="px-2.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/25">
+                  <div className="font-sans text-xs text-amber-800 dark:text-amber-300 truncate">
+                    {t.myanmarStatReviewUnavailable}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    {stats.productsReviewUnavailable}
+                  </div>
+                </div>
+                <div className="px-2.5 py-2 rounded-xl sp-surface-muted border border-[var(--sp-border)]">
+                  <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                    {t.myanmarStatNoMyanmarReview}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    {stats.productsNoMyanmarReview}
+                  </div>
+                </div>
+                <div className="px-2.5 py-2 rounded-xl bg-emerald-500/10 dark:bg-[#10F5A0]/10 border border-emerald-500/25 dark:border-[#10F5A0]/25">
+                  <div className="font-sans text-xs text-emerald-800 dark:text-[#10F5A0] truncate">
+                    {t.myanmarStatMatchedProducts}
+                  </div>
+                  <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-[#10F5A0]">
+                    {stats.matchedMyanmarReviewProducts}
+                  </div>
+                </div>
+              </div>
+
+              {isPartial && (
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  {t.myanmarDiscoveryPartialNotice}
+                </p>
+              )}
             </div>
+          );
+        })()}
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 font-mono tabular-nums">
-              <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                  {t.myanmarStatCandidatesFound}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                  {stats.totalCandidatesFound}
-                </div>
-              </div>
-              <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                  {t.myanmarStatCheckedReviews}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                  {stats.candidatesCheckedForReviews}
-                </div>
-              </div>
-              <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                  {t.myanmarStatReviewsAvailable}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-zinc-950 dark:text-zinc-50">
-                  {stats.productsWithReviewsAvailable}
-                </div>
-              </div>
-              <div className="px-2.5 py-2 rounded-lg bg-amber-50/60 dark:bg-amber-950/25 border border-amber-200/70 dark:border-amber-800/50">
-                <div className="font-sans text-xs text-amber-800 dark:text-amber-300 truncate">
-                  {t.myanmarStatReviewUnavailable}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
-                  {stats.productsReviewUnavailable}
-                </div>
-              </div>
-              <div className="px-2.5 py-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-800/70">
-                <div className="font-sans text-xs text-zinc-500 dark:text-zinc-400 truncate">
-                  {t.myanmarStatNoMyanmarReview}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                  {stats.productsNoMyanmarReview}
-                </div>
-              </div>
-              <div className="px-2.5 py-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/35 border border-emerald-200/80 dark:border-emerald-800/60">
-                <div className="font-sans text-xs text-emerald-800 dark:text-emerald-300 truncate">
-                  {t.myanmarStatMatchedProducts}
-                </div>
-                <div className="mt-0.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                  {stats.matchedMyanmarReviewProducts}
-                </div>
-              </div>
-            </div>
-
-            {isPartial && (
-              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                {t.myanmarDiscoveryPartialNotice}
-              </p>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* Results Body: Loading vs Empty Ready State vs Filtered Empty vs Live Card Grid */}
-      <div className="mt-6">
+      {/* Stage Body: Loading vs Empty Ready State vs Filtered Empty vs Cards / Radar Matrix */}
+      <div className="mt-5 sm:mt-6">
         {isHunting ? (
           <div className="space-y-5">
             <div
               role="status"
               aria-live="polite"
-              className="bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="sp-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
               <div className="min-w-0 space-y-1">
                 <h3 className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50">
@@ -793,7 +1052,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
               <button
                 type="button"
                 onClick={onCancelHunting}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-4 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+                className="sp-btn-secondary self-start sm:self-center shrink-0"
               >
                 {t.huntingCancelBtn}
               </button>
@@ -849,27 +1108,58 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
             onAction={handleResetFilters}
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleProducts.map((product) => (
-              <ResearchResultCard
-                key={product.id}
-                product={product}
-                evaluation={liveEvaluations.get(product.id)}
-                decisionSummary={liveDecisions.get(product.id)}
-                salesWeightPct={deferredSalesWeightPct}
-                peerProducts={liveResults}
-                decision={getDecision(product.id)}
-                onSave={onToggleSave}
-                onReject={onToggleReject}
-                onOpenReport={onOpenReport}
-                onOpenDeepDive={onOpenDeepDive}
-                isCompared={comparedLiveProductIds.has(product.id)}
-                onToggleCompare={onToggleCompare}
-                rankInfo={batchScoreRanks.get(product.id)}
-                language={language}
-              />
-            ))}
-          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            {effectiveViewMode === 'matrix' ? (
+              <motion.div
+                key="stage-matrix"
+                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
+              >
+                <MarketOpportunityMatrix
+                  products={visibleProducts}
+                  evaluations={liveEvaluations}
+                  decisions={liveDecisions}
+                  onOpenReport={onOpenReport}
+                  language={language}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="stage-cards"
+                initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+              >
+                <AnimatePresence mode={enableGridReflow ? 'popLayout' : 'sync'} initial={false}>
+                  {visibleProducts.map((product, idx) => (
+                    <ResearchResultCard
+                      key={product.id}
+                      product={product}
+                      evaluation={liveEvaluations.get(product.id)}
+                      decisionSummary={liveDecisions.get(product.id)}
+                      salesWeightPct={deferredSalesWeightPct}
+                      peerProducts={liveResults}
+                      decision={getDecision(product.id)}
+                      onSave={onToggleSave}
+                      onReject={onToggleReject}
+                      onOpenReport={onOpenReport}
+                      onOpenDeepDive={onOpenDeepDive}
+                      isCompared={comparedLiveProductIds.has(product.id)}
+                      onToggleCompare={onToggleCompare}
+                      rankInfo={batchScoreRanks.get(product.id)}
+                      entranceIndex={idx}
+                      enableLayoutReflow={enableGridReflow}
+                      language={language}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
     </section>

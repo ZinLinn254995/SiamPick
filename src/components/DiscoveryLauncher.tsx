@@ -1,9 +1,11 @@
-import { type ComponentProps, useMemo } from 'react';
+import { type ComponentProps, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ChevronRight,
   Compass,
   ImageOff,
   Link2,
+  Radar,
   SlidersHorizontal,
 } from 'lucide-react';
 import type {
@@ -16,6 +18,12 @@ import type {
 import { getCategoryLabel } from '../utils/categoryRegistry';
 import { formatThb, resolveProductImageDisplayConfig } from '../utils/format';
 import { formatCredits } from '../utils/kalodataPricing';
+import {
+  MOTION_DURATIONS,
+  MOTION_EASE,
+  MOTION_TRANSITIONS,
+  TACTILE_INTERACTIONS,
+} from '../utils/motionPresets';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
 import { evaluateProductOpportunity } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
@@ -117,6 +125,8 @@ export function DiscoveryLauncher({
 }: DiscoveryLauncherProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
+  const [activeDeckMode, setActiveDeckMode] = useState<'batch' | 'link'>('batch');
 
   const showBatchDrawer = hasResults && settingsExpanded && !settingsProps.isHunting;
 
@@ -146,269 +156,398 @@ export function DiscoveryLauncher({
   return (
     <div className="mt-2.5 sm:mt-4">
       {hasResults ? (
-        /* Option B: Live Performance Banner + Color-Coded Quick Switcher Dock */
+        /* Obsidian Hunter Command Radar Deck (Inline Batch Radar <-> Link X-Ray Morph) */
         <section
           aria-label={t.settingsHeading}
-          className="relative rounded-2xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs sp-rise-in"
+          className="relative rounded-2xl overflow-hidden bg-[var(--sp-surface)] border border-[var(--sp-border)] shadow-sm dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03] sp-rise-in"
         >
-          {/* Subtle Top Gradient Rim + Atmospheric Ambient Glow */}
+          {/* Signature Hero 2px Mint-to-Cyan Gradient Rim + Subtle Top Ambient Glow */}
           <div
             aria-hidden="true"
-            className="h-[2px] w-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-500"
+            className="h-[2px] w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 dark:from-[#10F5A0] dark:via-[#25F4EE] dark:to-[#10F5A0]"
           />
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.08),transparent_60%),radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.07),transparent_60%)] dark:bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.14),transparent_60%),radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.12),transparent_60%)]"
+            className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(ellipse_at_top_left,rgba(5,150,105,0.08),transparent_60%),radial-gradient(ellipse_at_top_right,rgba(8,145,178,0.07),transparent_60%)] dark:bg-[radial-gradient(ellipse_at_top_left,rgba(16,245,160,0.12),transparent_60%),radial-gradient(ellipse_at_top_right,rgba(37,244,238,0.10),transparent_60%)]"
           />
 
-          {/* 1. Interactive Config Summary Strip (Click to tweak batch parameters) */}
-          <div className="relative px-3.5 sm:px-5 pt-2.5 pb-2 flex items-center justify-between gap-2.5">
-            <button
-              type="button"
-              disabled={settingsProps.isHunting}
-              onClick={() => onExpandSettingsChange(true)}
-              className="inline-flex items-center gap-1.5 min-w-0 min-h-[34px] -ml-1 px-1 rounded-md text-left text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer disabled:opacity-50 group"
-            >
-              <SlidersHorizontal
-                className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
-                aria-hidden="true"
-              />
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:underline">
-                {categoriesLabel}
-              </span>
-              <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600 shrink-0">
-                ·
-              </span>
-              <span className="truncate shrink-0">{modeLabel}</span>
-              <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600 shrink-0">
-                ·
-              </span>
-              <span className="font-mono tabular-nums shrink-0">{quantityLabel}</span>
-            </button>
-
-            <div className="flex items-center gap-2 text-xs font-mono tabular-nums text-zinc-500 dark:text-zinc-400 shrink-0">
-              {settingsProps.myanmarLanguageOnly && (
-                <span className="hidden sm:inline font-sans font-medium text-emerald-700 dark:text-emerald-400">
-                  {t.myanmarFilterActiveBadge}
-                </span>
-              )}
-              <span>
-                {lastCostSummary?.actualCredits != null
-                  ? `${formatCredits(lastCostSummary.actualCredits)} / ${limitLabel}`
-                  : limitLabel}
-              </span>
-            </div>
-          </div>
-
-          {/* 2. Live Performance Telemetry Banner (Real Session Metrics with Animated Count-Up) */}
-          <div className="relative grid grid-cols-3 divide-x divide-zinc-200/75 dark:divide-zinc-800/80 border-t border-zinc-100 dark:border-zinc-800/80">
-            {/* KPI 1: Top Opportunity Score */}
-            <div className="px-3 sm:px-5 py-2.5 sm:py-3 min-w-0">
-              <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                {isMy ? 'ထိပ်တန်းရမှတ်' : 'Top Score'}
-              </div>
-              <div className="mt-0.5 flex items-baseline gap-0.5 font-mono leading-none">
-                {topScore !== null ? (
-                  <>
-                    <AnimatedNumber
-                      value={topScore}
-                      className="text-lg sm:text-2xl font-bold text-emerald-700 dark:text-emerald-400"
-                    />
-                    <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500">
-                      /100
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-lg sm:text-2xl font-bold text-zinc-400">—</span>
-                )}
-              </div>
-              <div
-                aria-hidden="true"
-                className="mt-1.5 h-[3px] w-full rounded-full bg-zinc-200/80 dark:bg-zinc-800 overflow-hidden"
-              >
-                <div
-                  className="h-full w-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 origin-left transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
-                  style={{ transform: `scaleX(${scoreScale})` }}
-                />
-              </div>
-            </div>
-
-            {/* KPI 2: 70+ Priority Picks */}
-            <div className="px-3 sm:px-5 py-2.5 sm:py-3 min-w-0">
-              <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                {isMy ? '70+ ရမှတ်' : '70+ Picks'}
-              </div>
-              <div className="mt-0.5 flex items-baseline gap-0.5 font-mono leading-none">
-                <AnimatedNumber
-                  value={priorityCount}
-                  className="text-lg sm:text-2xl font-bold text-cyan-700 dark:text-cyan-400"
-                />
-                <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500">
-                  /{totalProducts}
-                </span>
-              </div>
-              <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                {isMy ? 'အကြံပြုရလဒ်' : 'Priority picks'}
-              </div>
-            </div>
-
-            {/* KPI 3: Max Verified Commission */}
-            <div className="px-3 sm:px-5 py-2.5 sm:py-3 min-w-0">
-              <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
-                {isMy ? 'အမြင့်ဆုံး %' : 'Top Comm.'}
-              </div>
-              <div className="mt-0.5 flex items-baseline gap-0.5 font-mono leading-none">
-                {maxCommissionPct !== null ? (
-                  <AnimatedNumber
-                    value={maxCommissionPct}
-                    decimals={maxCommissionPct % 1 !== 0 ? 1 : 0}
-                    suffix="%"
-                    className="text-lg sm:text-2xl font-bold text-amber-700 dark:text-amber-400"
-                  />
-                ) : (
-                  <span className="text-lg sm:text-2xl font-bold text-zinc-400">—</span>
-                )}
-              </div>
-              <div className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                {isMy ? 'ကော်မရှင်နှုန်း' : 'Max rate'}
-              </div>
-            </div>
-          </div>
-
-          {/* Active Hunting Scan Beam */}
-          {settingsProps.isHunting && (
+          {/* 1. Top Command Header Strip: Mode Switcher + Compact Config Pill */}
+          <div className="relative px-3.5 sm:px-5 pt-3 pb-2.5 flex flex-wrap items-center justify-between gap-2.5">
+            {/* Segmented Mode Switcher: [Batch Radar] | [Link X-Ray] */}
             <div
-              aria-hidden="true"
-              className="relative h-[3px] w-full bg-emerald-500/15 overflow-hidden"
+              role="tablist"
+              aria-label={isMy ? 'Radar Mode ရွေးချယ်ရန်' : 'Command Radar mode'}
+              className="inline-flex items-center gap-1 p-1 rounded-xl bg-zinc-200/65 dark:bg-white/[0.05] border border-zinc-200/80 dark:border-white/[0.08]"
             >
-              <div className="sp-scan-beam h-full rounded-full bg-gradient-to-r from-transparent via-emerald-400 to-cyan-400" />
-            </div>
-          )}
-
-          {/* 3. Color-Coded Quick Switcher Action Dock */}
-          <div className="relative px-3 sm:px-5 py-2.5 sm:py-3 border-t border-zinc-200/75 dark:border-zinc-800/80 bg-zinc-50/75 dark:bg-zinc-950/55">
-            <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 sm:gap-3">
-              {/* Primary CTA: Emerald -> Teal Gradient + Light Sweep */}
               <button
                 type="button"
-                disabled={settingsProps.isHunting}
-                onClick={() => onExpandSettingsChange(true)}
-                className="relative overflow-hidden inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[40px] px-3 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white dark:text-zinc-950 bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-cyan-400 shadow-sm shadow-emerald-600/20 dark:shadow-emerald-500/15 hover:brightness-105 active:scale-[0.98] disabled:opacity-55 disabled:cursor-not-allowed transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+                role="tab"
+                aria-selected={activeDeckMode === 'batch'}
+                onClick={() => setActiveDeckMode('batch')}
+                className={`relative inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 dark:focus-visible:ring-[#10F5A0] ${
+                  activeDeckMode === 'batch'
+                    ? 'text-zinc-950 dark:text-zinc-50 font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                }`}
               >
-                {!settingsProps.isHunting && (
-                  <span aria-hidden="true" className="sp-shimmer-sheen" />
+                {activeDeckMode === 'batch' && (
+                  <motion.span
+                    layoutId="radar-deck-mode-pill"
+                    transition={MOTION_TRANSITIONS.snappy}
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-lg bg-white dark:bg-[#182030] shadow-xs border border-zinc-200/80 dark:border-white/[0.1]"
+                  />
                 )}
-                <Compass className="w-4 h-4 shrink-0 relative z-10" aria-hidden="true" />
-                <span className="relative z-10 sm:hidden">
-                  {settingsProps.isHunting
-                    ? t.huntingInProgress
-                    : isMy
-                      ? 'အသစ်ရှာမည်'
-                      : 'New Hunt'}
-                </span>
-                <span className="relative z-10 hidden sm:inline">
-                  {settingsProps.isHunting ? t.huntingInProgress : t.launcherTabBatch}
+                <Radar
+                  className="relative z-10 w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0"
+                  aria-hidden="true"
+                />
+                <span className="relative z-10">
+                  {isMy ? 'Batch Radar' : 'Batch Radar'}
                 </span>
               </button>
 
-              {/* Secondary CTA: Indigo Accent Link Checker */}
               <button
                 type="button"
-                onClick={() => onSingleDrawerOpenChange(true)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:min-h-[40px] px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 border border-indigo-200/90 dark:border-indigo-700/70 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/60 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950"
+                role="tab"
+                aria-selected={activeDeckMode === 'link'}
+                onClick={() => setActiveDeckMode('link')}
+                className={`relative inline-flex items-center gap-1.5 min-h-[34px] px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 dark:focus-visible:ring-[#25F4EE] ${
+                  activeDeckMode === 'link'
+                    ? 'text-zinc-950 dark:text-zinc-50 font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-100'
+                }`}
               >
+                {activeDeckMode === 'link' && (
+                  <motion.span
+                    layoutId="radar-deck-mode-pill"
+                    transition={MOTION_TRANSITIONS.snappy}
+                    aria-hidden="true"
+                    className="absolute inset-0 rounded-lg bg-white dark:bg-[#182030] shadow-xs border border-zinc-200/80 dark:border-white/[0.1]"
+                  />
+                )}
                 <Link2
-                  className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400"
+                  className="relative z-10 w-3.5 h-3.5 text-cyan-600 dark:text-[#25F4EE] shrink-0"
                   aria-hidden="true"
                 />
-                <span className="sm:hidden">{isMy ? 'Link စစ်မည်' : 'Check Link'}</span>
-                <span className="hidden sm:inline">{t.launcherTabSingle}</span>
+                <span className="relative z-10">
+                  {isMy ? 'Link X-Ray' : 'Link X-Ray'}
+                </span>
                 {singleHistoryCount > 0 && (
-                  <span className="font-mono text-xs tabular-nums opacity-75">
+                  <span className="relative z-10 font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
                     ({singleHistoryCount})
                   </span>
                 )}
               </button>
             </div>
 
-            {/* Compact Recent Single-Link Strip (if available) */}
-            {recentSingleRecord && recentProduct && (
-              <button
-                type="button"
-                onClick={onOpenRecentSingleResult}
-                className="mt-2 pt-2 border-t border-zinc-200/65 dark:border-zinc-800/75 w-full min-h-[38px] flex items-center justify-between gap-2.5 text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
+            {/* Right: Clickable Compact Batch Config Pill */}
+            <button
+              type="button"
+              disabled={settingsProps.isHunting}
+              onClick={() => onExpandSettingsChange(true)}
+              className="inline-flex items-center gap-1.5 min-w-0 max-w-full min-h-[36px] px-3 py-1 rounded-xl bg-zinc-100/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/[0.08] hover:border-emerald-500/40 dark:hover:border-[#10F5A0]/40 text-left text-xs text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer disabled:opacity-50 group"
+            >
+              <SlidersHorizontal
+                className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0"
+                aria-hidden="true"
+              />
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate max-w-[140px] sm:max-w-[200px] group-hover:underline">
+                {categoriesLabel}
+              </span>
+              <span aria-hidden="true" className="text-zinc-300 dark:text-white/20 shrink-0">
+                ·
+              </span>
+              <span className="hidden sm:inline truncate shrink-0">{modeLabel}</span>
+              <span aria-hidden="true" className="hidden sm:inline text-zinc-300 dark:text-white/20 shrink-0">
+                ·
+              </span>
+              <span className="font-mono tabular-nums shrink-0">{quantityLabel}</span>
+              <span aria-hidden="true" className="text-zinc-300 dark:text-white/20 shrink-0">
+                ·
+              </span>
+              <span className="font-mono tabular-nums text-emerald-700 dark:text-[#10F5A0] font-semibold shrink-0">
+                {lastCostSummary?.actualCredits != null
+                  ? `${formatCredits(lastCostSummary.actualCredits)}/${limitLabel}`
+                  : limitLabel}
+              </span>
+              {settingsProps.myanmarLanguageOnly && (
+                <span className="hidden md:inline font-sans font-medium text-emerald-700 dark:text-[#10F5A0] ml-1 shrink-0">
+                  · {t.myanmarFilterActiveBadge}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* 2. Mode-Morphing Body */}
+          <AnimatePresence mode="wait" initial={false}>
+            {activeDeckMode === 'batch' ? (
+              <motion.div
+                key="radar-deck-batch-body"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
               >
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <div className="w-7 h-7 rounded-md overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
-                    {recentImgConfig?.canRender && recentImgConfig.src ? (
-                      <ProductImage
-                        src={recentImgConfig.src}
-                        fallbackSrc={recentImgConfig.fallbackSrc}
-                        productId={recentImgConfig.productId}
-                        alt={recentProduct.name}
-                        title={isMy ? recentProduct.nameMy : recentProduct.name}
-                        unavailableLabel={t.cardImageUnverified}
-                        compact
-                        className="w-full h-full object-cover"
+                {/* Live Money Telemetry Tiles */}
+                <div className="relative grid grid-cols-3 divide-x divide-zinc-200/75 dark:divide-white/[0.07] border-t border-[var(--sp-border)]">
+                  {/* KPI 1: Top Opportunity Score */}
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : { duration: MOTION_DURATIONS.base, ease: MOTION_EASE.expoOut, delay: 0 }
+                    }
+                    className="px-3 sm:px-5 py-3 sm:py-3.5 min-w-0"
+                  >
+                    <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate leading-snug">
+                      {isMy ? 'ထိပ်တန်းရမှတ်' : 'Top Score'}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-0.5 font-mono leading-none">
+                      {topScore !== null ? (
+                        <>
+                          <AnimatedNumber
+                            value={topScore}
+                            highlightSignal={topScore >= 80 ? 'emerald-pulse' : 'none'}
+                            className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-[#10F5A0]"
+                          />
+                          <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500">
+                            /100
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xl sm:text-2xl font-bold text-zinc-400">—</span>
+                      )}
+                    </div>
+                    <div
+                      aria-hidden="true"
+                      className="mt-2 h-[3px] w-full rounded-full bg-zinc-200/80 dark:bg-white/10 overflow-hidden"
+                    >
+                      <motion.div
+                        className="h-full w-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-400 dark:from-[#10F5A0] dark:to-[#25F4EE] origin-left"
+                        initial={prefersReduced ? false : { scaleX: 0 }}
+                        animate={{ scaleX: scoreScale }}
+                        transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.ticker}
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <ImageOff
-                          className="w-3.5 h-3.5 text-zinc-400"
+                    </div>
+                  </motion.div>
+
+                  {/* KPI 2: 70+ Priority Picks */}
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : { duration: MOTION_DURATIONS.base, ease: MOTION_EASE.expoOut, delay: 0.05 }
+                    }
+                    className="px-3 sm:px-5 py-3 sm:py-3.5 min-w-0"
+                  >
+                    <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate leading-snug">
+                      {isMy ? '70+ ရမှတ်' : '70+ Picks'}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-0.5 font-mono leading-none">
+                      <AnimatedNumber
+                        value={priorityCount}
+                        className="text-xl sm:text-2xl font-bold text-cyan-600 dark:text-[#25F4EE]"
+                      />
+                      <span className="text-[11px] sm:text-xs text-zinc-400 dark:text-zinc-500">
+                        /{totalProducts}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-snug">
+                      {isMy ? 'အကြံပြုရလဒ်' : 'Priority picks'}
+                    </div>
+                  </motion.div>
+
+                  {/* KPI 3: Max Verified Commission */}
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : { duration: MOTION_DURATIONS.base, ease: MOTION_EASE.expoOut, delay: 0.1 }
+                    }
+                    className="px-3 sm:px-5 py-3 sm:py-3.5 min-w-0"
+                  >
+                    <div className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate leading-snug">
+                      {isMy ? 'အမြင့်ဆုံး %' : 'Top Comm.'}
+                    </div>
+                    <div className="mt-1 flex items-baseline gap-0.5 font-mono leading-none">
+                      {maxCommissionPct !== null ? (
+                        <AnimatedNumber
+                          value={maxCommissionPct}
+                          decimals={maxCommissionPct % 1 !== 0 ? 1 : 0}
+                          suffix="%"
+                          highlightSignal={maxCommissionPct >= 12 ? 'emerald-sheen' : 'none'}
+                          className={`text-xl sm:text-2xl font-bold ${
+                            maxCommissionPct >= 12
+                              ? 'text-emerald-600 dark:text-[#10F5A0]'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        />
+                      ) : (
+                        <span className="text-xl sm:text-2xl font-bold text-zinc-400">—</span>
+                      )}
+                    </div>
+                    <div className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 truncate leading-snug">
+                      {isMy ? 'ကော်မရှင်နှုန်း' : 'Max verified rate'}
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Active Hunting Scan Beam */}
+                {settingsProps.isHunting && (
+                  <div
+                    aria-hidden="true"
+                    className="relative h-[3px] w-full bg-emerald-500/15 dark:bg-[#10F5A0]/15 overflow-hidden"
+                  >
+                    <div className="sp-scan-beam h-full rounded-full bg-gradient-to-r from-transparent via-[#25F4EE] to-[#10F5A0]" />
+                  </div>
+                )}
+
+                {/* Compact Bottom Action Dock */}
+                <div className="relative px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-[var(--sp-border)] bg-zinc-50/80 dark:bg-[#090C12]/75 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      type="button"
+                      disabled={settingsProps.isHunting}
+                      onClick={() => onExpandSettingsChange(true)}
+                      whileTap={
+                        prefersReduced || settingsProps.isHunting
+                          ? undefined
+                          : TACTILE_INTERACTIONS.buttonTap
+                      }
+                      transition={MOTION_TRANSITIONS.snappy}
+                      className="sp-btn-volt relative overflow-hidden min-h-[42px] sm:min-h-[40px] px-4 sm:px-5 flex-1 sm:flex-none"
+                    >
+                      {!settingsProps.isHunting && (
+                        <span aria-hidden="true" className="sp-shimmer-sheen" />
+                      )}
+                      <Compass className="w-4 h-4 shrink-0 relative z-10" aria-hidden="true" />
+                      <span className="relative z-10 sm:hidden">
+                        {settingsProps.isHunting
+                          ? t.huntingInProgress
+                          : isMy
+                            ? 'အသစ်ရှာမည်'
+                            : 'New Hunt'}
+                      </span>
+                      <span className="relative z-10 hidden sm:inline">
+                        {settingsProps.isHunting ? t.huntingInProgress : t.launcherTabBatch}
+                      </span>
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      onClick={() => setActiveDeckMode('link')}
+                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                      transition={MOTION_TRANSITIONS.snappy}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[42px] sm:min-h-[40px] px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white dark:bg-[#131823] text-cyan-800 dark:text-[#25F4EE] border border-cyan-500/30 dark:border-[#25F4EE]/25 hover:border-cyan-500/60 dark:hover:border-[#25F4EE]/55 transition-colors cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE]"
+                    >
+                      <Link2 className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span>{isMy ? 'Link စစ်မည်' : 'Link X-Ray'}</span>
+                    </motion.button>
+                  </div>
+
+                  {/* Compact Recent Single-Link 1-Tap Strip (if available) */}
+                  {recentSingleRecord && recentProduct && (
+                    <button
+                      type="button"
+                      onClick={onOpenRecentSingleResult}
+                      className="min-h-[38px] px-2.5 py-1.5 rounded-xl bg-white/80 dark:bg-white/[0.04] border border-zinc-200/80 dark:border-white/[0.08] hover:border-cyan-500/40 dark:hover:border-[#25F4EE]/40 flex items-center justify-between gap-2.5 text-left group cursor-pointer transition-colors min-w-0 sm:max-w-[360px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE]"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-7 h-7 rounded-md overflow-hidden bg-zinc-100 dark:bg-white/[0.06] border border-zinc-200/80 dark:border-white/[0.1] shrink-0">
+                          {recentImgConfig?.canRender && recentImgConfig.src ? (
+                            <ProductImage
+                              src={recentImgConfig.src}
+                              fallbackSrc={recentImgConfig.fallbackSrc}
+                              productId={recentImgConfig.productId}
+                              alt={recentProduct.name}
+                              title={isMy ? recentProduct.nameMy : recentProduct.name}
+                              unavailableLabel={t.cardImageUnverified}
+                              compact
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageOff
+                                className="w-3.5 h-3.5 text-zinc-400"
+                                aria-hidden="true"
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex items-center gap-1.5 text-xs">
+                          <span className="font-semibold text-cyan-700 dark:text-[#25F4EE] shrink-0">
+                            {t.singleRecentLabel}:
+                          </span>
+                          <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate group-hover:underline">
+                            {isMy ? recentProduct.nameMy : recentProduct.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 text-xs font-mono tabular-nums">
+                        {typeof recentProduct.priceThb === 'number' && (
+                          <span className="hidden lg:inline text-zinc-500 dark:text-zinc-400">
+                            {formatThb(recentProduct.priceThb)}
+                          </span>
+                        )}
+                        {recentSingleScore !== null && (
+                          <span className="font-bold text-emerald-700 dark:text-[#10F5A0]">
+                            {recentSingleScore}/100
+                          </span>
+                        )}
+                        <ChevronRight
+                          className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform"
                           aria-hidden="true"
                         />
                       </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex items-center gap-1.5 text-xs">
-                    <span className="font-semibold text-indigo-700 dark:text-indigo-400 shrink-0">
-                      {t.singleRecentLabel}:
-                    </span>
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium truncate group-hover:underline">
-                      {isMy ? recentProduct.nameMy : recentProduct.name}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0 text-xs font-mono tabular-nums">
-                  {typeof recentProduct.priceThb === 'number' && (
-                    <span className="hidden sm:inline text-zinc-500 dark:text-zinc-400">
-                      {formatThb(recentProduct.priceThb)}
-                    </span>
+                    </button>
                   )}
-                  {recentSingleScore !== null && (
-                    <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                      {recentSingleScore}/100
-                    </span>
-                  )}
-                  <ChevronRight
-                    className="w-3.5 h-3.5 text-zinc-400 group-hover:translate-x-0.5 transition-transform"
-                    aria-hidden="true"
-                  />
                 </div>
-              </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="radar-deck-link-body"
+                initial={prefersReduced ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+                transition={MOTION_TRANSITIONS.crossFade}
+                className="relative border-t border-[var(--sp-border)] p-3.5 sm:p-5 bg-zinc-50/40 dark:bg-[#090C12]/60"
+              >
+                <ProductLinkImportPanel
+                  {...linkImportProps}
+                  layout="inline"
+                  compactTop
+                />
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </section>
       ) : (
-        /* First Visit (No Batch Results Yet): Crisp Quick Link Bar + Inline Batch Setup */
+        /* First Visit (No Batch Results Yet): Obsidian/Porcelain Quick Link Bar + Inline Batch Setup */
         <>
           <section
             aria-label={t.linkImportHeading}
-            className="relative rounded-2xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs sp-rise-in"
+            className="relative rounded-2xl overflow-hidden border border-[var(--sp-border)] bg-[var(--sp-surface)] shadow-sm dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03] sp-rise-in"
           >
             <div
               aria-hidden="true"
-              className="h-[2px] w-full bg-gradient-to-r from-indigo-500 via-cyan-500 to-emerald-500"
+              className="h-[2px] w-full bg-gradient-to-r from-cyan-500 via-teal-400 to-emerald-500 dark:from-[#25F4EE] dark:via-[#10F5A0] dark:to-[#25F4EE]"
             />
             <div className="px-3.5 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               {recentSingleRecord && recentProduct ? (
                 <button
                   type="button"
                   onClick={onOpenRecentSingleResult}
-                  className="flex items-center gap-3 min-w-0 flex-1 text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
+                  className="flex items-center gap-3 min-w-0 flex-1 text-left group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE] rounded-lg"
                 >
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shrink-0">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-100 dark:bg-white/[0.06] border border-zinc-200/80 dark:border-white/[0.1] shrink-0">
                     {recentImgConfig?.canRender && recentImgConfig.src ? (
                       <ProductImage
                         src={recentImgConfig.src}
@@ -428,16 +567,16 @@ export function DiscoveryLauncher({
 
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-400">
-                      <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                      <span className="font-semibold text-cyan-700 dark:text-[#25F4EE]">
                         {t.singleRecentLabel}
                       </span>
-                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+                      <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
                         ·
                       </span>
                       <span>{getCategoryLabel(recentProduct.category, language, { short: true })}</span>
                       {typeof recentProduct.priceThb === 'number' && (
                         <>
-                          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+                          <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
                             ·
                           </span>
                           <span className="font-mono tabular-nums text-zinc-800 dark:text-zinc-200">
@@ -447,15 +586,15 @@ export function DiscoveryLauncher({
                       )}
                       {recentSingleScore !== null && (
                         <>
-                          <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+                          <span aria-hidden="true" className="text-zinc-300 dark:text-white/20">
                             ·
                           </span>
-                          <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                          <span className="font-mono font-semibold tabular-nums text-emerald-700 dark:text-[#10F5A0]">
                             {recentSingleScore}/100
                           </span>
                         </>
                       )}
-                      <span aria-hidden="true" className="hidden md:inline text-zinc-300 dark:text-zinc-600">
+                      <span aria-hidden="true" className="hidden md:inline text-zinc-300 dark:text-white/20">
                         ·
                       </span>
                       <span className="hidden md:inline font-mono tabular-nums">
@@ -469,24 +608,26 @@ export function DiscoveryLauncher({
                   </div>
                 </button>
               ) : (
-                <div className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 min-w-0">
+                <div className="text-xs sm:text-[13px] text-zinc-600 dark:text-zinc-400 min-w-0 leading-relaxed">
                   {t.singleEmptyBarHint}
                 </div>
               )}
 
-              <button
+              <motion.button
                 type="button"
                 onClick={() => onSingleDrawerOpenChange(true)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-900 dark:text-indigo-200 border border-indigo-200/90 dark:border-indigo-700/70 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/60 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 self-start sm:self-center cursor-pointer"
+                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                transition={MOTION_TRANSITIONS.snappy}
+                className="inline-flex items-center justify-center gap-1.5 min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-cyan-50/80 dark:bg-[#25F4EE]/10 text-cyan-900 dark:text-[#25F4EE] border border-cyan-500/30 dark:border-[#25F4EE]/25 hover:bg-cyan-100/70 dark:hover:bg-[#25F4EE]/16 transition-colors whitespace-nowrap shrink-0 self-start sm:self-center cursor-pointer"
               >
-                <Link2 className="w-4 h-4 shrink-0 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+                <Link2 className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{isMy ? 'Link စစ်မည်' : t.launcherTabSingle}</span>
                 {singleHistoryCount > 0 && (
                   <span className="font-mono text-xs tabular-nums opacity-75">
                     ({singleHistoryCount})
                   </span>
                 )}
-              </button>
+              </motion.button>
             </div>
           </section>
 
@@ -510,13 +651,16 @@ export function DiscoveryLauncher({
       )}
 
       {/* Full-Height Slide-over Single Link Research Drawer */}
-      {singleDrawerOpen && (
-        <ProductLinkImportPanel
-          {...linkImportProps}
-          layout="drawer"
-          onClose={() => onSingleDrawerOpenChange(false)}
-        />
-      )}
+      <AnimatePresence>
+        {singleDrawerOpen && (
+          <ProductLinkImportPanel
+            key="single-link-drawer"
+            {...linkImportProps}
+            layout="drawer"
+            onClose={() => onSingleDrawerOpenChange(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

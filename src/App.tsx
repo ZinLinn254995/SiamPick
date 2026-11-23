@@ -1,11 +1,12 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   AlertTriangle,
-  GitCompareArrows,
   History,
   Upload,
   X,
 } from 'lucide-react';
+import { MOTION_TRANSITIONS } from './utils/motionPresets';
 import {
   AiProductAnalysis,
   AppView,
@@ -92,7 +93,10 @@ import { StateMessage } from './components/visual';
 import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
 import { ResearchHistoryView, type HistoryTab } from './components/ResearchHistoryView';
-import { ProductComparisonModal } from './components/ProductComparisonModal';
+import {
+  FloatingComparisonDock,
+  ProductComparisonModal,
+} from './components/ProductComparisonModal';
 import { BackupRestoreModal, type BackupModalTab } from './components/BackupRestoreModal';
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
@@ -205,6 +209,7 @@ export default function App() {
   const [researchMode, setResearchMode] = useState<ResearchMode>('fast');
   const [deepDiveCount, setDeepDiveCount] = useState<number>(DEFAULT_DEEP_DIVE_COUNT);
   const [includeReviewInsights, setIncludeReviewInsights] = useState<boolean>(false);
+  const prefersReduced = useReducedMotion();
   const [strategyPreset, setStrategyPreset] = useState<StrategyPreset>('balanced');
   const [salesWeightPct, setSalesWeightPct] = useState<number>(50);
   const deferredSalesWeightPct = useDeferredValue(salesWeightPct);
@@ -1760,7 +1765,21 @@ export default function App() {
   };
 
   return (
-    <div id="top" className="min-h-screen flex flex-col bg-[#FAFAFA] dark:bg-zinc-950 text-zinc-950 dark:text-zinc-50 transition-colors">
+    <div
+      id="top"
+      className="min-h-screen flex flex-col relative overflow-x-clip bg-[var(--sp-canvas)] text-zinc-950 dark:text-zinc-100 transition-colors"
+    >
+      {/* Atmospheric TikTok Dual-Signal Aurora Backdrop (pure GPU-safe non-interactive gradient layer) */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] z-0 overflow-hidden"
+      >
+        {/* Obsidian Volt (Dark) Dual-Signal Aurora */}
+        <div className="hidden dark:block absolute inset-0 bg-[radial-gradient(ellipse_55%_65%_at_18%_-10%,rgba(37,244,238,0.09),transparent_68%),radial-gradient(ellipse_50%_60%_at_52%_-14%,rgba(16,245,160,0.08),transparent_66%),radial-gradient(ellipse_52%_62%_at_84%_-8%,rgba(254,44,85,0.06),transparent_68%)]" />
+        {/* Porcelain Pro (Light) Subtle Ambient Glow */}
+        <div className="block dark:hidden absolute inset-0 bg-[radial-gradient(ellipse_56%_65%_at_20%_-12%,rgba(5,150,105,0.06),transparent_68%),radial-gradient(ellipse_54%_62%_at_82%_-10%,rgba(8,145,178,0.05),transparent_68%)]" />
+      </div>
+
       <Header
         activeView={activeView}
         activeCategory={filters.category}
@@ -1795,7 +1814,7 @@ export default function App() {
         onDailyBudgetLimitChange={handleDailyBudgetLimitChange}
       />
 
-      <main className="flex-1 w-full max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-7 pb-12 sm:pb-20">
+      <main className="relative z-[1] flex-1 w-full max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-7 pb-12 sm:pb-20">
         {/* Compact Market Context Line + Inline Research Info (hidden inside Deep Dive) */}
         {activeView !== 'deep-dive' && (
           <div className="mb-1 sm:mb-2 flex items-center gap-1.5">
@@ -1834,6 +1853,14 @@ export default function App() {
           />
         )}
 
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeView}
+            initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? undefined : { opacity: 0, y: -4 }}
+            transition={MOTION_TRANSITIONS.crossFade}
+          >
         {activeView === 'saved' ? (
           /* Dedicated Persistent Saved Products View */
           <SavedProductsView
@@ -2093,6 +2120,8 @@ export default function App() {
             />
           </>
         )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Compact Cross-View Comparison Tray Bar (fixed above MobileBottomNav on mobile, floating cleanly on desktop) */}
@@ -2109,50 +2138,21 @@ export default function App() {
           activeView !== 'deep-dive';
         return (
           <>
-            {showCompareTray && (
-              <div
-                className={`fixed inset-x-0 z-[35] pointer-events-none px-3 sm:px-6 lg:px-8 ${
-                  showMobileBottomNav
-                    ? 'bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-4'
-                    : 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:bottom-4'
-                }`}
-              >
-                <div className="max-w-[1280px] mx-auto">
-                  <div className="pointer-events-auto bg-zinc-950/96 dark:bg-zinc-900/96 backdrop-blur-md border border-zinc-800 dark:border-zinc-700 text-white rounded-xl px-3 sm:px-4 py-2 shadow-lg flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5 text-xs">
-                    <div className="flex items-center gap-2 min-w-0 sm:flex-1">
-                      <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                      <span className="font-medium leading-snug sm:truncate">
-                        {t.compareBarTitle}:{' '}
-                        <strong className="font-mono tabular-nums">{compareItems.length}</strong>
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setCompareItems([])}
-                        className="min-h-[36px] sm:min-h-[40px] px-2.5 py-1 sm:py-1.5 text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        {t.compareClearBtn}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComparisonModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] sm:min-h-[40px] px-3.5 py-1 sm:py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        <span>
-                          {t.compareOpenBtn} ({compareItems.length})
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            <FloatingComparisonDock
+              visible={showCompareTray}
+              items={compareItems}
+              aboveMobileBottomNav={showMobileBottomNav}
+              onRemoveItem={(key) =>
+                setCompareItems((prev) => prev.filter((item) => item.selectionKey !== key))
+              }
+              onClearAll={() => setCompareItems([])}
+              onOpenCompare={() => setComparisonModalOpen(true)}
+              language={language}
+            />
 
             {/* Quiet Minimal Footer (bottom clearance accounts for MobileBottomNav + active Compare Tray) */}
             <footer
-              className={`border-t border-zinc-200/85 dark:border-zinc-800/85 bg-white dark:bg-zinc-900 ${
+              className={`relative z-[1] border-t border-[var(--sp-border)] bg-[var(--sp-surface)] ${
                 showMobileBottomNav
                   ? showCompareTray
                     ? 'pb-[calc(9.75rem+env(safe-area-inset-bottom))] md:pb-20'

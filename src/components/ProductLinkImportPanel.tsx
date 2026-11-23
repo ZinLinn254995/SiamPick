@@ -43,12 +43,19 @@ import { formatCredits, KALODATA_PRODUCT_DETAIL_CREDIT } from '../utils/kalodata
 import { evaluateProductOpportunity } from '../utils/scoring';
 import { deriveProductDecisionSummary } from '../utils/productAnalytics';
 import { formatResearchDateTime } from '../utils/savedProductsStorage';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { TRANSLATIONS } from '../i18n/translations';
 import { useDialogA11y } from '../hooks/useDialogA11y';
+import {
+  MOTION_CAPS,
+  MOTION_EASE,
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+} from '../utils/motionPresets';
 import { InfoPopover } from './InfoPopover';
 import { InlineDailyBudgetGuard } from './InlineDailyBudgetGuard';
 import { ProductImage } from './ProductImage';
-import { ScoreRing, StateMessage, StatusDot, VerdictBadge } from './visual';
+import { AnimatedNumber, ScoreRing, StateMessage, StatusDot, VerdictBadge } from './visual';
 
 interface ProductLinkImportPanelProps {
   language: Language;
@@ -153,11 +160,13 @@ export function ProductLinkImportPanel({
 }: ProductLinkImportPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const isDrawer = layout === 'drawer';
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const [rawInput, setRawInput] = useState('');
   const [isInspecting, setIsInspecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const isScanning = isInspecting || isImporting;
   const [inspectResult, setInspectResult] = useState<LinkImportInspectResponse | null>(null);
   const [importError, setImportError] = useState<{
     en: string;
@@ -456,13 +465,25 @@ export function ProductLinkImportPanel({
         className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
       >
         <div className="relative flex-1 min-w-0">
+          {isScanning && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden rounded-t-lg z-10 bg-cyan-500/15"
+            >
+              <div className="sp-scan-beam h-full rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-emerald-400" />
+            </div>
+          )}
           <input
             type="text"
             value={rawInput}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder={t.linkImportInputPlaceholder}
             aria-label={t.linkImportHeading}
-            className="w-full min-h-[42px] pl-3.5 pr-24 py-2 text-xs sm:text-sm bg-zinc-50/70 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/15 dark:focus:ring-zinc-100/20 focus:border-zinc-500 dark:focus:border-zinc-500 font-mono"
+            className={`w-full min-h-[42px] pl-3.5 pr-24 py-2 text-xs sm:text-sm bg-zinc-50/70 dark:bg-zinc-950 border rounded-lg text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-500 dark:placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-950/15 dark:focus:ring-zinc-100/20 font-mono transition-colors ${
+              isScanning
+                ? 'border-cyan-500/80 dark:border-cyan-400/70 focus:border-cyan-500 dark:focus:border-cyan-400'
+                : 'border-zinc-200 dark:border-zinc-700 focus:border-zinc-500 dark:focus:border-zinc-500'
+            }`}
           />
           <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {rawInput.trim().length > 0 ? (
@@ -506,6 +527,36 @@ export function ProductLinkImportPanel({
           )}
         </button>
       </form>
+
+      {/* Active TikTok Link X-Ray Scanning Band */}
+      <AnimatePresence>
+        {isScanning && (
+          <motion.div
+            key="link-xray-scan-band"
+            role="status"
+            aria-live="polite"
+            initial={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={MOTION_TRANSITIONS.crossFade}
+            className="mt-2.5 relative rounded-lg border border-cyan-200/80 dark:border-cyan-800/70 bg-cyan-50/50 dark:bg-cyan-950/20 px-3 py-2 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 text-xs font-medium text-cyan-900 dark:text-cyan-200">
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-pulse motion-reduce:animate-none shrink-0"
+              />
+              <span>{isImporting ? t.linkImportImportingLabel : t.linkImportCheckingLabel}</span>
+            </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] bg-cyan-500/15 overflow-hidden"
+            >
+              <div className="sp-scan-beam h-full rounded-full bg-gradient-to-r from-transparent via-cyan-400 to-emerald-400" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {clipboardNotice && (
         <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -764,12 +815,18 @@ export function ProductLinkImportPanel({
       )}
 
       {/* Unified Single Product Link Research Result (Matches SiamPick Visual Language) */}
-      {activeSingleResult && activeSingleEvaluation && (
-        <div
-          role="region"
-          aria-label={t.linkImportSuccessTitle}
-          className="mt-4 border border-emerald-200/90 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/15 rounded-xl p-4 space-y-3.5"
-        >
+      <AnimatePresence mode="wait">
+        {activeSingleResult && activeSingleEvaluation && (
+          <motion.div
+            key={activeSingleResult.id}
+            role="region"
+            aria-label={t.linkImportSuccessTitle}
+            initial={prefersReduced ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+            transition={MOTION_TRANSITIONS.weighted}
+            className="mt-4 border border-emerald-200/90 dark:border-emerald-800/70 bg-emerald-50/30 dark:bg-emerald-950/15 rounded-xl p-4 space-y-3.5"
+          >
           {/* Status Header */}
           <div className="flex items-start justify-between gap-2 pb-3 border-b border-emerald-200/70 dark:border-emerald-800/50">
             <div className="flex items-start gap-2 min-w-0">
@@ -808,12 +865,31 @@ export function ProductLinkImportPanel({
             const imgConfig = resolveProductImageDisplayConfig(p);
             const saved = isSavedProduct(p);
             const decisionSummary = deriveProductDecisionSummary(p, activeSingleEvaluation);
-            const commissionRate =
-              p.commissionVerified && typeof p.commissionRate === 'number'
-                ? `${p.commissionRate.toFixed(1)}%`
-                : typeof p.kalodataMetrics?.commissionRatePct === 'number'
-                  ? `${p.kalodataMetrics.commissionRatePct.toFixed(1)}%`
-                  : '—';
+            const verifiedCommissionRate =
+              p.commissionVerified &&
+              typeof p.commissionRate === 'number' &&
+              Number.isFinite(p.commissionRate)
+                ? p.commissionRate
+                : null;
+            const fallbackCommissionRate =
+              typeof p.kalodataMetrics?.commissionRatePct === 'number' &&
+              Number.isFinite(p.kalodataMetrics.commissionRatePct)
+                ? p.kalodataMetrics.commissionRatePct
+                : null;
+            const numericCommissionRate = verifiedCommissionRate ?? fallbackCommissionRate;
+            const isVerifiedHighMargin =
+              Boolean(p.commissionVerified) &&
+              verifiedCommissionRate !== null &&
+              verifiedCommissionRate >= 10;
+            const hasNumericPrice =
+              typeof p.priceThb === 'number' && Number.isFinite(p.priceThb) && p.priceThb > 0;
+            const hasNumericSales =
+              typeof p.kalodataMetrics?.salesVolume === 'number' &&
+              Number.isFinite(p.kalodataMetrics.salesVolume);
+            const hasNumericRevenue =
+              typeof p.kalodataMetrics?.revenueThb === 'number' &&
+              Number.isFinite(p.kalodataMetrics.revenueThb) &&
+              p.kalodataMetrics.revenueThb > 0;
             const missingNotes = isMy ? p.missingDataMy : p.missingDataEn;
             const derivedTiktokUrl = getTikTokShopProductUrl(p);
             const tiktokHref =
@@ -859,7 +935,12 @@ export function ProductLinkImportPanel({
                     </h3>
 
                     <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      <VerdictBadge verdict={decisionSummary.verdict} language={language} size="sm" />
+                      <VerdictBadge
+                        verdict={decisionSummary.verdict}
+                        language={language}
+                        size="sm"
+                        animateStamp
+                      />
                       <span className="inline-flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
                         <StatusDot
                           status={
@@ -882,6 +963,7 @@ export function ProductLinkImportPanel({
                     <ScoreRing
                       value={activeSingleEvaluation.totalScore}
                       size={52}
+                      animate
                       tone={
                         decisionSummary.verdict === 'recommended'
                           ? 'emerald'
@@ -897,40 +979,110 @@ export function ProductLinkImportPanel({
 
                 {/* Key Metrics Strip */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/50 text-xs">
-                  <div>
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : {
+                            duration: 0.22,
+                            ease: MOTION_EASE.expoOut,
+                            delay: 0 * MOTION_CAPS.LINK_METRIC_STAGGER_SEC,
+                          }
+                    }
+                  >
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportPriceLabel}
                     </div>
                     <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {typeof p.priceThb === 'number' ? formatThb(p.priceThb) : '—'}
+                      {hasNumericPrice ? (
+                        <AnimatedNumber value={Math.round(p.priceThb!)} prefix="฿" />
+                      ) : (
+                        formatThb(p.priceThb)
+                      )}
                     </div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : {
+                            duration: 0.22,
+                            ease: MOTION_EASE.expoOut,
+                            delay: 1 * MOTION_CAPS.LINK_METRIC_STAGGER_SEC,
+                          }
+                    }
+                  >
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportSalesLabel}
                     </div>
                     <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {formatCompactNumber(p.kalodataMetrics?.salesVolume)}
+                      {hasNumericSales ? (
+                        <AnimatedNumber value={Math.round(p.kalodataMetrics!.salesVolume!)} />
+                      ) : (
+                        formatCompactNumber(p.kalodataMetrics?.salesVolume)
+                      )}
                     </div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : {
+                            duration: 0.22,
+                            ease: MOTION_EASE.expoOut,
+                            delay: 2 * MOTION_CAPS.LINK_METRIC_STAGGER_SEC,
+                          }
+                    }
+                  >
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportRevenueLabel}
                     </div>
                     <div className="font-mono text-sm font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums mt-0.5">
-                      {typeof p.kalodataMetrics?.revenueThb === 'number'
-                        ? formatThb(p.kalodataMetrics.revenueThb)
-                        : '—'}
+                      {hasNumericRevenue ? (
+                        <AnimatedNumber
+                          value={Math.round(p.kalodataMetrics!.revenueThb!)}
+                          prefix="฿"
+                        />
+                      ) : (
+                        formatThb(p.kalodataMetrics?.revenueThb)
+                      )}
                     </div>
-                  </div>
-                  <div>
+                  </motion.div>
+                  <motion.div
+                    initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={
+                      prefersReduced
+                        ? { duration: 0 }
+                        : {
+                            duration: 0.22,
+                            ease: MOTION_EASE.expoOut,
+                            delay: 3 * MOTION_CAPS.LINK_METRIC_STAGGER_SEC,
+                          }
+                    }
+                  >
                     <div className="text-xs text-zinc-600 dark:text-zinc-400">
                       {t.linkImportCommissionLabel}
                     </div>
                     <div className="font-mono text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-0.5">
-                      {commissionRate}
+                      {numericCommissionRate !== null ? (
+                        <AnimatedNumber
+                          value={numericCommissionRate}
+                          decimals={1}
+                          suffix="%"
+                          highlightSignal={isVerifiedHighMargin ? 'emerald-sheen' : 'none'}
+                        />
+                      ) : (
+                        '—'
+                      )}
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
 
                 {/* Honest Unavailable Data Notice */}
@@ -1003,23 +1155,32 @@ export function ProductLinkImportPanel({
               </div>
             );
           })()}
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 
   if (isDrawer) {
     return (
-      <div
+      <motion.div
+        variants={MOTION_VARIANTS.backdrop}
+        initial="initial"
+        animate="animate"
+        exit="exit"
         className="fixed inset-0 z-50 flex justify-end bg-zinc-950/40 dark:bg-black/65 backdrop-blur-[2px]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="link-import-heading"
         onClick={() => onClose?.()}
       >
-        <div
+        <motion.div
           ref={drawerRef}
           tabIndex={-1}
+          variants={MOTION_VARIANTS.drawerRight}
+          initial="initial"
+          animate="animate"
+          exit="exit"
           onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-[100dvh] shadow-2xl flex flex-col focus:outline-none"
         >
@@ -1106,8 +1267,8 @@ export function ProductLinkImportPanel({
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     );
   }
 

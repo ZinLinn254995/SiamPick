@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ChevronDown,
   Scale,
@@ -6,8 +7,10 @@ import {
 } from 'lucide-react';
 import { Language, ScoreTier, StrategyPreset } from '../types/product';
 import { deriveStrategyPresetFromWeight, getScoringRubricForStrategy } from '../utils/scoring';
+import { MOTION_TRANSITIONS, TACTILE_INTERACTIONS } from '../utils/motionPresets';
 import { TRANSLATIONS } from '../i18n/translations';
 import { InfoPopover } from './InfoPopover';
+import { AnimatedNumber } from './visual';
 
 interface ScoringRubricPanelProps {
   isOpen: boolean;
@@ -36,6 +39,7 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
 }: ScoringRubricPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const prefersReduced = useReducedMotion();
   const rubric = getScoringRubricForStrategy(salesWeightPct);
   const totalPoints = rubric.reduce((sum, item) => sum + item.maxPoints, 0);
   const maxFactorPoints = Math.max(1, ...rubric.map((item) => item.maxPoints));
@@ -54,7 +58,7 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
     Boolean(onCustomWeightChange);
 
   const tierTextColor = (tier: ScoreTier) => {
-    if (tier === 'priority-test') return 'text-emerald-700 dark:text-emerald-400';
+    if (tier === 'priority-test') return 'text-emerald-700 dark:text-[#10F5A0]';
     if (tier === 'investigate-further') return 'text-amber-700 dark:text-amber-400';
     return 'text-zinc-600 dark:text-zinc-400';
   };
@@ -69,142 +73,122 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
   const shortCommissionLabel = isMy ? 'ကော်မရှင်' : 'Commission';
   const shortSalesLabel = isMy ? 'ရောင်းအား' : 'Sales';
 
-  const topRimGradient =
-    activePreset === 'commission-first'
-      ? 'from-emerald-500 via-teal-400 to-cyan-500'
-      : activePreset === 'sales-first'
-        ? 'from-cyan-500 via-sky-400 to-indigo-500'
-        : 'from-emerald-500 via-cyan-500 to-indigo-500';
-
   const thumbTrackSplitPct = Math.max(0, Math.min(100, ((salesWeightPct - 10) / 80) * 100));
 
   return (
     <div
-      className={`${className} relative rounded-2xl overflow-hidden border border-zinc-200/90 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs`}
+      className={`${className} relative rounded-2xl overflow-hidden border border-[var(--sp-border)] bg-[var(--sp-surface)] shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03] transition-colors`}
     >
-      {/* Strategy-Reactive Top Gradient Rim + Subtle Glow */}
-      <div
-        aria-hidden="true"
-        className={`h-[2px] w-full bg-gradient-to-r transition-all duration-300 ${topRimGradient}`}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.06),transparent_55%),radial-gradient(ellipse_at_top_right,rgba(6,182,212,0.06),transparent_55%)] dark:bg-[radial-gradient(ellipse_at_top_left,rgba(16,185,129,0.11),transparent_55%),radial-gradient(ellipse_at_top_right,rgba(6,182,212,0.11),transparent_55%)]"
-      />
-
       {hasInteractiveStrategy && (
         <div className="relative px-3.5 sm:px-5 py-3 sm:py-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 lg:items-end">
-            {/* Left: Sliding Pill 3-Option Strategy Switcher */}
+            {/* Left: Gliding Pill 3-Option Strategy Switcher */}
             <div className="lg:col-span-7 space-y-2 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                   <SlidersHorizontal
-                    className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0"
+                    className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0] shrink-0"
                     aria-hidden="true"
                   />
                   <span>{t.strategyLabel}</span>
                 </div>
                 <span className="font-mono text-[11px] font-semibold tabular-nums text-zinc-500 dark:text-zinc-400 sm:hidden">
-                  {commissionWeightPct}/{salesWeightPct}
+                  <AnimatedNumber value={commissionWeightPct} />/<AnimatedNumber value={salesWeightPct} />
                 </span>
               </div>
 
               <div
-                className="relative grid grid-cols-3 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/70 dark:border-zinc-700/60"
+                className="relative grid grid-cols-3 p-1 rounded-xl bg-[var(--sp-surface-muted)] border border-[var(--sp-border)]"
                 role="group"
                 aria-label={t.strategyLabel}
               >
-                {(() => {
-                  const activeIndex = Math.max(
-                    0,
-                    presetOptions.findIndex((p) => p.id === activePreset)
-                  );
-                  const sliderColorClass =
-                    activePreset === 'commission-first'
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-400 shadow-sm shadow-emerald-600/20'
-                      : activePreset === 'sales-first'
-                        ? 'bg-gradient-to-r from-cyan-600 to-sky-500 dark:from-cyan-400 dark:to-sky-400 shadow-sm shadow-cyan-600/20'
-                        : 'bg-white dark:bg-zinc-900 shadow-xs border border-zinc-200/80 dark:border-zinc-700/80';
-
-                  return (
-                    <div
-                      aria-hidden="true"
-                      className={`pointer-events-none absolute top-1 bottom-1 left-1 w-[calc((100%-8px)/3)] rounded-lg transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${sliderColorClass}`}
-                      style={{ transform: `translateX(${activeIndex * 100}%)` }}
-                    />
-                  );
-                })()}
                 {presetOptions.map((preset) => {
                   const isActive = activePreset === preset.id;
-                  const activeTextClass =
-                    preset.id === 'balanced'
-                      ? 'text-zinc-950 dark:text-zinc-50 font-semibold'
-                      : 'text-white dark:text-zinc-950 font-semibold';
+                  const activePillClass =
+                    preset.id === 'commission-first'
+                      ? 'bg-emerald-600 dark:bg-[#10F5A0] shadow-sm'
+                      : preset.id === 'sales-first'
+                        ? 'bg-cyan-600 dark:bg-[#25F4EE] shadow-sm'
+                        : 'bg-zinc-900 dark:bg-zinc-100 shadow-sm';
+                  const activeTextClass = 'text-white dark:text-[#06070A] font-semibold';
+
                   return (
-                    <button
+                    <motion.button
                       key={preset.id}
                       type="button"
                       aria-pressed={isActive}
+                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                       onClick={() => onSelectStrategyPreset?.(preset.id)}
-                      className={`relative z-10 min-h-[42px] sm:min-h-[38px] px-1.5 sm:px-2 py-1.5 text-[11px] sm:text-xs rounded-lg flex items-center justify-center text-center leading-snug transition-colors duration-150 cursor-pointer min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                      className={`relative min-h-[42px] sm:min-h-[38px] px-1.5 sm:px-2 py-1.5 text-[11px] sm:text-xs rounded-lg flex items-center justify-center text-center leading-snug transition-colors cursor-pointer min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#10F5A0] ${
                         isActive
                           ? activeTextClass
                           : 'text-zinc-600 dark:text-zinc-400 font-medium hover:text-zinc-950 dark:hover:text-zinc-100'
                       }`}
                     >
-                      <span className="text-balance">{preset.label}</span>
-                    </button>
+                      {isActive && (
+                        <motion.span
+                          layoutId="strategy-preset-pill"
+                          transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.snappy}
+                          aria-hidden="true"
+                          className={`absolute inset-0 rounded-lg ${activePillClass}`}
+                        />
+                      )}
+                      <span className="relative z-10 text-balance">{preset.label}</span>
+                    </motion.button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Right: Live Dual-Tone Balance Slider */}
+            {/* Right: Live Dual-Tone Balance Slider (.sp-strategy-slider preserved) */}
             <div className="lg:col-span-5 space-y-1 min-w-0">
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span
                   className={`whitespace-nowrap transition-colors ${
                     commissionWeightPct > salesWeightPct
-                      ? 'font-bold text-emerald-700 dark:text-emerald-400'
+                      ? 'font-bold text-emerald-700 dark:text-[#10F5A0]'
                       : 'font-medium text-zinc-600 dark:text-zinc-400'
                   }`}
                 >
                   {shortCommissionLabel}{' '}
-                  <span className="font-mono font-bold tabular-nums">
-                    {commissionWeightPct}%
-                  </span>
+                  <AnimatedNumber
+                    value={commissionWeightPct}
+                    suffix="%"
+                    className="font-mono font-bold tabular-nums"
+                  />
                 </span>
                 <span
                   className={`whitespace-nowrap transition-colors ${
                     salesWeightPct > commissionWeightPct
-                      ? 'font-bold text-cyan-700 dark:text-cyan-400'
+                      ? 'font-bold text-cyan-700 dark:text-[#25F4EE]'
                       : 'font-medium text-zinc-600 dark:text-zinc-400'
                   }`}
                 >
                   {shortSalesLabel}{' '}
-                  <span className="font-mono font-bold tabular-nums">
-                    {salesWeightPct}%
-                  </span>
+                  <AnimatedNumber
+                    value={salesWeightPct}
+                    suffix="%"
+                    className="font-mono font-bold tabular-nums"
+                  />
                 </span>
               </div>
 
               <div className="relative flex items-center">
-                {/* Dual-Color Underlying Track (Emerald Commission <-> Cyan Sales) */}
+                {/* Dual-Color Underlying Track (Profit Mint Commission <-> Radar Cyan Sales) */}
                 <div
                   aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden"
+                  className="pointer-events-none absolute inset-x-0 h-1.5 rounded-full bg-zinc-200 dark:bg-white/10 overflow-hidden"
                 >
                   <div
                     className="h-full w-full rounded-full"
                     style={{
-                      background: `linear-gradient(90deg, rgba(16,185,129,0.88) 0%, rgba(20,184,166,0.75) ${Math.max(0, thumbTrackSplitPct - 8)}%, rgba(6,182,212,0.85) ${Math.min(100, thumbTrackSplitPct + 8)}%, rgba(14,165,233,0.92) 100%)`,
+                      background: `linear-gradient(90deg, rgba(16,185,129,0.88) 0%, rgba(16,245,160,0.72) ${Math.max(0, thumbTrackSplitPct - 8)}%, rgba(8,145,178,0.85) ${Math.min(100, thumbTrackSplitPct + 8)}%, rgba(37,244,238,0.88) 100%)`,
                     }}
                   />
                 </div>
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 w-0.5 h-3 rounded-full bg-white/80 dark:bg-zinc-950/80 z-[5]"
+                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 w-0.5 h-3 rounded-full bg-white/85 dark:bg-[#06070A]/85 z-[5]"
                 />
                 <input
                   type="range"
@@ -232,13 +216,13 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-label={`${t.scoringPanelTitle} — ${t.scoringRubricDetailsBtn}`}
-        className={`relative w-full min-h-[44px] px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${
-          hasInteractiveStrategy ? 'border-t border-zinc-200/70 dark:border-zinc-800/80' : ''
+        className={`relative w-full min-h-[44px] px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-white/[0.03] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 dark:focus-visible:ring-[#10F5A0] ${
+          hasInteractiveStrategy ? 'border-t border-[var(--sp-border)]' : ''
         }`}
       >
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           <Scale
-            className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0"
+            className="w-4 h-4 text-cyan-600 dark:text-[#25F4EE] shrink-0"
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
@@ -266,111 +250,129 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
         </span>
       </button>
 
-      {isOpen && (
-        <div className="relative px-3.5 sm:px-5 pb-4 pt-3.5 border-t border-zinc-200/70 dark:border-zinc-800/80 grid grid-cols-1 lg:grid-cols-12 gap-5 sp-rise-in">
-          {/* 7 Live Strategy-Weighted Factors (Always Totaling 100 Points) */}
-          <div className="lg:col-span-7 space-y-2.5">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
-              <div className="inline-flex items-center gap-1.5">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  {t.scoringStrategyActiveLabel}: {strategyLabel}
-                </span>
-                <InfoPopover
-                  variant="help"
-                  label={t.scoringPanelTitle}
-                  title={t.scoringPanelTitle}
-                  content={t.scoringVerificationRule}
-                />
-              </div>
-              <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                {t.scoringTotalWeightLabel}: {totalPoints}/100
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-              {rubric.map((spec, idx) => {
-                const barScale = Math.max(0, Math.min(1, spec.maxPoints / maxFactorPoints));
-                const isHighWeight = spec.maxPoints >= 20;
-                return (
-                  <div
-                    key={spec.key}
-                    className="py-1.5 border-b border-zinc-100 dark:border-zinc-800/70 text-xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span
-                        className="text-zinc-800 dark:text-zinc-200 truncate"
-                        title={t.factorLabels[spec.key]}
-                      >
-                        <span className="font-mono text-zinc-400 dark:text-zinc-500 mr-1.5 tabular-nums">
-                          0{idx + 1}.
-                        </span>
-                        {t.factorShortLabels[spec.key]}
-                      </span>
-                      <span
-                        className={`font-mono font-bold tabular-nums shrink-0 ${
-                          isHighWeight
-                            ? 'text-emerald-700 dark:text-emerald-400'
-                            : 'text-zinc-900 dark:text-zinc-100'
-                        }`}
-                      >
-                        {spec.maxPoints} {pointsUnit}
-                      </span>
-                    </div>
-                    <div
-                      className="h-1.5 w-full rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
-                      aria-hidden="true"
-                    >
-                      <div
-                        className={`h-full w-full rounded-full origin-left transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
-                          isHighWeight
-                            ? 'bg-gradient-to-r from-emerald-500 to-cyan-400'
-                            : 'bg-gradient-to-r from-zinc-500 to-zinc-400 dark:from-zinc-400 dark:to-zinc-500'
-                        }`}
-                        style={{ transform: `scaleX(${barScale})` }}
-                      />
-                    </div>
+      {/* Myanmar-Safe Collapsible 7-Factor Rubric Body */}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="scoring-rubric-body"
+            initial={prefersReduced ? false : { height: 0, opacity: 0 }}
+            animate={{
+              height: 'auto',
+              opacity: 1,
+              transitionEnd: { overflow: 'visible' },
+            }}
+            exit={prefersReduced ? undefined : { height: 0, opacity: 0, overflow: 'hidden' }}
+            transition={MOTION_TRANSITIONS.accordion}
+            className="overflow-hidden"
+          >
+            <div className="relative px-3.5 sm:px-5 pb-4 pt-3.5 border-t border-[var(--sp-border)] grid grid-cols-1 lg:grid-cols-12 gap-5">
+              {/* 7 Live Strategy-Weighted Factors (Always Totaling 100 Points) */}
+              <div className="lg:col-span-7 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-1">
+                  <div className="inline-flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      {t.scoringStrategyActiveLabel}: {strategyLabel}
+                    </span>
+                    <InfoPopover
+                      variant="help"
+                      label={t.scoringPanelTitle}
+                      title={t.scoringPanelTitle}
+                      content={t.scoringVerificationRule}
+                    />
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 3 Recommendation Tiers + Info Popover for Disclaimers */}
-          <div className="lg:col-span-5 space-y-2.5 lg:border-l lg:border-zinc-200/70 dark:lg:border-zinc-800/80 lg:pl-6">
-            <div className="flex items-center gap-1.5 text-xs pb-1">
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {isMy ? 'အဆင့်သတ်မှတ်ချက်များ' : 'Score Tiers'}
-              </span>
-              <InfoPopover
-                variant="info"
-                label={t.scoringPanelTitle}
-                title={t.scoringPanelTitle}
-                content={
-                  <div className="space-y-1.5">
-                    <p>{t.scoringDisclaimer}</p>
-                    <p className="text-zinc-500 dark:text-zinc-400">{t.scoringPairReminder}</p>
-                  </div>
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              {TIER_ORDER.map((tier) => (
-                <div
-                  key={tier}
-                  className="flex items-baseline justify-between gap-3 text-xs py-1.5 border-b border-zinc-100 dark:border-zinc-800/70 last:border-b-0"
-                >
-                  <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0">
-                    {t.scoringTierRanges[tier]}
-                  </span>
-                  <span className={`font-semibold text-right ${tierTextColor(tier)}`}>
-                    {t.scoringTierLabels[tier]}
+                  <span className="font-mono font-bold text-emerald-700 dark:text-[#10F5A0] tabular-nums">
+                    {t.scoringTotalWeightLabel}: {totalPoints}/100
                   </span>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                  {rubric.map((spec, idx) => {
+                    const barScale = Math.max(0, Math.min(1, spec.maxPoints / maxFactorPoints));
+                    const isHighWeight = spec.maxPoints >= 20;
+                    return (
+                      <div
+                        key={spec.key}
+                        className="py-1.5 border-b border-[var(--sp-border)] text-xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span
+                            className="text-zinc-800 dark:text-zinc-200 truncate"
+                            title={t.factorLabels[spec.key]}
+                          >
+                            <span className="font-mono text-zinc-400 dark:text-zinc-500 mr-1.5 tabular-nums">
+                              0{idx + 1}.
+                            </span>
+                            {t.factorShortLabels[spec.key]}
+                          </span>
+                          <span
+                            className={`font-mono font-bold tabular-nums shrink-0 ${
+                              isHighWeight
+                                ? 'text-emerald-700 dark:text-[#10F5A0]'
+                                : 'text-zinc-900 dark:text-zinc-100'
+                            }`}
+                          >
+                            <AnimatedNumber value={spec.maxPoints} suffix={` ${pointsUnit}`} />
+                          </span>
+                        </div>
+                        <div
+                          className="h-1.5 w-full rounded-full bg-zinc-200/80 dark:bg-white/[0.08] overflow-hidden"
+                          aria-hidden="true"
+                        >
+                          <motion.div
+                            initial={prefersReduced ? false : { scaleX: 0 }}
+                            animate={{ scaleX: barScale }}
+                            transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.ticker}
+                            className={`h-full w-full rounded-full origin-left ${
+                              isHighWeight
+                                ? 'bg-gradient-to-r from-emerald-500 to-cyan-400 dark:from-[#10F5A0] dark:to-[#25F4EE]'
+                                : 'bg-zinc-400 dark:bg-zinc-500'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3 Recommendation Tiers + Info Popover for Disclaimers */}
+              <div className="lg:col-span-5 space-y-2.5 lg:border-l lg:border-[var(--sp-border)] lg:pl-6">
+                <div className="flex items-center gap-1.5 text-xs pb-1">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                    {isMy ? 'အဆင့်သတ်မှတ်ချက်များ' : 'Score Tiers'}
+                  </span>
+                  <InfoPopover
+                    variant="info"
+                    label={t.scoringPanelTitle}
+                    title={t.scoringPanelTitle}
+                    content={
+                      <div className="space-y-1.5">
+                        <p>{t.scoringDisclaimer}</p>
+                        <p className="text-zinc-500 dark:text-zinc-400">{t.scoringPairReminder}</p>
+                      </div>
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  {TIER_ORDER.map((tier) => (
+                    <div
+                      key={tier}
+                      className="flex items-baseline justify-between gap-3 text-xs py-1.5 border-b border-[var(--sp-border)] last:border-b-0"
+                    >
+                      <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100 tabular-nums shrink-0">
+                        {t.scoringTierRanges[tier]}
+                      </span>
+                      <span className={`font-semibold text-right ${tierTextColor(tier)}`}>
+                        {t.scoringTierLabels[tier]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

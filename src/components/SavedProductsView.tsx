@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -37,10 +38,18 @@ import {
 } from '../utils/exportReports';
 import { formatResearchDate } from '../utils/savedProductsStorage';
 import { getCategoryLabel, UNIVERSAL_CATEGORIES } from '../utils/categoryRegistry';
+import {
+  MOTION_TRANSITIONS,
+  MOTION_VARIANTS,
+  TACTILE_INTERACTIONS,
+  shouldEnableGridLayoutReflow,
+} from '../utils/motionPresets';
 import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
+import { TechnicalSignalStrip } from './TechnicalSignalStrip';
 import {
+  AnimatedNumber,
   ScoreRing,
   StateMessage,
   StatusDot,
@@ -69,25 +78,18 @@ const VERDICT_ORDER: ProductDecisionVerdict[] = [
   'not-recommended',
 ];
 
-function verdictChipTone(verdict: ProductDecisionVerdict, active: boolean): string {
-  if (verdict === 'recommended') {
-    return active
-      ? 'bg-emerald-700 dark:bg-emerald-700 text-white border-emerald-700 dark:border-emerald-600'
-      : 'bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-100/80 dark:hover:bg-emerald-950/70';
-  }
-  if (verdict === 'worth-testing') {
-    return active
-      ? 'bg-amber-700 dark:bg-amber-700 text-white border-amber-700 dark:border-amber-600'
-      : 'bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70 hover:bg-amber-100/80 dark:hover:bg-amber-950/70';
-  }
-  if (verdict === 'not-recommended') {
-    return active
-      ? 'bg-red-700 dark:bg-red-700 text-white border-red-700 dark:border-red-600'
-      : 'bg-red-50/70 dark:bg-red-950/40 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-100/80 dark:hover:bg-red-950/70';
-  }
-  return active
-    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
-    : 'bg-zinc-100/80 dark:bg-zinc-800/80 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80';
+function verdictPillSurface(verdict: VerdictFilter): string {
+  if (verdict === 'recommended') return 'bg-emerald-600 dark:bg-[#10F5A0] shadow-sm';
+  if (verdict === 'worth-testing') return 'bg-amber-600 dark:bg-amber-400 shadow-sm';
+  if (verdict === 'not-recommended') return 'bg-rose-600 dark:bg-[#FE2C55] shadow-sm';
+  return 'bg-zinc-900 dark:bg-zinc-100 shadow-sm';
+}
+
+function verdictInactiveDot(verdict: ProductDecisionVerdict): string {
+  if (verdict === 'recommended') return 'bg-emerald-500 dark:bg-[#10F5A0]';
+  if (verdict === 'worth-testing') return 'bg-amber-500 dark:bg-amber-400';
+  if (verdict === 'not-recommended') return 'bg-rose-500 dark:bg-[#FE2C55]';
+  return 'bg-zinc-400 dark:bg-zinc-500';
 }
 
 export function SavedProductsView({
@@ -105,6 +107,21 @@ export function SavedProductsView({
   const [verdictFilter, setVerdictFilter] = useState<VerdictFilter>('all');
   const [sortKey, setSortKey] = useState<SavedSortKey>('newest');
   const [copied, setCopied] = useState(false);
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 1024px)').matches
+      : true
+  );
+  const prefersReduced = useReducedMotion();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = (event: MediaQueryListEvent) => setIsDesktop(event.matches);
+    setIsDesktop(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
@@ -179,6 +196,9 @@ export function SavedProductsView({
         )
       : 0;
 
+  const enableGridReflow =
+    !prefersReduced && shouldEnableGridLayoutReflow(evaluatedRecords.length, isDesktop);
+
   const handleExportCsv = () => {
     const products = evaluatedRecords.map((item) => item.record.product);
     const evalMap = new Map(
@@ -247,7 +267,7 @@ export function SavedProductsView({
 
   return (
     <section aria-labelledby="saved-products-heading" className="space-y-5">
-      {/* Header & Back Navigation */}
+      {/* Header Summary Card & Back Navigation */}
       <div className="space-y-3">
         <button
           type="button"
@@ -258,9 +278,9 @@ export function SavedProductsView({
           <span>{t.savedViewBackBtn}</span>
         </button>
 
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-3.5 pb-4 sm:pb-5 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] p-4 sm:p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03]">
           <div className="min-w-0 flex-1 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-w-0">
               <h1
                 id="saved-products-heading"
                 className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 ${
@@ -269,8 +289,8 @@ export function SavedProductsView({
               >
                 {t.savedViewTitle}
               </h1>
-              <span className="font-mono text-sm text-zinc-600 dark:text-zinc-400 tabular-nums shrink-0">
-                ({records.length})
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-emerald-500/10 dark:bg-[#10F5A0]/12 border border-emerald-500/25 dark:border-[#10F5A0]/25 font-mono text-sm font-bold text-emerald-600 dark:text-[#10F5A0] tabular-nums shrink-0">
+                <AnimatedNumber value={records.length} />
               </span>
               <InfoPopover
                 label={t.savedViewTitle}
@@ -278,7 +298,7 @@ export function SavedProductsView({
                 content={
                   <>
                     <p>{t.savedViewSubtitle}</p>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-zinc-100 dark:border-zinc-800/70">
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 pt-1 border-t border-[var(--sp-border)]">
                       {t.savedStorageNote}
                     </p>
                   </>
@@ -289,26 +309,28 @@ export function SavedProductsView({
 
           <div className="flex flex-wrap items-center gap-2 max-w-full">
             {onOpenBackupRestore && (
-              <button
+              <motion.button
                 type="button"
+                whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                 onClick={() => onOpenBackupRestore(records.length > 0 ? 'backup' : 'restore')}
                 className="sp-btn-secondary"
               >
                 <HardDrive className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Backup / Restore</span>
-              </button>
+              </motion.button>
             )}
 
             {records.length > 0 && (
               <>
-                <button
+                <motion.button
                   type="button"
+                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                   onClick={handleCopySummary}
                   className="sp-btn-secondary"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" aria-hidden="true" />
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-[#10F5A0]" aria-hidden="true" />
                       <span>{t.reportCopied}</span>
                     </>
                   ) : (
@@ -317,25 +339,27 @@ export function SavedProductsView({
                       <span>{t.shortlistCopySummary}</span>
                     </>
                   )}
-                </button>
+                </motion.button>
 
-                <button
+                <motion.button
                   type="button"
+                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                   onClick={handleExportCsv}
                   className="sp-btn-secondary"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportCsvBtn}</span>
-                </button>
+                </motion.button>
 
-                <button
+                <motion.button
                   type="button"
+                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                   onClick={handleExportJson}
-                  className="sp-btn-primary text-xs"
+                  className="sp-btn-volt text-xs"
                 >
                   <Download className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>{t.exportJsonBtn}</span>
-                </button>
+                </motion.button>
               </>
             )}
           </div>
@@ -344,158 +368,199 @@ export function SavedProductsView({
 
       {/* Empty State (Single CTA) */}
       {records.length === 0 ? (
-        <StateMessage
-          variant="empty"
-          icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
-          title={t.shortlistEmptyTitle}
-          reason={t.shortlistEmptyDesc}
-          actionLabel={t.savedViewBackBtn}
-          actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
-          onAction={onBackToHunting}
-        />
+        <div className="rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] p-4 sm:p-6">
+          <StateMessage
+            variant="empty"
+            icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
+            title={t.shortlistEmptyTitle}
+            reason={t.shortlistEmptyDesc}
+            actionLabel={t.savedViewBackBtn}
+            actionIcon={<ArrowLeft className="w-4 h-4" aria-hidden="true" />}
+            onAction={onBackToHunting}
+          />
+        </div>
       ) : (
         <>
-          {/* Verdict Filter Chips (single horizontal scroll strip on mobile, wraps on desktop) */}
-          <div
-            className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap sm:overflow-visible"
-            role="group"
-            aria-label={t.filterDecisionLabel}
-          >
-            <button
-              type="button"
-              aria-pressed={verdictFilter === 'all'}
-              onClick={() => setVerdictFilter('all')}
-              className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                verdictFilter === 'all'
-                  ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500'
-              }`}
-            >
-              <span>{t.savedVerdictAll}</span>
-              <span className="font-mono tabular-nums opacity-80">{categoryScoped.length}</span>
-            </button>
-
-            {VERDICT_ORDER.map((verdict) => {
-              const count = verdictCounts[verdict];
-              const isActive = verdictFilter === verdict;
-              return (
-                <button
-                  key={verdict}
+          {/* Unified Filter & Sort Studio Bar */}
+          <div className="rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] p-3.5 sm:p-4 space-y-3.5">
+            {/* Verdict Filter Pills with Gliding Active Indicator */}
+            <div className="overflow-x-auto no-scrollbar pb-0.5 sm:overflow-visible">
+              <div
+                className="inline-flex items-center gap-1 p-1 rounded-xl bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] sm:flex-wrap"
+                role="group"
+                aria-label={t.filterDecisionLabel}
+              >
+                <motion.button
                   type="button"
-                  aria-pressed={isActive}
-                  onClick={() => setVerdictFilter((prev) => (prev === verdict ? 'all' : verdict))}
-                  className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${verdictChipTone(
-                    verdict,
-                    isActive
-                  )}`}
+                  aria-pressed={verdictFilter === 'all'}
+                  whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                  onClick={() => setVerdictFilter('all')}
+                  className={`relative inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#10F5A0] ${
+                    verdictFilter === 'all'
+                      ? 'text-white dark:text-[#06070A]'
+                      : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50'
+                  }`}
                 >
-                  <span>{t.decisionVerdictLabels[verdict]}</span>
-                  <span className="font-mono tabular-nums opacity-85">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+                  {verdictFilter === 'all' && (
+                    <motion.span
+                      layoutId="saved-verdict-pill"
+                      transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.snappy}
+                      aria-hidden="true"
+                      className={`absolute inset-0 rounded-lg ${verdictPillSurface('all')}`}
+                    />
+                  )}
+                  <span className="relative z-10">{t.savedVerdictAll}</span>
+                  <span className="relative z-10 font-mono tabular-nums opacity-80">
+                    {categoryScoped.length}
+                  </span>
+                </motion.button>
 
-          {/* Category Filter, Summary & Sort Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 min-w-0">
-              {presentCategories.length <= 4 ? (
-                <div className="relative max-w-full min-w-0">
-                  <div
-                    className="sp-segmented flex max-w-full overflow-x-auto no-scrollbar pr-7 sm:pr-1"
-                    role="group"
-                    aria-label={t.settingCategoryLabel}
-                  >
-                    <button
+                {VERDICT_ORDER.map((verdict) => {
+                  const count = verdictCounts[verdict];
+                  const isActive = verdictFilter === verdict;
+                  return (
+                    <motion.button
+                      key={verdict}
                       type="button"
-                      onClick={() => setCategoryFilter('all')}
-                      className={`sp-segmented-item shrink-0 ${
-                        categoryFilter === 'all'
-                          ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                      aria-pressed={isActive}
+                      whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
+                      onClick={() => setVerdictFilter((prev) => (prev === verdict ? 'all' : verdict))}
+                      className={`relative inline-flex items-center gap-1.5 min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-[#10F5A0] ${
+                        isActive
+                          ? verdict === 'not-recommended'
+                            ? 'text-white'
+                            : 'text-white dark:text-[#06070A]'
+                          : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50'
                       }`}
                     >
-                      {t.categoryAll}
-                    </button>
-                    {presentCategories.map((catId) => (
+                      {isActive && (
+                        <motion.span
+                          layoutId="saved-verdict-pill"
+                          transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.snappy}
+                          aria-hidden="true"
+                          className={`absolute inset-0 rounded-lg ${verdictPillSurface(verdict)}`}
+                        />
+                      )}
+                      {!isActive && (
+                        <span
+                          aria-hidden="true"
+                          className={`relative z-10 w-1.5 h-1.5 rounded-full shrink-0 ${verdictInactiveDot(verdict)}`}
+                        />
+                      )}
+                      <span className="relative z-10">{t.decisionVerdictLabels[verdict]}</span>
+                      <span className="relative z-10 font-mono tabular-nums opacity-85">{count}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Category Filter, Avg Score & Sort Bar */}
+            <div className="pt-3 border-t border-[var(--sp-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 min-w-0">
+                {presentCategories.length <= 4 ? (
+                  <div className="relative max-w-full min-w-0">
+                    <div
+                      className="sp-segmented flex max-w-full overflow-x-auto no-scrollbar pr-7 sm:pr-1"
+                      role="group"
+                      aria-label={t.settingCategoryLabel}
+                    >
                       <button
-                        key={catId}
                         type="button"
-                        onClick={() => setCategoryFilter(catId)}
+                        onClick={() => setCategoryFilter('all')}
                         className={`sp-segmented-item shrink-0 ${
-                          categoryFilter === catId
-                            ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 shadow-xs'
+                          categoryFilter === 'all'
+                            ? 'bg-[var(--sp-surface)] text-zinc-950 dark:text-zinc-50 shadow-xs'
                             : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
                         }`}
                       >
-                        {getCategoryLabel(catId, language, { short: true })}
+                        {t.categoryAll}
                       </button>
-                    ))}
+                      {presentCategories.map((catId) => (
+                        <button
+                          key={catId}
+                          type="button"
+                          onClick={() => setCategoryFilter(catId)}
+                          className={`sp-segmented-item shrink-0 ${
+                            categoryFilter === catId
+                              ? 'bg-[var(--sp-surface)] text-zinc-950 dark:text-zinc-50 shadow-xs'
+                              : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
+                          }`}
+                        >
+                          {getCategoryLabel(catId, language, { short: true })}
+                        </button>
+                      ))}
+                    </div>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-xl bg-gradient-to-l from-[var(--sp-surface-muted)] to-transparent sm:hidden"
+                    />
                   </div>
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-7 rounded-r-lg bg-gradient-to-l from-zinc-100 dark:from-zinc-800 to-transparent sm:hidden"
-                  />
-                </div>
-              ) : (
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-                  aria-label={t.settingCategoryLabel}
-                  className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
+                ) : (
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+                    aria-label={t.settingCategoryLabel}
+                    className="w-full sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE] cursor-pointer"
+                  >
+                    <option value="all">{t.categoryAll}</option>
+                    {presentCategories.map((catId) => (
+                      <option key={catId} value={catId}>
+                        {getCategoryLabel(catId, language)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <span className="text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
+                  {t.shortlistAvgScore}:{' '}
+                  <strong className="text-emerald-700 dark:text-[#10F5A0]">
+                    <AnimatedNumber value={avgScore} suffix="/100" />
+                  </strong>
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <label
+                  htmlFor="saved-sort"
+                  className="text-xs font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap shrink-0"
                 >
-                  <option value="all">{t.categoryAll}</option>
-                  {presentCategories.map((catId) => (
-                    <option key={catId} value={catId}>
-                      {getCategoryLabel(catId, language)}
-                    </option>
-                  ))}
+                  {t.sortLabel}
+                </label>
+                <select
+                  id="saved-sort"
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
+                  className="flex-1 sm:flex-initial sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-[var(--sp-surface-muted)] border border-[var(--sp-border)] rounded-xl text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-cyan-500 dark:focus:border-[#25F4EE] cursor-pointer"
+                >
+                  <option value="newest">{t.savedSortNewest}</option>
+                  <option value="score-desc">{t.sortScoreDesc}</option>
+                  <option value="price-asc">{t.sortPriceAsc}</option>
+                  <option value="price-desc">{t.sortPriceDesc}</option>
                 </select>
-              )}
-
-              <span className="text-xs text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
-                {t.shortlistAvgScore}:{' '}
-                <strong className="text-zinc-950 dark:text-zinc-50">{avgScore}/100</strong>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <label
-                htmlFor="saved-sort"
-                className="text-xs font-medium text-zinc-600 dark:text-zinc-400 whitespace-nowrap shrink-0"
-              >
-                {t.sortLabel}
-              </label>
-              <select
-                id="saved-sort"
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SavedSortKey)}
-                className="flex-1 sm:flex-initial sm:w-auto min-h-[40px] px-3 py-2 text-xs sm:text-sm font-medium bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-zinc-900 dark:focus:border-zinc-300 cursor-pointer"
-              >
-                <option value="newest">{t.savedSortNewest}</option>
-                <option value="score-desc">{t.sortScoreDesc}</option>
-                <option value="price-asc">{t.sortPriceAsc}</option>
-                <option value="price-desc">{t.sortPriceDesc}</option>
-              </select>
+              </div>
             </div>
           </div>
 
-          {/* Saved Product Cards (Identical anatomy to ResearchResultCard) */}
+          {/* Saved Product Cards (Obsidian Hunter v2.0 Anatomy + Guarded Grid Reflow) */}
           {evaluatedRecords.length === 0 ? (
-            <StateMessage
-              variant="empty"
-              icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
-              reason={t.emptyFilteredTitle}
-              actionLabel={t.savedResetFiltersBtn}
-              actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
-              onAction={() => {
-                setCategoryFilter('all');
-                setVerdictFilter('all');
-              }}
-            />
+            <div className="rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] p-4 sm:p-6">
+              <StateMessage
+                variant="empty"
+                icon={<Bookmark className="w-5 h-5" aria-hidden="true" />}
+                reason={t.emptyFilteredTitle}
+                actionLabel={t.savedResetFiltersBtn}
+                actionIcon={<RotateCcw className="w-4 h-4" aria-hidden="true" />}
+                onAction={() => {
+                  setCategoryFilter('all');
+                  setVerdictFilter('all');
+                }}
+              />
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {evaluatedRecords.map(({ record, evaluation, decision }) => {
+              <AnimatePresence mode={enableGridReflow ? 'popLayout' : 'sync'} initial={false}>
+              {evaluatedRecords.map(({ record, evaluation, decision }, idx) => {
                 const product = record.product;
                 const displayName = isMy ? product.nameMy : product.name;
                 const categoryLabel = getCategoryLabel(product.category, language, { short: true });
@@ -544,16 +609,23 @@ export function SavedProductsView({
                 const isCompared = comparedKeys?.has(`saved:${record.id}`) ?? false;
 
                 return (
-                  <article
+                  <motion.article
                     key={record.id}
-                    className="group sp-card overflow-hidden flex flex-col transition-all duration-200 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-[0_10px_28px_-14px_rgba(9,9,11,0.12)]"
+                    layout={enableGridReflow ? 'position' : false}
+                    variants={MOTION_VARIANTS.cardReveal}
+                    custom={idx}
+                    initial={prefersReduced ? false : 'initial'}
+                    animate="animate"
+                    exit={prefersReduced ? undefined : 'exit'}
+                    whileHover={prefersReduced ? undefined : TACTILE_INTERACTIONS.cardHover}
+                    className="group rounded-2xl bg-[var(--sp-surface)] border border-[var(--sp-border)] overflow-hidden flex flex-col transition-colors hover:border-zinc-300 dark:hover:border-white/20 shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.03]"
                   >
                     {/* Row 1: Media Thumbnail */}
                     <button
                       type="button"
                       onClick={() => onOpenReport(record)}
                       aria-label={`${t.cardOpenReport}: ${displayName}`}
-                      className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 flex items-center justify-center"
+                      className="relative aspect-[16/10] sm:aspect-[4/3] w-full bg-[var(--sp-surface-muted)] overflow-hidden text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-[#25F4EE] flex items-center justify-center"
                     >
                       {imageConfig.canRender && imageConfig.src ? (
                         <ProductImage
@@ -662,8 +734,8 @@ export function SavedProductsView({
                         </div>
                       </div>
 
-                      {/* Row 4: 2x2 Key Metrics (label left, StatusDot right — matches ResearchResultCard) */}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800/70">
+                      {/* Row 4: 2x2 Key Metrics (Obsidian Volt Money & Market Telemetry) */}
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 pt-3 border-t border-[var(--sp-border)]">
                         {/* Price */}
                         <div className="min-w-0">
                           <div className="flex items-center justify-between gap-1.5">
@@ -673,9 +745,15 @@ export function SavedProductsView({
                             <StatusDot status={effectivePriceStatus} language={language} size="sm" />
                           </div>
                           <div className="mt-0.5 font-mono text-[15px] font-bold text-zinc-950 dark:text-zinc-50 tabular-nums truncate">
-                            {product.priceThb !== null && product.priceThb > 0
-                              ? formatThb(product.priceThb)
-                              : '—'}
+                            {product.priceThb !== null && product.priceThb > 0 ? (
+                              <AnimatedNumber
+                                value={product.priceThb}
+                                prefix="฿"
+                                decimals={Number.isInteger(product.priceThb) ? 0 : 2}
+                              />
+                            ) : (
+                              '—'
+                            )}
                           </div>
                         </div>
 
@@ -695,13 +773,25 @@ export function SavedProductsView({
                             <span
                               className={`font-mono text-[15px] font-bold tabular-nums shrink-0 ${
                                 hasVerifiedComm && product.commissionRate !== null
-                                  ? 'text-emerald-700 dark:text-emerald-400'
+                                  ? 'text-emerald-700 dark:text-[#10F5A0]'
                                   : 'text-zinc-500 dark:text-zinc-400'
                               }`}
                             >
-                              {hasVerifiedComm && product.commissionRate !== null
-                                ? `${product.commissionRate}%`
-                                : '—'}
+                              {hasVerifiedComm && product.commissionRate !== null ? (
+                                <AnimatedNumber
+                                  value={product.commissionRate}
+                                  suffix="%"
+                                  decimals={Number.isInteger(product.commissionRate) ? 0 : 1}
+                                  highlightSignal={
+                                    product.commissionVerified === true &&
+                                    product.commissionRate >= 10
+                                      ? 'emerald-sheen'
+                                      : 'none'
+                                  }
+                                />
+                              ) : (
+                                '—'
+                              )}
                             </span>
                             {hasVerifiedComm && product.estimatedCommissionPerSaleThb !== null && (
                               <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums truncate">
@@ -722,11 +812,11 @@ export function SavedProductsView({
                           <div
                             className={`mt-0.5 font-mono text-[15px] font-bold tabular-nums truncate ${
                               salesVolume !== null
-                                ? 'text-zinc-950 dark:text-zinc-50'
+                                ? 'text-cyan-700 dark:text-[#25F4EE]'
                                 : 'text-zinc-500 dark:text-zinc-400'
                             }`}
                           >
-                            {salesVolume !== null ? salesVolume.toLocaleString('en-US') : '—'}
+                            {salesVolume !== null ? <AnimatedNumber value={salesVolume} /> : '—'}
                           </div>
                         </div>
 
@@ -752,52 +842,64 @@ export function SavedProductsView({
                         </div>
                       </div>
 
+                      {/* Compact Affiliate Technical Signal Strip */}
+                      <TechnicalSignalStrip
+                        product={product}
+                        evaluation={evaluation}
+                        language={language}
+                        variant="compact"
+                      />
+
                       {/* Row 5: Actions */}
-                      <div className="mt-auto pt-3 border-t border-zinc-100 dark:border-zinc-800/70 space-y-2">
-                        <button
+                      <div className="mt-auto pt-3 border-t border-[var(--sp-border)] space-y-2">
+                        <motion.button
                           type="button"
+                          whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                           onClick={() => onOpenReport(record)}
                           className="sp-btn-primary w-full text-xs font-semibold"
                         >
                           <span>{t.cardOpenReport}</span>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                        </button>
+                        </motion.button>
 
                         <div className="grid grid-cols-2 gap-2">
                           {onToggleCompareRecord && (
-                            <button
+                            <motion.button
                               type="button"
+                              whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                               onClick={() => onToggleCompareRecord(record)}
                               aria-pressed={isCompared}
-                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                              className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium rounded-xl border transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:focus-visible:ring-[#25F4EE] ${
                                 isCompared
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50'
+                                  ? 'bg-cyan-500/12 dark:bg-[#25F4EE]/12 text-cyan-800 dark:text-[#25F4EE] border-cyan-500/35 dark:border-[#25F4EE]/40'
+                                  : 'bg-[var(--sp-surface)] text-zinc-700 dark:text-zinc-200 border-[var(--sp-border-strong)] hover:border-zinc-400 dark:hover:border-white/25 hover:text-zinc-950 dark:hover:text-zinc-50'
                               }`}
                             >
                               <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                               <span className="truncate">
                                 {isCompared ? t.compareSelectedBtn : t.compareSelectBtn}
                               </span>
-                            </button>
+                            </motion.button>
                           )}
 
-                          <button
+                          <motion.button
                             type="button"
+                            whileTap={prefersReduced ? undefined : TACTILE_INTERACTIONS.buttonTap}
                             onClick={() => onDelete(record.id)}
-                            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-red-300 dark:hover:border-red-700 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50/40 dark:hover:bg-red-950/40 transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                            className={`inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 bg-[var(--sp-surface)] border border-[var(--sp-border-strong)] rounded-xl hover:border-rose-400/60 dark:hover:border-[#FE2C55]/50 hover:text-rose-700 dark:hover:text-[#FE2C55] hover:bg-rose-500/[0.06] dark:hover:bg-[#FE2C55]/[0.08] transition-colors cursor-pointer whitespace-nowrap min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:focus-visible:ring-[#FE2C55] ${
                               onToggleCompareRecord ? '' : 'col-span-2'
                             }`}
                           >
                             <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                             <span className="truncate">{t.savedDeleteBtn}</span>
-                          </button>
+                          </motion.button>
                         </div>
                       </div>
                     </div>
-                  </article>
+                  </motion.article>
                 );
               })}
+              </AnimatePresence>
             </div>
           )}
         </>

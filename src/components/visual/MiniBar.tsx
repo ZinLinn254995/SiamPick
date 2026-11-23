@@ -1,3 +1,6 @@
+import { motion, useReducedMotion } from 'motion/react';
+import { MOTION_TRANSITIONS } from '../../utils/motionPresets';
+
 export type MiniBarTone = 'emerald' | 'amber' | 'red' | 'zinc' | 'sky' | 'violet' | 'teal' | 'slate';
 
 export interface MiniBarProps {
@@ -43,10 +46,11 @@ export function MiniBar({
   hideValue = false,
   className = '',
 }: MiniBarProps) {
+  const prefersReduced = useReducedMotion();
   const safeMax = max > 0 ? max : 100;
   const isAvailable = typeof value === 'number' && Number.isFinite(value);
   const clampedValue = isAvailable ? Math.max(0, Math.min(safeMax, value)) : 0;
-  const pct = (clampedValue / safeMax) * 100;
+  const ratio = Math.max(0, Math.min(1, clampedValue / safeMax));
 
   const formattedValue =
     valueText ??
@@ -81,9 +85,11 @@ export function MiniBar({
         aria-valuemax={safeMax}
         className="flex-1 min-w-[48px] h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden"
       >
-        <div
-          className={`h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none ${FILL_CLASSES[tone]}`}
-          style={{ width: `${pct}%` }}
+        <motion.div
+          className={`h-full w-full origin-left rounded-full ${FILL_CLASSES[tone]}`}
+          initial={prefersReduced ? false : { scaleX: 0 }}
+          animate={{ scaleX: ratio }}
+          transition={prefersReduced ? { duration: 0 } : MOTION_TRANSITIONS.ticker}
         />
       </div>
 

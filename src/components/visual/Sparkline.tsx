@@ -1,3 +1,6 @@
+import { motion, useReducedMotion } from 'motion/react';
+import { MOTION_EASE, MOTION_TRANSITIONS } from '../../utils/motionPresets';
+
 export type SparklineTone = 'emerald' | 'amber' | 'red' | 'zinc';
 
 export interface SparklineProps {
@@ -6,6 +9,7 @@ export interface SparklineProps {
   width?: number;
   height?: number;
   ariaLabel?: string;
+  animate?: boolean;
   className?: string;
 }
 
@@ -34,13 +38,16 @@ export function Sparkline({
   width = 88,
   height = 28,
   ariaLabel,
+  animate = true,
   className = '',
 }: SparklineProps) {
+  const prefersReduced = useReducedMotion();
   const validPoints = points.filter((p) => Number.isFinite(p));
   if (validPoints.length < 3) {
     return null;
   }
 
+  const shouldAnimate = animate && !prefersReduced;
   const first = validPoints[0];
   const last = validPoints[validPoints.length - 1];
   const resolvedTone: SparklineTone =
@@ -63,7 +70,9 @@ export function Sparkline({
     return { x, y };
   });
 
-  const polylinePoints = coords.map((pt) => `${pt.x.toFixed(1)},${pt.y.toFixed(1)}`).join(' ');
+  const pathD = coords
+    .map((pt, idx) => `${idx === 0 ? 'M' : 'L'}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
+    .join(' ');
   const lastCoord = coords[coords.length - 1];
   const trendWord = last > first ? 'upward' : last < first ? 'downward' : 'flat';
 
@@ -76,18 +85,28 @@ export function Sparkline({
       viewBox={`0 0 ${width} ${height}`}
       className={`inline-block shrink-0 overflow-visible ${className}`}
     >
-      <polyline
+      <motion.path
+        d={pathD}
         fill="none"
         strokeWidth={1.75}
         strokeLinecap="round"
         strokeLinejoin="round"
-        points={polylinePoints}
+        initial={shouldAnimate ? { pathLength: 0 } : { pathLength: 1 }}
+        animate={{ pathLength: 1 }}
+        transition={shouldAnimate ? MOTION_TRANSITIONS.ticker : { duration: 0 }}
         className={styles.stroke}
       />
-      <circle
+      <motion.circle
         cx={lastCoord.x}
         cy={lastCoord.y}
         r={2.75}
+        initial={shouldAnimate ? { opacity: 0 } : { opacity: 1 }}
+        animate={{ opacity: 1 }}
+        transition={
+          shouldAnimate
+            ? { delay: 0.22, duration: 0.18, ease: MOTION_EASE.expoOut }
+            : { duration: 0 }
+        }
         className={styles.fill}
       />
     </svg>
