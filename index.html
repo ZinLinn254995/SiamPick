@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>SiamPick — Thailand TikTok Shop Product Hunting</title>
     <meta
       name="description"
@@ -37,6 +37,9 @@
           var storedLang = window.localStorage.getItem('siampick_language_v1');
           if (storedLang === 'my' || storedLang === 'en') {
             document.documentElement.lang = storedLang;
+          }
+          if (window.location.search.indexOf('ui=legacy') === -1) {
+            document.documentElement.style.backgroundColor = '#05020F';
           }
         } catch (e) {}
       })();
