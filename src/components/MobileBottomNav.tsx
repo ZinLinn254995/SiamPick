@@ -4,8 +4,6 @@ import { TRANSLATIONS } from '../i18n/translations';
 
 export interface MobileBottomNavProps {
   activeView: AppView;
-  shortlistCount: number;
-  historyCount: number;
   onSelectDiscover: () => void;
   onSelectHistory: () => void;
   onSelectSaved: () => void;
@@ -14,8 +12,6 @@ export interface MobileBottomNavProps {
 
 export function MobileBottomNav({
   activeView,
-  shortlistCount,
-  historyCount,
   onSelectDiscover,
   onSelectHistory,
   onSelectSaved,
@@ -68,14 +64,7 @@ export function MobileBottomNav({
               className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-zinc-950 dark:bg-zinc-100"
             />
           )}
-          <span className="relative inline-flex items-center justify-center">
-            <History className="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
-            {historyCount > 0 && (
-              <span className="absolute -top-1.5 -right-3 min-w-[17px] h-[17px] px-1 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-xs font-semibold tabular-nums inline-flex items-center justify-center leading-none">
-                {historyCount > 99 ? '99+' : historyCount}
-              </span>
-            )}
-          </span>
+          <History className="w-[18px] h-[18px] shrink-0" aria-hidden="true" />
           <span className="truncate max-w-full leading-tight">{t.navHistory}</span>
         </button>
 
@@ -95,23 +84,10 @@ export function MobileBottomNav({
               className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full bg-emerald-700 dark:bg-emerald-400"
             />
           )}
-          <span className="relative inline-flex items-center justify-center">
-            <Bookmark
-              className={`w-[18px] h-[18px] shrink-0 ${isSavedActive ? 'fill-current' : ''}`}
-              aria-hidden="true"
-            />
-            {shortlistCount > 0 && (
-              <span
-                className={`absolute -top-1.5 -right-3 min-w-[17px] h-[17px] px-1 rounded-full font-mono text-xs font-semibold tabular-nums inline-flex items-center justify-center leading-none ${
-                  isSavedActive
-                    ? 'bg-emerald-700 text-white'
-                    : 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
-                }`}
-              >
-                {shortlistCount > 99 ? '99+' : shortlistCount}
-              </span>
-            )}
-          </span>
+          <Bookmark
+            className={`w-[18px] h-[18px] shrink-0 ${isSavedActive ? 'fill-current' : ''}`}
+            aria-hidden="true"
+          />
           <span className="truncate max-w-full leading-tight">{t.shortlistBtn}</span>
         </button>
       </div>

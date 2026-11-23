@@ -3,7 +3,6 @@ import {
   AlertCircle,
   ArrowRight,
   ChevronDown,
-  ChevronUp,
   ExternalLink,
   Globe,
   PauseCircle,
@@ -16,6 +15,7 @@ import type {
   GroundingSourceLink,
   Language,
   OpportunityEvaluation,
+  ProductCategory,
   ProductDecision,
   ProductDecisionSummary,
   ProductResultsFilterState,
@@ -50,6 +50,7 @@ import { ProductFilterBar } from './ProductFilterBar';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ScoringRubricPanel } from './ScoringRubricPanel';
 import {
+  AnimatedNumber,
   ResearchResultCardSkeleton,
   StateMessage,
   StatusLegendPopover,
@@ -244,6 +245,17 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
     return UNIVERSAL_CATEGORIES.map((c) => c.id).filter((id) => seen.has(id));
   }, [liveResults]);
 
+  const queueCategoryCounts = useMemo(() => {
+    const counts: Partial<Record<ProductCategory, number>> = {};
+    for (const product of liveResults) {
+      if (decisionFilter === 'active' && rejectedIdSet.has(product.id)) continue;
+      if (decisionFilter === 'saved' && !savedIdSet.has(product.id)) continue;
+      if (decisionFilter === 'rejected' && !rejectedIdSet.has(product.id)) continue;
+      counts[product.category] = (counts[product.category] ?? 0) + 1;
+    }
+    return counts;
+  }, [liveResults, decisionFilter, savedIdSet, rejectedIdSet]);
+
   const activeCategoryLabel = useMemo(() => {
     if (!activeHuntConfig) return '';
     if (activeHuntConfig.selectedCategories && activeHuntConfig.selectedCategories.length > 0) {
@@ -303,28 +315,28 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
       id="catalog-section"
       ref={sectionRef}
       aria-labelledby="results-section-heading"
-      className="mt-10 sm:mt-12 scroll-mt-20"
+      className="mt-6 sm:mt-8 scroll-mt-20"
     >
-      {/* Section Title + Status Legend + Session Timestamp */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* Section Title + Animated Count + Inline Date */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pb-2.5 border-b border-zinc-200/80 dark:border-zinc-800/80">
+        <div className="flex flex-wrap items-center gap-2">
           <h2
             id="results-section-heading"
-            className={`font-display text-xl font-bold text-zinc-950 dark:text-zinc-50 ${
+            className={`font-display text-lg sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 ${
               language === 'my' ? 'tracking-normal leading-[1.3]' : 'tracking-tight'
             }`}
           >
             {t.resultsSectionHeading}
           </h2>
-          <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-            ({visibleProducts.length})
+          <span className="font-mono text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+            (<AnimatedNumber value={visibleProducts.length} />)
           </span>
           <StatusLegendPopover language={language} />
         </div>
 
         {researchedAt && !isHunting && (
           <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-            {t.savedResearchDateLabel}: {formatResearchDate(researchedAt, language)}
+            {formatResearchDate(researchedAt, language)}
           </span>
         )}
       </div>
@@ -384,29 +396,33 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
         </div>
       )}
 
-      {/* Kalodata OpenAPI Verified Sources & Cost Accordion */}
+      {/* Kalodata OpenAPI Verified Sources & Cost Provenance Bar */}
       {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
-        <div className="mt-4 sp-card overflow-hidden">
+        <div className="mt-3 relative rounded-xl overflow-hidden border border-emerald-200/80 dark:border-emerald-800/50 bg-gradient-to-r from-emerald-50/55 via-white to-cyan-50/45 dark:from-emerald-950/25 dark:via-zinc-900 dark:to-cyan-950/20">
           <button
             type="button"
             onClick={() => setGroundingOpen((prev) => !prev)}
             aria-expanded={groundingOpen}
-            className="w-full min-h-[48px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            className="w-full min-h-[46px] px-3.5 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-emerald-50/50 dark:hover:bg-emerald-950/35 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
           >
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <Globe
-                className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
-                aria-hidden="true"
-              />
+              <span className="w-7 h-7 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/45 border border-emerald-200/70 dark:border-emerald-700/50 inline-flex items-center justify-center shrink-0">
+                <Globe
+                  className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400"
+                  aria-hidden="true"
+                />
+              </span>
               <div className="min-w-0 flex-1 space-y-0.5">
-                <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 leading-snug truncate">
                   {t.kalodataSourceBarLabel}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-600 dark:text-zinc-400 leading-snug">
                   {sessionMeta ? (
-                    <span className="font-mono tabular-nums">
+                    <span className="font-mono font-medium tabular-nums text-zinc-800 dark:text-zinc-200">
                       {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
-                      {t.qualityGateVerifiedLabel}
+                      <span className="font-sans text-zinc-500 dark:text-zinc-400">
+                        {t.qualityGateVerifiedLabel}
+                      </span>
                     </span>
                   ) : (
                     <span>
@@ -415,8 +431,10 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
                   )}
                   {lastCostSummary && lastCostSummary.actualCredits !== null && (
                     <>
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+                      <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                        ·
+                      </span>
+                      <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold whitespace-nowrap">
                         {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
                       </span>
                     </>
@@ -428,16 +446,17 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
               <span className="hidden sm:inline">
                 {groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
               </span>
-              {groundingOpen ? (
-                <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
-              )}
+              <ChevronDown
+                className={`w-4 h-4 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none ${
+                  groundingOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+                aria-hidden="true"
+              />
             </span>
           </button>
 
           {groundingOpen && (
-            <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
+            <div className="border-t border-emerald-200/60 dark:border-emerald-800/40 px-3.5 sm:px-5 pb-4 pt-3 space-y-3 bg-white/80 dark:bg-zinc-900/90 sp-rise-in">
               <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
                 <p>{t.kalodataSourceNote}</p>
                 {sessionMeta &&
@@ -569,6 +588,7 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
         onExportCsv={handleExportVisibleCsv}
         onExportJson={handleExportVisibleJson}
         availableCategories={availableResultCategories}
+        categoryCounts={queueCategoryCounts}
         language={language}
       />
 

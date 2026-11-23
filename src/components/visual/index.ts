@@ -28,4 +28,8 @@ export type { StateMessageProps } from './StateMessage';
 export { BounceMarquee } from './BounceMarquee';
 export type { BounceMarqueeProps } from './BounceMarquee';
 
+export { AnimatedNumber } from './AnimatedNumber';
+export type { AnimatedNumberProps } from './AnimatedNumber';
+
+
 

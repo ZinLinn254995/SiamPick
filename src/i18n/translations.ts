@@ -2156,7 +2156,7 @@ export const TRANSLATIONS: Record<
     exportJsonBtn: 'JSON ထုတ်မည်',
     compareSelectBtn: 'နှိုင်းယှဉ်မည်',
     compareSelectedBtn: 'ရွေးထားပြီး',
-    compareBarTitle: 'နှိုင်းယှဉ်ရန် ရွေးထားသော ကုန်ပစ္စည်းများ',
+    compareBarTitle: 'နှိုင်းယှဉ်ရန် ရွေးထားသော ပစ္စည်းများ',
     compareOpenBtn: 'နှိုင်းယှဉ်ကြည့်မည်',
     compareClearBtn: 'ရှင်းလင်းမည်',
     compareModalTitle: 'ကုန်ပစ္စည်းများ နှိုင်းယှဉ်ချက်',

@@ -1297,10 +1297,7 @@ export const ALL_PRODUCT_CATEGORIES: readonly ProductCategory[] = UNIVERSAL_CATE
   (def) => def.id
 );
 
-export const DEFAULT_SELECTED_CATEGORIES: readonly ProductCategory[] = [
-  'womens-fashion',
-  'cosmetics-beauty',
-];
+export const DEFAULT_SELECTED_CATEGORIES: readonly ProductCategory[] = [];
 
 export const SYNCED_CATEGORIES_STORAGE_KEY = 'siampick_kalodata_categories_v1';
 export const SYNCED_CATEGORIES_SCHEMA_VERSION = 1;

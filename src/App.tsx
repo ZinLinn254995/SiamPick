@@ -88,7 +88,7 @@ import {
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { BounceMarquee, StateMessage } from './components/visual';
+import { StateMessage } from './components/visual';
 import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
 import { ResearchHistoryView, type HistoryTab } from './components/ResearchHistoryView';
@@ -96,7 +96,10 @@ import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { BackupRestoreModal, type BackupModalTab } from './components/BackupRestoreModal';
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
-import { DiscoveryLauncher } from './components/DiscoveryLauncher';
+import {
+  DiscoveryLauncher,
+  type LauncherPerformanceMetrics,
+} from './components/DiscoveryLauncher';
 import { HuntingResultsSection } from './components/HuntingResultsSection';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
 import { useTheme } from './hooks/useTheme';
@@ -799,7 +802,7 @@ export default function App() {
 
   const handleSelectAllVerifiedCategories = () => {
     const selectable = getSelectableCategories(syncedCategoryCache);
-    setSelectedCategories(selectable.length > 0 ? selectable : [...DEFAULT_SELECTED_CATEGORIES]);
+    setSelectedCategories(selectable);
   };
 
   const handleClearAllCategories = () => {
@@ -812,15 +815,14 @@ export default function App() {
     const selectableSet = new Set(getSelectableCategories(nextCache));
     setSelectedCategories((prev) => {
       const pruned = prev.filter((cat) => selectableSet.has(cat));
-      const nextSelected = pruned.length > 0 ? pruned : [...DEFAULT_SELECTED_CATEGORIES];
-      const nextSelectedSet = new Set(nextSelected);
+      const nextSelectedSet = new Set(pruned);
       setSelectedSubcategoryIds((prevSubs) =>
         prevSubs.filter((subId) => {
           const sub = nextCache.subcategories.find((s) => s.id === subId);
           return !sub?.parentCategory || nextSelectedSet.has(sub.parentCategory);
         })
       );
-      return nextSelected;
+      return pruned;
     });
   };
 
@@ -1635,6 +1637,43 @@ export default function App() {
     [liveResults, deferredSalesWeightPct, deferredStrategyPreset]
   );
 
+  const launcherPerformanceMetrics = useMemo<LauncherPerformanceMetrics | null>(() => {
+    if (liveResults.length === 0) return null;
+    let topScore: number | null = null;
+    let priorityCount = 0;
+    let maxCommissionPct: number | null = null;
+
+    for (const product of liveResults) {
+      const evaluation = liveEvaluations.get(product.id);
+      if (evaluation) {
+        if (topScore === null || evaluation.totalScore > topScore) {
+          topScore = evaluation.totalScore;
+        }
+        if (evaluation.totalScore >= 70) {
+          priorityCount += 1;
+        }
+      }
+      if (
+        product.commissionVerified &&
+        typeof product.commissionRate === 'number' &&
+        Number.isFinite(product.commissionRate) &&
+        product.commissionRate > 0 &&
+        product.commissionStatus !== 'unavailable'
+      ) {
+        if (maxCommissionPct === null || product.commissionRate > maxCommissionPct) {
+          maxCommissionPct = product.commissionRate;
+        }
+      }
+    }
+
+    return {
+      totalProducts: liveResults.length,
+      priorityCount,
+      topScore,
+      maxCommissionPct,
+    };
+  }, [liveResults, liveEvaluations]);
+
   const handleToggleSortDirection = useCallback(() => {
     setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'));
   }, []);
@@ -1756,13 +1795,21 @@ export default function App() {
         onDailyBudgetLimitChange={handleDailyBudgetLimitChange}
       />
 
-      <main className="flex-1 w-full max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-12 sm:pb-20">
-        {/* Subtle Market Context Line (hidden inside Deep Dive where product header leads) */}
+      <main className="flex-1 w-full max-w-[1280px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-7 pb-12 sm:pb-20">
+        {/* Compact Market Context Line + Inline Research Info (hidden inside Deep Dive) */}
         {activeView !== 'deep-dive' && (
-          <div className="mb-2.5 sm:mb-3.5">
+          <div className="mb-1 sm:mb-2 flex items-center gap-1.5">
             <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
               Thailand · TikTok Shop Affiliate · THB (฿)
             </p>
+            {activeView === 'hunting' && (
+              <InfoPopover
+                variant="info"
+                label={t.heroTitle}
+                title={t.heroTitle}
+                content={t.heroSubtitle}
+              />
+            )}
           </div>
         )}
 
@@ -1883,26 +1930,18 @@ export default function App() {
           <>
             {/* Focused Editorial Header */}
             <section className="max-w-3xl">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1
-                  className={`font-display text-xl sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 text-balance ${
-                    language === 'my'
-                      ? 'tracking-normal leading-[1.35]'
-                      : 'tracking-tight leading-[1.18]'
-                  }`}
-                >
-                  {t.heroTitle}
-                </h1>
-                <InfoPopover
-                  variant="info"
-                  label={t.heroTitle}
-                  title={t.heroTitle}
-                  content={t.heroSubtitle}
-                />
-              </div>
+              <h1
+                className={`font-display text-lg sm:text-3xl font-bold text-zinc-950 dark:text-zinc-50 text-balance ${
+                  language === 'my'
+                    ? 'tracking-normal leading-[1.35]'
+                    : 'tracking-tight leading-[1.18]'
+                }`}
+              >
+                {t.heroTitle}
+              </h1>
             </section>
 
-            {/* Unified Discovery Launcher (2-Tab Batch Discovery | Single Link Research + Auto-Collapse Summary Bar) */}
+            {/* Unified Discovery Launcher (Option B: Live Performance Banner + Color-Coded Quick Switcher) */}
             <div ref={settingsSectionRef} className="scroll-mt-20">
               <DiscoveryLauncher
                 language={language}
@@ -1919,6 +1958,7 @@ export default function App() {
                 }}
                 salesWeightPct={salesWeightPct}
                 hasResults={liveResults.length > 0}
+                performanceMetrics={launcherPerformanceMetrics}
                 lastCostSummary={lastCostSummary}
                 singleHistoryCount={singleProductHistory.length}
                 settingsProps={{
@@ -2071,34 +2111,34 @@ export default function App() {
           <>
             {showCompareTray && (
               <div
-                className={`fixed inset-x-0 z-[35] pointer-events-none px-3.5 sm:px-6 lg:px-8 ${
+                className={`fixed inset-x-0 z-[35] pointer-events-none px-3 sm:px-6 lg:px-8 ${
                   showMobileBottomNav
                     ? 'bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-4'
                     : 'bottom-[calc(0.75rem+env(safe-area-inset-bottom))] md:bottom-4'
                 }`}
               >
                 <div className="max-w-[1280px] mx-auto">
-                  <div className="pointer-events-auto bg-zinc-950/96 dark:bg-zinc-900/96 backdrop-blur-md border border-zinc-800 dark:border-zinc-700 text-white rounded-xl px-3.5 sm:px-4 py-2 shadow-lg flex items-center justify-between gap-2.5 text-xs">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div className="pointer-events-auto bg-zinc-950/96 dark:bg-zinc-900/96 backdrop-blur-md border border-zinc-800 dark:border-zinc-700 text-white rounded-xl px-3 sm:px-4 py-2 shadow-lg flex flex-col items-stretch sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 min-w-0 sm:flex-1">
                       <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                      <BounceMarquee className="font-medium flex-1">
+                      <span className="font-medium leading-snug sm:truncate">
                         {t.compareBarTitle}:{' '}
                         <strong className="font-mono tabular-nums">{compareItems.length}</strong>
-                      </BounceMarquee>
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
                       <button
                         type="button"
                         onClick={() => setCompareItems([])}
-                        className="min-h-[40px] px-2.5 py-1.5 text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+                        className="min-h-[36px] sm:min-h-[40px] px-2.5 py-1 sm:py-1.5 text-zinc-300 hover:text-white rounded-lg hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
                       >
                         {t.compareClearBtn}
                       </button>
                       <button
                         type="button"
                         onClick={() => setComparisonModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 min-h-[36px] sm:min-h-[40px] px-3.5 py-1 sm:py-1.5 font-medium text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <span>
                           {t.compareOpenBtn} ({compareItems.length})
@@ -2115,10 +2155,10 @@ export default function App() {
               className={`border-t border-zinc-200/85 dark:border-zinc-800/85 bg-white dark:bg-zinc-900 ${
                 showMobileBottomNav
                   ? showCompareTray
-                    ? 'pb-[calc(8.5rem+env(safe-area-inset-bottom))] md:pb-20'
+                    ? 'pb-[calc(9.75rem+env(safe-area-inset-bottom))] md:pb-20'
                     : 'pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0'
                   : showCompareTray
-                    ? 'pb-[calc(5rem+env(safe-area-inset-bottom))]'
+                    ? 'pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-[calc(5rem+env(safe-area-inset-bottom))]'
                     : 'pb-[env(safe-area-inset-bottom)]'
               }`}
             >
@@ -2132,8 +2172,6 @@ export default function App() {
             {showMobileBottomNav && (
               <MobileBottomNav
                 activeView={activeView}
-                shortlistCount={savedRecords.length}
-                historyCount={researchHistory.length + singleProductHistory.length}
                 onSelectDiscover={handleGoHome}
                 onSelectHistory={() => {
                   setHistoryInitialTab('records');

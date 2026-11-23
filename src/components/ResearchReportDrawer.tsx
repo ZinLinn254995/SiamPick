@@ -67,11 +67,7 @@ import { DataEnrichmentSection } from './DataEnrichmentSection';
 import { SameProductHunterSection } from './SameProductHunterSection';
 import { InfoPopover } from './InfoPopover';
 import {
-  MiniBar,
-  type MiniBarTone,
   ScoreRing,
-  Sparkline,
-  StatCard,
   StatusDot,
   StatusLegendPopover,
   TrendDelta,
@@ -533,19 +529,16 @@ export function ResearchReportDrawer({
       >
         {/* Sticky Top Header + Section Jump Navigation */}
         <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="px-4 sm:px-6 h-[52px] sm:h-14 flex items-center justify-between gap-3">
-            <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
-              {t.reportTitle} · {categoryLabel}
-              {formattedResearchDate ? (
-                <span className="font-mono text-zinc-500 dark:text-zinc-400"> · {formattedResearchDate}</span>
-              ) : null}
+          <div className="px-4 sm:px-6 h-12 sm:h-13 flex items-center justify-between gap-2.5">
+            <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 truncate">
+              {t.reportTitle}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {onOpenDeepDive && (
                 <button
                   type="button"
                   onClick={() => onOpenDeepDive(product)}
-                  className="sp-btn-secondary !min-h-[38px] sm:!min-h-[40px] !px-2.5 sm:!px-3 !py-1.5 text-xs whitespace-nowrap shrink-0"
+                  className="sp-btn-secondary !min-h-[36px] !px-2.5 sm:!px-3 !py-1 text-xs whitespace-nowrap shrink-0"
                 >
                   <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   <span>Deep Dive</span>
@@ -555,7 +548,7 @@ export function ResearchReportDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label={t.reportClose}
-                className="w-10 h-10 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                className="w-9 h-9 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -563,10 +556,10 @@ export function ResearchReportDrawer({
           </div>
 
           {/* Quick-Jump Section Navigation with right-edge gradient fade, scroll-snap & active auto-scroll */}
-          <div className="relative">
+          <div className="relative border-t border-zinc-100 dark:border-zinc-800/70">
             <nav
               aria-label="Report sections"
-              className="no-scrollbar px-4 sm:px-6 pr-10 sm:pr-12 flex items-center gap-3.5 sm:gap-4 overflow-x-auto snap-x snap-mandatory scroll-pl-4 sm:scroll-pl-6 text-xs font-medium text-zinc-600 dark:text-zinc-400"
+              className="no-scrollbar px-4 sm:px-6 pr-10 sm:pr-12 flex items-center gap-4 overflow-x-auto snap-x snap-mandatory scroll-pl-4 sm:scroll-pl-6 text-xs font-medium text-zinc-600 dark:text-zinc-400"
             >
               {(
                 [
@@ -593,7 +586,7 @@ export function ResearchReportDrawer({
                     type="button"
                     onClick={() => jumpToSection(item.id)}
                     aria-current={isActive ? 'location' : undefined}
-                    className={`snap-start inline-flex items-center min-h-[40px] py-2 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    className={`snap-start inline-flex items-center min-h-[38px] py-1.5 border-b-2 transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                       isActive
                         ? 'text-zinc-950 dark:text-zinc-50 border-zinc-950 dark:border-zinc-100 font-semibold'
                         : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50'
@@ -656,8 +649,6 @@ export function ResearchReportDrawer({
                 : rawDateRange === 'last30Day'
                   ? t.periodLast30Day
                   : rawDateRange;
-            // Only show Sparkline when >= 3 actual points exist; Kalodata summary only provides avg/peak (2 stats)
-            const salesTrendPoints: number[] = [];
 
             const sortedCriteria = [...evaluation.criteria].sort((a, b) => {
               const weightDiff = b.effectiveWeight - a.effectiveWeight;
@@ -682,45 +673,61 @@ export function ResearchReportDrawer({
                   ? 'text-amber-700 dark:text-amber-400'
                   : 'text-zinc-600 dark:text-zinc-400';
 
-            const chipGroups = [
+            const hasSalesVolume =
+              typeof km?.salesVolume === 'number' && Number.isFinite(km.salesVolume);
+            const hasRevenue =
+              typeof km?.revenueThb === 'number' && Number.isFinite(km.revenueThb);
+            const salesDisplay = hasSalesVolume
+              ? `${km!.salesVolume!.toLocaleString('en-US')} ${t.bestSoldUnit}`
+              : hasRevenue
+                ? formatThb(km!.revenueThb!)
+                : null;
+            const salesSubDisplay =
+              hasSalesVolume && hasRevenue ? formatThb(km!.revenueThb!) : null;
+            const salesStatusForDot: DataStatus =
+              hasSalesVolume || hasRevenue ? 'verified' : 'unavailable';
+
+            const hasCreators =
+              !competitionUnavailable &&
+              typeof km?.creatorNumber === 'number' &&
+              Number.isFinite(km.creatorNumber);
+            const competitionStatusForDot: DataStatus = competitionUnavailable
+              ? 'unavailable'
+              : (competitionFactor?.verification ?? 'estimated');
+
+            const noteGroups = [
               {
                 key: 'strengths' as const,
                 heading: t.scoringStrengthsHeading,
                 items: strengthsList,
                 headingClass: 'text-emerald-800 dark:text-emerald-300',
-                chipClass:
-                  'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200/90 dark:border-emerald-800/70 text-emerald-900 dark:text-emerald-200',
-                btnClass:
-                  'text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70 hover:bg-emerald-50 dark:hover:bg-emerald-950/50',
+                markerClass: 'marker:text-emerald-600 dark:marker:text-emerald-400',
+                btnClass: 'text-emerald-700 dark:text-emerald-400 hover:underline',
               },
               {
                 key: 'weaknesses' as const,
                 heading: t.scoringWeaknessesHeading,
                 items: weaknessesList,
                 headingClass: 'text-amber-800 dark:text-amber-300',
-                chipClass:
-                  'bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/90 dark:border-amber-800/70 text-amber-900 dark:text-amber-200',
-                btnClass:
-                  'text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/70 hover:bg-amber-50 dark:hover:bg-amber-950/50',
+                markerClass: 'marker:text-amber-600 dark:marker:text-amber-400',
+                btnClass: 'text-amber-700 dark:text-amber-400 hover:underline',
               },
               {
                 key: 'risks' as const,
                 heading: t.scoringRisksHeading,
                 items: risksList,
                 headingClass: 'text-red-800 dark:text-red-300',
-                chipClass:
-                  'bg-red-50/90 dark:bg-red-950/40 border-red-200/90 dark:border-red-800/70 text-red-900 dark:text-red-200',
-                btnClass:
-                  'text-red-800 dark:text-red-300 border-red-200 dark:border-red-800/70 hover:bg-red-50 dark:hover:bg-red-950/50',
+                markerClass: 'marker:text-red-600 dark:marker:text-red-400',
+                btnClass: 'text-red-700 dark:text-red-400 hover:underline',
               },
             ].filter((group) => group.items.length > 0);
 
             return (
               <div id="rep-overview" className="scroll-mt-4 space-y-4 sm:space-y-5">
-                {/* A. Compact Hero Header (Thumbnail + Title + Inline ScoreRing) */}
+                {/* A. Clean Hero Header (Unboxed ScoreRing + Spacious Title + Unboxed Verdict/Confidence Row) */}
                 <div className="space-y-3">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="relative w-[72px] h-[72px] sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 border border-zinc-200/80 dark:border-zinc-800">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 shrink-0 border border-zinc-200/80 dark:border-zinc-800">
                       {imageConfig.canRender && imageConfig.src ? (
                         <>
                           <ProductImage
@@ -755,79 +762,77 @@ export function ResearchReportDrawer({
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
-                        {categoryLabel} · {subCategory}
-                        {product.shopName ? ` · ${product.shopName}` : ''}
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                        {categoryLabel}
+                        {subCategory ? ` · ${subCategory}` : ''}
                       </div>
 
                       <h2
                         id="research-report-title"
-                        className="font-display text-base sm:text-xl font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-2"
+                        className="font-display text-sm sm:text-lg font-bold text-zinc-950 dark:text-zinc-50 leading-snug line-clamp-3 sm:line-clamp-2"
                       >
                         {displayName}
                       </h2>
 
-                      <div className="hidden sm:flex flex-wrap items-center gap-2 pt-1">
-                        <VerdictBadge
-                          verdict={decisionSummary.verdict}
-                          size="md"
-                          language={language}
-                        />
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
-                          <span>{t.cardConfidence}:</span>
-                          <strong className={`font-mono font-bold tabular-nums ${confidenceToneClass}`}>
-                            {evaluation.confidencePct}%
-                          </strong>
-                          <span>· {t.confidenceLabels[evaluation.confidenceLevel]}</span>
-                        </span>
-                        <StatusLegendPopover language={language} />
-                      </div>
+                      {(product.shopName || formattedResearchDate) && (
+                        <div className="flex flex-wrap items-center gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          {product.shopName && (
+                            <span className="truncate max-w-[200px] sm:max-w-[280px]">
+                              {product.shopName}
+                            </span>
+                          )}
+                          {product.shopName && formattedResearchDate && (
+                            <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-700">
+                              ·
+                            </span>
+                          )}
+                          {formattedResearchDate && (
+                            <span className="font-mono tabular-nums">{formattedResearchDate}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Inline ScoreRing anchored top-right (compact on mobile, full on sm+) */}
-                    <div className="shrink-0 flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-800">
+                    {/* Clean Unboxed ScoreRing */}
+                    <div className="shrink-0 flex flex-col items-center">
                       <div className="sm:hidden">
-                        <ScoreRing
-                          value={evaluation.totalScore}
-                          size={56}
-                          label={t.cardOpportunityScore}
-                        />
+                        <ScoreRing value={evaluation.totalScore} size={52} />
                       </div>
                       <div className="hidden sm:block">
                         <ScoreRing
                           value={evaluation.totalScore}
-                          size={76}
+                          size={72}
                           label={t.cardOpportunityScore}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Mobile Verdict + Confidence + Status Legend row */}
-                  <div className="flex sm:hidden flex-wrap items-center gap-1.5">
+                  {/* Single Unboxed Verdict + Confidence + Status Legend Row */}
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                     <VerdictBadge
                       verdict={decisionSummary.verdict}
                       size="sm"
                       language={language}
                     />
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
                       <span>{t.cardConfidence}</span>
                       <strong className={`font-mono font-bold tabular-nums ${confidenceToneClass}`}>
                         {evaluation.confidencePct}%
                       </strong>
                       <span>· {t.confidenceLabels[evaluation.confidenceLevel]}</span>
                     </span>
-                    <StatusLegendPopover language={language} />
+                    <StatusLegendPopover language={language} className="-ml-1" />
                   </div>
 
-                  {/* Direct TikTok Shop CTA + Copy Link on one tight horizontal row */}
+                  {/* Subtle Secondary TikTok Shop Link + Copy Row (doesn't clash with sticky Save CTA) */}
                   {tiktokShopUrl && (
                     <div className="flex items-center gap-2">
                       <a
                         href={tiktokShopUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="sp-btn-primary flex-1 sm:flex-initial !px-3.5 text-xs whitespace-nowrap"
+                        className="sp-btn-secondary flex-1 sm:flex-initial !px-3.5 text-xs whitespace-nowrap"
                       >
                         <span className="truncate">{t.drawerOpenTikTokShop}</span>
                         <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -863,203 +868,231 @@ export function ResearchReportDrawer({
                   )}
                 </div>
 
-                {/* B. 4 StatCards (2x2 compact KPI grid on mobile and desktop) */}
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                {/* B. Clean Single-Elevation Hairline 4-KPI Block
+                       Consistent top-label / bottom-value anatomy across mobile & desktop so long
+                       Burmese labels and multi-part values + trend chips never collide or clip */}
+                <div className="rounded-xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-zinc-200/70 dark:bg-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-px">
                   {/* 1. Price */}
-                  <StatCard
-                    label={t.cardPrice}
-                    value={
-                      product.priceThb !== null && product.priceThb > 0
-                        ? formatThb(product.priceThb)
-                        : t.drawerNoData
-                    }
-                    tone="zinc"
-                    icon={
+                  <div className="bg-zinc-50/90 dark:bg-zinc-900/75 px-3.5 py-2.5 sm:p-3.5 flex flex-col items-stretch gap-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {t.cardPrice}
+                      </span>
                       <StatusDot
                         status={effectivePriceStatus}
                         language={language}
-                        size="md"
+                        size="sm"
                       />
-                    }
-                  />
+                    </div>
+                    <div className="text-left min-w-0">
+                      {product.priceThb !== null && product.priceThb > 0 ? (
+                        <span className="font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                          {formatThb(product.priceThb)}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {t.drawerNoData}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                  {/* 2. Commission rate + baht per sale */}
-                  <StatCard
-                    label={t.cardCommission}
-                    value={
-                      hasVerifiedCommission && product.commissionRate !== null
-                        ? `${product.commissionRate}%`
-                        : t.drawerNoData
-                    }
-                    sub={
-                      earningPerOrderThb !== null
-                        ? `${formatThb(earningPerOrderThb)} ${t.drawerPerSaleUnit}`
-                        : undefined
-                    }
-                    tone={
-                      hasVerifiedCommission && product.commissionRate !== null
-                        ? 'emerald'
-                        : 'zinc'
-                    }
-                    icon={
+                  {/* 2. Commission */}
+                  <div className="bg-zinc-50/90 dark:bg-zinc-900/75 px-3.5 py-2.5 sm:p-3.5 flex flex-col items-stretch gap-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {t.cardCommission}
+                      </span>
                       <StatusDot
                         status={effectiveCommissionStatus}
                         language={language}
-                        size="md"
+                        size="sm"
                       />
-                    }
-                  />
-
-                  {/* 3. Sales / Revenue + Sparkline & TrendDelta */}
-                  <StatCard
-                    label={t.bestStatSales}
-                    value={
-                      km?.salesVolume !== null && km?.salesVolume !== undefined
-                        ? km.salesVolume.toLocaleString('en-US')
-                        : km?.revenueThb !== null && km?.revenueThb !== undefined
-                          ? formatThb(km.revenueThb)
-                          : t.drawerNoData
-                    }
-                    unit={
-                      km?.salesVolume !== null && km?.salesVolume !== undefined
-                        ? t.bestSoldUnit
-                        : undefined
-                    }
-                    sub={
-                      km?.salesVolume !== null &&
-                      km?.salesVolume !== undefined &&
-                      km?.revenueThb !== null &&
-                      km?.revenueThb !== undefined
-                        ? formatThb(km.revenueThb)
-                        : undefined
-                    }
-                    tone="zinc"
-                    icon={
-                      salesTrendPoints.length >= 3 || hasRevenueGrowth ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          {salesTrendPoints.length >= 3 && (
-                            <Sparkline
-                              points={salesTrendPoints}
-                              tone={
-                                hasRevenueGrowth
-                                  ? (km?.revenueGrowthRate ?? 0) >= 0
-                                    ? 'emerald'
-                                    : 'red'
-                                  : undefined
-                              }
-                              width={52}
-                              height={20}
-                            />
+                    </div>
+                    <div className="flex items-baseline justify-start gap-x-2 gap-y-0.5 flex-wrap min-w-0">
+                      {hasVerifiedCommission && product.commissionRate !== null ? (
+                        <>
+                          <span className="font-mono text-base sm:text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
+                            {product.commissionRate}%
+                          </span>
+                          {earningPerOrderThb !== null && (
+                            <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+                              · {formatThb(earningPerOrderThb)} {t.drawerPerSaleUnit}
+                            </span>
                           )}
-                          {hasRevenueGrowth && (
-                            <TrendDelta
-                              pct={km?.revenueGrowthRate}
-                              period={trendPeriodLabel}
-                            />
-                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {t.drawerNoData}
                         </span>
-                      ) : undefined
-                    }
-                  />
+                      )}
+                    </div>
+                  </div>
 
-                  {/* 4. Competition (graceful "no data") */}
-                  <StatCard
-                    label={t.bestStatCompetition}
-                    value={
-                      !competitionUnavailable &&
-                      km?.creatorNumber !== null &&
-                      km?.creatorNumber !== undefined
-                        ? km.creatorNumber.toLocaleString('en-US')
-                        : !competitionUnavailable
-                          ? t.competitionLabels[product.competitionLevel]
-                          : t.drawerNoData
-                    }
-                    unit={
-                      !competitionUnavailable &&
-                      km?.creatorNumber !== null &&
-                      km?.creatorNumber !== undefined
-                        ? t.bestCreatorsUnit
-                        : undefined
-                    }
-                    sub={
-                      !competitionUnavailable &&
-                      km?.creatorNumber !== null &&
-                      km?.creatorNumber !== undefined
-                        ? t.competitionLabels[product.competitionLevel]
-                        : undefined
-                    }
-                    tone={
-                      competitionUnavailable
-                        ? 'zinc'
-                        : product.competitionLevel === 'Low'
-                          ? 'emerald'
-                          : product.competitionLevel === 'Moderate'
-                            ? 'amber'
-                            : 'red'
-                    }
-                    icon={
+                  {/* 3. Sales & Revenue + Growth Trend */}
+                  <div className="bg-zinc-50/90 dark:bg-zinc-900/75 px-3.5 py-2.5 sm:p-3.5 flex flex-col items-stretch gap-1.5 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                          {t.bestStatSales}
+                        </span>
+                        <StatusDot
+                          status={salesStatusForDot}
+                          language={language}
+                          size="sm"
+                        />
+                      </div>
+                      {hasRevenueGrowth && (
+                        <div className="max-w-full">
+                          <TrendDelta
+                            pct={km?.revenueGrowthRate}
+                            period={trendPeriodLabel}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-baseline justify-start gap-x-2 gap-y-0.5 flex-wrap min-w-0">
+                      {salesDisplay ? (
+                        <>
+                          <span className="font-mono text-base sm:text-lg font-bold tabular-nums text-zinc-950 dark:text-zinc-50">
+                            {salesDisplay}
+                          </span>
+                          {salesSubDisplay && (
+                            <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">
+                              · {salesSubDisplay}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {t.drawerNoData}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. Competition */}
+                  <div className="bg-zinc-50/90 dark:bg-zinc-900/75 px-3.5 py-2.5 sm:p-3.5 flex flex-col items-stretch gap-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                        {t.bestStatCompetition}
+                      </span>
                       <StatusDot
-                        status={
-                          competitionUnavailable
-                            ? 'unavailable'
-                            : (competitionFactor?.verification ?? 'estimated')
-                        }
+                        status={competitionStatusForDot}
                         language={language}
-                        size="md"
+                        size="sm"
                       />
-                    }
-                  />
+                    </div>
+                    <div className="flex items-baseline justify-start gap-x-1.5 gap-y-0.5 flex-wrap min-w-0">
+                      {competitionUnavailable ? (
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          {t.drawerNoData}
+                        </span>
+                      ) : hasCreators ? (
+                        <>
+                          <span
+                            className={`font-mono text-base sm:text-lg font-bold tabular-nums ${
+                              product.competitionLevel === 'Low'
+                                ? 'text-emerald-700 dark:text-emerald-400'
+                                : product.competitionLevel === 'High'
+                                  ? 'text-red-700 dark:text-red-400'
+                                  : 'text-amber-700 dark:text-amber-400'
+                            }`}
+                          >
+                            {km!.creatorNumber!.toLocaleString('en-US')} {t.bestCreatorsUnit}
+                          </span>
+                          <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                            · {t.competitionLabels[product.competitionLevel]}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {t.competitionLabels[product.competitionLevel]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                {/* C. Why this score (MiniBar rows sorted by weight + StatusDot) */}
-                <div className="sp-surface-muted p-3.5 sm:p-4 space-y-3">
+                {/* C. Why this score (Clean 2-tier full-width bars so Burmese factor labels never squeeze) */}
+                <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/35 p-3.5 sm:p-4 space-y-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="font-display text-sm font-semibold text-zinc-950 dark:text-zinc-50">
                       {t.drawerWhyScoreHeading}
                     </h3>
-                    <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
                       {strategyFocusLabel}
                     </span>
                   </div>
 
-                  <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2.5">
                     {sortedCriteria.map((item) => {
                       const scoreVal = item.wasRedistributed ? null : item.normalizedScore;
-                      const barTone: MiniBarTone =
-                        scoreVal === null
-                          ? 'zinc'
-                          : scoreVal >= 70
-                            ? 'emerald'
-                            : scoreVal >= 40
-                              ? 'amber'
-                              : 'red';
+                      const isAvailable = typeof scoreVal === 'number' && Number.isFinite(scoreVal);
+                      const clamped = isAvailable ? Math.max(0, Math.min(100, scoreVal!)) : 0;
+                      const weightPct = Math.round(
+                        item.wasRedistributed ? item.baseWeight : item.effectiveWeight
+                      );
+                      const barFillClass = !isAvailable
+                        ? 'bg-zinc-400 dark:bg-zinc-500'
+                        : clamped >= 70
+                          ? 'bg-emerald-600 dark:bg-emerald-400'
+                          : clamped >= 40
+                            ? 'bg-amber-600 dark:bg-amber-400'
+                            : 'bg-red-600 dark:bg-red-400';
+                      const scoreTextClass = !isAvailable
+                        ? 'text-zinc-500 dark:text-zinc-400'
+                        : clamped >= 70
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : clamped >= 40
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-red-700 dark:text-red-400';
+
                       return (
-                        <div key={item.key} className="flex items-center gap-2.5 min-w-0">
-                          <StatusDot
-                            status={item.verification}
-                            language={language}
-                            size="sm"
-                          />
-                          <MiniBar
-                            className="flex-1"
-                            value={scoreVal}
-                            max={100}
-                            tone={barTone}
-                            label={t.factorShortLabels[item.key]}
-                            weightPct={
-                              item.wasRedistributed ? item.baseWeight : item.effectiveWeight
-                            }
-                          />
+                        <div key={item.key} className="space-y-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <StatusDot
+                                status={item.verification}
+                                language={language}
+                                size="sm"
+                              />
+                              <span className="font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                {t.factorShortLabels[item.key]}
+                              </span>
+                              <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
+                                {weightPct}%
+                              </span>
+                            </div>
+                            <span
+                              className={`font-mono font-semibold tabular-nums shrink-0 ${scoreTextClass}`}
+                            >
+                              {isAvailable ? Math.round(clamped) : '—'}
+                            </span>
+                          </div>
+                          <div
+                            role="progressbar"
+                            aria-label={t.factorShortLabels[item.key]}
+                            aria-valuenow={isAvailable ? Math.round(clamped) : 0}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            className="w-full h-1.5 rounded-full bg-zinc-200/80 dark:bg-zinc-800 overflow-hidden"
+                          >
+                            <div
+                              className={`h-full rounded-full transition-[width] duration-300 ease-out motion-reduce:transition-none ${barFillClass}`}
+                              style={{ width: `${clamped}%` }}
+                            />
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* D. Strengths / Weaknesses / Risks compact chip groups */}
-                {chipGroups.length > 0 && (
-                  <div className="space-y-3">
-                    {chipGroups.map((group) => {
+                {/* D. Strengths / Weaknesses / Risks (Clean unboxed bullet points — zero chunky pill clutter) */}
+                {noteGroups.length > 0 && (
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 border-y border-zinc-200/70 dark:border-zinc-800">
+                    {noteGroups.map((group) => {
                       const isExpanded = expandedChips[group.key];
                       const visibleItems = isExpanded
                         ? group.items
@@ -1067,8 +1100,8 @@ export function ResearchReportDrawer({
                       const hiddenCount = group.items.length - 3;
 
                       return (
-                        <div key={group.key} className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
+                        <div key={group.key} className="py-3 space-y-1.5">
+                          <div className="flex items-baseline justify-between gap-2">
                             <h4 className={`text-xs font-semibold ${group.headingClass}`}>
                               {group.heading}
                             </h4>
@@ -1077,33 +1110,30 @@ export function ResearchReportDrawer({
                             </span>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
+                          <ul
+                            className={`space-y-1 text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed list-disc pl-4 ${group.markerClass}`}
+                          >
                             {visibleItems.map((line, idx) => (
-                              <span
-                                key={`${group.key}-${idx}-${line}`}
-                                className={`inline-flex items-center px-2.5 py-1.5 rounded-lg border text-xs leading-snug ${group.chipClass}`}
-                              >
-                                {line}
-                              </span>
+                              <li key={`${group.key}-${idx}-${line}`}>{line}</li>
                             ))}
+                          </ul>
 
-                            {hiddenCount > 0 && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedChips((prev) => ({
-                                    ...prev,
-                                    [group.key]: !prev[group.key],
-                                  }))
-                                }
-                                className={`inline-flex items-center min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${group.btnClass}`}
-                              >
-                                {isExpanded
-                                  ? t.drawerShowLess
-                                  : `+${hiddenCount} ${t.drawerMoreUnit}`}
-                              </button>
-                            )}
-                          </div>
+                          {hiddenCount > 0 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedChips((prev) => ({
+                                  ...prev,
+                                  [group.key]: !prev[group.key],
+                                }))
+                              }
+                              className={`inline-flex items-center min-h-[34px] text-xs font-semibold cursor-pointer ${group.btnClass}`}
+                            >
+                              {isExpanded
+                                ? t.drawerShowLess
+                                : `+${hiddenCount} ${t.drawerMoreUnit}`}
+                            </button>
+                          )}
                         </div>
                       );
                     })}
@@ -1407,79 +1437,111 @@ export function ResearchReportDrawer({
               </span>
             </div>
 
-            <dl className="sp-card grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-3.5 sm:p-4 text-xs">
+            <dl className="rounded-xl overflow-hidden border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/35 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 p-3.5 sm:p-4 text-xs">
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">{isMy ? 'ရောင်းအား' : 'Sales Volume'}</dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.salesVolume === 'number'
-                    ? km.salesVolume.toLocaleString('en-US')
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.salesVolume === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {km.salesVolume.toLocaleString('en-US')}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'ဝင်ငွေ (GMV)' : 'Revenue (THB)'}
                 </dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.revenueThb === 'number'
-                    ? formatThb(km.revenueThb)
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.revenueThb === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {formatThb(km.revenueThb)}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'ဝင်ငွေတိုးတက်နှုန်း' : 'Revenue Growth'}
                 </dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.revenueGrowthRate === 'number'
-                    ? `${km.revenueGrowthRate >= 0 ? '+' : ''}${km.revenueGrowthRate.toFixed(1)}%`
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.revenueGrowthRate === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {`${km.revenueGrowthRate >= 0 ? '+' : ''}${km.revenueGrowthRate.toFixed(1)}%`}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Creator အရေအတွက်' : 'Creator Count'}
                 </dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.creatorNumber === 'number'
-                    ? km.creatorNumber.toLocaleString('en-US')
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.creatorNumber === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {km.creatorNumber.toLocaleString('en-US')}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">{t.cardCommission}</dt>
-                <dd className="mt-0.5 font-mono font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
-                  {hasVerifiedCommission && product.commissionRate !== null
-                    ? `${product.commissionRate}%`
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {hasVerifiedCommission && product.commissionRate !== null ? (
+                    <span className="font-mono font-semibold text-emerald-700 dark:text-emerald-400">
+                      {`${product.commissionRate}%`}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Video ဝင်ငွေ' : 'Video Revenue'}
                 </dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.videoRevenueThb === 'number'
-                    ? formatThb(km.videoRevenueThb)
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.videoRevenueThb === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {formatThb(km.videoRevenueThb)}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">
                   {isMy ? 'Live ဝင်ငွေ' : 'Live Revenue'}
                 </dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.liveRevenueThb === 'number'
-                    ? formatThb(km.liveRevenueThb)
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.liveRevenueThb === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {formatThb(km.liveRevenueThb)}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs text-zinc-500 dark:text-zinc-400">{isMy ? 'ဆိုင် GMV' : 'Shop GMV'}</dt>
-                <dd className="mt-0.5 font-mono font-semibold text-zinc-950 dark:text-zinc-50 tabular-nums">
-                  {typeof km?.shopRevenueThb === 'number'
-                    ? formatThb(km.shopRevenueThb)
-                    : t.dataStatusLabels.unavailable}
+                <dd className="mt-0.5 tabular-nums">
+                  {typeof km?.shopRevenueThb === 'number' ? (
+                    <span className="font-mono font-semibold text-zinc-950 dark:text-zinc-50">
+                      {formatThb(km.shopRevenueThb)}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500 dark:text-zinc-400">{t.dataStatusLabels.unavailable}</span>
+                  )}
                 </dd>
               </div>
             </dl>
@@ -1611,14 +1673,14 @@ export function ResearchReportDrawer({
 
                 return (
                   <div key={item.key} className="py-2.5 space-y-1.5">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-1 font-medium text-zinc-900 dark:text-zinc-100 min-w-0">
-                        <span className="font-mono text-zinc-500 dark:text-zinc-400 mr-0.5 tabular-nums shrink-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-medium text-zinc-900 dark:text-zinc-100 min-w-0">
+                        <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums shrink-0">
                           0{idx + 1}.
                         </span>
-                        <span className="truncate">{t.factorLabels[item.key]}</span>
+                        <span>{t.factorLabels[item.key]}</span>
                         {metricDisplay && (
-                          <span className="ml-1 font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums truncate">
+                          <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums">
                             · {metricDisplay}
                           </span>
                         )}
@@ -2214,7 +2276,7 @@ export function ResearchReportDrawer({
         </div>
 
         {/* F. Compact Single-Row Sticky Decision & Export Footer */}
-        <div className="sticky bottom-0 shrink-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] flex items-center gap-2">
+        <div className="sticky bottom-0 shrink-0 z-10 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center gap-2">
           {/* "..." Overflow menu for Copy / CSV / JSON */}
           <div ref={actionsMenuRef} className="relative shrink-0">
             <button

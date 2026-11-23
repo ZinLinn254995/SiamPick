@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { AnimatedNumber } from './AnimatedNumber';
+
 export type ScoreRingTone = 'emerald' | 'amber' | 'red' | 'zinc';
 
 export interface ScoreRingProps {
@@ -6,6 +9,7 @@ export interface ScoreRingProps {
   size?: number;
   label?: string;
   tone?: ScoreRingTone;
+  animate?: boolean;
   className?: string;
 }
 
@@ -42,11 +46,35 @@ export function ScoreRing({
   size = 96,
   label,
   tone,
+  animate = false,
   className = '',
 }: ScoreRingProps) {
   const safeMax = max > 0 ? max : 100;
   const safeValue = Number.isFinite(value) ? Math.max(0, Math.min(safeMax, value)) : 0;
-  const ratio = safeValue / safeMax;
+
+  const [arcReady, setArcReady] = useState<boolean>(() => !animate);
+
+  useEffect(() => {
+    if (!animate) {
+      setArcReady(true);
+      return;
+    }
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setArcReady(true);
+      return;
+    }
+    let rafId = 0;
+    rafId = window.requestAnimationFrame(() => {
+      setArcReady(true);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [animate]);
+
+  const ratio = arcReady ? safeValue / safeMax : 0;
   const resolvedTone = tone ?? resolveAutoTone(safeValue, safeMax);
   const styles = TONE_STYLES[resolvedTone];
 
@@ -54,7 +82,8 @@ export function ScoreRing({
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - ratio);
-  const displayNumber = Number.isInteger(safeValue) ? String(safeValue) : safeValue.toFixed(1);
+  const isInteger = Number.isInteger(safeValue);
+  const displayNumber = isInteger ? String(safeValue) : safeValue.toFixed(1);
 
   const numberSizeClass =
     size >= 112
@@ -100,14 +129,20 @@ export function ScoreRing({
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={dashOffset}
-            className={`${styles.stroke} transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none`}
+            className={`${styles.stroke} transition-[stroke-dashoffset] ${
+              animate ? 'duration-700' : 'duration-300'
+            } ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none`}
           />
         </svg>
 
         <span
           className={`absolute inset-0 flex items-center justify-center font-mono font-bold tabular-nums leading-none ${numberSizeClass} ${styles.text}`}
         >
-          {displayNumber}
+          {animate ? (
+            <AnimatedNumber value={safeValue} decimals={isInteger ? 0 : 1} durationMs={640} />
+          ) : (
+            displayNumber
+          )}
         </span>
       </div>
 

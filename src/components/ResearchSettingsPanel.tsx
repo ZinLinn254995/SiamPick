@@ -56,7 +56,6 @@ import {
 import { TRANSLATIONS } from '../i18n/translations';
 import { useDialogA11y } from '../hooks/useDialogA11y';
 import { InfoPopover } from './InfoPopover';
-import { BounceMarquee } from './visual';
 
 interface ResearchSettingsPanelProps {
   selectedCategories: ProductCategory[];
@@ -1430,9 +1429,9 @@ export function ResearchSettingsPanel({
           <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
             <h2
               id="research-settings-heading"
-              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 flex-1"
+              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 flex-1 leading-snug truncate"
             >
-              <BounceMarquee>{t.settingsHeading}</BounceMarquee>
+              {t.settingsHeading}
             </h2>
 
             <div className="flex items-center gap-1.5 shrink-0">
@@ -1546,9 +1545,9 @@ export function ResearchSettingsPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2
           id="research-settings-heading"
-          className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 max-w-full"
+          className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 max-w-full leading-snug"
         >
-          <BounceMarquee>{t.settingsHeading}</BounceMarquee>
+          {t.settingsHeading}
         </h2>
 
         <div className="flex flex-wrap items-center gap-1">
