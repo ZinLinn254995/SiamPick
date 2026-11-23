@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -12,7 +12,7 @@ import {
   PlayCircle,
   RefreshCw,
   ShieldCheck,
-  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 import {
   BothCategoryMode,
@@ -54,7 +54,9 @@ import {
   saveSyncedKalodataCategories,
 } from '../utils/categoryRegistry';
 import { TRANSLATIONS } from '../i18n/translations';
+import { useDialogA11y } from '../hooks/useDialogA11y';
 import { InfoPopover } from './InfoPopover';
+import { BounceMarquee } from './visual';
 
 interface ResearchSettingsPanelProps {
   selectedCategories: ProductCategory[];
@@ -92,6 +94,7 @@ interface ResearchSettingsPanelProps {
   onResumeResearch: () => void;
   onConfirmStartHunting: () => void;
   language: Language;
+  layout?: 'inline' | 'drawer';
   compactTop?: boolean;
   canCollapse?: boolean;
   onCollapse?: () => void;
@@ -137,12 +140,15 @@ export function ResearchSettingsPanel({
   onResumeResearch,
   onConfirmStartHunting,
   language,
+  layout = 'inline',
   compactTop = false,
   canCollapse = false,
   onCollapse,
 }: ResearchSettingsPanelProps) {
   const t = TRANSLATIONS[language];
   const isMy = language === 'my';
+  const isDrawer = layout === 'drawer';
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [customQtyDraft, setCustomQtyDraft] = useState(String(quantity));
   const [limitDraft, setLimitDraft] = useState(formatCredits(spendingLimitCredits));
@@ -150,6 +156,13 @@ export function ResearchSettingsPanel({
   const [syncConfirmMode, setSyncConfirmMode] = useState<'l1' | 'l2' | null>(null);
   const [isSyncingCategories, setIsSyncingCategories] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+
+  useDialogA11y({
+    isOpen: isDrawer,
+    containerRef: drawerRef,
+    onClose: () => onCollapse?.(),
+    closeOnEscape: true,
+  });
 
   useEffect(() => {
     setCustomQtyDraft(String(quantity));
@@ -473,100 +486,69 @@ export function ResearchSettingsPanel({
     setLimitDraft(formatCredits(clamped));
   };
 
-  return (
-    <section
-      aria-labelledby="research-settings-heading"
-      className={`${compactTop ? 'mt-2.5' : 'mt-5 sm:mt-6'} sp-card p-4 sm:p-6 space-y-5`}
-    >
-      {/* Header Row */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2
-          id="research-settings-heading"
-          className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50"
-        >
-          {t.settingsHeading}
-        </h2>
+  const pauseResumeControl =
+    !isHunting &&
+    (quotaStatus.paused ? (
+      <button
+        type="button"
+        onClick={onResumeResearch}
+        className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer whitespace-nowrap"
+      >
+        <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>{t.btnResumeResearch}</span>
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={onPauseResearch}
+        className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+      >
+        <PauseCircle className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>{t.btnPauseResearch}</span>
+      </button>
+    ));
 
-        <div className="flex flex-wrap items-center gap-1">
-          {!isHunting &&
-            (quotaStatus.paused ? (
-              <button
-                type="button"
-                onClick={onResumeResearch}
-                className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.btnResumeResearch}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onPauseResearch}
-                className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                <PauseCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{t.btnPauseResearch}</span>
-              </button>
-            ))}
-
-          {canCollapse && onCollapse && !isHunting && (
-            <button
-              type="button"
-              onClick={onCollapse}
-              className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
-            >
-              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{t.launcherCollapseSettingsBtn}</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Compact Specifications Summary Band */}
-      <div className="sp-surface-muted px-3.5 py-2.5 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5">
-        <div className="min-w-0">
-          <div className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-            <Lock className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
-            <span className="truncate">{t.settingMarketLabel}</span>
-            <InfoPopover
-              variant="info"
-              label={t.settingMarketLabel}
-              title={t.settingMarketLabel}
-              content={t.settingFixedNote}
-            />
-          </div>
-          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
-            {t.settingMarketValue}
-          </div>
-        </div>
-
-        <div className="min-w-0">
-          <div className="text-xs text-zinc-600 dark:text-zinc-400 truncate">{t.settingPriceLabel}</div>
-          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
-            {t.settingPriceValue}{' '}
-            <span className="font-mono text-xs font-normal text-zinc-500 dark:text-zinc-400 tabular-nums">
-              (฿)
-            </span>
-          </div>
-        </div>
-
-        <div className="col-span-2 sm:col-span-1 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-200/70 dark:border-zinc-700/60 min-w-0">
-          <div className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
-            <span>{t.strategyLabel}</span>
-            <InfoPopover
-              variant="help"
-              label={t.strategyLabel}
-              title={t.strategyLabel}
-              content={t.settingStrategyValue}
-            />
-          </div>
-          <div className="mt-0.5 text-xs sm:text-[13px] font-semibold text-zinc-950 dark:text-zinc-50 truncate">
-            {strategySummary}{' '}
-            <span className="font-mono text-xs font-normal text-zinc-600 dark:text-zinc-400 tabular-nums">
+  const settingsBodyContent = (
+    <>
+      {/* Compact Single-Row Specifications Summary Strip */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2 border-y border-zinc-100 dark:border-zinc-800/80 text-xs text-zinc-600 dark:text-zinc-400">
+        <span className="inline-flex items-center gap-1 text-zinc-800 dark:text-zinc-200 font-medium">
+          <Lock className="w-3 h-3 text-zinc-500 dark:text-zinc-400 shrink-0" aria-hidden="true" />
+          <span>{t.settingMarketValue}</span>
+          <InfoPopover
+            variant="info"
+            label={t.settingMarketLabel}
+            title={t.settingMarketLabel}
+            content={t.settingFixedNote}
+          />
+        </span>
+        <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+          ·
+        </span>
+        <span>
+          {t.settingPriceValue}{' '}
+          <span className="font-mono text-zinc-500 dark:text-zinc-400 tabular-nums">(฿)</span>
+        </span>
+        <span aria-hidden="true" className="text-zinc-300 dark:text-zinc-600">
+          ·
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span>
+            {t.strategyLabel}:{' '}
+            <strong className="font-semibold text-zinc-900 dark:text-zinc-100">
+              {strategySummary}
+            </strong>{' '}
+            <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
               ({salesWeightPct}/{100 - salesWeightPct})
             </span>
-          </div>
-        </div>
+          </span>
+          <InfoPopover
+            variant="help"
+            label={t.strategyLabel}
+            title={t.strategyLabel}
+            content={t.settingStrategyValue}
+          />
+        </span>
       </div>
 
       {/* 1. Universal Multi-Select Product Categories (Verified + Live Kalodata TH Sync + L2 Subcategories) */}
@@ -686,7 +668,11 @@ export function ResearchSettingsPanel({
 
         {/* Universal Category Grid (Ready Categories Always First; Unsynced/Unsupported Honestly Disabled) */}
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
+          className={`grid gap-1.5 sm:gap-2 ${
+            isDrawer
+              ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+          }`}
           role="group"
           aria-label={t.settingCategoryLabel}
         >
@@ -1342,8 +1328,8 @@ export function ResearchSettingsPanel({
           )}
         </div>
 
-        {/* Hard Spending Limit Block Notice */}
-        {exceedsLimit && (
+        {/* Hard Spending Limit Block Notice (shown inline only; drawer shows it in sticky footer) */}
+        {!isDrawer && exceedsLimit && (
           <div
             role="alert"
             className="flex items-start gap-2.5 p-3 bg-red-50/80 dark:bg-red-950/35 border border-red-200 dark:border-red-800/60 rounded-lg text-xs text-red-800 dark:text-red-300"
@@ -1358,71 +1344,232 @@ export function ResearchSettingsPanel({
           </div>
         )}
       </div>
+    </>
+  );
 
-      {/* Explicit Pre-Call Confirmation Panel (Must confirm before calling Kalodata API) */}
-      {confirmOpen && canRequestStart && (
-        <div
-          role="region"
-          aria-label={t.confirmHeading}
-          className="p-4 bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl space-y-3"
+  const confirmationPanel = confirmOpen && canRequestStart && (
+    <div
+      role="region"
+      aria-label={t.confirmHeading}
+      className="p-3.5 sm:p-4 bg-zinc-950 dark:bg-zinc-900 dark:border dark:border-zinc-700 text-white rounded-xl space-y-2.5"
+    >
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold">{t.confirmHeading}</h3>
+        <p className="text-xs text-zinc-300 leading-relaxed">{t.confirmNotice}</p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-zinc-200 font-mono tabular-nums">
+        <span className="text-white font-semibold">{modeSummary}</span>
+        <span>·</span>
+        <span>IDs: [{plan.categoryIds.join(', ')}]</span>
+        <span>·</span>
+        <span>
+          {plan.quantity} {t.quantityProductsUnit}
+        </span>
+        <span>·</span>
+        <span>{callBreakdownText}</span>
+        <span>·</span>
+        <span className="text-emerald-300 font-semibold">
+          {t.estimatedCostLabel}: {formatCredits(plan.estimatedCredits)} {t.creditsUnit} (≈{' '}
+          {formatUsd(plan.estimatedUsd)})
+        </span>
+        <span>·</span>
+        <span>
+          Limit: {formatCredits(spendingLimitCredits)} {t.creditsUnit}
+        </span>
+        {myanmarLanguageOnly && (
+          <>
+            <span>·</span>
+            <span className="font-sans text-emerald-300 font-semibold">
+              {t.myanmarFilterActiveBadge} (≤{effectiveVideoScanPages}p /{' '}
+              {(effectiveVideoScanPages * KALODATA_MAX_PAGE_SIZE).toLocaleString('en-US')} videos)
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => setConfirmOpen(false)}
+          className="min-h-[40px] px-4 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
         >
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold">{t.confirmHeading}</h3>
-            <p className="text-xs text-zinc-300 leading-relaxed">{t.confirmNotice}</p>
+          {t.confirmCancelBtn}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setConfirmOpen(false);
+            onConfirmStartHunting();
+          }}
+          className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+        >
+          <span>{t.confirmStartBtn}</span>
+          <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+
+  if (isDrawer) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex justify-end bg-zinc-950/40 dark:bg-black/65 backdrop-blur-[2px]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="research-settings-heading"
+        onClick={() => onCollapse?.()}
+      >
+        <div
+          ref={drawerRef}
+          tabIndex={-1}
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-3xl bg-white dark:bg-zinc-900 h-[100dvh] shadow-2xl flex flex-col focus:outline-none"
+        >
+          {/* Sticky Drawer Top Header */}
+          <div className="shrink-0 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+            <h2
+              id="research-settings-heading"
+              className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 flex-1"
+            >
+              <BounceMarquee>{t.settingsHeading}</BounceMarquee>
+            </h2>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              {pauseResumeControl}
+              {onCollapse && (
+                <button
+                  type="button"
+                  onClick={onCollapse}
+                  aria-label={t.reportClose}
+                  className="w-10 h-10 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-200 font-mono tabular-nums">
-            <span className="text-white font-semibold">{modeSummary}</span>
-            <span>·</span>
-            <span>IDs: [{plan.categoryIds.join(', ')}]</span>
-            <span>·</span>
-            <span>
-              {plan.quantity} {t.quantityProductsUnit}
-            </span>
-            <span>·</span>
-            <span>{callBreakdownText}</span>
-            <span>·</span>
-            <span className="text-emerald-300 font-semibold">
-              {t.estimatedCostLabel}: {formatCredits(plan.estimatedCredits)} {t.creditsUnit} (≈{' '}
-              {formatUsd(plan.estimatedUsd)})
-            </span>
-            <span>·</span>
-            <span>
-              Limit: {formatCredits(spendingLimitCredits)} {t.creditsUnit}
-            </span>
-            {myanmarLanguageOnly && (
-              <>
-                <span>·</span>
-                <span className="font-sans text-emerald-300 font-semibold">
-                  {t.myanmarFilterActiveBadge} (≤{effectiveVideoScanPages}p /{' '}
-                  {(effectiveVideoScanPages * KALODATA_MAX_PAGE_SIZE).toLocaleString('en-US')} videos)
-                </span>
-              </>
+          {/* Independently Scrollable Drawer Body */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+            {settingsBodyContent}
+          </div>
+
+          {/* Sticky Drawer Bottom Footer (Always Visible — No Scroll-Back Required) */}
+          <div className="shrink-0 bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 px-4 sm:px-6 py-3.5 space-y-3">
+            {exceedsLimit && (
+              <div
+                role="alert"
+                className="flex items-start gap-2 p-2.5 bg-red-50/80 dark:bg-red-950/35 border border-red-200 dark:border-red-800/60 rounded-lg text-xs text-red-800 dark:text-red-300"
+              >
+                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="min-w-0">
+                  <span className="font-semibold">{t.spendingLimitExceededTitle}:</span>{' '}
+                  <span className="text-red-700/90 dark:text-red-300/90">
+                    {t.spendingLimitExceededDesc}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {confirmationPanel ? (
+              confirmationPanel
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="font-semibold text-zinc-950 dark:text-zinc-50 font-mono tabular-nums">
+                      {formatCredits(plan.estimatedCredits)} {t.creditsUnit}
+                    </span>
+                    <span className="font-mono tabular-nums text-zinc-500 dark:text-zinc-400">
+                      (≈ {formatUsd(plan.estimatedUsd)} · {plan.plannedApiCalls}{' '}
+                      {t.plannedCallsLabel})
+                    </span>
+                  </div>
+                  <div className="truncate mt-0.5">
+                    {modeSummary} · {categorySummary} ·{' '}
+                    <span className="font-mono tabular-nums">
+                      {quantity} {t.quantityProductsUnit}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {onCollapse && (
+                    <button
+                      type="button"
+                      onClick={onCollapse}
+                      className="sp-btn-secondary min-h-[42px] px-4 py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+                    >
+                      {t.reportClose}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={!canRequestStart}
+                    className="sp-btn-primary min-h-[42px] px-5 py-2 text-xs sm:text-sm whitespace-nowrap shrink-0 flex-1 sm:flex-initial"
+                  >
+                    {isHunting ? (
+                      <>
+                        <Loader2
+                          className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span>{t.huntingInProgress}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {quotaStatus.paused ? t.resumeAndStartBtn : t.startHuntingBtn}
+                        </span>
+                        <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setConfirmOpen(false)}
-              className="min-h-[40px] px-4 py-1.5 text-xs font-medium text-zinc-200 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors cursor-pointer"
-            >
-              {t.confirmCancelBtn}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setConfirmOpen(false);
-                onConfirmStartHunting();
-              }}
-              className="inline-flex items-center gap-1.5 min-h-[40px] px-4 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
-            >
-              <span>{t.confirmStartBtn}</span>
-              <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-            </button>
-          </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <section
+      aria-labelledby="research-settings-heading"
+      className={`${compactTop ? 'mt-2.5' : 'mt-5 sm:mt-6'} sp-card p-4 sm:p-6 space-y-4`}
+    >
+      {/* Inline Header Row */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2
+          id="research-settings-heading"
+          className="font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 min-w-0 max-w-full"
+        >
+          <BounceMarquee>{t.settingsHeading}</BounceMarquee>
+        </h2>
+
+        <div className="flex flex-wrap items-center gap-1">
+          {pauseResumeControl}
+          {canCollapse && onCollapse && !isHunting && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.launcherCollapseSettingsBtn}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {settingsBodyContent}
+
+      {/* Explicit Pre-Call Confirmation Panel (Must confirm before calling Kalodata API) */}
+      {confirmationPanel}
 
       {/* Primary Action Footer */}
       <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1439,24 +1586,37 @@ export function ResearchSettingsPanel({
           )}
         </p>
 
-        <button
-          type="button"
-          onClick={() => setConfirmOpen(true)}
-          disabled={!canRequestStart}
-          className="sp-btn-primary min-h-[44px] px-6 py-2.5 text-sm whitespace-normal text-center leading-snug sm:shrink-0 w-full sm:w-auto"
-        >
-          {isHunting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
-              <span>{t.huntingInProgress}</span>
-            </>
-          ) : (
-            <>
-              <span>{quotaStatus.paused ? t.resumeAndStartBtn : t.startHuntingBtn}</span>
-              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-            </>
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+          {canCollapse && onCollapse && !isHunting && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="sp-btn-secondary min-h-[44px] px-4 py-2 text-xs sm:text-sm whitespace-nowrap shrink-0"
+            >
+              <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t.launcherCollapseSettingsBtn}</span>
+            </button>
           )}
-        </button>
+
+          <button
+            type="button"
+            onClick={() => setConfirmOpen(true)}
+            disabled={!canRequestStart}
+            className="sp-btn-primary min-h-[44px] px-6 py-2.5 text-sm whitespace-normal text-center leading-snug sm:shrink-0 flex-1 sm:flex-initial"
+          >
+            {isHunting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin motion-reduce:animate-none shrink-0" aria-hidden="true" />
+                <span>{t.huntingInProgress}</span>
+              </>
+            ) : (
+              <>
+                <span>{quotaStatus.paused ? t.resumeAndStartBtn : t.startHuntingBtn}</span>
+                <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </section>
   );

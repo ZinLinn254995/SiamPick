@@ -161,18 +161,13 @@ export function StatusLegendPopover({
         aria-controls={open ? `status-legend-${id}` : undefined}
         aria-haspopup="dialog"
         title={t.statusLegendTrigger}
-        className={`inline-flex items-center gap-1.5 min-h-[40px] px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer shrink-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+        className={`inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors cursor-pointer shrink-0 touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
           open
-            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-900 dark:border-zinc-100'
-            : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:text-zinc-950 dark:hover:text-zinc-50'
+            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950'
+            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80'
         } ${className}`}
       >
-        <span className="inline-flex items-center gap-1" aria-hidden="true">
-          {LEGEND_STATUSES.map((st) => (
-            <StatusDot key={st} status={st} language={language} size="sm" />
-          ))}
-        </span>
-        <Info className="w-3.5 h-3.5 opacity-75 shrink-0" aria-hidden="true" />
+        <Info className="w-4 h-4 shrink-0" aria-hidden="true" />
       </button>
 
       {open &&

@@ -18,7 +18,6 @@ import {
   Link2,
   RotateCcw,
   Search,
-  SlidersHorizontal,
   Trash2,
   Upload,
   X,
@@ -887,187 +886,121 @@ export function ResearchHistoryView({
           </div>
         </div>
 
-        {/* Transparent 7-Factor Product Scoring Engine Guide & Strategy Weights (Matches Research Results) */}
+        {/* Unified 7-Factor Product Scoring Engine & Commission Strategy Control (Matches Research Results) */}
         <ScoringRubricPanel
+          className="mt-0"
           isOpen={archiveRubricOpen}
           onToggle={() => setArchiveRubricOpen((prev) => !prev)}
           salesWeightPct={effectiveArchiveSalesWeightPct}
+          strategyPreset={effectiveArchiveStrategyPreset}
+          onSelectStrategyPreset={handleArchiveSelectPreset}
+          onCustomWeightChange={handleArchiveCustomWeightChange}
+          showStrategyControls={selectedRecord.products.length > 0}
           language={language}
         />
 
-        {/* Interactive Strategy Slider Bar (Recalculates Archived Scores & Re-Sorts Instantly without mutating archive) */}
-        {selectedRecord.products.length > 0 && (
-          <div className="sp-card px-3.5 sm:px-5 py-3.5 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 sm:gap-4">
-            <div className="flex flex-wrap items-center gap-2 min-w-0">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
-                <SlidersHorizontal
-                  className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
-                  aria-hidden="true"
-                />
-                <span>{t.strategyLabel}</span>
-              </span>
-              {(
-                [
-                  { id: 'sales-first', label: t.strategySales },
-                  { id: 'balanced', label: t.strategyBalanced },
-                  { id: 'commission-first', label: t.strategyCommission },
-                ] as const
-              ).map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => handleArchiveSelectPreset(preset.id)}
-                  className={`min-h-[38px] sm:min-h-[36px] max-w-full px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
-                    effectiveArchiveStrategyPreset === preset.id
-                      ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-950 dark:hover:text-zinc-50'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="w-full xl:w-72 space-y-1 shrink-0">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {t.commissionWeight}{' '}
-                  <strong className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
-                    {100 - effectiveArchiveSalesWeightPct}%
-                  </strong>
-                </span>
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {t.salesWeight}{' '}
-                  <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
-                    {effectiveArchiveSalesWeightPct}%
-                  </strong>
-                </span>
-              </div>
-              <input
-                type="range"
-                min={10}
-                max={90}
-                step={5}
-                value={effectiveArchiveSalesWeightPct}
-                onChange={(e) => handleArchiveCustomWeightChange(Number(e.target.value))}
-                aria-label={t.strategyLabel}
-                className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-950 dark:accent-zinc-100"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Kalodata OpenAPI Verified Sources & API Call Breakdown Bar (Matches Research Results) */}
+        {/* Kalodata OpenAPI Verified Sources & API Call Breakdown Accordion (Matches Research Results) */}
         {hasSourcesOrCostBar && (
           <div className="sp-card overflow-hidden">
-            <div className="px-3.5 sm:px-5 py-3 flex items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
+            <button
+              type="button"
+              onClick={() => setArchiveGroundingOpen((prev) => !prev)}
+              aria-expanded={archiveGroundingOpen}
+              className="w-full min-h-[48px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <Globe
                   className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
                   aria-hidden="true"
                 />
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
-                  {t.kalodataSourceBarLabel}
-                </span>
-                <InfoPopover
-                  variant="info"
-                  label={t.kalodataSourceBarLabel}
-                  title={t.kalodataSourceBarLabel}
-                  content={
-                    <div className="space-y-1.5">
-                      <p>{t.kalodataSourceNote}</p>
-                      {selectedRecord.productCount < selectedRecord.requestedQuantity && (
-                        <p className="text-zinc-500 dark:text-zinc-400">
-                          {t.qualityGateExcludedNote}
-                        </p>
-                      )}
-                    </div>
-                  }
-                />
-                {archiveSources.length > 0 && (
-                  <>
-                    <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">
-                      ·
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                    {t.kalodataSourceBarLabel}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
+                    <span className="font-mono tabular-nums">
+                      {selectedRecord.productCount}/{selectedRecord.requestedQuantity}{' '}
+                      {t.qualityGateVerifiedLabel}
                     </span>
-                    <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
-                      {archiveSources.length} {t.groundingSourcesCount}
-                    </span>
-                  </>
-                )}
-                <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">
-                  ·
-                </span>
-                <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
-                  {selectedRecord.productCount}/{selectedRecord.requestedQuantity}{' '}
-                  {t.qualityGateVerifiedLabel}
-                </span>
+                    {archiveCostSummary && archiveCostSummary.actualCredits !== null && (
+                      <>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+                          {formatCredits(archiveCostSummary.actualCredits)} {t.creditsUnit}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {(archiveSources.length > 0 || archiveQueries.length > 0) && (
-                <button
-                  type="button"
-                  onClick={() => setArchiveGroundingOpen((prev) => !prev)}
-                  aria-expanded={archiveGroundingOpen}
-                  className="sp-btn-ghost min-h-[38px] px-2.5 shrink-0"
-                >
-                  <span>
-                    {archiveGroundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
-                  </span>
-                  {archiveGroundingOpen ? (
-                    <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  )}
-                </button>
-              )}
-            </div>
-
-            {archiveCostSummary && (
-              <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
-                  {modeLabel(archiveCostSummary.researchMode, language)}
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 shrink-0 whitespace-nowrap">
+                <span className="hidden sm:inline">
+                  {archiveGroundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
                 </span>
-                <span>
-                  {[
-                    archiveCostSummary.rankApiCalls > 0
-                      ? `${t.breakdownRankLabel}: ${archiveCostSummary.rankApiCalls}`
-                      : null,
-                    (archiveCostSummary.videoRankApiCalls ?? 0) > 0
-                      ? `${t.breakdownVideoRankLabel}: ${archiveCostSummary.videoRankApiCalls}`
-                      : null,
-                    archiveCostSummary.productDetailApiCalls > 0
-                      ? `${t.breakdownDetailLabel}: ${archiveCostSummary.productDetailApiCalls}`
-                      : null,
-                    archiveCostSummary.shopDetailApiCalls > 0
-                      ? `${t.breakdownShopLabel}: ${archiveCostSummary.shopDetailApiCalls}`
-                      : null,
-                    archiveCostSummary.commentInsightApiCalls > 0
-                      ? `${t.breakdownReviewLabel}: ${archiveCostSummary.commentInsightApiCalls}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                {archiveCostSummary.geminiAnalysisApplied && (
-                  <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
-                    {t.geminiAnalysisActiveLabel}
-                  </span>
+                {archiveGroundingOpen ? (
+                  <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
                 )}
-                <span>
-                  {t.estimatedCostLabel}: {formatCredits(archiveCostSummary.estimatedCredits)}{' '}
-                  {t.creditsUnit} (≈ {formatUsd(archiveCostSummary.estimatedUsd)})
-                </span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                  {t.actualCostLabel}:{' '}
-                  {archiveCostSummary.actualCredits !== null
-                    ? `${formatCredits(archiveCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(archiveCostSummary.actualUsd ?? 0)} · ${archiveCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                    : t.actualCostUnavailable}
-                </span>
-              </div>
-            )}
+              </span>
+            </button>
 
             {archiveGroundingOpen && (
               <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
+                <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                  <p>{t.kalodataSourceNote}</p>
+                  {selectedRecord.productCount < selectedRecord.requestedQuantity && (
+                    <p className="text-zinc-500 dark:text-zinc-400">
+                      {t.qualityGateExcludedNote}
+                    </p>
+                  )}
+                </div>
+
+                {archiveCostSummary && (
+                  <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50/90 dark:bg-zinc-800/45 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
+                      {modeLabel(archiveCostSummary.researchMode, language)}
+                    </span>
+                    <span>
+                      {[
+                        archiveCostSummary.rankApiCalls > 0
+                          ? `${t.breakdownRankLabel}: ${archiveCostSummary.rankApiCalls}`
+                          : null,
+                        (archiveCostSummary.videoRankApiCalls ?? 0) > 0
+                          ? `${t.breakdownVideoRankLabel}: ${archiveCostSummary.videoRankApiCalls}`
+                          : null,
+                        archiveCostSummary.productDetailApiCalls > 0
+                          ? `${t.breakdownDetailLabel}: ${archiveCostSummary.productDetailApiCalls}`
+                          : null,
+                        archiveCostSummary.shopDetailApiCalls > 0
+                          ? `${t.breakdownShopLabel}: ${archiveCostSummary.shopDetailApiCalls}`
+                          : null,
+                        archiveCostSummary.commentInsightApiCalls > 0
+                          ? `${t.breakdownReviewLabel}: ${archiveCostSummary.commentInsightApiCalls}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                    {archiveCostSummary.geminiAnalysisApplied && (
+                      <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
+                        {t.geminiAnalysisActiveLabel}
+                      </span>
+                    )}
+                    <span>
+                      {t.estimatedCostLabel}: {formatCredits(archiveCostSummary.estimatedCredits)}{' '}
+                      {t.creditsUnit} (≈ {formatUsd(archiveCostSummary.estimatedUsd)})
+                    </span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                      {t.actualCostLabel}:{' '}
+                      {archiveCostSummary.actualCredits !== null
+                        ? `${formatCredits(archiveCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(archiveCostSummary.actualUsd ?? 0)} · ${archiveCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                        : t.actualCostUnavailable}
+                    </span>
+                  </div>
+                )}
+
                 {archiveQueries.length > 0 && (
                   <div className="text-xs text-zinc-500 dark:text-zinc-400">
                     <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">

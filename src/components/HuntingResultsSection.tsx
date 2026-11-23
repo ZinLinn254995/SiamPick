@@ -46,7 +46,6 @@ import {
 import type { LatestResearchSessionMeta } from '../utils/researchHistoryStorage';
 import { formatResearchDate } from '../utils/savedProductsStorage';
 import { BestProductsStrip } from './BestProductsStrip';
-import { InfoPopover } from './InfoPopover';
 import { ProductFilterBar } from './ProductFilterBar';
 import { ResearchResultCard } from './ResearchResultCard';
 import { ScoringRubricPanel } from './ScoringRubricPanel';
@@ -385,109 +384,117 @@ export const HuntingResultsSection = memo(function HuntingResultsSection({
         </div>
       )}
 
-      {/* Kalodata OpenAPI Verified Sources Summary */}
+      {/* Kalodata OpenAPI Verified Sources & Cost Accordion */}
       {!isHunting && liveResults.length > 0 && groundingSources.length > 0 && (
-        <div className="mt-4 bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
-              <Globe className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" aria-hidden="true" />
-              <span className="font-semibold text-zinc-900 dark:text-zinc-100 leading-snug">
-                {t.kalodataSourceBarLabel}
-              </span>
-              <InfoPopover
-                variant="info"
-                label={t.kalodataSourceBarLabel}
-                title={t.kalodataSourceBarLabel}
-                content={
-                  <div className="space-y-1.5">
-                    <p>{t.kalodataSourceNote}</p>
-                    {sessionMeta &&
-                      sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
-                        <p className="text-zinc-500 dark:text-zinc-400">{t.qualityGateExcludedNote}</p>
-                      )}
-                  </div>
-                }
+        <div className="mt-4 sp-card overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGroundingOpen((prev) => !prev)}
+            aria-expanded={groundingOpen}
+            className="w-full min-h-[48px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <Globe
+                className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0"
+                aria-hidden="true"
               />
-              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">·</span>
-              <span className="font-mono text-zinc-600 dark:text-zinc-400 tabular-nums">
-                {groundingSources.length} {t.groundingSourcesCount}
-              </span>
-              {sessionMeta && (
-                <>
-                  <span className="text-zinc-300 dark:text-zinc-600" aria-hidden="true">·</span>
-                  <span className="font-mono text-zinc-700 dark:text-zinc-300 tabular-nums">
-                    {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
-                    {t.qualityGateVerifiedLabel}
-                  </span>
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setGroundingOpen((prev) => !prev)}
-              aria-expanded={groundingOpen}
-              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 transition-colors cursor-pointer shrink-0 whitespace-nowrap py-1"
-            >
-              <span>{groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}</span>
-              {groundingOpen ? (
-                <ChevronUp className="w-4 h-4" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="w-4 h-4" aria-hidden="true" />
-              )}
-            </button>
-          </div>
-
-          {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
-            lastCostSummary && (
-              <div className="px-4 sm:px-5 py-2.5 bg-zinc-50/80 dark:bg-zinc-800/50 border-t border-zinc-100 dark:border-zinc-800/70 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
-                <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
-                  {lastCostSummary.researchMode === 'deep'
-                    ? t.modeDeepTitle
-                    : lastCostSummary.researchMode === 'balanced'
-                      ? t.modeBalancedTitle
-                      : t.modeFastTitle}
-                </span>
-                <span>
-                  {[
-                    lastCostSummary.rankApiCalls > 0
-                      ? `${t.breakdownRankLabel}: ${lastCostSummary.rankApiCalls}`
-                      : null,
-                    (lastCostSummary.videoRankApiCalls ?? 0) > 0
-                      ? `${t.breakdownVideoRankLabel}: ${lastCostSummary.videoRankApiCalls}`
-                      : null,
-                    lastCostSummary.productDetailApiCalls > 0
-                      ? `${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
-                      : null,
-                    lastCostSummary.shopDetailApiCalls > 0
-                      ? `${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
-                      : null,
-                    lastCostSummary.commentInsightApiCalls > 0
-                      ? `${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                {lastCostSummary.geminiAnalysisApplied && (
-                  <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
-                    {t.geminiAnalysisActiveLabel}
-                  </span>
-                )}
-                <span>
-                  {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
-                  {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
-                </span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                  {t.actualCostLabel}:{' '}
-                  {lastCostSummary.actualCredits !== null
-                    ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
-                    : t.actualCostUnavailable}
-                </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="text-xs font-medium text-zinc-900 dark:text-zinc-100 leading-snug">
+                  {t.kalodataSourceBarLabel}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 leading-snug">
+                  {sessionMeta ? (
+                    <span className="font-mono tabular-nums">
+                      {sessionMeta.verifiedProductCount}/{sessionMeta.requestedQuantity}{' '}
+                      {t.qualityGateVerifiedLabel}
+                    </span>
+                  ) : (
+                    <span>
+                      {groundingSources.length} {t.groundingSourcesCount}
+                    </span>
+                  )}
+                  {lastCostSummary && lastCostSummary.actualCredits !== null && (
+                    <>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">
+                        {formatCredits(lastCostSummary.actualCredits)} {t.creditsUnit}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 shrink-0 whitespace-nowrap">
+              <span className="hidden sm:inline">
+                {groundingOpen ? t.groundingToggleHide : t.groundingToggleShow}
+              </span>
+              {groundingOpen ? (
+                <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
+              )}
+            </span>
+          </button>
 
           {groundingOpen && (
             <div className="border-t border-zinc-100 dark:border-zinc-800/70 px-4 sm:px-5 pb-4 pt-3 space-y-3">
+              <div className="text-xs text-zinc-600 dark:text-zinc-400 space-y-1">
+                <p>{t.kalodataSourceNote}</p>
+                {sessionMeta &&
+                  sessionMeta.verifiedProductCount < sessionMeta.requestedQuantity && (
+                    <p className="text-zinc-500 dark:text-zinc-400">{t.qualityGateExcludedNote}</p>
+                  )}
+              </div>
+
+              {(researchSourceMode === 'kalodata-openapi' || researchSourceMode === null) &&
+                lastCostSummary && (
+                  <div className="px-3.5 py-2.5 rounded-lg bg-zinc-50/90 dark:bg-zinc-800/45 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-zinc-700 dark:text-zinc-300">
+                    <span className="font-sans font-semibold text-zinc-900 dark:text-zinc-100">
+                      {lastCostSummary.researchMode === 'deep'
+                        ? t.modeDeepTitle
+                        : lastCostSummary.researchMode === 'balanced'
+                          ? t.modeBalancedTitle
+                          : t.modeFastTitle}
+                    </span>
+                    <span>
+                      {[
+                        lastCostSummary.rankApiCalls > 0
+                          ? `${t.breakdownRankLabel}: ${lastCostSummary.rankApiCalls}`
+                          : null,
+                        (lastCostSummary.videoRankApiCalls ?? 0) > 0
+                          ? `${t.breakdownVideoRankLabel}: ${lastCostSummary.videoRankApiCalls}`
+                          : null,
+                        lastCostSummary.productDetailApiCalls > 0
+                          ? `${t.breakdownDetailLabel}: ${lastCostSummary.productDetailApiCalls}`
+                          : null,
+                        lastCostSummary.shopDetailApiCalls > 0
+                          ? `${t.breakdownShopLabel}: ${lastCostSummary.shopDetailApiCalls}`
+                          : null,
+                        lastCostSummary.commentInsightApiCalls > 0
+                          ? `${t.breakdownReviewLabel}: ${lastCostSummary.commentInsightApiCalls}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                    {lastCostSummary.geminiAnalysisApplied && (
+                      <span className="font-sans text-emerald-700 dark:text-emerald-400 font-medium">
+                        {t.geminiAnalysisActiveLabel}
+                      </span>
+                    )}
+                    <span>
+                      {t.estimatedCostLabel}: {formatCredits(lastCostSummary.estimatedCredits)}{' '}
+                      {t.creditsUnit} (≈ {formatUsd(lastCostSummary.estimatedUsd)})
+                    </span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                      {t.actualCostLabel}:{' '}
+                      {lastCostSummary.actualCredits !== null
+                        ? `${formatCredits(lastCostSummary.actualCredits)} ${t.creditsUnit} (≈ ${formatUsd(lastCostSummary.actualUsd ?? 0)} · ${lastCostSummary.actualApiCalls} ${t.actualCallsLabel})`
+                        : t.actualCostUnavailable}
+                    </span>
+                  </div>
+                )}
+
               {searchQueries.length > 0 && (
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="font-medium text-zinc-700 dark:text-zinc-300 mr-1.5">

@@ -97,8 +97,41 @@
    boxes and clip under overflow:hidden (.truncate / .line-clamp-*) or tight line-heights.
    Override Tailwind v4 --text-*--line-height tokens when html[lang="my"] so every text size
    gets generous vertical room without altering padding/margin utilities. */
-:where(.truncate, .line-clamp-1, .line-clamp-2, .line-clamp-3) {
+:where(.truncate, .line-clamp-1, .line-clamp-2, .line-clamp-3, .sp-marquee-viewport) {
   line-height: 1.55;
+}
+
+@keyframes sp-marquee-seamless {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.sp-marquee-seamless {
+  display: inline-flex;
+  align-items: center;
+  will-change: transform;
+  animation: sp-marquee-seamless var(--sp-marquee-duration, 6s) linear infinite;
+}
+
+.sp-marquee-masked {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 6px,
+    #000 calc(100% - 10px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 6px,
+    #000 calc(100% - 10px),
+    transparent 100%
+  );
 }
 
 html[lang="my"] {
@@ -147,7 +180,8 @@ html[lang="my"] .leading-relaxed {
 html[lang="my"] .truncate,
 html[lang="my"] .line-clamp-1,
 html[lang="my"] .line-clamp-2,
-html[lang="my"] .line-clamp-3 {
+html[lang="my"] .line-clamp-3,
+html[lang="my"] .sp-marquee-viewport {
   line-height: 1.85 !important;
 }
 
@@ -156,6 +190,84 @@ html[lang="my"] .sp-btn-secondary,
 html[lang="my"] .sp-btn-ghost,
 html[lang="my"] .sp-segmented-item {
   line-height: 1.75;
+}
+
+/* Tactile dual-theme range slider for Commission Strategy balance */
+.sp-strategy-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sp-strategy-slider:focus {
+  outline: none;
+}
+
+.sp-strategy-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #e4e4e7;
+}
+
+html.dark .sp-strategy-slider::-webkit-slider-runnable-track {
+  background: #3f3f46;
+}
+
+.sp-strategy-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 9999px;
+  background: #09090b;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(9, 9, 11, 0.14);
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.14s ease;
+}
+
+html.dark .sp-strategy-slider::-webkit-slider-thumb {
+  background: #fafafa;
+  border-color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.sp-strategy-slider:hover::-webkit-slider-thumb,
+.sp-strategy-slider:active::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+
+.sp-strategy-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.sp-strategy-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: #e4e4e7;
+}
+
+html.dark .sp-strategy-slider::-moz-range-track {
+  background: #3f3f46;
+}
+
+.sp-strategy-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  background: #09090b;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(9, 9, 11, 0.14);
+  transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.dark .sp-strategy-slider::-moz-range-thumb {
+  background: #fafafa;
+  border-color: #18181b;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -695,6 +695,10 @@ export const TRANSLATIONS: Record<
     headerBalanceLiveLabel: string;
     headerBalanceRefreshBtn: string;
     scoringRubricDetailsBtn: string;
+    singleRecentLabel: string;
+    singleOpenRecentBtn: string;
+    singleEmptyBarHint: string;
+    singleCheckNewLinkBtn: string;
   }
 > = {
   en: {
@@ -750,7 +754,7 @@ export const TRANSLATIONS: Record<
     btnPauseResearch: 'Pause Research',
     btnResumeResearch: 'Resume Research',
     btnResumeAndRetry: 'Resume Research',
-    qualityGateVerifiedLabel: 'verified products returned',
+    qualityGateVerifiedLabel: 'verified products',
     qualityGateRequestedLabel: 'requested',
     qualityGateExcludedNote:
       'Quality-first filter: unverified or duplicate candidates were excluded rather than padded.',
@@ -1578,6 +1582,10 @@ export const TRANSLATIONS: Record<
     headerBalanceLiveLabel: 'Live Account Balance',
     headerBalanceRefreshBtn: 'Refresh',
     scoringRubricDetailsBtn: '7-Factor Breakdown',
+    singleRecentLabel: 'Recent',
+    singleOpenRecentBtn: 'Open Recent',
+    singleEmptyBarHint: 'Paste any Thailand TikTok Shop link or share text to inspect & score.',
+    singleCheckNewLinkBtn: 'Check New Link',
   },
   my: {
     navDiscover: 'ရလဒ်များ',
@@ -1597,12 +1605,12 @@ export const TRANSLATIONS: Record<
     settingPriceValue: 'ကန့်သတ်ချက်မရှိ',
     strategyLabel: 'ကော်မရှင် နည်းဗျူဟာ',
     strategyBalanced: 'မျှတ',
-    strategySales: 'ရောင်းအား ဦးစား',
-    strategyCommission: 'ကော်မရှင် ဦးစား',
+    strategySales: 'ရောင်းအား ဦးစားပေး',
+    strategyCommission: 'ကော်မရှင် ဦးစားပေး',
     settingStrategyValue: 'အချက် 7 ချက် အလေးချိန် စုစုပေါင်း 100 မှတ်',
     weightFineTune: 'အလေးချိန် ချိန်ညှိရန်',
-    salesWeight: 'ရောင်းအားနှင့် ဝင်ငွေ ဦးစား',
-    commissionWeight: 'ကော်မရှင် ဦးစား',
+    salesWeight: 'ရောင်းအားနှင့် ဝင်ငွေ ဦးစားပေး',
+    commissionWeight: 'ကော်မရှင် ဦးစားပေး',
     settingCategoryLabel: 'ကုန်ပစ္စည်း အမျိုးအစားများ',
     settingBothCategories: 'အမျိုးအစား များစွာ',
     categoryAll: 'အားလုံး',
@@ -1632,7 +1640,7 @@ export const TRANSLATIONS: Record<
     btnPauseResearch: 'ခေတ္တရပ်နားရန်',
     btnResumeResearch: 'ပြန်လည်ဖွင့်ရန်',
     btnResumeAndRetry: 'ပြန်ဖွင့်ပြီး ထပ်စမ်းရန်',
-    qualityGateVerifiedLabel: 'ခု အတည်ပြုနိုင်သော ကုန်ပစ္စည်းရရှိ',
+    qualityGateVerifiedLabel: 'ခု အတည်ပြုပြီး',
     qualityGateRequestedLabel: 'ခု တောင်းဆိုမှုအနက်',
     qualityGateExcludedNote:
       'အရည်အသွေးဦးစားပေးစနစ် — အတည်မပြုနိုင်သော သို့မဟုတ် ထပ်နေသော ကုန်ပစ္စည်းများကို အရေအတွက်ပြည့်ရန် ထည့်သွင်းခြင်းမပြုဘဲ ဖယ်ရှားထားပါသည်။',
@@ -2460,5 +2468,9 @@ export const TRANSLATIONS: Record<
     headerBalanceLiveLabel: 'Kalodata အကောင့် လက်ကျန်',
     headerBalanceRefreshBtn: 'ပြန်စစ်မည်',
     scoringRubricDetailsBtn: 'အချက် ၇ ချက် ကြည့်ရန်',
+    singleRecentLabel: 'နောက်ဆုံးစစ်ထား',
+    singleOpenRecentBtn: 'နောက်ဆုံးရလဒ် ကြည့်ရန်',
+    singleEmptyBarHint: 'ထိုင်း TikTok Shop Link ထည့်ပြီး ကုန်ပစ္စည်းတစ်ခုချင်း စစ်ဆေးနိုင်ပါသည်။',
+    singleCheckNewLinkBtn: 'Link အသစ်စစ်ရန်',
   },
 };

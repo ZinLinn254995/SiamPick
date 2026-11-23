@@ -1,5 +1,10 @@
 import { memo } from 'react';
-import { ChevronDown, ChevronUp, Scale, SlidersHorizontal } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronUp,
+  Scale,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { Language, ScoreTier, StrategyPreset } from '../types/product';
 import { deriveStrategyPresetFromWeight, getScoringRubricForStrategy } from '../utils/scoring';
 import { TRANSLATIONS } from '../i18n/translations';
@@ -13,6 +18,7 @@ interface ScoringRubricPanelProps {
   onSelectStrategyPreset?: (preset: StrategyPreset) => void;
   onCustomWeightChange?: (weight: number) => void;
   showStrategyControls?: boolean;
+  className?: string;
   language: Language;
 }
 
@@ -26,6 +32,7 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
   onSelectStrategyPreset,
   onCustomWeightChange,
   showStrategyControls = false,
+  className = 'mt-4',
   language,
 }: ScoringRubricPanelProps) {
   const t = TRANSLATIONS[language];
@@ -34,6 +41,7 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
   const totalPoints = rubric.reduce((sum, item) => sum + item.maxPoints, 0);
   const maxFactorPoints = Math.max(1, ...rubric.map((item) => item.maxPoints));
   const activePreset = providedPreset ?? deriveStrategyPresetFromWeight(salesWeightPct);
+  const commissionWeightPct = 100 - salesWeightPct;
   const strategyLabel =
     activePreset === 'sales-first'
       ? t.strategySales
@@ -52,148 +60,149 @@ export const ScoringRubricPanel = memo(function ScoringRubricPanel({
     return 'text-zinc-600 dark:text-zinc-400';
   };
 
+  // Ordered left-to-right to match the slider track (left = Commission Focus, right = Sales Focus)
+  const presetOptions = [
+    { id: 'commission-first' as const, label: t.strategyCommission },
+    { id: 'balanced' as const, label: t.strategyBalanced },
+    { id: 'sales-first' as const, label: t.strategySales },
+  ];
+
+  const shortCommissionLabel = isMy ? 'ကော်မရှင်' : 'Commission';
+  const shortSalesLabel = isMy ? 'ရောင်းအား' : 'Sales';
+
   return (
-    <div className="mt-4 sp-card overflow-hidden">
-      {hasInteractiveStrategy ? (
-        <div className="px-4 sm:px-5 py-3 space-y-3">
-          {/* Top Bar: Scoring Engine Title + 7-Factor Rubric Toggle */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-              <Scale
-                className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 mt-0.5 sm:mt-0"
-                aria-hidden="true"
-              />
-              <div className="min-w-0">
-                <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  {t.scoringPanelTitle}
-                </span>
-                <span
-                  className="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 mx-2"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                <span className="block sm:inline text-xs text-zinc-600 dark:text-zinc-400">
-                  {strategyLabel} ·{' '}
-                  <span className="font-mono tabular-nums">
-                    {totalPoints} {pointsUnit}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-expanded={isOpen}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <span>{t.scoringRubricDetailsBtn}</span>
-              {isOpen ? (
-                <ChevronUp className="w-3.5 h-3.5" aria-hidden="true" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" />
-              )}
-            </button>
-          </div>
-
-          {/* Integrated Strategy Presets + Weight Slider (Single Unified Control Bar) */}
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800/80 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-            <div
-              className="flex flex-wrap items-center gap-2 min-w-0"
-              role="group"
-              aria-label={t.strategyLabel}
-            >
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 mr-1">
+    <div className={`${className} sp-card overflow-hidden`}>
+      {hasInteractiveStrategy && (
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 lg:gap-6 lg:items-end">
+            {/* Left: Clean 3-Option Segmented Strategy Selector */}
+            <div className="lg:col-span-7 space-y-2 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                 <SlidersHorizontal
                   className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400 shrink-0"
                   aria-hidden="true"
                 />
                 <span>{t.strategyLabel}</span>
-              </span>
-              {(
-                [
-                  { id: 'sales-first', label: t.strategySales },
-                  { id: 'balanced', label: t.strategyBalanced },
-                  { id: 'commission-first', label: t.strategyCommission },
-                ] as const
-              ).map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => onSelectStrategyPreset?.(preset.id)}
-                  className={`min-h-[40px] max-w-full px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors cursor-pointer whitespace-normal sm:whitespace-nowrap text-left leading-snug ${
-                    activePreset === preset.id
-                      ? 'bg-zinc-950 dark:bg-zinc-100 text-white dark:text-zinc-950 border-zinc-950 dark:border-zinc-100'
-                      : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:text-zinc-950 dark:hover:text-zinc-50'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+              </div>
+
+              <div
+                className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/90"
+                role="group"
+                aria-label={t.strategyLabel}
+              >
+                {presetOptions.map((preset) => {
+                  const isActive = activePreset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => onSelectStrategyPreset?.(preset.id)}
+                      className={`min-h-[44px] sm:min-h-[38px] px-2 py-1.5 text-[11px] sm:text-xs rounded-md flex items-center justify-center text-center leading-snug transition-colors cursor-pointer min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+                        isActive
+                          ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-zinc-50 font-semibold shadow-xs'
+                          : 'text-zinc-600 dark:text-zinc-400 font-medium hover:text-zinc-950 dark:hover:text-zinc-100'
+                      }`}
+                    >
+                      <span className="text-balance">{preset.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="w-full xl:w-72 space-y-1 shrink-0">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {t.commissionWeight}{' '}
-                  <strong className="font-mono text-emerald-700 dark:text-emerald-400 tabular-nums">
-                    {100 - salesWeightPct}%
-                  </strong>
+            {/* Right: Single Clean Balance Slider */}
+            <div className="lg:col-span-5 space-y-1 min-w-0">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span
+                  className={`whitespace-nowrap ${
+                    commissionWeightPct > salesWeightPct
+                      ? 'font-semibold text-emerald-700 dark:text-emerald-400'
+                      : 'text-zinc-600 dark:text-zinc-400'
+                  }`}
+                >
+                  {shortCommissionLabel}{' '}
+                  <span className="font-mono font-semibold tabular-nums">
+                    {commissionWeightPct}%
+                  </span>
                 </span>
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {t.salesWeight}{' '}
-                  <strong className="font-mono text-zinc-950 dark:text-zinc-50 tabular-nums">
+                <span
+                  className={`whitespace-nowrap ${
+                    salesWeightPct > commissionWeightPct
+                      ? 'font-semibold text-zinc-950 dark:text-zinc-50'
+                      : 'text-zinc-600 dark:text-zinc-400'
+                  }`}
+                >
+                  {shortSalesLabel}{' '}
+                  <span className="font-mono font-semibold tabular-nums">
                     {salesWeightPct}%
-                  </strong>
+                  </span>
                 </span>
               </div>
-              <input
-                type="range"
-                min={10}
-                max={90}
-                step={5}
-                value={salesWeightPct}
-                onChange={(e) => onCustomWeightChange?.(Number(e.target.value))}
-                aria-label={t.strategyLabel}
-                className="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-zinc-950 dark:accent-zinc-100"
-              />
+
+              <div className="relative flex items-center">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 w-0.5 h-2.5 rounded-full bg-zinc-400/70 dark:bg-zinc-500/70"
+                />
+                <input
+                  type="range"
+                  min={10}
+                  max={90}
+                  step={5}
+                  value={salesWeightPct}
+                  onChange={(e) => onCustomWeightChange?.(Number(e.target.value))}
+                  aria-label={t.strategyLabel}
+                  aria-valuemin={10}
+                  aria-valuemax={90}
+                  aria-valuenow={salesWeightPct}
+                  aria-valuetext={`${t.commissionWeight} ${commissionWeightPct}%, ${t.salesWeight} ${salesWeightPct}%`}
+                  className="sp-strategy-slider relative z-10"
+                />
+              </div>
             </div>
           </div>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={isOpen}
-          className="w-full min-h-[44px] px-4 sm:px-5 py-3 flex items-center justify-between gap-3 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
-        >
-          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-            <Scale className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0 mt-0.5 sm:mt-0" aria-hidden="true" />
-            <div className="min-w-0">
-              <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                {t.scoringPanelTitle}
-              </span>
-              <span className="hidden sm:inline text-xs text-zinc-400 dark:text-zinc-500 mx-2" aria-hidden="true">
-                ·
-              </span>
-              <span className="block sm:inline text-xs text-zinc-600 dark:text-zinc-400">
+      )}
+
+      {/* Scoring Engine Accordion Header */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-label={`${t.scoringPanelTitle} — ${t.scoringRubricDetailsBtn}`}
+        className={`w-full min-h-[46px] px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2.5 text-left hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200 ${
+          hasInteractiveStrategy ? 'border-t border-zinc-100 dark:border-zinc-800/80' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <Scale
+            className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-medium text-zinc-800 dark:text-zinc-200 leading-snug">
+              {t.scoringPanelTitle}
+            </div>
+            {!hasInteractiveStrategy && (
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap truncate">
                 {strategyLabel} ·{' '}
                 <span className="font-mono tabular-nums">
                   {totalPoints} {pointsUnit}
                 </span>
-              </span>
-            </div>
-          </div>
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 shrink-0 whitespace-nowrap">
-            {isOpen ? (
-              <ChevronUp className="w-4 h-4" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="w-4 h-4" aria-hidden="true" />
+              </div>
             )}
-          </span>
-        </button>
-      )}
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 shrink-0 whitespace-nowrap">
+          <span className="hidden sm:inline">{t.scoringRubricDetailsBtn}</span>
+          {isOpen ? (
+            <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
+          )}
+        </span>
+      </button>
 
       {isOpen && (
         <div className="px-4 sm:px-5 pb-4 pt-3.5 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-1 lg:grid-cols-12 gap-5">

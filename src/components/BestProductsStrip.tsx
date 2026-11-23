@@ -25,7 +25,7 @@ import { formatThb, resolveProductImageDisplayConfig } from '../utils/format';
 import { evaluateProductOpportunity } from '../utils/scoring';
 import { InfoPopover } from './InfoPopover';
 import { ProductImage } from './ProductImage';
-import { ScoreRing, StatCard } from './visual';
+import { BounceMarquee, ScoreRing, StatCard } from './visual';
 import type { StatCardTone } from './visual';
 
 interface BestProductsStripProps {
@@ -232,15 +232,15 @@ export const BestProductsStrip = memo(function BestProductsStrip({
       className="mt-4 sp-card overflow-hidden"
     >
       {/* Header Row */}
-      <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
+      <div className="px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
             aria-expanded={expanded}
-            className="text-left font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors cursor-pointer truncate min-h-[40px] flex items-center"
+            className="text-left font-display text-sm sm:text-base font-semibold text-zinc-950 dark:text-zinc-50 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors cursor-pointer min-w-0 min-h-[40px] flex items-center"
           >
-            {t.bestSelectionHeading}
+            <BounceMarquee>{t.bestSelectionHeading}</BounceMarquee>
           </button>
           <InfoPopover
             variant="info"
@@ -253,9 +253,10 @@ export const BestProductsStrip = memo(function BestProductsStrip({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
-          className="sp-btn-ghost shrink-0"
+          aria-label={expanded ? t.bestSelectionHide : t.bestSelectionShow}
+          title={expanded ? t.bestSelectionHide : t.bestSelectionShow}
+          className="w-10 h-10 -mr-1.5 rounded-lg inline-flex items-center justify-center text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 dark:focus-visible:ring-zinc-200"
         >
-          <span>{expanded ? t.bestSelectionHide : t.bestSelectionShow}</span>
           {expanded ? (
             <ChevronUp className="w-4 h-4 shrink-0" aria-hidden="true" />
           ) : (
@@ -493,7 +494,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                         onClick={() => onOpenReport(product)}
                         className="sp-btn-primary text-xs sm:text-[13px] font-semibold min-w-0"
                       >
-                        <span className="truncate">{t.cardOpenReport}</span>
+                        <BounceMarquee>{t.cardOpenReport}</BounceMarquee>
                         <ArrowUpRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                       </button>
 
@@ -508,9 +509,9 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                         }`}
                       >
                         <GitCompareArrows className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span className="truncate">
+                        <BounceMarquee>
                           {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
-                        </span>
+                        </BounceMarquee>
                       </button>
                     </div>
                   </article>
@@ -625,7 +626,7 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           onClick={() => onOpenReport(product)}
                           className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 hover:border-zinc-400 dark:hover:border-zinc-500 rounded-lg transition-colors cursor-pointer whitespace-nowrap min-w-0"
                         >
-                          <span className="truncate">{t.cardOpenReport}</span>
+                          <BounceMarquee>{t.cardOpenReport}</BounceMarquee>
                           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         </button>
 
@@ -640,9 +641,9 @@ export const BestProductsStrip = memo(function BestProductsStrip({
                           }`}
                         >
                           <GitCompareArrows className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">
+                          <BounceMarquee>
                             {isSelectedForCompare ? t.compareSelectedBtn : t.compareSelectBtn}
-                          </span>
+                          </BounceMarquee>
                         </button>
                       </div>
                     </article>

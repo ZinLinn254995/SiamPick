@@ -25,4 +25,7 @@ export type { ResearchResultCardSkeletonProps } from './ResearchResultCardSkelet
 export { StateMessage } from './StateMessage';
 export type { StateMessageProps } from './StateMessage';
 
+export { BounceMarquee } from './BounceMarquee';
+export type { BounceMarqueeProps } from './BounceMarquee';
+
 

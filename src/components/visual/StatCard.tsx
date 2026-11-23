@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BounceMarquee } from './BounceMarquee';
 
 export type StatCardTone =
   | 'emerald'
@@ -80,9 +81,9 @@ export function StatCard({
       className={`min-w-0 sp-card p-3 sm:p-4 flex flex-col justify-start gap-1.5 ${className}`}
     >
       <div className="flex items-center justify-between gap-1.5 min-w-0">
-        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400 truncate">
+        <BounceMarquee className="flex-1 text-xs font-medium text-zinc-600 dark:text-zinc-400">
           {label}
-        </span>
+        </BounceMarquee>
         {icon && (
           <span className={`shrink-0 ${ICON_TONE_CLASSES[tone]}`} aria-hidden="true">
             {icon}

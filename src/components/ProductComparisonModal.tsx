@@ -30,6 +30,7 @@ import { TRANSLATIONS } from '../i18n/translations';
 import { ProductImage } from './ProductImage';
 import { InfoPopover } from './InfoPopover';
 import {
+  BounceMarquee,
   MiniBar,
   ScoreRing,
   StateMessage,
@@ -594,14 +595,14 @@ export function ProductComparisonModal({
                           <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80">
                             {matrix.columns.length >= 2 ? (
                               <span
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums border truncate ${
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold tabular-nums border min-w-0 max-w-full ${
                                   bestCount > 0
                                     ? 'bg-emerald-50 dark:bg-emerald-950/45 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/70'
                                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
                                 }`}
                               >
                                 <Trophy className="w-3 h-3 shrink-0" aria-hidden="true" />
-                                <span className="truncate">{bestSummaryLabel}</span>
+                                <BounceMarquee>{bestSummaryLabel}</BounceMarquee>
                               </span>
                             ) : (
                               <span className="font-mono text-xs font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">

@@ -88,7 +88,7 @@ import {
 import { TRANSLATIONS } from './i18n/translations';
 import { Header } from './components/Header';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { StateMessage } from './components/visual';
+import { BounceMarquee, StateMessage } from './components/visual';
 import { ResearchReportDrawer } from './components/ResearchReportDrawer';
 import { SavedProductsView } from './components/SavedProductsView';
 import { ResearchHistoryView, type HistoryTab } from './components/ResearchHistoryView';
@@ -96,7 +96,7 @@ import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { BackupRestoreModal, type BackupModalTab } from './components/BackupRestoreModal';
 import type { BackupRestoreResult } from './utils/backupStorage';
 import { InfoPopover } from './components/InfoPopover';
-import { DiscoveryLauncher, type DiscoveryLauncherTab } from './components/DiscoveryLauncher';
+import { DiscoveryLauncher } from './components/DiscoveryLauncher';
 import { HuntingResultsSection } from './components/HuntingResultsSection';
 import { DeepDiveWorkspaceView } from './components/DeepDiveWorkspaceView';
 import { useTheme } from './hooks/useTheme';
@@ -217,7 +217,6 @@ export default function App() {
   const [myanmarVideoScanPages, setMyanmarVideoScanPages] = useState<number>(
     DEFAULT_MYANMAR_VIDEO_SCAN_PAGES
   );
-  const [launcherTab, setLauncherTab] = useState<DiscoveryLauncherTab>('batch');
 
   // Hydrate initial History + Latest Research Results synchronously on first render
   // so closing and reopening the app always preserves the most recent Research Results.
@@ -319,7 +318,8 @@ export default function App() {
     () => loadSingleProductHistory()
   );
   const [activeSingleLinkResult, setActiveSingleLinkResult] =
-    useState<SingleProductHistoryRecord | null>(null);
+    useState<SingleProductHistoryRecord | null>(() => singleProductHistory[0] ?? null);
+  const [singleDrawerOpen, setSingleDrawerOpen] = useState(false);
   const [historyInitialTab, setHistoryInitialTab] = useState<HistoryTab>('records');
 
   // Phase 9.3.1: Authoritative Server-Side Persistent Budget Ledger Status
@@ -731,12 +731,13 @@ export default function App() {
 
   const handleFocusSettings = useCallback(() => {
     setActiveView('hunting');
-    setLauncherTab('batch');
     setBatchSettingsExpanded(true);
-    window.setTimeout(() => {
-      settingsSectionRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
-    }, 50);
-  }, []);
+    if (liveResults.length === 0) {
+      window.setTimeout(() => {
+        settingsSectionRef.current?.scrollIntoView({ behavior: getScrollBehavior(), block: 'start' });
+      }, 50);
+    }
+  }, [liveResults.length]);
 
   const handleHeaderCategorySelect = (cat: CategoryFilter) => {
     setActiveView('hunting');
@@ -888,6 +889,7 @@ export default function App() {
     };
 
     setActiveView('hunting');
+    setBatchSettingsExpanded(false);
     setHuntError(null);
     setIsHunting(true);
 
@@ -1904,10 +1906,18 @@ export default function App() {
             <div ref={settingsSectionRef} className="scroll-mt-20">
               <DiscoveryLauncher
                 language={language}
-                activeTab={launcherTab}
-                onTabChange={setLauncherTab}
                 settingsExpanded={batchSettingsExpanded}
                 onExpandSettingsChange={setBatchSettingsExpanded}
+                singleDrawerOpen={singleDrawerOpen}
+                onSingleDrawerOpenChange={setSingleDrawerOpen}
+                recentSingleRecord={activeSingleLinkResult ?? singleProductHistory[0] ?? null}
+                onOpenRecentSingleResult={() => {
+                  if (!activeSingleLinkResult && singleProductHistory[0]) {
+                    setActiveSingleLinkResult(singleProductHistory[0]);
+                  }
+                  setSingleDrawerOpen(true);
+                }}
+                salesWeightPct={salesWeightPct}
                 hasResults={liveResults.length > 0}
                 lastCostSummary={lastCostSummary}
                 singleHistoryCount={singleProductHistory.length}
@@ -1973,16 +1983,22 @@ export default function App() {
                   onFindExistingProduct: findWorkspaceProductByCanonicalId,
                   onOpenExistingAsSingleResult: handleOpenExistingAsSingleResult,
                   onClearActiveSingleResult: () => setActiveSingleLinkResult(null),
-                  onOpenReport: handleOpenResultReport,
-                  onOpenDeepDive: (targetProduct) =>
+                  onOpenReport: (targetProduct) => {
+                    setSingleDrawerOpen(false);
+                    handleOpenResultReport(targetProduct);
+                  },
+                  onOpenDeepDive: (targetProduct) => {
+                    setSingleDrawerOpen(false);
                     handleOpenDeepDive(
                       targetProduct,
                       'hunting',
                       activeSingleLinkResult?.researchedAt ?? targetProduct.researchedAt,
                       'fast'
-                    ),
+                    );
+                  },
                   onToggleSave: handleToggleSaveProductDirect,
                   onViewSingleHistory: () => {
+                    setSingleDrawerOpen(false);
                     setHistoryInitialTab('single');
                     setActiveView('history');
                     window.scrollTo({ top: 0, behavior: getScrollBehavior() });
@@ -2063,12 +2079,12 @@ export default function App() {
               >
                 <div className="max-w-[1280px] mx-auto">
                   <div className="pointer-events-auto bg-zinc-950/96 dark:bg-zinc-900/96 backdrop-blur-md border border-zinc-800 dark:border-zinc-700 text-white rounded-xl px-3.5 sm:px-4 py-2 shadow-lg flex items-center justify-between gap-2.5 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <GitCompareArrows className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                      <span className="font-medium truncate">
+                      <BounceMarquee className="font-medium flex-1">
                         {t.compareBarTitle}:{' '}
                         <strong className="font-mono tabular-nums">{compareItems.length}</strong>
-                      </span>
+                      </BounceMarquee>
                     </div>
 
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
